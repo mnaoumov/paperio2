@@ -1,0 +1,33 @@
+/* On-screen joystick overlay (created by joystick.js on touch devices). */
+
+#joystick {
+    position: fixed;
+    left: max(24px, env(safe-area-inset-left, 0px));
+    bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    width: 140px;
+    height: 140px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(45, 51, 49, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    /* Stop the browser treating drags as scroll/zoom gestures. */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#joystick-knob {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    /* Smoothly re-center when the finger is lifted; no easing while dragging
+       is fine because pointermove updates the transform every frame. */
+    transition: transform 0.08s ease-out;
+    pointer-events: none;
+}
