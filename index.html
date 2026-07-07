@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="theme-color" content="#2d3331" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+        <title>Paper.io 2 (offline)</title>
+        <meta
+            name="description"
+            content="In Paper.io 2 you fight other players for territory on a sheet of paper."
+        />
+
+        <link rel="manifest" href="manifest.json" />
+        <link rel="icon" type="image/png" href="assets/images/icon512.png" />
+        <link rel="stylesheet" href="assets/fonts/ptsans.css" />
+        <link rel="stylesheet" href="style3.css" />
+    </head>
+
+    <body>
+        <div id="game"></div>
+        <div id="about">
+            <div class="modal_box">
+                <h1>Paper.io 2 online game</h1>
+                <div class="modal_scroll">
+                    <p>
+                        Paper.io 2 is a sequel to what might be the most popular mobile game played by
+                        people from all around the world.
+                    </p>
+                </div>
+                <p>
+                    <a href="#aboutclose" onclick="HideAbout();">Close window</a>
+                </p>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            // Offline shim: the original page relied on an ad network (adinplay / gameads)
+            // and analytics (gtag / Yandex.Metrika). Those are stripped here. The game only
+            // needs window.ShowPreroll() to exist (app2.js calls it on "Play") and calls
+            // window.paperio2api.startGame() to begin. We just start immediately.
+
+            function ShowAbout() {
+                var ab = document.getElementById('about');
+                ab.style.display = ab.style.display === 'block' ? 'none' : 'block';
+            }
+            function HideAbout() {
+                document.getElementById('about').style.display = 'none';
+            }
+
+            function StartGame() {
+                HideAbout();
+                window.paperio2api.startGame();
+            }
+
+            // Called by app2.js when the player presses Play. No ads offline -> start directly.
+            window.ShowPreroll = function () {
+                StartGame();
+            };
+        </script>
+
+        <script type="text/javascript" src="app2.js"></script>
+    </body>
+</html>
