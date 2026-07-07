@@ -4,7 +4,15 @@ A local, self-contained copy of the browser game from https://paperio.site/.
 It runs entirely client-side (JavaScript + Canvas) with AI bots — there is **no
 server-side game logic**, so it works fully offline.
 
-## Running it
+## Play it online
+
+Live demo (GitHub Pages): **https://mnaoumov.dev/paperio2/**
+
+On phones and other touch devices, an on-screen joystick appears — touch
+anywhere in the play area to summon it under your thumb and steer in 8
+directions.
+
+## Running it locally
 
 The game `fetch`es JSON files (`assets/skins/skins.json`, `assets/languages.json`),
 so opening `index.html` directly via `file://` is blocked by the browser's CORS
@@ -29,9 +37,17 @@ Then open the printed URL (e.g. http://localhost:8777/).
 - The Google Fonts stylesheet (`PT Sans Caption`) and its `.woff2` files were
   downloaded into `assets/fonts/` and referenced locally.
 
+## What was added
+
+- `joystick.js` + `joystick.css` — a floating on-screen joystick for touch /
+  mobile-sized sessions (not part of the original). It materializes centered on
+  the first touch and drives the engine's existing keyboard steering, giving
+  full 8-way control; it hides on release and ignores taps on menu/HUD controls.
+
 ## Structure
 
 - `app2.js` — the entire game engine (unmodified, obfuscated/minified original).
+- `joystick.js` + `joystick.css` — on-screen touch joystick (added by this repo).
 - `style3.css` — game UI styles (unmodified original).
 - `manifest.json` — PWA manifest (unmodified original).
 - `assets/skins/` — 56 skin `.svg` files + `skins.json` metadata.
