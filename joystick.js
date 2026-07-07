@@ -9,6 +9,11 @@
 // so holding two adjacent arrows (e.g. up + right) yields a diagonal heading.
 // We exploit that to give a full 8-way stick: the circle is split into eight
 // 45° sectors, and each sector holds one arrow (cardinal) or two (diagonal).
+//
+// The joystick is DYNAMIC/FLOATING: it has no fixed corner (the game's minimap
+// already sits bottom-right). Instead it materializes centered on wherever the
+// player first touches, so it lands under the thumb for either hand, and hides
+// on release. Touches on menu/HUD controls are ignored.
 
 (function () {
     'use strict';
@@ -40,6 +45,14 @@
     // direction registers. Prevents jitter and accidental turns near the center.
     const DEADZONE_RATIO = 0.3;
 
+    // Viewport width (px) at/below which we treat the session as mobile-sized and
+    // show the joystick even without a detected touch/coarse pointer — so it also
+    // appears in narrow desktop windows and DevTools responsive mode during testing.
+    const MOBILE_MAX_WIDTH_PX = 820;
+
+    // Selectors for menu / HUD controls that should not start the joystick.
+    const NON_GAME_TARGET_SELECTOR = 'button, input, a, select, textarea, .uibox, #about, #lng';
+
     let baseElement = null;
     let knobElement = null;
     let activePointerId = null;
@@ -51,9 +64,12 @@
     init();
 
     function init() {
-        const isTouchDevice =
-            window.matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-        if (!isTouchDevice) {
+        const isTouchLikely =
+            window.matchMedia('(pointer: coarse)').matches ||
+            'ontouchstart' in window ||
+            navigator.maxTouchPoints > 0 ||
+            window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
+        if (!isTouchLikely) {
             return;
         }
         createJoystick();
@@ -62,6 +78,7 @@
     function createJoystick() {
         baseElement = document.createElement('div');
         baseElement.id = 'joystick';
+        baseElement.style.display = 'none';
 
         knobElement = document.createElement('div');
         knobElement.id = 'joystick-knob';
@@ -69,7 +86,9 @@
         baseElement.appendChild(knobElement);
         document.body.appendChild(baseElement);
 
-        baseElement.addEventListener('pointerdown', onPointerDown);
+        // Listen on the window so a touch anywhere in the play area spawns the
+        // stick under the finger (the base itself is hidden until then).
+        window.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', onPointerUp);
@@ -79,13 +98,19 @@
         if (activePointerId !== null) {
             return;
         }
+        if (event.target.closest && event.target.closest(NON_GAME_TARGET_SELECTOR)) {
+            return;
+        }
         event.preventDefault();
         activePointerId = event.pointerId;
 
-        const rect = baseElement.getBoundingClientRect();
-        centerX = rect.left + rect.width / 2;
-        centerY = rect.top + rect.height / 2;
-        radius = rect.width / 2;
+        centerX = event.clientX;
+        centerY = event.clientY;
+        // Place the base centered on the touch point (CSS centers it via transform).
+        baseElement.style.left = `${centerX}px`;
+        baseElement.style.top = `${centerY}px`;
+        baseElement.style.display = 'flex';
+        radius = baseElement.getBoundingClientRect().width / 2;
 
         updateFromPointer(event.clientX, event.clientY);
     }
@@ -103,6 +128,7 @@
             return;
         }
         activePointerId = null;
+        baseElement.style.display = 'none';
         resetKnob();
         // Release all held keys; the game keeps the player moving in its current
         // heading, so lifting the finger simply stops issuing new turns.
