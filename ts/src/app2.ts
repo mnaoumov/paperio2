@@ -74,17 +74,11 @@ interface HTMLElement {
   value: string;
 }
 
-// `Object.entries(x)` called with an `x: any` argument (as application code
-// well past this file's Preact region does, on untyped destructured props)
-// resolves TypeScript's generic `entries<T>` overload with `T` left
-// un-inferable from an `any` source, which modern TS defaults to `unknown` —
-// poisoning every VNode-props object literal built from the result once
-// those props are checked against this file's now-real `VNodeProps` type.
-// The file has exactly two `Object.entries()` call sites and both pass an
-// untyped/`any` argument, so adding a non-generic overload here (instead of
-// an `any`/`unknown`-typed local workaround, which the Preact region's rules
-// disallow) fixes both without weakening any *strongly*-typed call — there
-// are none in this file — elsewhere.
+// `Object.entries(x)` on an `any`/untyped argument resolves TypeScript's
+// generic `entries<T>` overload with `T` un-inferable, defaulting the values
+// to `unknown`, which then poison the `createElement` prop object literals
+// built from the result. Both of this file's two `Object.entries()` call
+// sites pass untyped arguments, so a non-generic overload here fixes both.
 interface ObjectConstructor {
   entries(source: object): [string, string | number | boolean][];
 }
@@ -159,229 +153,6 @@ interface ObjectConstructor {
     fading?: boolean;
   }
   type ParticleColor = string | HTMLCanvasElement | HTMLImageElement;
-
-  // --- Preact internal types (mangled field names kept verbatim) ---
-  type PreactChild = VNode | string | number | boolean | null | undefined;
-  type PreactChildren = PreactChild | PreactChildren[];
-  type PreactStateValue = string | number | boolean | object | null | undefined;
-
-  interface ComponentState {
-    [key: string]: PreactStateValue;
-  }
-
-  interface CssStyleProps {
-    [property: string]: string;
-  }
-
-  interface DangerouslySetInnerHtml {
-    __html: string;
-  }
-
-  type PreactEventListener = (event: Event) => void;
-
-  interface PreactEventListenerMap {
-    [eventKey: string]: PreactEventListener;
-  }
-
-  // Mirrors real Preact's internal `PreactElement`: the reconciler stores an
-  // event-listener map (`l`) on the DOM node and touches a few members
-  // (`checked`, `data`, `ownerSVGElement`) that only apply to some node kinds,
-  // so every extra member is optional to stay assignable from whatever
-  // `document.createElement`/`createElementNS`/`createTextNode` actually returns.
-  interface PreactElement extends Node {
-    attributes?: NamedNodeMap;
-    checked?: boolean;
-    data?: string;
-    innerHTML?: string;
-    // The root container also gets a `__k` expando (unrelated to `VNode.__k`)
-    // remembering the vnode currently mounted into it, for the next render/hydrate call.
-    __k?: VNode;
-    l?: PreactEventListenerMap;
-    localName?: string;
-    ownerSVGElement?: SVGElement | null;
-    style?: CSSStyleDeclaration;
-    value?: string | number | boolean;
-    // addEventListener/removeEventListener come from Node's own EventTarget
-    // base with a compatible signature already — no need to re-declare them.
-    removeAttribute?(name: string): void;
-    removeAttributeNS?(namespace: string | null, localName: string): void;
-    setAttribute?(name: string, value: string): void;
-    setAttributeNS?(namespace: string | null, name: string, value: string): void;
-  }
-
-  interface PreactRefObject {
-    current: PreactElement | Component | null;
-  }
-  type PreactRefCallback = (instance: PreactElement | Component | null) => void;
-  type PreactRef = PreactRefObject | PreactRefCallback | null | undefined;
-
-  // `object` covers the arbitrary custom-prop values (config records, option
-  // arrays, etc.) that application components pass through `createElement`
-  // — the reconciler itself only ever reads the well-known DOM-ish props
-  // named individually on `VNodeProps`, so it never needs to inspect these.
-  type VNodePropValue = PreactChildren | PreactRef | string | number | boolean | object | CssStyleProps | DangerouslySetInnerHtml | PreactEventListener | undefined;
-
-  // The "isHydrating" flag threaded through diffing is sometimes a real
-  // boolean and sometimes `VNode.__h` (a DOM node or null) reused directly as
-  // a truthy/falsy flag — mirrors real Preact's dual use of this parameter.
-  type HydrateFlag = boolean | PreactElement | null;
-
-  interface VNodeProps {
-    checked?: boolean;
-    children?: PreactChildren;
-    class?: string;
-    className?: string;
-    dangerouslySetInnerHTML?: DangerouslySetInnerHtml;
-    is?: string;
-    key?: string | number;
-    ref?: PreactRef;
-    style?: string | CssStyleProps;
-    value?: string | number | boolean;
-    [name: string]: VNodePropValue;
-  }
-
-  // The context bag threaded through diffing: context id -> the Provider
-  // component currently supplying that context.
-  interface ComponentContext {
-    [contextId: string]: Component;
-  }
-
-  // The resolved value handed to a component as `context`/`this.context`:
-  // either the whole bag (component doesn't declare `contextType`) or the
-  // specific value extracted for its `contextType`.
-  type PreactContextValue = ComponentContext | PreactStateValue;
-
-  interface PreactContext<T = PreactContextValue> {
-    __: T;
-    __c: string;
-    Consumer: ComponentType;
-    Provider: ComponentType;
-    contextType?: PreactContext;
-  }
-
-  interface ComponentPrototype {
-    render?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => PreactChildren;
-  }
-
-  // A vnode's `type` is either a plain function component (call signature
-  // only, e.g. Fragment/Consumer/Provider) or a class component (also
-  // constructable, with a `.prototype.render`). Split into two interfaces
-  // (rather than one requiring both signatures) so `"prototype" in type`
-  // narrows the union the same way the reconciler's runtime check does.
-  interface ComponentTypeStatics {
-    // Stamped onto the `createContext()` Provider function value (see
-    // `createContext`) so the diffing code can look up the owning context from
-    // either the Provider or its Consumer via `contextType`.
-    __?: PreactContext;
-    contextType?: PreactContext;
-    defaultProps?: VNodeProps;
-    displayName?: string;
-    getDerivedStateFromError?: (error: Error) => Partial<ComponentState> | null;
-    getDerivedStateFromProps?: (props: VNodeProps, state: ComponentState) => Partial<ComponentState> | null;
-  }
-
-  // The `(...args: object[])` signatures (rather than `(props: VNodeProps, ...)`)
-  // are deliberate: with `strictFunctionTypes` off (this project's tsconfig),
-  // interface call/construct signature parameters compare bivariantly, so any
-  // real component's specific (and often narrower/differently-shaped)
-  // destructured props *object* type is accepted here purely because it's
-  // assignable to `object` in the reverse direction — mirrors what the
-  // untyped original does at runtime (it never checks a component's declared
-  // prop shape against what callers pass). The reconciler's own call sites
-  // that actually INVOKE a `type` value use the `Invokable*` variants below
-  // (with real `VNodeProps` parameters) via a cast.
-  interface FunctionComponent extends ComponentTypeStatics {
-    (this: Component, ...args: object[]): PreactChildren;
-  }
-
-  interface ComponentClass extends ComponentTypeStatics {
-    new (...args: object[]): Component;
-    prototype: ComponentPrototype;
-  }
-
-  type ComponentType = FunctionComponent | ComponentClass;
-
-  type VNodeType = string | ComponentType | null;
-
-  interface InvokableFunctionComponent {
-    (this: Component, props: VNodeProps, context: PreactContextValue): PreactChildren;
-  }
-
-  interface InvokableComponentClass {
-    new (props: VNodeProps, context: PreactContextValue): Component;
-  }
-
-  interface VNode {
-    type: VNodeType;
-    // A text vnode (`type === null`) stores its raw text content directly in
-    // `props` instead of a props object — mirrors real Preact's dual use of
-    // this field, so it needs a cast to `VNodeProps` at every "host element"
-    // callsite and to `string` at every "text node" callsite.
-    props: VNodeProps | string | number;
-    key: string | number | null | undefined;
-    ref: PreactRef;
-    __k: VNode[] | null;
-    __: VNode | null;
-    __b: number;
-    __e: PreactElement | null;
-    __d: PreactElement | null | undefined;
-    __c: Component | null;
-    __h: boolean | null;
-    constructor: undefined;
-    __v: VNode | string | number;
-  }
-
-  interface Component {
-    props: VNodeProps;
-    context: PreactContextValue;
-    state: ComponentState;
-    __s: ComponentState | null;
-    __d: boolean;
-    __e: boolean;
-    __v: VNode | null;
-    __P: PreactElement | null;
-    __n: ComponentContext;
-    __E: Component | null;
-    __: Component | null;
-    __h: Array<(() => void) | HookSlot>;
-    base: PreactElement | null;
-    constructor: ComponentType;
-    render: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => PreactChildren;
-    sub?: (component: Component) => void;
-    getChildContext?: () => ComponentContext;
-    // Only ever compared with `=== false` at the call site, so implementations
-    // that opt out of returning anything (e.g. Provider's, a side-effect-only
-    // override) are valid too.
-    shouldComponentUpdate?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => boolean | void;
-    componentWillMount?: () => void;
-    componentDidMount?: () => void;
-    componentWillReceiveProps?: (props: VNodeProps, context: PreactContextValue) => void;
-    componentWillUpdate?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => void;
-    componentDidUpdate?: (previousProps: VNodeProps, previousState: ComponentState, snapshot: PreactStateValue) => void;
-    componentWillUnmount?: () => void;
-    componentDidCatch?: (error: Error) => void;
-    getSnapshotBeforeUpdate?: (previousProps: VNodeProps, previousState: ComponentState) => PreactStateValue;
-    setState: (update: Partial<ComponentState> | ((state: ComponentState, props: VNodeProps) => Partial<ComponentState> | null) | null, callback?: () => void) => void;
-    forceUpdate: (callback?: () => void) => void;
-  }
-
-  interface PreactOptions {
-    vnode?: (vnode: VNode) => void;
-    __b?: (vnode: VNode) => void;
-    diffed?: (vnode: VNode) => void;
-    __r?: (vnode: VNode) => void;
-    unmount?: (vnode: VNode) => void;
-    __e: (error: Error, vnode: VNode, oldVNode?: VNode) => void;
-    event?: (event: Event) => Event;
-    __?: (vnode: PreactChildren, parentDom: PreactElement) => void;
-    __c?: (vnode: VNode, commitQueue: Component[]) => void;
-    debounceRendering?: (callback: () => void) => void;
-    // Installed later (by the bundled preact/hooks addon, outside this
-    // region) by monkey-patching this same shared `preactOptions` object.
-    __h?: (component: Component, index: number, type: number) => void;
-    __s?: boolean;
-    requestAnimationFrame?: (callback: () => void) => void;
-  }
 
   const EPSILON = Math.pow(2, -26);
   const isNearlyZero = (value: number) => Math.abs(value) <= EPSILON;
@@ -823,14 +594,16 @@ interface ObjectConstructor {
   Vector.space = undefined;
   const MIN_POINT_DISTANCE = 25;
   const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
-  const KILL_REASON_0 = 0;
-  const KILL_REASON_1 = 1;
-  const KILL_REASON_2 = 2;
-  const KILL_REASON_3 = 3;
-  const KILL_REASON_4 = 4;
-  const KILL_REASON_5 = 5;
-  const KILL_REASON_6 = 6;
-  const KILL_REASON_7 = 7;
+  const KILL_REASON_WIN = 0;
+  const KILL_REASON_SELF_INTERSECTION = 1;
+  const KILL_REASON_WALL = 2;
+  const KILL_REASON_TRAIL = 3;
+  const KILL_REASON_EXIT_POINT = 4;
+  const KILL_REASON_SURROUNDED = 5;
+  const KILL_REASON_SYSTEM = 6;
+  const KILL_REASON_CAPITAL_SURROUNDED = 7;
+  // deathReasons[8] ("убит разделением со столицей" / separated-from-capital) has
+  // no constant here — no code path ever produces reason code 8. Codes 0-7 are all used.
   const FRAME_DURATION_MILLISECONDS = 1000 / 60;
   const TWO_FRAME_DURATION_MILLISECONDS = 1000 / 60 * 2;
   class Polyline {
@@ -1601,11 +1374,11 @@ interface ObjectConstructor {
       if (unit === this.unit) {
         if (intersection.overlay === true || intersection.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
           this.unit.position = intersection.point;
-          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_2 : KILL_REASON_1;
+          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_WALL : KILL_REASON_SELF_INTERSECTION;
           game.kill(this.unit, undefined, killReason);
         }
       } else {
-        game.kill(this.unit, unit, KILL_REASON_3);
+        game.kill(this.unit, unit, KILL_REASON_TRAIL);
       }
     }
   }
@@ -3211,7 +2984,7 @@ interface ObjectConstructor {
       } = this.config;
       const killUnitToMakeRoom = () => {
         if (this.units.length) {
-          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_6);
+          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_SYSTEM);
         }
       };
       if (this.units.length && this.units.length >= botsCount) {
@@ -3291,7 +3064,7 @@ interface ObjectConstructor {
           image: dataUrl,
           reason: reason
         };
-        if (reason === KILL_REASON_0) {
+        if (reason === KILL_REASON_WIN) {
           player.win = true;
         }
         if (player.achievements) {
@@ -3301,14 +3074,14 @@ interface ObjectConstructor {
           this.playerDeathCallback();
         }
         setTimeout(() => {
-          if (reason === KILL_REASON_0) {
+          if (reason === KILL_REASON_WIN) {
             this.kill(player, undefined, reason);
           }
           this.player = null;
           if (this.gameOverCallback) {
             this.gameOverCallback(result);
           }
-        }, reason === KILL_REASON_3 || reason === KILL_REASON_4 || reason === KILL_REASON_5 ? this.config.enemyKillDelay : this.config.selfKillDelay);
+        }, reason === KILL_REASON_TRAIL || reason === KILL_REASON_EXIT_POINT || reason === KILL_REASON_SURROUNDED ? this.config.enemyKillDelay : this.config.selfKillDelay);
       }
     }
     checkBaseCommits(): void {
@@ -3345,7 +3118,7 @@ interface ObjectConstructor {
           otherUnit.in = null;
         }
       });
-      if (reason !== KILL_REASON_6) {
+      if (reason !== KILL_REASON_SYSTEM) {
         spawnScoreParticles(unit, null, unit.track.polyline.segments);
         spawnScoreParticles(unit, null, unit.base.polygon.segments);
       }
@@ -3368,7 +3141,7 @@ interface ObjectConstructor {
       if (unit2) {
         unit2.onScoreChanged();
       }
-      if (reason !== KILL_REASON_0 && unit === this.player) {
+      if (reason !== KILL_REASON_WIN && unit === this.player) {
         this.gameOver(reason);
       }
     }
@@ -3684,7 +3457,7 @@ interface ObjectConstructor {
       this.scale += scaleDelta * deltaMilliseconds / 400;
       if (player && player.percent > 0.9999) {
         player.percent = 1;
-        this.gameOver(KILL_REASON_0);
+        this.gameOver(KILL_REASON_WIN);
       }
       this.timings.spawnStartTime = now();
       for (let i2 = 0; i2 < this.config.nearPlayerBotSpawnCount; i2++) {
@@ -3988,13 +3761,13 @@ interface ObjectConstructor {
       this.units.filter((otherUnit: Unit) => otherUnit !== unit).forEach((unit3: Unit) => {
         if (!unit3.death) {
           if (unit3.in === unit3.base && polygon3.inside(unit3.position)) {
-            this.kill(unit3, unit, KILL_REASON_5);
+            this.kill(unit3, unit, KILL_REASON_SURROUNDED);
           }
           if (unit3.track.polyline.start && polygon3.inside(unit3.track.polyline.start)) {
-            this.kill(unit3, unit, KILL_REASON_4);
+            this.kill(unit3, unit, KILL_REASON_EXIT_POINT);
           }
           if (unit3.cities && unit3.cities[0] && polygon3.inside(unit3.cities[0].position)) {
-            this.kill(unit3, unit, KILL_REASON_7);
+            this.kill(unit3, unit, KILL_REASON_CAPITAL_SURROUNDED);
           }
         }
       });
@@ -5828,21 +5601,7 @@ interface ObjectConstructor {
   // the shared `preactOptions` object and touches the same live
   // component/vnode instances the core reconciler already types, so both
   // sides need to agree on one shape.
-  interface Component {
-    __H?: HooksContainer;
-  }
-  interface HookSlot {
-    t?: (state: object, action: object) => object;
-    __?: object | boolean;
-    __c?: Component | PreactContext;
-    __H?: object[];
-    __h?: () => object;
-    u?: void | (() => void);
-  }
-  interface HooksContainer {
-    __: HookSlot[];
-    __h: HookSlot[];
-  }
+
   interface LanguagesData {
     [languageCode: string]: Partial<LanguageStrings>;
   }
@@ -6366,15 +6125,8 @@ interface ObjectConstructor {
     }), route !== "game" && createElement("div", {
       id: "ui_overlay"
     }), createElement(LanguageContext.Provider, {
-      // `Context.Provider`'s `value` prop carries the arbitrary context value
-      // (here `Language | undefined`), not a DOM input's `value` attribute —
-      // `VNodeProps.value` is intentionally narrowed to `string | number |
-      // boolean` for the latter, so this one Provider callsite needs a cast.
-      // Bridged through `object` (rather than `unknown`) like the similar
-      // cast in `createContext`'s `Consumer`, since the two object shapes don't
-      // otherwise overlap enough for TS to allow a direct assertion.
       value: language
-    } as object as VNodeProps, createElement("div", {
+    }, createElement("div", {
       id: "ui",
       class: route === "game" ? "hide" : ""
     }, route === "menu" && createElement(MenuScreen, {

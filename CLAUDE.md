@@ -73,8 +73,14 @@ death and during the pre-game "prepare" phase.
     The extracted preact/js-cookie internals carried their real upstream names; the game
     engine's own classes, functions, methods, parameters, and locals were recovered to
     meaningful names (a multi-agent pass inferred each from its usage, applied via scope-safe
-    ts-morph renaming and verified by a headless boot). A few module constants whose exact
-    label is not recoverable are named descriptively by role (e.g. `KILL_REASON_0..7`).
+    ts-morph renaming and verified by a headless boot). Enum-like constants are labelled
+    from the engine's own strings (e.g. the kill-reason codes from the `deathReasons` array:
+    `KILL_REASON_WIN`/`SELF_INTERSECTION`/`WALL`/`TRAIL`/`EXIT_POINT`/`SURROUNDED`/`SYSTEM`/
+    `CAPITAL_SURROUNDED`).
+  - Types come from the dependencies too: the hand-written preact/js-cookie type declarations
+    were removed in favour of the real `preact` / `@types/js-cookie` types (only the
+    self-contained `Dispatch`/`Ref` aliases are kept). The engine's own structural types
+    (`Vector`/`Unit`/`Bot`/`Config`/… shapes) remain declared inline.
   - The one-time deobfuscation toolchain (custom Babel string-inliner → `webcrack` under
     Node 22/24 → strip → scope-aware renames) lives in the git-ignored `research/deob/` —
     see `research/deob/NOTES.md`. Off-the-shelf deobfuscators alone can't inline this file's
