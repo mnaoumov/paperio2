@@ -2647,7 +2647,7 @@ interface Function { __: any; contextType: any; }
   interface ComebackInfo {
     increment: number;
     rise: Polygon;
-    victims: Unit[];
+    victims: { base: Territory; poly: Polygon }[];
     game: Game;
   }
   interface AchievementChecker {
@@ -2719,7 +2719,7 @@ interface Function { __: any; contextType: any; }
     update(_0x45b435?: number): void {
       this.schemes.forEach((_0x256199: ScoreLabel, _0x23f8ec: number) => _0x256199.update(_0x45b435, this.manager.current !== _0x23f8ec));
     }
-    kill(_0x58b7ea?: Unit, _0x1f3790?: Unit): void {
+    kill(_0x58b7ea?: Unit, _0x1f3790?: number): void {
       this.schemes.forEach((_0x34ed50: ScoreLabel, _0x8cc27c: number) => _0x34ed50.kill(_0x58b7ea, _0x1f3790, this.manager.current !== _0x8cc27c));
     }
     out(): void {
@@ -2749,7 +2749,7 @@ interface Function { __: any; contextType: any; }
     result(): number {
       return this.scores();
     }
-    kill(killer?: Unit, victim?: Unit, isNotCurrent?: boolean): void {}
+    kill(killer?: Unit, cause?: number, isNotCurrent?: boolean): void {}
     update(dt?: number, isNotCurrent?: boolean): void {}
     out(isNotCurrent?: boolean): void {}
     comeback(info?: ComebackInfo, isNotCurrent?: boolean): void {}
@@ -2768,7 +2768,7 @@ interface Function { __: any; contextType: any; }
       const _0xf310e2 = _0x594090 || this.scores();
       return callback44(_0xf310e2) + "%";
     }
-    kill(_0x30a62e?: Unit, _0x1242ed?: Unit, _0x13f27c?: boolean): void {
+    kill(_0x30a62e?: Unit, _0x1242ed?: number, _0x13f27c?: boolean): void {
       if (!_0x13f27c && this.unit.isPlayer) {
         this.unit.addLabel({
           text: this.unit.game.language.killText,
@@ -3462,19 +3462,10 @@ interface Function { __: any; contextType: any; }
     intersections: Intersection[];
   }
   interface ShapeOwnerIntersection {
-    owner: Territory;
+    owner: ShapeOwner;
     point: Vector;
     segment: Segment;
     index: number;
-  }
-  interface TrailIntersectionEntry {
-    intersection: Intersection;
-    base: Territory;
-    enter: boolean;
-  }
-  interface TrailIntersectionRecord {
-    point: Vector;
-    intersections: TrailIntersectionEntry[];
   }
   interface ComebackMergeParams {
     owner: Territory;
@@ -4595,7 +4586,7 @@ interface Function { __: any; contextType: any; }
               return false;
             }
             list5 = list7.filter((_0x2d8e62: ShapeOwnerIntersection) => {
-              const list8 = _0xedaebe.intersections.filter((_0x35c9f5: TrailIntersectionEntry) => _0x35c9f5.base === _0x2d8e62.owner);
+              const list8 = _0xedaebe.intersections.filter((_0x35c9f5: TrailCrossing) => _0x35c9f5.base === _0x2d8e62.owner);
               if (!list8.length) {
                 return false;
               }
@@ -4677,7 +4668,7 @@ interface Function { __: any; contextType: any; }
                 endT: _0x1398d6.index
               });
               const _0x56c2b6 = unit.track.intersections.find((_0xd06444: TrailIntersectionRecord) => _0xd06444.point.equal(_0x578435));
-              const list9 = _0x56c2b6.intersections.filter((_0x2ead1e: TrailIntersectionEntry) => _0x2ead1e.base === _0x12a6a7.owner);
+              const list9 = _0x56c2b6.intersections.filter((_0x2ead1e: TrailCrossing) => _0x2ead1e.base === _0x12a6a7.owner);
               if (list9.length === 1 || list9[list9.length - 1].enter === false) {
                 list7 = list7.filter((_0x3f554c: ShapeOwnerIntersection) => _0x3f554c.owner !== _0x12a6a7.owner);
               }
