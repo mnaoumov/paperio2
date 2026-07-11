@@ -22,6 +22,15 @@ interface Function { __: any; contextType: any; }
     zn: number;
   }
   type ShapeOwner = Territory | Trail;
+  interface TrailCrossing {
+    intersection: Intersection;
+    base: ShapeOwner;
+    enter: boolean;
+  }
+  interface TrailIntersectionRecord {
+    point: Vector;
+    intersections: TrailCrossing[];
+  }
   interface Rgb {
     r: number;
     g: number;
@@ -32,6 +41,38 @@ interface Function { __: any; contextType: any; }
     s: number;
     v: number;
   }
+  interface BotStateContext {
+    exitPoint?: Vector;
+    minDistance?: number;
+    point?: Vector;
+  }
+  interface BotStateHandlers {
+    enter?: (payload: Bot, context: BotStateContext) => BotStateContext | void;
+    leave?: (payload: Bot, context: BotStateContext) => BotStateContext | void;
+    update: (payload: Bot, context: BotStateContext) => string | void;
+  }
+  type BotStates = { [name: string]: BotStateHandlers };
+  interface UnitScores {
+    accumulator: number;
+    kills: number;
+  }
+  interface UnitStatistics {
+    kills: number;
+  }
+  interface UnitTrackDistance {
+    unit: Unit;
+    trackDistance: number;
+    trackPoint: Vector | null;
+    danger: number;
+  }
+  interface Label {
+    text: string;
+    color: string;
+    unit?: Unit | null;
+    time: number;
+    fading?: boolean;
+  }
+  type ParticleColor = string | HTMLCanvasElement | HTMLImageElement;
 
   var preactOptions;
   var list;
@@ -1843,28 +1884,28 @@ interface Function { __: any; contextType: any; }
       b: Math.round(_0xd7fdbe * 255)
     };
   };
-  const callback38 = (_0x8d0fc2?: any) => callback36(callback37(_0x8d0fc2));
-  function callback39(_0x3d2196?: any) {
+  const callback38 = (_0x8d0fc2: Hsv) => callback36(callback37(_0x8d0fc2));
+  function callback39(_0x3d2196: number) {
     if (_0x3d2196 > 0 && _0x3d2196 < 1) {
       _0x3d2196 = Math.floor(_0x3d2196 * 1000000000);
     }
-    let callback95 = (_0x51efea?: any) => {
+    let callback95 = (_0x51efea: number) => {
       _0x3d2196 = (_0x3d2196 * 69069 + 1) % 2147483648;
       return _0x3d2196 % _0x51efea;
     };
-    let _0x564c00 = (_0x1dfc31?: any) => _0x1dfc31 == null ? callback95(1000000000) / 1000000000 : callback95(_0x1dfc31);
+    let _0x564c00 = (_0x1dfc31?: number) => _0x1dfc31 == null ? callback95(1000000000) / 1000000000 : callback95(_0x1dfc31);
     return _0x564c00;
   }
-  function callback40(_0x52140a?: any) {
-    return new Promise((callback95?: any) => {
+  function callback40(_0x52140a: string) {
+    return new Promise<HTMLImageElement>((callback95: (value: HTMLImageElement) => void) => {
       let element = document.createElement("img");
       element.src = _0x52140a;
-      element.onload = function (...args: any[]) {
+      element.onload = function () {
         callback95(element);
       };
     });
   }
-  function callback41(_0x25a581?: any, _0x474ff8?: any) {
+  function callback41(_0x25a581: Hsv, _0x474ff8: number): Hsv {
     let {
       h,
       s,
@@ -1877,7 +1918,7 @@ interface Function { __: any; contextType: any; }
       v: v
     };
   }
-  function callback42(_0xf88f07?: any, _0x5301b4?: any) {
+  function callback42(_0xf88f07: Hsv, _0x5301b4: number): Hsv {
     let {
       h,
       s,
@@ -1891,7 +1932,7 @@ interface Function { __: any; contextType: any; }
       v: v
     };
   }
-  function callback43(_0x4e37c0?: any, _0x5b933a?: any) {
+  function callback43(_0x4e37c0: Hsv, _0x5b933a: number): Hsv {
     let {
       h,
       s,
@@ -1904,41 +1945,40 @@ interface Function { __: any; contextType: any; }
       v: v
     };
   }
-  function callback44(_0x2134de?: any) {
+  function callback44(_0x2134de: number) {
     return _0x2134de.toFixed(2);
   }
   class Border {
-    center: any;
-    polygon: any;
-    radius: any;
-    constructor(_0x47fbad?: any, _0x1797db?: any, _0x11ec0c?: any) {
+    center: Vector;
+    polygon: Polygon;
+    radius: number;
+    constructor(_0x47fbad: Polygon, _0x1797db: Vector, _0x11ec0c: number) {
       if (!(_0x47fbad instanceof Polygon)) {}
       this.polygon = _0x47fbad;
       this.radius = _0x11ec0c;
       this.center = _0x1797db;
     }
-    static circular(_0x2a3b43?: any, _0x453954?: any, _0x3949f1?: any) {
+    static circular(_0x2a3b43: Vector, _0x453954: number, _0x3949f1: number) {
       return new Border(new Polygon(callback33(_0x2a3b43, _0x453954, _0x3949f1)), _0x2a3b43, _0x3949f1);
     }
-    intersections(segment?: any) {
+    intersections(segment: Segment): Intersection[] {
       {
         if (segment.start.distance2(this.center) < this.radius ** 2 * 0.95 && segment.end.distance2(this.center) < this.radius ** 2 * 0.95) {
           return [];
         }
       }
-      return this.polygon.intersections(segment).filter((_0x15d63f?: any) => !_0x15d63f.overlay);
+      return this.polygon.intersections(segment).filter((_0x15d63f: Intersection) => !_0x15d63f.overlay);
     }
   }
   class Territory {
-    isTrack: any;
-    merges: any[];
-    path: any;
+    isTrack: boolean;
+    // Never populated by any observed code path; element type is not inferable from usage.
+    merges: Polygon[];
+    path: Path2D;
     polygon: Polygon;
-    square: any;
-    unit: any;
-    constructor(_0x5b9270?: any, _0x3ab68b?: any) {
-      this.unit = undefined;
-      this.isTrack = undefined;
+    square: number;
+    unit: Unit;
+    constructor(_0x5b9270: Unit, _0x3ab68b: Vector[]) {
       this.unit = _0x5b9270;
       this.merges = [];
       this.polygon = new Polygon(_0x3ab68b);
@@ -1946,7 +1986,7 @@ interface Function { __: any; contextType: any; }
       this.calcSquare();
       this.polygon.calcPath();
     }
-    calcPath(...args: any[]) {
+    calcPath() {
       this.path = new Path2D();
       const {
         segments
@@ -1967,20 +2007,20 @@ interface Function { __: any; contextType: any; }
       this.path.closePath();
       return this.path;
     }
-    calcSquare(...args: any[]) {
+    calcSquare() {
       this.square = this.polygon.square();
     }
-    remove(...args: any[]) {
+    remove() {
       this.polygon.remove();
     }
-    handleIntersect(_0x17a22b?: any, _0x7347fa?: any, _0x3a81c5?: any) {
+    handleIntersect(_0x17a22b: Intersection, _0x7347fa: Unit, _0x3a81c5: Segment) {
       if (_0x7347fa === this.unit) {
         this.handleSelfIntersect(_0x17a22b, _0x7347fa, _0x3a81c5);
       } else {
         this.handleEnemyIntersect(_0x17a22b, _0x7347fa, _0x3a81c5);
       }
     }
-    handleSelfIntersect(_0x445601?: any, unit?: any, segment?: any) {
+    handleSelfIntersect(_0x445601: Intersection, unit: Unit, segment: Segment) {
       if (_0x445601.overlay) {
         return;
       }
@@ -2024,7 +2064,7 @@ interface Function { __: any; contextType: any; }
         unit.track.remove();
       }
     }
-    handleEnemyIntersect(_0x1cb2ac?: any, unit?: any, _0x14e0ee?: any) {
+    handleEnemyIntersect(_0x1cb2ac: Intersection, unit: Unit, _0x14e0ee: Segment) {
       const {
         point: _0x59ff3e,
         segment: _0x323756
@@ -2058,13 +2098,13 @@ interface Function { __: any; contextType: any; }
     }
   }
   class Trail {
-    intersections: any[];
+    intersections: TrailIntersectionRecord[];
     isTrack: boolean;
     length: number;
     polyline: Polyline;
-    simplyline: any[];
-    unit: any;
-    constructor(_0x245895?: any) {
+    simplyline: Vector[];
+    unit: Unit;
+    constructor(_0x245895: Unit) {
       this.polyline = new Polyline(this);
       this.simplyline = [];
       this.unit = _0x245895;
@@ -2072,7 +2112,7 @@ interface Function { __: any; contextType: any; }
       this.intersections = [];
       this.isTrack = true;
     }
-    add(_0xafeb98?: any) {
+    add(_0xafeb98: Vector) {
       if (this.polyline.add2(_0xafeb98)) {
         const length2 = this.polyline.segments.length;
         if (length2 > 0) {
@@ -2097,8 +2137,8 @@ interface Function { __: any; contextType: any; }
         }
       }
     }
-    intersect(_0x19b8cd?: any, _0x3142da?: any, _0x463f2a?: any) {
-      const _0x10c5e0 = this.intersections.find((_0x36bb8e?: any) => _0x36bb8e.point.equal(_0x19b8cd.point));
+    intersect(_0x19b8cd: Intersection, _0x3142da: ShapeOwner, _0x463f2a: boolean) {
+      const _0x10c5e0 = this.intersections.find((_0x36bb8e: TrailIntersectionRecord) => _0x36bb8e.point.equal(_0x19b8cd.point));
       if (_0x10c5e0) {
         _0x10c5e0.intersections.push({
           intersection: _0x19b8cd,
@@ -2116,14 +2156,14 @@ interface Function { __: any; contextType: any; }
         });
       }
     }
-    remove(...args: any[]) {
+    remove() {
       this.polyline.remove();
       this.polyline = new Polyline(this);
       this.length = 0;
       this.simplyline = [];
       this.intersections = [];
     }
-    handleIntersect(_0x1d2561?: any, unit?: any, _0x413bce?: any) {
+    handleIntersect(_0x1d2561: Intersection, unit: Unit, _0x413bce: Segment) {
       let game = unit.game;
       if (unit === this.unit) {
         if (_0x1d2561.overlay === true || _0x1d2561.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
@@ -2137,18 +2177,18 @@ interface Function { __: any; contextType: any; }
     }
   }
   class StateMachine {
-    context: any;
-    payload: any;
+    context: BotStateContext;
+    payload: Bot;
     state: string;
-    states: any;
-    constructor(_0xd415fd?: any, _0x36b757?: any, _0x208008?: any) {
+    states: BotStates;
+    constructor(_0xd415fd: BotStates, _0x36b757: string, _0x208008: Bot) {
       this.states = _0xd415fd;
       this.state = "";
       this.payload = _0x208008;
       this.context = {};
       this.change(_0x36b757);
     }
-    change(_0x4a1b80?: any) {
+    change(_0x4a1b80: string) {
       const _0x238b4d = this.states[this.state];
       if (_0x238b4d && _0x238b4d.leave) {
         this.context = _0x238b4d.leave(this.payload, this.context) || this.context;
@@ -2160,7 +2200,7 @@ interface Function { __: any; contextType: any; }
         this.update();
       }
     }
-    update(...args: any[]) {
+    update() {
       const _0x165fc7 = this.states[this.state];
       const _0x404183 = _0x165fc7 && _0x165fc7.update(this.payload, this.context);
       if (_0x404183) {
@@ -2168,7 +2208,7 @@ interface Function { __: any; contextType: any; }
       }
     }
   }
-  const callback45 = (unit?: any) => {
+  const callback45 = (unit: Bot) => {
     const {
       player
     } = unit.game;
@@ -2185,18 +2225,18 @@ interface Function { __: any; contextType: any; }
       }
     }
   };
-  const callback46 = (unit?: any, _0x44a2f5?: any) => {
+  const callback46 = (unit: Bot) => {
     if (unit.in === unit.base) {
       return false;
     }
     return unit.maxDanger > unit.def * 0.8;
   };
-  var _0x3d8162 = {
+  var _0x3d8162: BotStates = {
     idle: {
-      enter: function (...args: any[]) {
+      enter: function () {
         return {};
       },
-      update: function (unit?: any, _0xe0c32?: any) {
+      update: function (unit, _0xe0c32) {
         if (unit.in === unit.base) {
           if (unit.game.rng() < 0.25) {
             return "cut";
@@ -2209,7 +2249,7 @@ interface Function { __: any; contextType: any; }
       }
     },
     capital: {
-      update: function (unit?: any, _0x523554?: any) {
+      update: function (unit, _0x523554) {
         if (unit.in !== unit.base) {
           return "capture";
         }
@@ -2219,21 +2259,21 @@ interface Function { __: any; contextType: any; }
       }
     },
     cut: {
-      enter: function (unit?: any) {
+      enter: function (unit) {
         const vector = unit.position.clone().sub(unit.game.space.center);
         const _0x4b04b0 = vector.magnitude();
         const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
         const list4 = unit.base.polygon.intersections(segment);
-        const _0x1ad216: any = {};
+        const _0x1ad216: BotStateContext = {};
         if (!list4.length) {
           console.log("bot.position", unit.position.x, unit.position.y);
           console.log("intersections", list4);
         }
-        list4.sort((_0x1800ec?: any, _0xfa7457?: any) => _0x1800ec.distance - _0xfa7457.distance);
+        list4.sort((_0x1800ec, _0xfa7457) => _0x1800ec.distance - _0xfa7457.distance);
         _0x1ad216.exitPoint = list4[0] && list4[0].point;
         return _0x1ad216;
       },
-      update: function (unit?: any, _0x3bf6d4?: any) {
+      update: function (unit, _0x3bf6d4) {
         if (unit.in !== unit.base) {
           return "capture";
         }
@@ -2246,8 +2286,8 @@ interface Function { __: any; contextType: any; }
       }
     },
     exit: {
-      enter: function (unit?: any) {
-        const _0x1e64c4: any = {};
+      enter: function (unit) {
+        const _0x1e64c4: BotStateContext = {};
         let _0x778392 = Infinity;
         let _0x16aea8;
         const {
@@ -2270,7 +2310,7 @@ interface Function { __: any; contextType: any; }
         _0x1e64c4.exitPoint = unit.base.polygon.segments[_0x16aea8].start;
         return _0x1e64c4;
       },
-      update: function (unit?: any, _0x22e93a?: any) {
+      update: function (unit, _0x22e93a) {
         if (unit.in !== unit.base) {
           _0x22e93a = {};
           return "capture";
@@ -2291,7 +2331,7 @@ interface Function { __: any; contextType: any; }
         if (_0x34048a > minDistance && _0x34048a < _0x2979ec) {
           _0x22e93a.exitPoint = start;
         } else {
-          if (!Object.values(_0x22e93a.exitPoint.segments).some((_0x55de55?: any) => _0x55de55 && _0x55de55.shape === unit.base.polygon)) {
+          if (!Object.values(_0x22e93a.exitPoint.segments).some((_0x55de55) => _0x55de55 && _0x55de55.shape === unit.base.polygon)) {
             _0x22e93a.exitPoint = start;
           }
           if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
@@ -2302,7 +2342,7 @@ interface Function { __: any; contextType: any; }
       }
     },
     capture: {
-      update: function (unit?: any, _0x2e9b3f?: any) {
+      update: function (unit, _0x2e9b3f) {
         if (unit.in === unit.base) {
           return "idle";
         }
@@ -2355,7 +2395,7 @@ interface Function { __: any; contextType: any; }
         const _0x34bce9 = unit.capSquare / _0x3d5796;
         const _0x4b3e7c = unit.vrange * callback23(3, 0.7, safety);
         const _0x58b3d5 = unit.position.distance(unit.track.polyline.start) / _0x4b3e7c;
-        const _0x557094 = unit.unitToTrackDistances.reduce((_0x3d7368?: any, _0x2643b4?: any) => Math.min(_0x2643b4.trackDistance, _0x3d7368), Infinity) * 0.8 * def;
+        const _0x557094 = unit.unitToTrackDistances.reduce((_0x3d7368, _0x2643b4) => Math.min(_0x2643b4.trackDistance, _0x3d7368), Infinity) * 0.8 * def;
         const _0x33222d = unit.baseDistance / _0x557094;
         const _0x30c878 = Math.max(_0x422057, _0x34bce9, _0x58b3d5, _0x33222d);
         if (_0x30c878 > 1) {
@@ -2416,8 +2456,8 @@ interface Function { __: any; contextType: any; }
       }
     },
     back: {
-      enter: function (_0x47c739?: any, _0x2d6a22?: any) {},
-      update: function (unit?: any, _0x151891?: any) {
+      enter: function (_0x47c739, _0x2d6a22) {},
+      update: function (unit, _0x151891) {
         if (unit.in === unit.base) {
           return "idle";
         }
@@ -2430,8 +2470,8 @@ interface Function { __: any; contextType: any; }
       }
     },
     attack: {
-      enter: (...args: any[]) => ({}),
-      update: function (unit?: any, _0x23beb9?: any) {
+      enter: () => ({}),
+      update: function (unit, _0x23beb9) {
         const {
           player
         } = unit.game;
@@ -2449,7 +2489,7 @@ interface Function { __: any; contextType: any; }
         }
         let _0x2f1e36 = 0;
         let _0x2041ee = Infinity;
-        simplyline.forEach((_0x227e96?: any, _0x49a73a?: any) => {
+        simplyline.forEach((_0x227e96, _0x49a73a) => {
           const _0x404776 = unit.position.distance2(_0x227e96);
           if (_0x404776 < _0x2041ee) {
             _0x2041ee = _0x404776;
@@ -2460,7 +2500,7 @@ interface Function { __: any; contextType: any; }
       }
     }
   };
-  const callback47 = (...args: any[]) => {
+  const callback47 = () => {
     const path2D = new Path2D();
     const _0x522de8 = 1;
     path2D.moveTo(-_0x522de8, -_0x522de8);
@@ -2472,18 +2512,21 @@ interface Function { __: any; contextType: any; }
   };
   const _0x158cbc = callback47();
   class Particle {
-    acceleration: any;
-    color: any;
-    fn: any;
-    position: any;
-    rotate: any;
+    // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
+    // callback48 reassigns them to scalar speeds on already-expiring particles (time===1),
+    // so the field type is a union and the vector math below is typeof-guarded.
+    acceleration: Vector | number | null;
+    color: ParticleColor;
+    fn: ((particle: Particle) => void) | null;
+    position: Vector;
+    rotate: number;
     rotation: number;
-    scale: any;
-    target: any;
-    time: any;
-    velocity: any;
-    vscale: any;
-    constructor(_0x5bb711?: any, _0x434c5e?: any, _0x3903b4?: any, _0x3ba3e3?: any, _0x1f1a94?: any, _0x5c0d11?: any, _0x1854e9?: any, _0x5cadc6?: any, _0x3e565f?: any, _0x529480?: any) {
+    scale: number;
+    target: Unit | null;
+    time: number;
+    velocity: Vector | number;
+    vscale: number;
+    constructor(_0x5bb711: Unit | null, _0x434c5e: ParticleColor, _0x3903b4: Vector, _0x3ba3e3: Vector | number, _0x1f1a94: Vector | number | null, _0x5c0d11: number, _0x1854e9: number, _0x5cadc6: number, _0x3e565f: number, _0x529480?: (particle: Particle) => void) {
       this.target = _0x5bb711;
       this.color = _0x434c5e;
       this.position = _0x3903b4;
@@ -2494,9 +2537,9 @@ interface Function { __: any; contextType: any; }
       this.vscale = _0x5cadc6;
       this.rotation = Math.random() * Math.PI * 2;
       this.time = _0x3e565f;
-      this.fn = _0x529480;
+      this.fn = _0x529480 || null;
     }
-    update(_0x146c01?: any) {
+    update(_0x146c01: number) {
       const _0xc9a712 = _0x146c01 / 1000;
       this.time -= _0x146c01;
       if (this.time <= 0) {
@@ -2505,16 +2548,18 @@ interface Function { __: any; contextType: any; }
         }
         return;
       }
-      this.position.x += this.velocity.x * _0xc9a712;
-      this.position.y += this.velocity.y * _0xc9a712;
-      if (this.acceleration) {
-        this.velocity.x += this.acceleration.x * _0xc9a712;
-        this.velocity.y += this.acceleration.y * _0xc9a712;
+      if (typeof this.velocity !== "number") {
+        this.position.x += this.velocity.x * _0xc9a712;
+        this.position.y += this.velocity.y * _0xc9a712;
+        if (this.acceleration && typeof this.acceleration !== "number") {
+          this.velocity.x += this.acceleration.x * _0xc9a712;
+          this.velocity.y += this.acceleration.y * _0xc9a712;
+        }
       }
       this.rotation += this.rotate * _0xc9a712;
       this.scale += this.vscale * _0xc9a712;
     }
-    draw(_0x456e87?: any) {
+    draw(_0x456e87: CanvasRenderingContext2D) {
       const {
         x,
         y
@@ -2539,7 +2584,7 @@ interface Function { __: any; contextType: any; }
       }
       _0x456e87.setTransform(_0x3f81cb);
     }
-    static nom(unit?: any, segment?: any, _0xea069b?: any) {
+    static nom(unit: Unit, segment: Segment, _0xea069b: number) {
       const _0x3a2aaf = Math.sign(Math.random() - 0.5);
       const _0x44b37d = unit.skin.container.maxScale * _0xea069b;
       const {
@@ -2558,14 +2603,14 @@ interface Function { __: any; contextType: any; }
       return particle;
     }
   }
-  function callback48(unit?: any, _0x46b899?: any, list4?: any, _0x5cc3d8?: any) {
+  function callback48(unit: Unit, _0x46b899: Unit | null, list4: Segment[], _0x5cc3d8?: boolean) {
     let game = unit.game;
     if (game.visible) {
       const _0x48cafa = unit.schemes.scores();
       let i2 = 0;
       let _0x20affe = 0;
       let _0x3abe5c = 0;
-      list4.forEach((segment?: any) => {
+      list4.forEach((segment: Segment) => {
         _0x20affe += segment.vector.magnitude();
         if (_0x20affe > 5) {
           _0x20affe = 0;
@@ -2576,13 +2621,13 @@ interface Function { __: any; contextType: any; }
           const _0x59405c = (_0x5cc3d8 ? 3 : 1) * (1 + Math.random() * 0.5);
           const _0x48264b = 500 + Math.random() * 500;
           const _0x4ccbe0 = -_0x59405c * 0.7 * (1000 / _0x48264b);
-          const particle = new Particle(null, unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)], segment.start.clone(), _0x4feda2, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), _0x59405c, _0x4ccbe0, _0x48264b, (particle2?: any) => {
+          const particle = new Particle(null, unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)], segment.start.clone(), _0x4feda2, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), _0x59405c, _0x4ccbe0, _0x48264b, (particle2: Particle) => {
             if (_0x46b899) {
               particle2.target = _0x46b899;
               particle2.time = 1;
-              particle2.velocity = particle2.velocity.magnitude();
+              particle2.velocity = (typeof particle2.velocity === "number" ? particle2.velocity : particle2.velocity.magnitude());
               particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
-              particle2.fn = (...args: any[]) => {
+              particle2.fn = () => {
                 if (_0x5cc3d8) {
                   _0x46b899.schemes.getScheme().accumulator += _0x3abe5c;
                 }
@@ -2913,26 +2958,26 @@ interface Function { __: any; contextType: any; }
     }
   }
   class City {
-    capital: any;
-    country: any;
-    labels: any[];
-    name: any;
-    position: any;
+    capital: boolean;
+    country: string;
+    labels: Label[];
+    name: string;
+    position: Vector;
     scores: number;
-    skin: any;
-    unit: any;
-    constructor(_0x3b00cb?: any, _0x52653c?: any, _0x5a9889?: any, _0x3dd75a?: any) {
+    skin: Skin | null;
+    unit: Unit | null;
+    constructor(_0x3b00cb: string, _0x52653c: boolean, _0x5a9889: Vector, _0x3dd75a: Unit | null) {
       this.name = _0x3b00cb;
       this.capital = _0x52653c;
       this.position = _0x5a9889;
       this.unit = _0x3dd75a;
       this.labels = [];
-      this.country = _0x3dd75a && _0x3dd75a.skin.assets.find((_0x42d7f7?: any) => _0x42d7f7.pool.name === "flags").name;
+      this.country = _0x3dd75a && _0x3dd75a.skin.assets.find((_0x42d7f7: Asset) => _0x42d7f7.pool.name === "flags").name;
       this.scores = 0;
       this.skin = null;
     }
-    add(_0x132d06?: any) {
-      const name = this.unit.skin.assets.find((_0x2d9124?: any) => _0x2d9124.pool.name === "flags").name;
+    add(_0x132d06: number) {
+      const name = this.unit.skin.assets.find((_0x2d9124: Asset) => _0x2d9124.pool.name === "flags").name;
       let _0x4a1e05 = 0;
       if (name === this.country) {
         _0x4a1e05 = _0x132d06 * (this.capital ? 1 : 0.5);
@@ -2944,41 +2989,41 @@ interface Function { __: any; contextType: any; }
     }
   }
   class Unit {
-    achievements: any;
+    achievements: AchievementTracker | null;
     base: Territory;
     baseDistance: number;
-    baseNearestPoint: any;
-    baseNearestPointNormal: any;
-    baseNearestPointTangent: any;
+    baseNearestPoint: Vector | null;
+    baseNearestPointNormal: Vector | null;
+    baseNearestPointTangent: Vector | null;
     bestPercent: number;
-    bornTime: any;
-    cities: any[];
-    death: any;
+    bornTime: number;
+    cities: City[];
+    death: boolean;
     direction: number;
-    fsm: any;
-    game: any;
-    in: any;
-    jitter: any;
-    killer: any;
-    labels: any[];
-    lastSquare: any;
-    log: any[];
-    name: any;
+    fsm: StateMachine | null;
+    game: Game;
+    in: Territory | null;
+    jitter: number;
+    killer: Unit | null;
+    labels: Label[];
+    lastSquare: number;
+    log: Vector[];
+    name: string;
     percent: number;
-    position: any;
+    position: Vector;
     respawn: boolean;
     scale: number;
-    schemes: any;
-    scores: any;
-    skin: any;
-    smoothness: any;
-    statistics: any;
-    target: any;
+    schemes: Scoreboard | null;
+    scores: UnitScores;
+    skin: Skin;
+    smoothness: number;
+    statistics: UnitStatistics;
+    target: Vector | null;
     top: number;
     track: Trail;
-    type: any;
+    type: number;
     vrange: number;
-    constructor(_0xa99a22?: any, _0x1f1f01?: any, _0x53ea97?: any, _0x14b97c?: any, _0xefbf81?: any, _0x4d0860?: any) {
+    constructor(_0xa99a22: Game, _0x1f1f01: string, _0x53ea97: Vector, _0x14b97c: Vector[], _0xefbf81?: undefined, _0x4d0860?: SchemeCycler) {
       this.killer = undefined;
       this.achievements = undefined;
       this.skin = undefined;
@@ -3022,16 +3067,16 @@ interface Function { __: any; contextType: any; }
     get isPlayer() {
       return false;
     }
-    setSkin(_0x2085e9?: any) {
+    setSkin(_0x2085e9: Skin) {
       this.skin = _0x2085e9;
       _0x2085e9.user = this;
     }
-    onScoreChanged(...args: any[]) {
+    onScoreChanged() {
       if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
-    update(_0x403839?: any) {
+    update(_0x403839: number) {
       this.log.push(this.position);
       if (this.in !== this.base) {
         this.scores.accumulator += this.percent * 100 * _0x403839 / 1000;
@@ -3045,7 +3090,7 @@ interface Function { __: any; contextType: any; }
         const {
           simplify
         } = this.base.polygon;
-        simplify.forEach((_0x595477?: any, _0x4888ae?: any) => {
+        simplify.forEach((_0x595477: Vector, _0x4888ae: number) => {
           const _0x1fae41 = _0x595477.distance2(this.position);
           if (_0x1fae41 < _0x1175a6) {
             _0x1175a6 = _0x1fae41;
@@ -3063,10 +3108,10 @@ interface Function { __: any; contextType: any; }
       this.baseNearestPointTangent = _0x2dff70;
       this.baseNearestPointNormal = _0x2dff70 && _0x2dff70.clone().rotate(-Math.PI / 2);
     }
-    movement(...args: any[]) {
+    movement() {
       return this.target && this.target.clone().sub(this.position).normalize();
     }
-    addLabel(_0x265f51?: any) {
+    addLabel(_0x265f51: Label) {
       if (!_0x265f51.unit) {
         _0x265f51.unit = this;
       }
@@ -3074,16 +3119,16 @@ interface Function { __: any; contextType: any; }
     }
   }
   class Player extends Unit {
-    moveTo: any;
+    moveTo: boolean;
     win: boolean;
     get isPlayer() {
       return true;
     }
-    constructor(_0x65d2b1?: any, _0x26e346?: any, _0x13a96a?: any, _0x5ac9f3?: any, _0x4d59c5?: any, _0x30d280?: any) {
+    constructor(_0x65d2b1: Game, _0x26e346: string, _0x13a96a: Vector, _0x5ac9f3: Vector[], _0x4d59c5?: undefined, _0x30d280?: SchemeCycler) {
       super(_0x65d2b1, _0x26e346, _0x13a96a, _0x5ac9f3, _0x4d59c5, _0x30d280);
       this.win = false;
     }
-    update(_0x46f3c4?: any) {
+    update(_0x46f3c4: number) {
       super.update(_0x46f3c4);
       if (!this.respawn) {
         this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
@@ -3092,15 +3137,18 @@ interface Function { __: any; contextType: any; }
   }
   class Bot extends Unit {
     aggro: number;
+    aspect: string;
+    capSquare: number;
     def: number;
-    distanceDanger: any;
+    distanceDanger: number;
     greed: number;
     maxDanger: number;
     safety: number;
-    targets: any[];
-    unitDanger: any;
-    unitToTrackDistances: any;
-    constructor(_0x5b5541?: any, _0x703bb9?: any, _0x45ba3a?: any, _0x18e952?: any, _0xfbe93a?: any, _0x523f62?: any, _0x2259e2?: any) {
+    // Assigned an empty array in the constructor and never populated by any observed code path.
+    targets: Unit[];
+    unitDanger: Unit | null;
+    unitToTrackDistances: UnitTrackDistance[];
+    constructor(_0x5b5541: Game, _0x703bb9: number, _0x45ba3a: string, _0x18e952: Vector, _0xfbe93a: Vector[], _0x523f62?: undefined, _0x2259e2?: SchemeCycler) {
       super(_0x5b5541, _0x45ba3a, _0x18e952, _0xfbe93a, _0x523f62, _0x2259e2);
       this.aggro = 0;
       this.greed = 0;
@@ -3114,22 +3162,22 @@ interface Function { __: any; contextType: any; }
       this.unitDanger = null;
       this.fsm = new StateMachine(_0x3d8162, "idle", this);
     }
-    update(_0x227a04?: any) {
+    update(_0x227a04: number) {
       super.update(_0x227a04);
       this.unitToTrackDistances = [];
       let _0x1349bf = 0;
       let _0x21ee3d = 0;
-      let _0x22e30a = null;
+      let _0x22e30a: Unit | null = null;
       if (this.in !== this.base) {
         const {
           player
         } = this.game;
-        this.game.units.forEach((_0x487ca0?: any) => {
+        this.game.units.forEach((_0x487ca0: Unit) => {
           const _0x5cc7c2 = player === _0x487ca0 && this.position.distance(_0x487ca0.position) > this.vrange;
           if (_0x487ca0 !== this && !_0x5cc7c2) {
             let _0x5b1b9e = Infinity;
-            let _0x48ff76 = null;
-            this.track.simplyline.forEach((_0x3c1137?: any) => {
+            let _0x48ff76: Vector | null = null;
+            this.track.simplyline.forEach((_0x3c1137: Vector) => {
               const _0x41acc6 = _0x3c1137.distance2(_0x487ca0.position);
               if (_0x41acc6 < _0x5b1b9e) {
                 _0x5b1b9e = _0x41acc6;
@@ -3160,16 +3208,16 @@ interface Function { __: any; contextType: any; }
     }
   }
   class TextParticle {
-    acceleration: any;
-    color: any;
-    duration: any;
-    fading: any;
-    position: any;
-    text: any;
-    time: any;
-    unit: any;
-    velocity: any;
-    constructor(_0x194e13?: any, _0x3cd013?: any, _0x201bcc?: any, _0x385f39: any = new Vector(0, 0), _0x3627f3: any = new Vector(0, -50), _0x35a176: any = 2000, _0x40eab2: any = true) {
+    acceleration: Vector;
+    color: string;
+    duration: number;
+    fading: boolean;
+    position: Vector;
+    text: string;
+    time: number;
+    unit: Unit | null;
+    velocity: Vector;
+    constructor(_0x194e13: string, _0x3cd013: string, _0x201bcc: Unit | null, _0x385f39: Vector = new Vector(0, 0), _0x3627f3: Vector = new Vector(0, -50), _0x35a176: number = 2000, _0x40eab2: boolean = true) {
       this.text = _0x194e13;
       this.color = _0x3cd013 || "#000000";
       this.unit = _0x201bcc;
@@ -3180,15 +3228,15 @@ interface Function { __: any; contextType: any; }
       this.time = _0x35a176;
       this.fading = _0x40eab2;
     }
-    update(_0x57b76a?: any) {
+    update(_0x57b76a: number) {
       this.time -= _0x57b76a;
       if (this.time > 0) {
         this.velocity.add(this.acceleration.clone().mulScalar(_0x57b76a / 1000));
         this.position.add(this.velocity.clone().mulScalar(_0x57b76a / 1000));
       }
     }
-    draw(_0x63c189?: any, _0x8bf69f?: any, _0xc619b1?: any, _0xd54421?: any) {
-      const callback95 = (_0x5029a2?: any) => 1 + --_0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2;
+    draw(_0x63c189: CanvasRenderingContext2D, _0x8bf69f: string, _0xc619b1: number, _0xd54421: number) {
+      const callback95 = (_0x5029a2: number) => 1 + --_0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2;
       let _0x3cba4f = Math.floor(callback95(this.time / this.duration) * 255).toString(16);
       if (_0x3cba4f.length < 2) {
         _0x3cba4f = "0" + _0x3cba4f;
@@ -3209,22 +3257,22 @@ interface Function { __: any; contextType: any; }
   }
   var fromCharCode = String.fromCharCode;
   class NamePool {
-    pool: any;
-    rng: any;
-    constructor(_0x5e803d?: any, _0x5a4f07?: any) {
+    pool: string[];
+    rng: (_0x1dfc31?: number) => number;
+    constructor(_0x5e803d: string[], _0x5a4f07: number) {
       this.pool = _0x5e803d;
       this.rng = callback39(_0x5a4f07);
     }
-    get(...args: any[]) {
+    get() {
       let _0x26e058 = this.rng();
       let _0x27aed8 = this.pool[~~(_0x26e058 * this.pool.length)];
       return _0x27aed8;
     }
-    aviable(...args: any[]) {
+    aviable() {
       return true;
     }
-    request(...args: any[]) {}
-    release(_0x34977b?: any) {
+    request() {}
+    release(_0x34977b: string[]) {
       this.pool.push(..._0x34977b);
     }
   }
