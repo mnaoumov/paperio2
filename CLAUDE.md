@@ -66,5 +66,10 @@ death and during the pre-game "prepare" phase.
   string-inliner → `webcrack` under Node 22/24 → strip → scope-aware renames) and a
   subsystem map. Off-the-shelf deobfuscators alone can't inline this file's rotated
   string array. It's a study aid; the game still runs off the original `app2.js`.
+- A **typed TypeScript copy** `app2.deobfuscated.ts` is also committed: the same code with
+  class-field type declarations (documenting each class's shape) plus `any`-typed params.
+  It compiles with 0 errors under the repo-root `tsconfig.json` (lenient; typecheck with
+  `npx tsc -p tsconfig.json`). Params/deep locals are `any` — it's a shape/readability aid,
+  not a strict port. Only `app2.deobfuscated.js` is loaded/run; the `.ts` isn't wired in.
 - Changes already made from the original (documented in README.md): removed ad/analytics scripts, dropped cache-busting version query strings (`app2.js?v7`, `style3.css?v50`), and localized the font instead of loading from Google Fonts.
 - `app2.js`, `style3.css`, `manifest.json`, and assets are the site's original copyrighted content, kept for local/offline personal use.
