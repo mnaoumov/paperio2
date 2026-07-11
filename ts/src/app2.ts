@@ -383,64 +383,64 @@ interface ObjectConstructor {
     requestAnimationFrame?: (callback: () => void) => void;
   }
 
-  const _0x68ae04 = Math.pow(2, -26);
-  const callback21 = (_0x4232a1: number) => Math.abs(_0x4232a1) <= _0x68ae04;
-  const callback22 = (_0x2bc84b: number, _0x422639: number) => Math.abs(_0x2bc84b - _0x422639) <= _0x68ae04;
-  const callback23 = (_0x497e73: number, _0x1215fd: number, _0xc805ba: number) => _0x497e73 + (_0x1215fd - _0x497e73) * _0xc805ba;
-  const callback24 = (_0x570a19: number) => --_0x570a19 * _0x570a19 * _0x570a19 + 1;
-  const callback25 = (_0x2cbd0e: number, _0x349ac0: number, _0x26617c: number) => {
-    if (_0x26617c < _0x2cbd0e) {
-      return _0x2cbd0e;
+  const EPSILON = Math.pow(2, -26);
+  const isNearlyZero = (value: number) => Math.abs(value) <= EPSILON;
+  const isNearlyEqual = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
+  const lerp = (start: number, end: number, t: number) => start + (end - start) * t;
+  const easeOutCubic = (t: number) => --t * t * t + 1;
+  const clamp = (min: number, max: number, value: number) => {
+    if (value < min) {
+      return min;
     }
-    if (_0x26617c > _0x349ac0) {
-      return _0x349ac0;
+    if (value > max) {
+      return max;
     }
-    return _0x26617c;
+    return value;
   };
-  const callback26 = (_0x485df3: number, _0x2a85fc: number, _0x18d0a3: number, _0x4b57d3: number) => _0x485df3 * _0x4b57d3 - _0x2a85fc * _0x18d0a3;
-  const callback27 = (_0x50b329: number, _0x1b8016: number, _0x13f44a: number) => Math.min(_0x50b329, _0x1b8016) - _0x68ae04 <= _0x13f44a && _0x13f44a <= Math.max(_0x50b329, _0x1b8016) + _0x68ae04;
-  const callback28 = (_0x398a2a: number, _0x88af21: number, _0x9eb278: number, _0x369d4a: number) => {
-    if (_0x398a2a > _0x88af21) {
-      [_0x398a2a, _0x88af21] = [_0x88af21, _0x398a2a];
+  const cross = (ax: number, ay: number, bx: number, by: number) => ax * by - ay * bx;
+  const isBetween = (bound1: number, bound2: number, value: number) => Math.min(bound1, bound2) - EPSILON <= value && value <= Math.max(bound1, bound2) + EPSILON;
+  const intervalOverlap = (aStart: number, aEnd: number, bStart: number, bEnd: number) => {
+    if (aStart > aEnd) {
+      [aStart, aEnd] = [aEnd, aStart];
     }
-    if (_0x9eb278 > _0x369d4a) {
-      [_0x9eb278, _0x369d4a] = [_0x369d4a, _0x9eb278];
+    if (bStart > bEnd) {
+      [bStart, bEnd] = [bEnd, bStart];
     }
-    return Math.min(_0x88af21, _0x369d4a) - Math.max(_0x398a2a, _0x9eb278);
+    return Math.min(aEnd, bEnd) - Math.max(aStart, bStart);
   };
-  function callback29(list4: number[][], _0x31b6be: number, _0x35bcab: number) {
-    let _0x562c11 = false;
+  function pointInPolygon(list4: number[][], x: number, y: number) {
+    let isInside = false;
     let length = list4.length;
-    for (let i2 = 0, _0xea5051 = length - 1; i2 < length; _0xea5051 = i2++) {
-      let _0x3205eb = list4[i2][0];
-      let _0x194c24 = list4[i2][1];
-      let _0xdffee9 = list4[_0xea5051][0];
-      let _0x7ab471 = list4[_0xea5051][1];
-      if (callback30(_0x31b6be, _0x35bcab, _0x3205eb, _0x194c24, _0xdffee9, _0x7ab471)) {
+    for (let i2 = 0, previousIndex = length - 1; i2 < length; previousIndex = i2++) {
+      let currentX = list4[i2][0];
+      let currentY = list4[i2][1];
+      let previousX = list4[previousIndex][0];
+      let previousY = list4[previousIndex][1];
+      if (isPointOnSegment(x, y, currentX, currentY, previousX, previousY)) {
         return 1;
       }
-      var _0x5ac99c = _0x194c24 > _0x35bcab != _0x7ab471 > _0x35bcab && _0x31b6be < (_0xdffee9 - _0x3205eb) * (_0x35bcab - _0x194c24) / (_0x7ab471 - _0x194c24) + _0x3205eb;
-      if (_0x5ac99c) {
-        _0x562c11 = !_0x562c11;
+      var isCrossing = currentY > y != previousY > y && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
+      if (isCrossing) {
+        isInside = !isInside;
       }
     }
-    if (_0x562c11) {
+    if (isInside) {
       return 2;
     } else {
       return 0;
     }
   }
-  function callback30(_0xddb793: number, _0x5909a8: number, _0x546daf: number, _0x21e81c: number, _0x3d49bc: number, _0x3776c9: number) {
-    let _0x539722 = _0x546daf - _0xddb793;
-    let _0x4520c5 = _0x21e81c - _0x5909a8;
-    let _0xbbd220 = _0x3d49bc - _0xddb793;
-    let _0x59c1e4 = _0x3776c9 - _0x5909a8;
-    let _0x3d83e6 = _0x539722 * _0x59c1e4 - _0x4520c5 * _0xbbd220;
-    let _0x10959f = _0x539722 * _0xbbd220 + _0x4520c5 * _0x59c1e4;
-    return _0x3d83e6 == 0 && _0x10959f <= 0;
+  function isPointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+    let dx1 = x1 - px;
+    let dy1 = y1 - py;
+    let dx2 = x2 - px;
+    let dy2 = y2 - py;
+    let cross = dx1 * dy2 - dy1 * dx2;
+    let dot = dx1 * dx2 + dy1 * dy2;
+    return cross == 0 && dot <= 0;
   }
-  let _0x5e2101 = 1;
-  const callback31 = () => _0x5e2101++;
+  let nextId = 1;
+  const generateId = () => nextId++;
   class Segment {
     a: number;
     b: number;
@@ -451,12 +451,12 @@ interface ObjectConstructor {
     start: Vector;
     vector: Vector;
     id?: number;
-    constructor(_0x54e05d: Vector, _0x117225: Vector) {
-      if (_0x54e05d.equal(_0x117225)) {}
+    constructor(start: Vector, end: Vector) {
+      if (start.equal(end)) {}
       this.mark = 0;
       this.shape = null;
-      this.start = _0x54e05d;
-      this.end = _0x117225;
+      this.start = start;
+      this.end = end;
       this.calc();
     }
     get owner(): Polygon | Polyline | null {
@@ -468,14 +468,14 @@ interface ObjectConstructor {
         end
       } = this;
       this.vector = end.clone().sub(start);
-      let _0x7a555a = start.y - end.y;
-      let _0x4cbc86 = end.x - start.x;
-      const _0x48edee = Math.sqrt(_0x7a555a * _0x7a555a + _0x4cbc86 * _0x4cbc86);
-      _0x7a555a /= _0x48edee;
-      _0x4cbc86 /= _0x48edee;
-      this.a = _0x7a555a;
-      this.b = _0x4cbc86;
-      this.c = -(_0x7a555a * start.x + _0x4cbc86 * start.y);
+      let normalX = start.y - end.y;
+      let normalY = end.x - start.x;
+      const length = Math.sqrt(normalX * normalX + normalY * normalY);
+      normalX /= length;
+      normalY /= length;
+      this.a = normalX;
+      this.b = normalY;
+      this.c = -(normalX * start.x + normalY * start.y);
     }
     clone() {
       return new Segment(this.start, this.end);
@@ -487,8 +487,8 @@ interface ObjectConstructor {
       this.calc();
       return this;
     }
-    commit(_0x5c2d73: Polygon | Polyline) {
-      this.shape = _0x5c2d73;
+    commit(shape: Polygon | Polyline) {
+      this.shape = shape;
       this.start.commit(this);
       this.end.commit(this);
       return this;
@@ -508,7 +508,7 @@ interface ObjectConstructor {
         a,
         b
       } = this;
-      return callback26(a2, b2, a, b);
+      return cross(a2, b2, a, b);
     }
     intersect(segment: Segment): Intersection | null {
       const a2 = segment.a;
@@ -523,77 +523,77 @@ interface ObjectConstructor {
         start,
         end
       } = this;
-      const _0x45a39a = callback26(a2, b2, a, b);
-      if (!callback21(_0x45a39a)) {
-        const _0x204622 = -callback26(c2, b2, c, b) / _0x45a39a;
-        const _0x47639a = -callback26(a2, c2, a, c) / _0x45a39a;
-        const _0x2a78ce = callback27(start2.x, end2.x, _0x204622) && callback27(start2.y, end2.y, _0x47639a) && callback27(start.x, end.x, _0x204622) && callback27(start.y, end.y, _0x47639a) && new Vector(_0x204622, _0x47639a);
-        if (!_0x2a78ce) {
+      const determinant = cross(a2, b2, a, b);
+      if (!isNearlyZero(determinant)) {
+        const intersectionX = -cross(c2, b2, c, b) / determinant;
+        const intersectionY = -cross(a2, c2, a, c) / determinant;
+        const intersectionPoint = isBetween(start2.x, end2.x, intersectionX) && isBetween(start2.y, end2.y, intersectionY) && isBetween(start.x, end.x, intersectionX) && isBetween(start.y, end.y, intersectionY) && new Vector(intersectionX, intersectionY);
+        if (!intersectionPoint) {
           return null;
         }
         return {
-          point: start.equal(_0x2a78ce) && start || end.equal(_0x2a78ce) && end || start2.equal(_0x2a78ce) && start2 || end2.equal(_0x2a78ce) && end2 || _0x2a78ce,
+          point: start.equal(intersectionPoint) && start || end.equal(intersectionPoint) && end || start2.equal(intersectionPoint) && start2 || end2.equal(intersectionPoint) && end2 || intersectionPoint,
           segment: this,
-          distance: _0x2a78ce.distance2(start2),
+          distance: intersectionPoint.distance2(start2),
           overlay: false,
-          zn: Math.sign(_0x45a39a)
+          zn: Math.sign(determinant)
         };
       }
-      const _0x4d2c22 = callback28(start2.x, end2.x, start.x, end.x);
-      const _0x599176 = callback28(start2.y, end2.y, start.y, end.y);
-      if (callback21(callback26(a2, c2, a, c)) && callback21(callback26(b2, c2, b, c)) && _0x4d2c22 >= -_0x68ae04 && _0x599176 >= -_0x68ae04) {
-        if (_0x4d2c22 >= _0x68ae04 || _0x599176 >= _0x68ae04) {
-          let _0x357b15;
-          if (callback27(start.x, end.x, start2.x) && callback27(start.y, end.y, start2.y)) {
-            _0x357b15 = start.equal(start2) && start || end.equal(start2) && end || start2;
+      const overlapX = intervalOverlap(start2.x, end2.x, start.x, end.x);
+      const overlapY = intervalOverlap(start2.y, end2.y, start.y, end.y);
+      if (isNearlyZero(cross(a2, c2, a, c)) && isNearlyZero(cross(b2, c2, b, c)) && overlapX >= -EPSILON && overlapY >= -EPSILON) {
+        if (overlapX >= EPSILON || overlapY >= EPSILON) {
+          let overlapPoint;
+          if (isBetween(start.x, end.x, start2.x) && isBetween(start.y, end.y, start2.y)) {
+            overlapPoint = start.equal(start2) && start || end.equal(start2) && end || start2;
           } else {
-            _0x357b15 = start2.distance2(start) >= start2.distance2(end) ? end : start;
+            overlapPoint = start2.distance2(start) >= start2.distance2(end) ? end : start;
           }
           return {
-            point: _0x357b15,
+            point: overlapPoint,
             segment: this,
-            distance: _0x357b15.distance2(start2),
+            distance: overlapPoint.distance2(start2),
             overlay: true,
             zn: 0
           };
         }
-        const _0x447570 = start.equal(start2) || start.equal(end2) ? start : end;
+        const sharedPoint = start.equal(start2) || start.equal(end2) ? start : end;
         return {
-          point: _0x447570,
+          point: sharedPoint,
           segment: this,
-          distance: _0x447570.distance2(start2),
+          distance: sharedPoint.distance2(start2),
           overlay: false,
           zn: 0
         };
       }
       return null;
     }
-    has(_0x1924dc: Vector) {
-      return this.start === _0x1924dc || this.end === _0x1924dc;
+    has(point: Vector) {
+      return this.start === point || this.end === point;
     }
   }
-  const _0x49b883 = 1;
+  const CELL_MARGIN = 1;
   class ContourPoints {
     points: Vector[];
     x: number;
     y: number;
-    constructor(_0xc98fbf: number, _0x89e3d1: number) {
+    constructor(x: number, y: number) {
       this.points = [];
-      this.x = _0xc98fbf;
-      this.y = _0x89e3d1;
+      this.x = x;
+      this.y = y;
     }
-    commit(_0x2450aa: Vector) {
-      this.points.push(_0x2450aa);
-      _0x2450aa.cell = this;
+    commit(point: Vector) {
+      this.points.push(point);
+      point.cell = this;
     }
-    remove(_0x113f3c: Vector) {
+    remove(point: Vector) {
       const {
         points
       } = this;
-      const _0x5b2879 = points.indexOf(_0x113f3c);
-      if (_0x5b2879 !== -1) {
-        points.splice(_0x5b2879, 1);
-        _0x113f3c.cell = null;
+      const index = points.indexOf(point);
+      if (index !== -1) {
+        points.splice(index, 1);
+        point.cell = null;
       }
     }
   }
@@ -605,13 +605,13 @@ interface ObjectConstructor {
     size: number;
     w: number;
     width: number;
-    constructor(_0x340a9c: number, _0x15a11b: number, _0x369cbe: number) {
-      this.width = _0x340a9c;
-      this.height = _0x15a11b;
-      this.center = new Vector(_0x340a9c / 2, _0x15a11b / 2);
-      this.size = _0x369cbe;
-      this.w = Math.ceil(_0x340a9c / _0x369cbe);
-      this.h = Math.ceil(_0x15a11b / _0x369cbe);
+    constructor(width: number, height: number, cellSize: number) {
+      this.width = width;
+      this.height = height;
+      this.center = new Vector(width / 2, height / 2);
+      this.size = cellSize;
+      this.w = Math.ceil(width / cellSize);
+      this.h = Math.ceil(height / cellSize);
       this.cells = [];
       for (let i2 = 0; i2 < this.h; i2++) {
         for (let i3 = 0; i3 < this.w; i3++) {
@@ -621,54 +621,54 @@ interface ObjectConstructor {
       Vector.space = this;
     }
     count() {
-      let _0x1b83e4 = 0;
-      this.cells.forEach((_0x335c43: ContourPoints) => {
-        _0x1b83e4 += _0x335c43.points.length;
+      let total = 0;
+      this.cells.forEach((cell: ContourPoints) => {
+        total += cell.points.length;
       });
-      return _0x1b83e4;
+      return total;
     }
     cell(point: Vector) {
       return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
     }
-    getCell(_0x2c5062: number, _0x2cc9d6: number) {
-      let _0x3725fd = this.cells[_0x2c5062 + _0x2cc9d6 * this.w];
-      if (!_0x3725fd) {}
-      return _0x3725fd;
+    getCell(col: number, row: number) {
+      let cell = this.cells[col + row * this.w];
+      if (!cell) {}
+      return cell;
     }
-    checkPoint(_0x2b141d: Vector) {
-      const _0x5e04d1 = this.cell(_0x2b141d);
-      return _0x5e04d1.points.find((_0x5066b3: Vector) => _0x5066b3.equal(_0x2b141d)) || _0x2b141d;
+    checkPoint(point: Vector) {
+      const cell = this.cell(point);
+      return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) || point;
     }
     segmentsCount(): { [id: number]: Segment } {
-      const _0x343c03: { [id: number]: Segment } = {};
+      const segmentsById: { [id: number]: Segment } = {};
       for (let i2 = 0; i2 < this.h; i2++) {
         for (let i3 = 0; i3 < this.w; i3++) {
-          this.getCell(i3, i2).points.forEach((_0xeb68e9: Vector) => {
-            _0xeb68e9.segments.forEach((_0x27b7e0: Segment) => _0x343c03[_0x27b7e0.id ?? 0] = _0x27b7e0);
+          this.getCell(i3, i2).points.forEach((point: Vector) => {
+            point.segments.forEach((segment: Segment) => segmentsById[segment.id ?? 0] = segment);
           });
         }
       }
-      return _0x343c03;
+      return segmentsById;
     }
     intersections(segment: Segment): Intersection[] {
       const point = this.cell(segment.start);
       const point2 = this.cell(segment.end);
-      const _0x25009c = Math.max(0, Math.min(point.x, point2.x) - _0x49b883);
-      const _0x3daed4 = Math.min(this.w - 1, Math.max(point.x, point2.x) + _0x49b883);
-      const _0x511ed8 = Math.max(0, Math.min(point.y, point2.y) - _0x49b883);
-      const _0x149c88 = Math.min(this.h - 1, Math.max(point.y, point2.y) + _0x49b883);
-      const _0x4cb258 = callback31();
+      const minCol = Math.max(0, Math.min(point.x, point2.x) - CELL_MARGIN);
+      const maxCol = Math.min(this.w - 1, Math.max(point.x, point2.x) + CELL_MARGIN);
+      const minRow = Math.max(0, Math.min(point.y, point2.y) - CELL_MARGIN);
+      const maxRow = Math.min(this.h - 1, Math.max(point.y, point2.y) + CELL_MARGIN);
+      const mark = generateId();
       const list4: Intersection[] = [];
-      for (let _0x5e0248 = _0x511ed8; _0x5e0248 <= _0x149c88; _0x5e0248++) {
-        for (let _0x1d1ea0 = _0x25009c; _0x1d1ea0 <= _0x3daed4; _0x1d1ea0++) {
-          this.getCell(_0x1d1ea0, _0x5e0248).points.forEach((_0x59cdb7: Vector) => {
-            _0x59cdb7.segments.forEach((segment2: Segment) => {
-              if (segment2.mark !== _0x4cb258) {
-                const _0x302e7a = segment2.intersect(segment);
-                if (_0x302e7a) {
-                  list4.push(_0x302e7a);
+      for (let row = minRow; row <= maxRow; row++) {
+        for (let col = minCol; col <= maxCol; col++) {
+          this.getCell(col, row).points.forEach((point: Vector) => {
+            point.segments.forEach((segment2: Segment) => {
+              if (segment2.mark !== mark) {
+                const intersection = segment2.intersect(segment);
+                if (intersection) {
+                  list4.push(intersection);
                 }
-                segment2.mark = _0x4cb258;
+                segment2.mark = mark;
               }
             });
           });
@@ -680,9 +680,9 @@ interface ObjectConstructor {
       this.cells = [];
     }
   }
-  const _0x159f84 = 30000;
-  const _0x112dd5: Vector[] = Array.from({
-    length: _0x159f84
+  const VECTOR_POOL_SIZE = 30000;
+  const vectorPool: Vector[] = Array.from({
+    length: VECTOR_POOL_SIZE
   });
   let i = 0;
   class Vector {
@@ -691,28 +691,28 @@ interface ObjectConstructor {
     x: number;
     y: number;
     static space: SpatialGrid;
-    constructor(_0x333689?: number, _0x2c2873?: number) {
+    constructor(x?: number, y?: number) {
       this.cell = null;
       this.segments = [];
-      this.set(_0x333689, _0x2c2873);
+      this.set(x, y);
     }
-    set(_0x24ed4b?: number, _0x4cbd32?: number) {
-      this.x = _0x24ed4b || 0;
-      this.y = _0x4cbd32 || (_0x4cbd32 === 0 ? 0 : this.x);
+    set(x?: number, y?: number) {
+      this.x = x || 0;
+      this.y = y || (y === 0 ? 0 : this.x);
       return this;
     }
-    commit(_0x49b35c: Segment) {
-      if (this.segments.indexOf(_0x49b35c) === -1) {
-        this.segments.push(_0x49b35c);
+    commit(segment: Segment) {
+      if (this.segments.indexOf(segment) === -1) {
+        this.segments.push(segment);
       }
       if (!this.cell) {
-        const _0x19525f = Vector.space.cell(this);
-        _0x19525f.commit(this);
+        const cell = Vector.space.cell(this);
+        cell.commit(this);
       }
     }
-    remove(_0x5b5121: Segment) {
-      const _0x34a58e = this.segments.indexOf(_0x5b5121);
-      this.segments.splice(_0x34a58e, 1);
+    remove(segment: Segment) {
+      const index = this.segments.indexOf(segment);
+      this.segments.splice(index, 1);
       if (this.cell && !this.segments.length) {
         this.cell.remove(this);
       }
@@ -735,9 +735,9 @@ interface ObjectConstructor {
       this.y *= point.y;
       return this;
     }
-    mulScalar(_0x4bb0bb: number) {
-      this.x *= _0x4bb0bb;
-      this.y *= _0x4bb0bb;
+    mulScalar(scalar: number) {
+      this.x *= scalar;
+      this.y *= scalar;
       return this;
     }
     magnitude() {
@@ -748,9 +748,9 @@ interface ObjectConstructor {
       return Math.sqrt(x * x + y * y);
     }
     normalize() {
-      const _0x4b7ce1 = this.magnitude();
-      if (_0x4b7ce1) {
-        this.mulScalar(1 / _0x4b7ce1);
+      const magnitude = this.magnitude();
+      if (magnitude) {
+        this.mulScalar(1 / magnitude);
       }
       return this;
     }
@@ -759,13 +759,13 @@ interface ObjectConstructor {
       this.y = point.y;
       return this;
     }
-    distance(_0x1dace5: Vector) {
-      return Math.sqrt(this.distance2(_0x1dace5));
+    distance(point: Vector) {
+      return Math.sqrt(this.distance2(point));
     }
     distance2(point: Vector) {
-      const _0x599dbc = this.x - point.x;
-      const _0x30891c = this.y - point.y;
-      return _0x599dbc * _0x599dbc + _0x30891c * _0x30891c;
+      const dx = this.x - point.x;
+      const dy = this.y - point.y;
+      return dx * dx + dy * dy;
     }
     cross(point: Vector) {
       return this.x * point.y - this.y * point.x;
@@ -773,35 +773,35 @@ interface ObjectConstructor {
     dot(point: Vector) {
       return this.x * point.x + this.y * point.y;
     }
-    rotate(_0x55cbe9: number) {
+    rotate(angle: number) {
       const {
         x,
         y
       } = this;
-      const _0x32b915 = Math.cos(_0x55cbe9);
-      const _0x3daad6 = Math.sin(_0x55cbe9);
-      this.x = x * _0x32b915 - y * _0x3daad6;
-      this.y = x * _0x3daad6 + y * _0x32b915;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      this.x = x * cos - y * sin;
+      this.y = x * sin + y * cos;
       return this;
     }
-    angle(_0x23b00d: Vector) {
-      return Math.atan2(this.cross(_0x23b00d), this.dot(_0x23b00d));
+    angle(point: Vector) {
+      return Math.atan2(this.cross(point), this.dot(point));
     }
     invert() {
       return this.mulScalar(-1);
     }
     equal(point: Vector) {
-      return callback22(this.x, point.x) && callback22(this.y, point.y);
+      return isNearlyEqual(this.x, point.x) && isNearlyEqual(this.y, point.y);
     }
     clone() {
       return new Vector(this.x, this.y);
     }
-    static alloc(_0x4aaf81?: number, _0x4b47ee?: number) {
+    static alloc(x?: number, y?: number) {
       if (i) {
-        let _0x49e91f = _0x112dd5[--i].set(_0x4aaf81, _0x4b47ee);
-        return _0x49e91f;
+        let vector = vectorPool[--i].set(x, y);
+        return vector;
       }
-      return new Vector(_0x4aaf81, _0x4b47ee);
+      return new Vector(x, y);
     }
     static clone(point: Vector) {
       return Vector.alloc(point.x, point.y);
@@ -813,10 +813,10 @@ interface ObjectConstructor {
       return "[" + this.x.toFixed(4) + "," + this.y.toFixed(4) + "]";
     }
     static release(vector: Vector) {
-      if (i < _0x159f84) {
+      if (i < VECTOR_POOL_SIZE) {
         vector.set();
         if (vector.cell || vector.segments.length) {}
-        _0x112dd5[i++] = vector;
+        vectorPool[i++] = vector;
       }
     }
   }
@@ -831,8 +831,8 @@ interface ObjectConstructor {
   const _0x17fe5b = 5;
   const _0x21e037 = 6;
   const _0x3bad23 = 7;
-  const _0x4eb235 = 1000 / 60;
-  const _0xbeedd5 = 1000 / 60 * 2;
+  const FRAME_DURATION_MILLISECONDS = 1000 / 60;
+  const TWO_FRAME_DURATION_MILLISECONDS = 1000 / 60 * 2;
   class Polyline {
     bounds: Bounds;
     end: Vector | null;
@@ -840,8 +840,8 @@ interface ObjectConstructor {
     path: Path2D;
     segments: Segment[];
     start: Vector | null;
-    constructor(_0x3d26c8?: Trail) {
-      this.owner = _0x3d26c8 || null;
+    constructor(owner?: Trail) {
+      this.owner = owner || null;
       this.start = null;
       this.end = null;
       this.segments = [];
@@ -853,14 +853,14 @@ interface ObjectConstructor {
       };
       this.path = new Path2D();
     }
-    commit(_0x3f07dd: Polygon) {
-      this.segments.forEach((_0x58a112: Segment) => _0x58a112.commit(_0x3f07dd));
+    commit(polygon: Polygon) {
+      this.segments.forEach((segment: Segment) => segment.commit(polygon));
     }
     remove() {
-      this.segments.forEach((_0x110556: Segment) => _0x110556.remove());
+      this.segments.forEach((segment: Segment) => segment.remove());
     }
     reverse() {
-      this.segments.reverse().forEach((_0x2603ff: Segment) => _0x2603ff.reverse());
+      this.segments.reverse().forEach((segment: Segment) => segment.reverse());
       if (this.end) {
         [this.start, this.end] = [this.end, this.start];
       }
@@ -868,82 +868,82 @@ interface ObjectConstructor {
     }
     clone() {
       const polyline = new Polyline();
-      polyline.segments = this.segments.map((_0x24ec13: Segment) => _0x24ec13.clone());
+      polyline.segments = this.segments.map((segment: Segment) => segment.clone());
       polyline.start = this.start;
       polyline.end = this.end;
       Object.assign(polyline.bounds, this.bounds);
       return polyline;
     }
-    updateBounds(_0x1f0631: Vector) {
+    updateBounds(point: Vector) {
       const {
         x,
         y
-      } = _0x1f0631;
+      } = point;
       this.bounds.left = Math.min(this.bounds.left, x);
       this.bounds.right = Math.max(this.bounds.right, x);
       this.bounds.top = Math.min(this.bounds.top, y);
       this.bounds.bottom = Math.max(this.bounds.bottom, y);
     }
-    add2(_0x45500e: Vector) {
-      const _0x2b66d7 = this.end || this.start;
-      if (_0x2b66d7 && _0x2b66d7.equal(_0x45500e)) {
+    add2(point: Vector) {
+      const lastPoint = this.end || this.start;
+      if (lastPoint && lastPoint.equal(point)) {
         return false;
       }
       const {
         x,
         y
-      } = _0x45500e;
+      } = point;
       if (this.end) {
-        this.segments.push(new Segment(this.end, _0x45500e).commit(this));
-        this.end = _0x45500e;
-        this.updateBounds(_0x45500e);
+        this.segments.push(new Segment(this.end, point).commit(this));
+        this.end = point;
+        this.updateBounds(point);
         this.path.lineTo(x, y);
         return true;
       }
       if (this.start) {
-        this.segments.push(new Segment(this.start, _0x45500e).commit(this));
-        this.end = _0x45500e;
-        this.updateBounds(_0x45500e);
+        this.segments.push(new Segment(this.start, point).commit(this));
+        this.end = point;
+        this.updateBounds(point);
         this.path.lineTo(x, y);
         return true;
       }
-      this.start = _0x45500e;
-      this.updateBounds(_0x45500e);
+      this.start = point;
+      this.updateBounds(point);
       this.path.moveTo(x, y);
       return true;
     }
     points() {
-      const list4 = this.segments.map((_0x16d5ec: Segment) => _0x16d5ec.start);
+      const list4 = this.segments.map((segment: Segment) => segment.start);
       if (this.end) {
         list4.push(this.end);
       }
       return list4;
     }
     toString() {
-      return this.segments.map((_0x2d5a82: Segment) => _0x2d5a82.start.toString()).join("");
+      return this.segments.map((segment: Segment) => segment.start.toString()).join("");
     }
   }
-  const callback32 = (point: Vector, point2: Vector, point3: Vector) => {
-    const _0x359fb7 = point.x - point3.x;
-    const _0x427823 = point.y - point3.y;
-    const _0x2d8056 = point2.x - point3.x;
-    const _0xbe51ea = point2.y - point3.y;
-    if (_0x427823 * _0xbe51ea > 0) {
+  const computeCrossing = (point: Vector, point2: Vector, point3: Vector) => {
+    const deltaStartX = point.x - point3.x;
+    const deltaStartY = point.y - point3.y;
+    const deltaEndX = point2.x - point3.x;
+    const deltaEndY = point2.y - point3.y;
+    if (deltaStartY * deltaEndY > 0) {
       return 1;
     }
-    const _0x1d9cb5 = _0x359fb7 * _0xbe51ea - _0x427823 * _0x2d8056;
-    const _0x2d8392 = callback21(_0x1d9cb5) ? 0 : Math.sign(_0x1d9cb5);
-    if (_0x2d8392 === 0) {
-      if (_0x359fb7 * _0x2d8056 <= 0) {
+    const cross = deltaStartX * deltaEndY - deltaStartY * deltaEndX;
+    const sign = isNearlyZero(cross) ? 0 : Math.sign(cross);
+    if (sign === 0) {
+      if (deltaStartX * deltaEndX <= 0) {
         return 0;
       }
       return 1;
     }
-    if (_0x427823 < 0) {
-      return -_0x2d8392;
+    if (deltaStartY < 0) {
+      return -sign;
     }
-    if (_0xbe51ea < 0) {
-      return _0x2d8392;
+    if (deltaEndY < 0) {
+      return sign;
     }
     return 1;
   };
@@ -953,140 +953,140 @@ interface ObjectConstructor {
     path: Path2D;
     segments: Segment[];
     simplify: Vector[];
-    constructor(_0x255831: Vector[]) {
+    constructor(points: Vector[]) {
       this.segments = [];
       this.simplify = [];
       this.owner = null;
       this.bounds = null;
       const {
         length
-      } = _0x255831;
+      } = points;
       for (let i2 = 0; i2 < length;) {
-        this.segments.push(new Segment(_0x255831[i2++], _0x255831[i2 < length ? i2 : 0]));
+        this.segments.push(new Segment(points[i2++], points[i2 < length ? i2 : 0]));
       }
       this.updateBounds();
     }
-    commit(_0x3a2c90?: ShapeOwner) {
-      if (_0x3a2c90) {
-        this.owner = _0x3a2c90;
+    commit(owner?: ShapeOwner) {
+      if (owner) {
+        this.owner = owner;
       }
-      this.segments.forEach((_0x4636cc: Segment) => _0x4636cc.commit(this));
+      this.segments.forEach((segment: Segment) => segment.commit(this));
     }
     remove() {
-      this.segments.forEach((_0x37e88a: Segment) => _0x37e88a.remove());
+      this.segments.forEach((segment: Segment) => segment.remove());
     }
     reverse() {
       this.segments.reverse();
-      this.segments.forEach((_0x3c3a50: Segment) => _0x3c3a50.reverse());
+      this.segments.forEach((segment: Segment) => segment.reverse());
       return this;
     }
-    insert(segment: Segment, _0xfd2d76: Vector) {
-      if (!segment.has(_0xfd2d76)) {
-        const _0x4460e0 = this.segments.findIndex((_0x468389: Segment) => _0x468389 === segment);
-        const _0x55e498 = new Segment(segment.start, _0xfd2d76).commit(this);
-        const _0x121664 = new Segment(_0xfd2d76, segment.end).commit(this);
+    insert(segment: Segment, point: Vector) {
+      if (!segment.has(point)) {
+        const index = this.segments.findIndex((candidateSegment: Segment) => candidateSegment === segment);
+        const firstSegment = new Segment(segment.start, point).commit(this);
+        const secondSegment = new Segment(point, segment.end).commit(this);
         segment.remove();
-        this.segments.splice(_0x4460e0, 1, _0x55e498, _0x121664);
+        this.segments.splice(index, 1, firstSegment, secondSegment);
       }
     }
-    hasPoint(_0x451bf0: Vector) {
-      return this.segments.some((_0x562047: Segment) => _0x562047.has(_0x451bf0));
+    hasPoint(point: Vector) {
+      return this.segments.some((segment: Segment) => segment.has(point));
     }
-    findSegment(_0x596d0c: Vector) {
-      const _0x892d49 = this.segments.findIndex((_0xf1b1f2: Segment) => _0xf1b1f2.start === _0x596d0c);
-      return _0x892d49;
+    findSegment(point: Vector) {
+      const index = this.segments.findIndex((segment: Segment) => segment.start === point);
+      return index;
     }
-    splice(_0x4ff73a: Polyline, _0x2e9f8f: number, _0x198893: number) {
-      const list4 = this.segments.splice(_0x2e9f8f, _0x198893 - _0x2e9f8f, ..._0x4ff73a.segments);
-      list4.forEach((_0x2e3d66: Segment) => _0x2e3d66.remove());
-      _0x4ff73a.commit(this);
+    splice(polyline: Polyline, startIndex: number, endIndex: number) {
+      const list4 = this.segments.splice(startIndex, endIndex - startIndex, ...polyline.segments);
+      list4.forEach((segment: Segment) => segment.remove());
+      polyline.commit(this);
     }
-    unsplice(_0x310c71: Polyline, _0x35431a: number, _0x11653f: number) {
-      const _0x10df9f = this.segments.splice(_0x35431a, _0x11653f - _0x35431a);
+    unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
+      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
       this.remove();
-      this.segments = _0x10df9f.concat(_0x310c71.reverse().segments);
-      _0x310c71.commit(this);
+      this.segments = removedSegments.concat(polyline.reverse().segments);
+      polyline.commit(this);
     }
-    left(list4: Vector[], _0x2a2bca: number, _0x48f39f: number) {
+    left(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(list4[i2], list4[i2 + 1]));
       }
-      const list6 = this.segments.splice(_0x2a2bca, _0x48f39f - _0x2a2bca, ...list5);
-      list5.forEach((_0x35a035: Segment) => _0x35a035.commit(this));
-      list6.forEach((_0x2b5a2a: Segment) => _0x2b5a2a.remove());
+      const list6 = this.segments.splice(startIndex, endIndex - startIndex, ...list5);
+      list5.forEach((segment: Segment) => segment.commit(this));
+      list6.forEach((segment: Segment) => segment.remove());
     }
-    right(list4: Vector[], _0x4ab91c: number, _0x458307: number) {
+    right(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(list4[i2], list4[i2 + 1]));
       }
-      const _0x2f1ab5 = this.segments.splice(_0x4ab91c, _0x458307 - _0x4ab91c);
+      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
       this.remove();
-      list5.reverse().forEach((_0x103f4f: Segment) => _0x103f4f.reverse().commit(this));
-      this.segments = _0x2f1ab5.concat(list5);
+      list5.reverse().forEach((segment: Segment) => segment.reverse().commit(this));
+      this.segments = removedSegments.concat(list5);
     }
     points() {
-      return this.segments.map((_0x38c25d: Segment) => _0x38c25d.start);
+      return this.segments.map((segment: Segment) => segment.start);
     }
-    intersections(_0x5d6a44: Segment) {
+    intersections(segment: Segment) {
       let list4: Intersection[] = [];
       if (this.segments.length > 1) {
-        this.segments.forEach((_0x2a1d8e: Segment) => {
-          const _0x3c561e = _0x2a1d8e.intersect(_0x5d6a44);
-          if (_0x3c561e) {
-            list4.push(_0x3c561e);
+        this.segments.forEach((segment: Segment) => {
+          const intersection = segment.intersect(segment);
+          if (intersection) {
+            list4.push(intersection);
           }
         });
       }
       if (list4.length > 1) {
-        list4.sort((_0x322e6b: Intersection, _0x297678: Intersection) => _0x322e6b.distance - _0x297678.distance);
-        list4 = list4.filter(function (_0x891589: Intersection, _0x3eacac: number) {
-          return list4.findIndex((_0x423edb: Intersection) => _0x423edb.point === _0x891589.point) == _0x3eacac;
+        list4.sort((intersectionA: Intersection, intersectionB: Intersection) => intersectionA.distance - intersectionB.distance);
+        list4 = list4.filter(function (intersection: Intersection, index: number) {
+          return list4.findIndex((otherIntersection: Intersection) => otherIntersection.point === intersection.point) == index;
         });
       }
       return list4;
     }
-    inside(_0x1c5c04: Vector) {
+    inside(point: Vector) {
       const {
         length
       } = this.segments;
-      let _0x50b175 = 1;
+      let product = 1;
       for (let i2 = 0; i2 < length; i2++) {
         const {
           start,
           end
         } = this.segments[i2];
-        const _0x4985c4 = callback32(start, end, _0x1c5c04);
-        if (_0x4985c4 === 0) {
+        const crossing = computeCrossing(start, end, point);
+        if (crossing === 0) {
           return true;
         }
-        _0x50b175 *= _0x4985c4;
+        product *= crossing;
       }
-      return _0x50b175 !== 1;
+      return product !== 1;
     }
     insideNew(point: Vector) {
-      return !!callback29(this.segments.map((_0x5e990e: Segment) => [_0x5e990e.start.x, _0x5e990e.start.y]), point.x, point.y);
+      return !!pointInPolygon(this.segments.map((segment: Segment) => [segment.start.x, segment.start.y]), point.x, point.y);
     }
     rawSquare() {
-      let _0x3e0443 = 0;
-      this.segments.forEach((_0x3e7aee: Segment) => {
+      let area = 0;
+      this.segments.forEach((segment: Segment) => {
         const {
           start,
           end
-        } = _0x3e7aee;
-        _0x3e0443 += (start.x + end.x) * (end.y - start.y);
+        } = segment;
+        area += (start.x + end.x) * (end.y - start.y);
       });
-      return _0x3e0443 / 2;
+      return area / 2;
     }
     square() {
-      let _0xa51275 = this.rawSquare();
-      if (_0xa51275 < 0) {
+      let area = this.rawSquare();
+      if (area < 0) {
         {
-          _0xa51275 *= -1;
+          area *= -1;
         }
       }
-      return _0xa51275;
+      return area;
     }
     calcPath() {
       const path2D = new Path2D();
@@ -1100,10 +1100,10 @@ interface ObjectConstructor {
         start
       } = segments[0];
       path2D.moveTo(start.x, start.y);
-      for (let _0x521bb1 = 1; _0x521bb1 < length; _0x521bb1++) {
+      for (let i = 1; i < length; i++) {
         const {
           start: point
-        } = segments[_0x521bb1];
+        } = segments[i];
         path2D.lineTo(point.x, point.y);
       }
       path2D.closePath();
@@ -1113,16 +1113,16 @@ interface ObjectConstructor {
     calcSimplify() {
       this.simplify = [];
       let i2 = 0;
-      this.segments.forEach((_0x43c7c4: Segment) => {
+      this.segments.forEach((segment: Segment) => {
         const {
           start
-        } = _0x43c7c4;
+        } = segment;
         if (i2 < 2) {
           this.simplify.push(start);
           i2++;
         } else {
-          const _0x5df51c = this.simplify[i2 - 2];
-          if (start.distance2(_0x5df51c) < _0x2069c7) {
+          const previousPoint = this.simplify[i2 - 2];
+          if (start.distance2(previousPoint) < _0x2069c7) {
             this.simplify[i2 - 1] = start;
           } else {
             this.simplify.push(start);
@@ -1133,266 +1133,266 @@ interface ObjectConstructor {
     }
     updateBounds() {
       this.calcSimplify();
-      let _0x303bc7 = Infinity;
-      let _0x4fff1c = -Infinity;
-      let _0x225d78 = Infinity;
-      let _0x4bf61d = -Infinity;
-      this.simplify.forEach((_0x2a224d: Vector) => {
+      let left = Infinity;
+      let right = -Infinity;
+      let top = Infinity;
+      let bottom = -Infinity;
+      this.simplify.forEach((point: Vector) => {
         const {
           x,
           y
-        } = _0x2a224d;
-        _0x303bc7 = Math.min(_0x303bc7, x);
-        _0x4fff1c = Math.max(_0x4fff1c, x);
-        _0x225d78 = Math.min(_0x225d78, y);
-        _0x4bf61d = Math.max(_0x4bf61d, y);
+        } = point;
+        left = Math.min(left, x);
+        right = Math.max(right, x);
+        top = Math.min(top, y);
+        bottom = Math.max(bottom, y);
       });
-      _0x303bc7 -= _0x3e57df;
-      _0x4fff1c += _0x3e57df;
-      _0x225d78 -= _0x3e57df;
-      _0x4bf61d += _0x3e57df;
+      left -= _0x3e57df;
+      right += _0x3e57df;
+      top -= _0x3e57df;
+      bottom += _0x3e57df;
       this.bounds = {
-        left: _0x303bc7,
-        right: _0x4fff1c,
-        top: _0x225d78,
-        bottom: _0x4bf61d
+        left: left,
+        right: right,
+        top: top,
+        bottom: bottom
       };
     }
   }
   const _0x98c0a2 = typeof performance !== "undefined" ? performance : Date;
   const now = _0x98c0a2.now.bind(_0x98c0a2);
-  const callback33 = (point: Vector, _0x48b647: number, _0x58ad92: number) => {
+  const createCirclePoints = (point: Vector, segmentCount: number, radius: number) => {
     if (typeof point.x !== "number") {
       throw Error("circle");
     }
-    const _0x25a8fb = Math.PI * 2;
-    const _0x2d7adf = _0x25a8fb / _0x48b647;
+    const fullCircleAngle = Math.PI * 2;
+    const angleStep = fullCircleAngle / segmentCount;
     const list4: Vector[] = [];
-    for (let _0x2c4aaf = 0; _0x2c4aaf < _0x25a8fb - _0x68ae04; _0x2c4aaf += _0x2d7adf) {
-      list4.push(new Vector(point.x + Math.cos(_0x2c4aaf) * _0x58ad92, point.y + Math.sin(_0x2c4aaf) * _0x58ad92));
+    for (let angle = 0; angle < fullCircleAngle - EPSILON; angle += angleStep) {
+      list4.push(new Vector(point.x + Math.cos(angle) * radius, point.y + Math.sin(angle) * radius));
     }
     return list4;
   };
-  const callback34 = (_0x13fdc1: string): Rgb => {
-    const _0xb42ed3 = parseInt(_0x13fdc1.substring(1, 3), 16);
-    const _0x4c451e = parseInt(_0x13fdc1.substring(3, 5), 16);
-    const _0x900965 = parseInt(_0x13fdc1.substring(5, 7), 16);
+  const hexToRgb = (hex: string): Rgb => {
+    const red = parseInt(hex.substring(1, 3), 16);
+    const green = parseInt(hex.substring(3, 5), 16);
+    const blue = parseInt(hex.substring(5, 7), 16);
     return {
-      r: _0xb42ed3,
-      g: _0x4c451e,
-      b: _0x900965
+      r: red,
+      g: green,
+      b: blue
     };
   };
-  const callback35 = ({
+  const rgbToHsv = ({
     r,
     g,
     b
   }: Rgb): Hsv => {
-    let _0x41c2d1;
-    let _0x3e79c6;
-    let _0x1e228e;
-    let _0x5d8573;
-    let _0x1dd657;
-    let _0xa339c4;
-    let _0x2b6087;
-    let _0x51507f;
-    let _0x42049b;
-    let _0x1c52d9;
-    let callback95;
-    let callback96;
-    _0x41c2d1 = r / 255;
-    _0x3e79c6 = g / 255;
-    _0x1e228e = b / 255;
-    _0x42049b = Math.max(_0x41c2d1, _0x3e79c6, _0x1e228e);
-    _0x1c52d9 = _0x42049b - Math.min(_0x41c2d1, _0x3e79c6, _0x1e228e);
-    callback95 = (_0x1e65f9: number) => (_0x42049b - _0x1e65f9) / 6 / _0x1c52d9 + 1 / 2;
-    callback96 = (_0x2ed2f4: number) => Math.round(_0x2ed2f4 * 100) / 100;
-    if (_0x1c52d9 == 0) {
-      _0x2b6087 = _0x51507f = 0;
+    let normRed;
+    let normGreen;
+    let normBlue;
+    let redHueComponent;
+    let greenHueComponent;
+    let blueHueComponent;
+    let hue;
+    let saturation;
+    let max;
+    let delta;
+    let computeHueComponent;
+    let round2;
+    normRed = r / 255;
+    normGreen = g / 255;
+    normBlue = b / 255;
+    max = Math.max(normRed, normGreen, normBlue);
+    delta = max - Math.min(normRed, normGreen, normBlue);
+    computeHueComponent = (channelValue: number) => (max - channelValue) / 6 / delta + 1 / 2;
+    round2 = (value: number) => Math.round(value * 100) / 100;
+    if (delta == 0) {
+      hue = saturation = 0;
     } else {
-      _0x51507f = _0x1c52d9 / _0x42049b;
-      _0x5d8573 = callback95(_0x41c2d1);
-      _0x1dd657 = callback95(_0x3e79c6);
-      _0xa339c4 = callback95(_0x1e228e);
-      if (_0x41c2d1 === _0x42049b) {
-        _0x2b6087 = _0xa339c4 - _0x1dd657;
-      } else if (_0x3e79c6 === _0x42049b) {
-        _0x2b6087 = 1 / 3 + _0x5d8573 - _0xa339c4;
-      } else if (_0x1e228e === _0x42049b) {
-        _0x2b6087 = 2 / 3 + _0x1dd657 - _0x5d8573;
+      saturation = delta / max;
+      redHueComponent = computeHueComponent(normRed);
+      greenHueComponent = computeHueComponent(normGreen);
+      blueHueComponent = computeHueComponent(normBlue);
+      if (normRed === max) {
+        hue = blueHueComponent - greenHueComponent;
+      } else if (normGreen === max) {
+        hue = 1 / 3 + redHueComponent - blueHueComponent;
+      } else if (normBlue === max) {
+        hue = 2 / 3 + greenHueComponent - redHueComponent;
       }
-      if (_0x2b6087 < 0) {
-        _0x2b6087 += 1;
-      } else if (_0x2b6087 > 1) {
-        _0x2b6087 -= 1;
+      if (hue < 0) {
+        hue += 1;
+      } else if (hue > 1) {
+        hue -= 1;
       }
     }
     return {
-      h: Math.round(_0x2b6087 * 360),
-      s: callback96(_0x51507f * 100),
-      v: callback96(_0x42049b * 100)
+      h: Math.round(hue * 360),
+      s: round2(saturation * 100),
+      v: round2(max * 100)
     };
   };
-  const callback36 = ({
+  const rgbToHex = ({
     r,
     g,
     b
   }: Rgb): string => {
-    const callback95 = (_0x42cf50: number) => {
-      const _0xb78e78 = _0x42cf50.toString(16);
-      if (_0xb78e78.length < 2) {
-        return "0" + _0xb78e78;
+    const channelToHex = (channel: number) => {
+      const hex = channel.toString(16);
+      if (hex.length < 2) {
+        return "0" + hex;
       } else {
-        return _0xb78e78;
+        return hex;
       }
     };
-    return "#" + callback95(r) + callback95(g) + callback95(b);
+    return "#" + channelToHex(r) + channelToHex(g) + channelToHex(b);
   };
-  const callback37 = ({
+  const hsvToRgb = ({
     h,
     s,
     v
   }: Hsv): Rgb => {
-    var _0x18605b;
-    var _0x1af8eb;
-    var _0xd7fdbe;
-    var _0x3ece4f;
-    var _0xb9da1b;
-    var _0x4d9923;
-    var _0x42369d;
-    var _0x5970af;
+    var red;
+    var green;
+    var blue;
+    var sector;
+    var fraction;
+    var p;
+    var q;
+    var t;
     h = Math.max(0, Math.min(360, h));
     s = Math.max(0, Math.min(100, s));
     v = Math.max(0, Math.min(100, v));
     s /= 100;
     v /= 100;
     if (s == 0) {
-      _0x18605b = _0x1af8eb = _0xd7fdbe = v;
+      red = green = blue = v;
       return {
-        r: Math.round(_0x18605b * 255),
-        g: Math.round(_0x1af8eb * 255),
-        b: Math.round(_0xd7fdbe * 255)
+        r: Math.round(red * 255),
+        g: Math.round(green * 255),
+        b: Math.round(blue * 255)
       };
     }
     h /= 60;
-    _0x3ece4f = Math.floor(h);
-    _0xb9da1b = h - _0x3ece4f;
-    _0x4d9923 = v * (1 - s);
-    _0x42369d = v * (1 - s * _0xb9da1b);
-    _0x5970af = v * (1 - s * (1 - _0xb9da1b));
-    switch (_0x3ece4f) {
+    sector = Math.floor(h);
+    fraction = h - sector;
+    p = v * (1 - s);
+    q = v * (1 - s * fraction);
+    t = v * (1 - s * (1 - fraction));
+    switch (sector) {
       case 0:
-        _0x18605b = v;
-        _0x1af8eb = _0x5970af;
-        _0xd7fdbe = _0x4d9923;
+        red = v;
+        green = t;
+        blue = p;
         break;
       case 1:
-        _0x18605b = _0x42369d;
-        _0x1af8eb = v;
-        _0xd7fdbe = _0x4d9923;
+        red = q;
+        green = v;
+        blue = p;
         break;
       case 2:
-        _0x18605b = _0x4d9923;
-        _0x1af8eb = v;
-        _0xd7fdbe = _0x5970af;
+        red = p;
+        green = v;
+        blue = t;
         break;
       case 3:
-        _0x18605b = _0x4d9923;
-        _0x1af8eb = _0x42369d;
-        _0xd7fdbe = v;
+        red = p;
+        green = q;
+        blue = v;
         break;
       case 4:
-        _0x18605b = _0x5970af;
-        _0x1af8eb = _0x4d9923;
-        _0xd7fdbe = v;
+        red = t;
+        green = p;
+        blue = v;
         break;
       default:
-        _0x18605b = v;
-        _0x1af8eb = _0x4d9923;
-        _0xd7fdbe = _0x42369d;
+        red = v;
+        green = p;
+        blue = q;
     }
     return {
-      r: Math.round(_0x18605b * 255),
-      g: Math.round(_0x1af8eb * 255),
-      b: Math.round(_0xd7fdbe * 255)
+      r: Math.round(red * 255),
+      g: Math.round(green * 255),
+      b: Math.round(blue * 255)
     };
   };
-  const callback38 = (_0x8d0fc2: Hsv) => callback36(callback37(_0x8d0fc2));
-  function callback39(_0x3d2196: number) {
-    if (_0x3d2196 > 0 && _0x3d2196 < 1) {
-      _0x3d2196 = Math.floor(_0x3d2196 * 1000000000);
+  const hsvToHex = (hsv: Hsv) => rgbToHex(hsvToRgb(hsv));
+  function createRandomGenerator(seed: number) {
+    if (seed > 0 && seed < 1) {
+      seed = Math.floor(seed * 1000000000);
     }
-    let callback95 = (_0x51efea: number) => {
-      _0x3d2196 = (_0x3d2196 * 69069 + 1) % 2147483648;
-      return _0x3d2196 % _0x51efea;
+    let nextInt = (bound: number) => {
+      seed = (seed * 69069 + 1) % 2147483648;
+      return seed % bound;
     };
-    let _0x564c00 = (_0x1dfc31?: number) => _0x1dfc31 == null ? callback95(1000000000) / 1000000000 : callback95(_0x1dfc31);
-    return _0x564c00;
+    let random = (_0x1dfc31?: number) => _0x1dfc31 == null ? nextInt(1000000000) / 1000000000 : nextInt(_0x1dfc31);
+    return random;
   }
-  function callback40(_0x52140a: string) {
-    return new Promise<HTMLImageElement>((callback95: (value: HTMLImageElement) => void) => {
+  function loadImage(src: string) {
+    return new Promise<HTMLImageElement>((resolve: (value: HTMLImageElement) => void) => {
       let element = document.createElement("img");
-      element.src = _0x52140a;
+      element.src = src;
       element.onload = function () {
-        callback95(element);
+        resolve(element);
       };
     });
   }
-  function callback41(_0x25a581: Hsv, _0x474ff8: number): Hsv {
+  function scaleValue(hsv: Hsv, factor: number): Hsv {
     let {
       h,
       s,
       v
-    } = _0x25a581;
-    v *= _0x474ff8;
+    } = hsv;
+    v *= factor;
     return {
       h: h,
       s: s,
       v: v
     };
   }
-  function callback42(_0xf88f07: Hsv, _0x5301b4: number): Hsv {
+  function brighten(hsv: Hsv, factor: number): Hsv {
     let {
       h,
       s,
       v
-    } = _0xf88f07;
-    const _0x7e5e36 = 100 - v;
-    v = Math.max(v * _0x5301b4, v + _0x5301b4 * _0x7e5e36 / 4);
+    } = hsv;
+    const headroom = 100 - v;
+    v = Math.max(v * factor, v + factor * headroom / 4);
     return {
       h: h,
       s: s,
       v: v
     };
   }
-  function callback43(_0x4e37c0: Hsv, _0x5b933a: number): Hsv {
+  function setValue(hsv: Hsv, value: number): Hsv {
     let {
       h,
       s,
       v
-    } = _0x4e37c0;
-    v = _0x5b933a;
+    } = hsv;
+    v = value;
     return {
       h: h,
       s: s,
       v: v
     };
   }
-  function callback44(_0x2134de: number) {
-    return _0x2134de.toFixed(2);
+  function formatFixed2(value: number) {
+    return value.toFixed(2);
   }
   class Border {
     center: Vector;
     polygon: Polygon;
     radius: number;
-    constructor(_0x47fbad: Polygon, _0x1797db: Vector, _0x11ec0c: number) {
-      if (!(_0x47fbad instanceof Polygon)) {}
-      this.polygon = _0x47fbad;
-      this.radius = _0x11ec0c;
-      this.center = _0x1797db;
+    constructor(polygon: Polygon, center: Vector, radius: number) {
+      if (!(polygon instanceof Polygon)) {}
+      this.polygon = polygon;
+      this.radius = radius;
+      this.center = center;
     }
-    static circular(_0x2a3b43: Vector, _0x453954: number, _0x3949f1: number) {
-      return new Border(new Polygon(callback33(_0x2a3b43, _0x453954, _0x3949f1)), _0x2a3b43, _0x3949f1);
+    static circular(center: Vector, _0x453954: number, radius: number) {
+      return new Border(new Polygon(createCirclePoints(center, _0x453954, radius)), center, radius);
     }
     intersections(segment: Segment): Intersection[] {
       {
@@ -1400,7 +1400,7 @@ interface ObjectConstructor {
           return [];
         }
       }
-      return this.polygon.intersections(segment).filter((_0x15d63f: Intersection) => !_0x15d63f.overlay);
+      return this.polygon.intersections(segment).filter((intersection: Intersection) => !intersection.overlay);
     }
   }
   class Territory {
@@ -1411,10 +1411,10 @@ interface ObjectConstructor {
     polygon: Polygon;
     square: number;
     unit: Unit;
-    constructor(_0x5b9270: Unit, _0x3ab68b: Vector[]) {
-      this.unit = _0x5b9270;
+    constructor(unit: Unit, points: Vector[]) {
+      this.unit = unit;
       this.merges = [];
-      this.polygon = new Polygon(_0x3ab68b);
+      this.polygon = new Polygon(points);
       this.polygon.commit(this);
       this.calcSquare();
       this.polygon.calcPath();
@@ -1431,10 +1431,10 @@ interface ObjectConstructor {
         start
       } = segments[0];
       this.path.moveTo(start.x, start.y);
-      for (let _0xa27888 = 1; _0xa27888 < length; _0xa27888++) {
+      for (let i = 1; i < length; i++) {
         const {
           start: point
-        } = segments[_0xa27888];
+        } = segments[i];
         this.path.lineTo(point.x, point.y);
       }
       this.path.closePath();
@@ -1446,31 +1446,31 @@ interface ObjectConstructor {
     remove() {
       this.polygon.remove();
     }
-    handleIntersect(_0x17a22b: Intersection, _0x7347fa: Unit, _0x3a81c5: Segment) {
-      if (_0x7347fa === this.unit) {
-        this.handleSelfIntersect(_0x17a22b, _0x7347fa, _0x3a81c5);
+    handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+      if (unit === this.unit) {
+        this.handleSelfIntersect(intersection, unit, segment);
       } else {
-        this.handleEnemyIntersect(_0x17a22b, _0x7347fa, _0x3a81c5);
+        this.handleEnemyIntersect(intersection, unit, segment);
       }
     }
-    handleSelfIntersect(_0x445601: Intersection, unit: Unit, segment: Segment) {
-      if (_0x445601.overlay) {
+    handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+      if (intersection.overlay) {
         return;
       }
       this.unit.onScoreChanged();
       const {
-        point: _0x38ac8f,
-        segment: _0xc0765
-      } = _0x445601;
+        point: intersectionPoint,
+        segment: intersectionSegment
+      } = intersection;
       if (unit.in === this) {
-        if (_0x445601.zn < 0) {
+        if (intersection.zn < 0) {
           return;
         }
-        if (_0x38ac8f.equal(segment.end)) {
+        if (intersectionPoint.equal(segment.end)) {
           return;
         }
-        this.polygon.insert(_0xc0765, _0x38ac8f);
-        unit.track.add(_0x38ac8f);
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
         unit.in = null;
         if (unit.schemes) {
           unit.schemes.out();
@@ -1479,17 +1479,17 @@ interface ObjectConstructor {
           unit.achievements.onOut();
         }
       } else {
-        if (_0x445601.zn > 0) {
+        if (intersection.zn > 0) {
           return;
         }
-        if (_0x38ac8f.equal(segment.start)) {
+        if (intersectionPoint.equal(segment.start)) {
           return;
         }
         if (unit.in) {
           return;
         }
-        this.polygon.insert(_0xc0765, _0x38ac8f);
-        unit.track.add(_0x38ac8f);
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
         if (unit.track.polyline.end) {
           this.unit.game.handleReturn(unit);
         }
@@ -1497,35 +1497,35 @@ interface ObjectConstructor {
         unit.track.remove();
       }
     }
-    handleEnemyIntersect(_0x1cb2ac: Intersection, unit: Unit, _0x14e0ee: Segment) {
+    handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       const {
-        point: _0x59ff3e,
-        segment: _0x323756
-      } = _0x1cb2ac;
+        point: intersectionPoint,
+        segment: intersectionSegment
+      } = intersection;
       if (unit.in === this) {
-        if (_0x1cb2ac.zn < 0) {
+        if (intersection.zn < 0) {
           return;
         }
-        this.polygon.insert(_0x323756, _0x59ff3e);
-        unit.track.add(_0x59ff3e);
-        unit.track.intersect(_0x1cb2ac, this, false);
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
+        unit.track.intersect(intersection, this, false);
         unit.in = null;
       } else {
-        if (_0x1cb2ac.zn > 0) {
+        if (intersection.zn > 0) {
           return;
         }
-        if (_0x1cb2ac.overlay) {
+        if (intersection.overlay) {
           return;
         }
-        if (_0x59ff3e.equal(_0x14e0ee.end)) {
+        if (intersectionPoint.equal(segment.end)) {
           return;
         }
         if (unit.in) {
           return;
         }
-        this.polygon.insert(_0x323756, _0x59ff3e);
-        unit.track.add(_0x59ff3e);
-        unit.track.intersect(_0x1cb2ac, this, true);
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
+        unit.track.intersect(intersection, this, true);
         unit.in = this;
       }
     }
@@ -1537,16 +1537,16 @@ interface ObjectConstructor {
     polyline: Polyline;
     simplyline: Vector[];
     unit: Unit;
-    constructor(_0x245895: Unit) {
+    constructor(unit: Unit) {
       this.polyline = new Polyline(this);
       this.simplyline = [];
-      this.unit = _0x245895;
+      this.unit = unit;
       this.length = 0;
       this.intersections = [];
       this.isTrack = true;
     }
-    add(_0xafeb98: Vector) {
-      if (this.polyline.add2(_0xafeb98)) {
+    add(point: Vector) {
+      if (this.polyline.add2(point)) {
         const length2 = this.polyline.segments.length;
         if (length2 > 0) {
           const segment = this.polyline.segments[length2 - 1];
@@ -1559,32 +1559,32 @@ interface ObjectConstructor {
           length
         } = simplyline;
         if (length > 2) {
-          const _0x57e4cc = simplyline[length - 2];
-          if (_0xafeb98.distance2(_0x57e4cc) < _0x2069c7) {
-            simplyline[length - 1] = _0xafeb98;
+          const previousPoint = simplyline[length - 2];
+          if (point.distance2(previousPoint) < _0x2069c7) {
+            simplyline[length - 1] = point;
           } else {
-            simplyline.push(_0xafeb98);
+            simplyline.push(point);
           }
         } else {
-          simplyline.push(_0xafeb98);
+          simplyline.push(point);
         }
       }
     }
-    intersect(_0x19b8cd: Intersection, _0x3142da: ShapeOwner, _0x463f2a: boolean) {
-      const _0x10c5e0 = this.intersections.find((_0x36bb8e: TrailIntersectionRecord) => _0x36bb8e.point.equal(_0x19b8cd.point));
-      if (_0x10c5e0) {
-        _0x10c5e0.intersections.push({
-          intersection: _0x19b8cd,
-          base: _0x3142da,
-          enter: _0x463f2a
+    intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
+      const existingRecord = this.intersections.find((record: TrailIntersectionRecord) => record.point.equal(intersection.point));
+      if (existingRecord) {
+        existingRecord.intersections.push({
+          intersection: intersection,
+          base: base,
+          enter: enter
         });
       } else {
         this.intersections.push({
-          point: _0x19b8cd.point,
+          point: intersection.point,
           intersections: [{
-            intersection: _0x19b8cd,
-            base: _0x3142da,
-            enter: _0x463f2a
+            intersection: intersection,
+            base: base,
+            enter: enter
           }]
         });
       }
@@ -1596,13 +1596,13 @@ interface ObjectConstructor {
       this.simplyline = [];
       this.intersections = [];
     }
-    handleIntersect(_0x1d2561: Intersection, unit: Unit, _0x413bce: Segment) {
+    handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       let game = unit.game;
       if (unit === this.unit) {
-        if (_0x1d2561.overlay === true || _0x1d2561.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
-          this.unit.position = _0x1d2561.point;
-          const _0x75cb21 = game.border.radius - unit.position.distance(game.space.center) < 5 ? _0x46f91a : _0x1466e3;
-          game.kill(this.unit, undefined, _0x75cb21);
+        if (intersection.overlay === true || intersection.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
+          this.unit.position = intersection.point;
+          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? _0x46f91a : _0x1466e3;
+          game.kill(this.unit, undefined, killReason);
         }
       } else {
         game.kill(this.unit, unit, _0xdf8741);
@@ -1614,62 +1614,62 @@ interface ObjectConstructor {
     payload: Bot;
     state: string;
     states: BotStates;
-    constructor(_0xd415fd: BotStates, _0x36b757: string, _0x208008: Bot) {
-      this.states = _0xd415fd;
+    constructor(states: BotStates, initialState: string, payload: Bot) {
+      this.states = states;
       this.state = "";
-      this.payload = _0x208008;
+      this.payload = payload;
       this.context = {};
-      this.change(_0x36b757);
+      this.change(initialState);
     }
-    change(_0x4a1b80: string) {
-      const _0x238b4d = this.states[this.state];
-      if (_0x238b4d && _0x238b4d.leave) {
-        this.context = _0x238b4d.leave(this.payload, this.context) || this.context;
+    change(stateName: string) {
+      const currentState = this.states[this.state];
+      if (currentState && currentState.leave) {
+        this.context = currentState.leave(this.payload, this.context) || this.context;
       }
-      const _0x2c8e0b = this.states[_0x4a1b80];
-      if (_0x2c8e0b) {
-        this.state = _0x4a1b80;
-        this.context = _0x2c8e0b.enter && _0x2c8e0b.enter(this.payload, this.context) || this.context;
+      const nextState = this.states[stateName];
+      if (nextState) {
+        this.state = stateName;
+        this.context = nextState.enter && nextState.enter(this.payload, this.context) || this.context;
         this.update();
       }
     }
     update() {
-      const _0x165fc7 = this.states[this.state];
-      const _0x404183 = _0x165fc7 && _0x165fc7.update(this.payload, this.context);
-      if (_0x404183) {
-        this.change(_0x404183);
+      const currentState = this.states[this.state];
+      const nextStateName = currentState && currentState.update(this.payload, this.context);
+      if (nextStateName) {
+        this.change(nextStateName);
       }
     }
   }
-  const callback45 = (unit: Bot) => {
+  const isPlayerTrailInRange = (unit: Bot) => {
     const {
       player
     } = unit.game;
     if (player) {
-      const _0x4ac939 = Math.max(unit.vrange, player.vrange);
-      const _0x4c70de = _0x4ac939 * unit.aggro * 0.75;
+      const maxVrange = Math.max(unit.vrange, player.vrange);
+      const aggroRange = maxVrange * unit.aggro * 0.75;
       const {
         simplyline
       } = player.track;
       for (let i2 = 0, length = simplyline.length; i2 < length; i2++) {
-        if (unit.position.distance2(simplyline[i2]) < _0x4c70de * _0x4c70de) {
+        if (unit.position.distance2(simplyline[i2]) < aggroRange * aggroRange) {
           return true;
         }
       }
     }
   };
-  const callback46 = (unit: Bot) => {
+  const isBotInDanger = (unit: Bot) => {
     if (unit.in === unit.base) {
       return false;
     }
     return unit.maxDanger > unit.def * 0.8;
   };
-  var _0x3d8162: BotStates = {
+  var botStates: BotStates = {
     idle: {
       enter: function () {
         return {};
       },
-      update: function (unit, _0xe0c32) {
+      update: function (unit, context) {
         if (unit.in === unit.base) {
           if (unit.game.rng() < 0.25) {
             return "cut";
@@ -1682,73 +1682,73 @@ interface ObjectConstructor {
       }
     },
     capital: {
-      update: function (unit, _0x523554) {
+      update: function (unit, context) {
         if (unit.in !== unit.base) {
           return "capture";
         }
-        const _0x52c589 = unit.position.distance(unit.game.space.center);
-        const _0x13ff07 = unit.game.border.radius - _0x52c589;
-        unit.target = _0x523554.point;
+        const distanceToCenter = unit.position.distance(unit.game.space.center);
+        const distanceToBorder = unit.game.border.radius - distanceToCenter;
+        unit.target = context.point;
       }
     },
     cut: {
       enter: function (unit) {
         const vector = unit.position.clone().sub(unit.game.space.center);
-        const _0x4b04b0 = vector.magnitude();
+        const magnitude = vector.magnitude();
         const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
         const list4 = unit.base.polygon.intersections(segment);
-        const _0x1ad216: BotStateContext = {};
+        const context: BotStateContext = {};
         if (!list4.length) {
           console.log("bot.position", unit.position.x, unit.position.y);
           console.log("intersections", list4);
         }
-        list4.sort((_0x1800ec, _0xfa7457) => _0x1800ec.distance - _0xfa7457.distance);
-        _0x1ad216.exitPoint = list4[0] && list4[0].point;
-        return _0x1ad216;
+        list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
+        context.exitPoint = list4[0] && list4[0].point;
+        return context;
       },
-      update: function (unit, _0x3bf6d4) {
+      update: function (unit, context) {
         if (unit.in !== unit.base) {
           return "capture";
         }
-        const _0x5636af = unit.position.distance(unit.game.space.center);
-        const _0x4daa27 = unit.game.border.radius - _0x5636af;
-        if (!_0x3bf6d4.exitPoint || _0x4daa27 < 1) {
+        const distanceToCenter = unit.position.distance(unit.game.space.center);
+        const distanceToBorder = unit.game.border.radius - distanceToCenter;
+        if (!context.exitPoint || distanceToBorder < 1) {
           return "idle";
         }
-        unit.target = _0x3bf6d4.exitPoint;
+        unit.target = context.exitPoint;
       }
     },
     exit: {
       enter: function (unit) {
-        const _0x1e64c4: BotStateContext = {};
-        let _0x778392 = Infinity;
-        let _0x16aea8;
+        const context: BotStateContext = {};
+        let nearestDistance = Infinity;
+        let bestIndex;
         const {
           length
         } = unit.base.polygon.segments;
         let unitSpeed = unit.game.config.unitSpeed;
-        _0x1e64c4.minDistance = unitSpeed;
-        while (_0x16aea8 === undefined) {
+        context.minDistance = unitSpeed;
+        while (bestIndex === undefined) {
           for (let i2 = 0; i2 < 1; i2++) {
-            const _0x6b2a20 = ~~(unit.game.rng() * length);
-            const start = unit.base.polygon.segments[_0x6b2a20].start;
-            const _0x4166ee = start.distance(unit.position);
-            if (_0x4166ee < _0x778392 && _0x4166ee > unitSpeed) {
-              _0x778392 = _0x4166ee;
-              _0x16aea8 = _0x6b2a20;
+            const segmentIndex = ~~(unit.game.rng() * length);
+            const start = unit.base.polygon.segments[segmentIndex].start;
+            const distance = start.distance(unit.position);
+            if (distance < nearestDistance && distance > unitSpeed) {
+              nearestDistance = distance;
+              bestIndex = segmentIndex;
             }
           }
           unitSpeed *= 0.75;
         }
-        _0x1e64c4.exitPoint = unit.base.polygon.segments[_0x16aea8].start;
-        return _0x1e64c4;
+        context.exitPoint = unit.base.polygon.segments[bestIndex].start;
+        return context;
       },
-      update: function (unit, _0x22e93a) {
+      update: function (unit, context) {
         if (unit.in !== unit.base) {
-          _0x22e93a = {};
+          context = {};
           return "capture";
         }
-        if (callback45(unit)) {
+        if (isPlayerTrailInRange(unit)) {
           return "attack";
         }
         const {
@@ -1756,30 +1756,30 @@ interface ObjectConstructor {
         } = unit.base.polygon.segments;
         const {
           minDistance
-        } = _0x22e93a;
-        const _0x51571e = ~~(unit.game.rng() * length);
-        const start = unit.base.polygon.segments[_0x51571e].start;
-        const _0x34048a = start.distance(unit.position);
-        let _0x2979ec = _0x22e93a.exitPoint.distance(unit.position);
-        if (_0x34048a > minDistance && _0x34048a < _0x2979ec) {
-          _0x22e93a.exitPoint = start;
+        } = context;
+        const segmentIndex = ~~(unit.game.rng() * length);
+        const start = unit.base.polygon.segments[segmentIndex].start;
+        const distance = start.distance(unit.position);
+        let exitPointDistance = context.exitPoint.distance(unit.position);
+        if (distance > minDistance && distance < exitPointDistance) {
+          context.exitPoint = start;
         } else {
-          if (!Object.values(_0x22e93a.exitPoint.segments).some((_0x55de55) => _0x55de55 && _0x55de55.shape === unit.base.polygon)) {
-            _0x22e93a.exitPoint = start;
+          if (!Object.values(context.exitPoint.segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
+            context.exitPoint = start;
           }
           if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
-            _0x22e93a.exitPoint = start;
+            context.exitPoint = start;
           }
         }
-        unit.target = _0x22e93a.exitPoint;
+        unit.target = context.exitPoint;
       }
     },
     capture: {
-      update: function (unit, _0x2e9b3f) {
+      update: function (unit, context) {
         if (unit.in === unit.base) {
           return "idle";
         }
-        if (callback45(unit)) {
+        if (isPlayerTrailInRange(unit)) {
           return "attack";
         }
         const {
@@ -1791,112 +1791,112 @@ interface ObjectConstructor {
         const {
           radius
         } = unit.game.border;
-        const _0x2052a3 = unit.position.distance(center);
-        const _0x4dd06d = radius - _0x2052a3;
-        if (unit.baseDistance < unitSpeed / 4 && unit.track.length > unitSpeed * 2 && _0x4dd06d > 10) {
+        const distanceToCenter = unit.position.distance(center);
+        const distanceToBorder = radius - distanceToCenter;
+        if (unit.baseDistance < unitSpeed / 4 && unit.track.length > unitSpeed * 2 && distanceToBorder > 10) {
           return "back";
         }
-        const _0x1ff286 = 25;
-        const _0x3e1504 = _0x1ff286 / 2;
-        const _0x3cd5f8 = _0x3e1504 * _0x3e1504;
-        if (unit.position.distance2(unit.target) < _0x3cd5f8 && _0x4dd06d > _0x1ff286) {
+        const stepDistance = 25;
+        const halfStep = stepDistance / 2;
+        const halfStepSquared = halfStep * halfStep;
+        if (unit.position.distance2(unit.target) < halfStepSquared && distanceToBorder > stepDistance) {
           return;
         }
-        let _0x35b163 = 0;
-        for (let _0x2f4464 = 1, length = unit.track.simplyline.length; _0x2f4464 < length; _0x2f4464++) {
-          const point2 = unit.track.simplyline[_0x2f4464 - 1];
-          const point3 = unit.track.simplyline[_0x2f4464];
-          _0x35b163 += (point2.x + point3.x) * (point3.y - point2.y);
+        let signedArea = 0;
+        for (let i = 1, length = unit.track.simplyline.length; i < length; i++) {
+          const point2 = unit.track.simplyline[i - 1];
+          const point3 = unit.track.simplyline[i];
+          signedArea += (point2.x + point3.x) * (point3.y - point2.y);
         }
         let point = unit.track.simplyline[unit.track.simplyline.length - 1];
         let baseNearestPoint = unit.baseNearestPoint;
-        _0x35b163 += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
+        signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
         point = unit.baseNearestPoint;
         baseNearestPoint = unit.track.simplyline[0];
-        _0x35b163 += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
-        const _0x11130c = Math.sign(_0x35b163);
-        _0x35b163 = Math.abs(_0x35b163 / 2);
-        unit.capSquare = _0x35b163;
+        signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
+        const windingSign = Math.sign(signedArea);
+        signedArea = Math.abs(signedArea / 2);
+        unit.capSquare = signedArea;
         const {
           def,
           greed,
           safety
         } = unit;
-        const _0x212344 = Math.PI * 2 * unit.vrange * greed;
-        const _0x422057 = unit.track.length / _0x212344;
-        const _0x3d5796 = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
-        const _0x34bce9 = unit.capSquare / _0x3d5796;
-        const _0x4b3e7c = unit.vrange * callback23(3, 0.7, safety);
-        const _0x58b3d5 = unit.position.distance(unit.track.polyline.start) / _0x4b3e7c;
-        const _0x557094 = unit.unitToTrackDistances.reduce((_0x3d7368, _0x2643b4) => Math.min(_0x2643b4.trackDistance, _0x3d7368), Infinity) * 0.8 * def;
-        const _0x33222d = unit.baseDistance / _0x557094;
-        const _0x30c878 = Math.max(_0x422057, _0x34bce9, _0x58b3d5, _0x33222d);
-        if (_0x30c878 > 1) {
+        const circumference = Math.PI * 2 * unit.vrange * greed;
+        const lengthRatio = unit.track.length / circumference;
+        const areaThreshold = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
+        const areaRatio = unit.capSquare / areaThreshold;
+        const safeDistance = unit.vrange * lerp(3, 0.7, safety);
+        const startDistanceRatio = unit.position.distance(unit.track.polyline.start) / safeDistance;
+        const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * 0.8 * def;
+        const baseDistanceRatio = unit.baseDistance / minTrackDistance;
+        const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
+        if (maxRatio > 1) {
           return "back";
         }
-        const _0x5318d4 = unit.vrange * greed;
-        const _0x3cc1e4 = unit.distanceDanger * 0.6 * def;
-        const _0x3447ec = _0x5318d4;
-        const _0x1c2e20 = _0x3447ec * 0.8;
-        const _0x353911 = unit.target.clone().sub(unit.position);
-        let _0x377b4d;
-        if (unit.baseDistance > _0x3447ec || _0x30c878 > 0.75) {
+        const greedDistance = unit.vrange * greed;
+        const dangerDistance = unit.distanceDanger * 0.6 * def;
+        const approachDistance = greedDistance;
+        const retreatDistance = approachDistance * 0.8;
+        const toTarget = unit.target.clone().sub(unit.position);
+        let steerVector;
+        if (unit.baseDistance > approachDistance || maxRatio > 0.75) {
           unit.aspect = "приближение";
-          _0x377b4d = unit.baseNearestPointNormal.clone().mulScalar(_0x1ff286).rotate((Math.PI / 2 + Math.PI / 4) * _0x11130c);
-        } else if (unit.baseDistance < _0x1c2e20) {
+          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate((Math.PI / 2 + Math.PI / 4) * windingSign);
+        } else if (unit.baseDistance < retreatDistance) {
           unit.aspect = "отдаление";
-          let _0x3d0139 = Math.PI / 4;
-          const _0xcd291b = unit.track.length / _0x1c2e20;
-          if (_0xcd291b < 1) {
+          let angle = Math.PI / 4;
+          const trackRatio = unit.track.length / retreatDistance;
+          if (trackRatio < 1) {
             unit.aspect = "отстрел";
-            _0x3d0139 = callback23(Math.PI / 2 * greed, 0, _0xcd291b);
+            angle = lerp(Math.PI / 2 * greed, 0, trackRatio);
           }
-          _0x377b4d = unit.baseNearestPointNormal.clone().mulScalar(_0x1ff286).rotate((Math.PI / 2 - _0x3d0139) * _0x11130c);
+          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate((Math.PI / 2 - angle) * windingSign);
         } else {
           unit.aspect = "проход";
-          _0x377b4d = unit.baseNearestPointNormal.clone().mulScalar(_0x1ff286).rotate(Math.PI / 2 * _0x11130c);
+          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate(Math.PI / 2 * windingSign);
           unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 3;
         }
         unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 1;
-        if (_0x4dd06d < _0x1ff286 * 2 && _0x4dd06d > _0x1ff286 / 4 && _0x4dd06d < unit.position.clone().add(_0x377b4d).distance(center)) {
-          const _0xff9dec = unit.position.clone().sub(center);
-          const _0x5e4d44 = _0xff9dec.angle(_0x353911);
-          const _0x4bb4ab = Math.sign(_0x5e4d44);
-          let _0xc0834f = _0xff9dec.angle(_0x377b4d);
-          let _0x275a46 = Math.sign(_0xc0834f);
-          if (_0x4bb4ab !== _0x275a46) {
-            _0xc0834f *= -1;
-            _0x275a46 *= -1;
-            _0x377b4d.rotate(_0xc0834f * 2);
+        if (distanceToBorder < stepDistance * 2 && distanceToBorder > stepDistance / 4 && distanceToBorder < unit.position.clone().add(steerVector).distance(center)) {
+          const fromCenter = unit.position.clone().sub(center);
+          const targetAngle = fromCenter.angle(toTarget);
+          const targetAngleSign = Math.sign(targetAngle);
+          let steerAngle = fromCenter.angle(steerVector);
+          let steerAngleSign = Math.sign(steerAngle);
+          if (targetAngleSign !== steerAngleSign) {
+            steerAngle *= -1;
+            steerAngleSign *= -1;
+            steerVector.rotate(steerAngle * 2);
           }
-          const _0x26e63b = Math.abs(_0xc0834f);
-          if (_0x26e63b < Math.PI / 4) {
-            _0x377b4d.rotate((Math.PI / 4 - _0x26e63b) * _0x275a46);
+          const steerAngleAbs = Math.abs(steerAngle);
+          if (steerAngleAbs < Math.PI / 4) {
+            steerVector.rotate((Math.PI / 4 - steerAngleAbs) * steerAngleSign);
           }
         }
-        unit.target = unit.position.clone().add(_0x377b4d);
-        if (unit.target.distance(center) > radius + _0x1ff286 * 0.75) {
-          const _0x19ab7d = unit.position.clone().sub(center);
-          const _0x5d6a0e = _0x19ab7d.angle(_0x353911);
-          const _0xdd44e6 = _0x2052a3;
-          const _0xa28a7b = (radius * radius - _0x1ff286 * _0x1ff286 + _0xdd44e6 * _0xdd44e6) / (_0xdd44e6 * 2);
-          const _0x2fc3da = Math.sqrt(radius * radius - _0xa28a7b * _0xa28a7b);
-          const _0x5b0752 = unit.position.clone().sub(center).normalize();
-          const _0x58fa5c = center.clone().add(_0x5b0752.clone().mulScalar(_0xa28a7b));
-          _0x377b4d = _0x5b0752.clone().rotate(Math.PI / 2 * _0x5d6a0e).rotate(Math.PI / 8 * -_0x5d6a0e).mulScalar(_0x2fc3da);
-          unit.target = _0x58fa5c.clone().add(_0x377b4d);
-        } else if (unit.target.distance(center) > radius && unit.target.distance(center) < radius + _0x1ff286 * 0.5) {}
+        unit.target = unit.position.clone().add(steerVector);
+        if (unit.target.distance(center) > radius + stepDistance * 0.75) {
+          const fromCenter2 = unit.position.clone().sub(center);
+          const targetAngle2 = fromCenter2.angle(toTarget);
+          const _0xdd44e6 = distanceToCenter;
+          const chordProjection = (radius * radius - stepDistance * stepDistance + _0xdd44e6 * _0xdd44e6) / (_0xdd44e6 * 2);
+          const chordHalfLength = Math.sqrt(radius * radius - chordProjection * chordProjection);
+          const centerDirection = unit.position.clone().sub(center).normalize();
+          const projectionPoint = center.clone().add(centerDirection.clone().mulScalar(chordProjection));
+          steerVector = centerDirection.clone().rotate(Math.PI / 2 * targetAngle2).rotate(Math.PI / 8 * -targetAngle2).mulScalar(chordHalfLength);
+          unit.target = projectionPoint.clone().add(steerVector);
+        } else if (unit.target.distance(center) > radius && unit.target.distance(center) < radius + stepDistance * 0.5) {}
       }
     },
     back: {
-      enter: function (_0x47c739, _0x2d6a22) {},
-      update: function (unit, _0x151891) {
+      enter: function (unit, context) {},
+      update: function (unit, context) {
         if (unit.in === unit.base) {
           return "idle";
         }
-        unit.smoothness = callback23(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * 4)), Math.max(1, unit.maxDanger));
-        const _0x396076 = unit.game.border.radius - unit.position.distance(unit.game.space.center);
-        if (_0x396076 < 20) {
+        unit.smoothness = lerp(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * 4)), Math.max(1, unit.maxDanger));
+        const distanceToBorder = unit.game.border.radius - unit.position.distance(unit.game.space.center);
+        if (distanceToBorder < 20) {
           unit.smoothness = 1;
         }
         unit.target = unit.baseNearestPoint;
@@ -1904,7 +1904,7 @@ interface ObjectConstructor {
     },
     attack: {
       enter: () => ({}),
-      update: function (unit, _0x23beb9) {
+      update: function (unit, context) {
         const {
           player
         } = unit.game;
@@ -1917,33 +1917,33 @@ interface ObjectConstructor {
         if (!simplyline.length) {
           return "idle";
         }
-        if (player.track.length < unit.game.config.botAttackTrackLength && callback46(unit)) {
+        if (player.track.length < unit.game.config.botAttackTrackLength && isBotInDanger(unit)) {
           return "idle";
         }
-        let _0x2f1e36 = 0;
-        let _0x2041ee = Infinity;
-        simplyline.forEach((_0x227e96, _0x49a73a) => {
-          const _0x404776 = unit.position.distance2(_0x227e96);
-          if (_0x404776 < _0x2041ee) {
-            _0x2041ee = _0x404776;
-            _0x2f1e36 = _0x49a73a;
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
+        simplyline.forEach((point, index) => {
+          const distanceSquared = unit.position.distance2(point);
+          if (distanceSquared < nearestDistance) {
+            nearestDistance = distanceSquared;
+            nearestIndex = index;
           }
         });
-        unit.target = simplyline[_0x2f1e36];
+        unit.target = simplyline[nearestIndex];
       }
     }
   };
-  const callback47 = () => {
+  const createParticleSquarePath = () => {
     const path2D = new Path2D();
-    const _0x522de8 = 1;
-    path2D.moveTo(-_0x522de8, -_0x522de8);
-    path2D.lineTo(_0x522de8, -_0x522de8);
-    path2D.lineTo(_0x522de8, _0x522de8);
-    path2D.lineTo(-_0x522de8, _0x522de8);
+    const halfSize = 1;
+    path2D.moveTo(-halfSize, -halfSize);
+    path2D.lineTo(halfSize, -halfSize);
+    path2D.lineTo(halfSize, halfSize);
+    path2D.lineTo(-halfSize, halfSize);
     path2D.closePath();
     return path2D;
   };
-  const _0x158cbc = callback47();
+  const particleSquarePath = createParticleSquarePath();
   class Particle {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
     // callback48 reassigns them to scalar speeds on already-expiring particles (time===1),
@@ -1959,22 +1959,22 @@ interface ObjectConstructor {
     time: number;
     velocity: Vector | number;
     vscale: number;
-    constructor(_0x5bb711: Unit | null, _0x434c5e: ParticleColor, _0x3903b4: Vector, _0x3ba3e3: Vector | number, _0x1f1a94: Vector | number | null, _0x5c0d11: number, _0x1854e9: number, _0x5cadc6: number, _0x3e565f: number, _0x529480?: (particle: Particle) => void) {
-      this.target = _0x5bb711;
-      this.color = _0x434c5e;
-      this.position = _0x3903b4;
-      this.velocity = _0x3ba3e3;
-      this.acceleration = _0x1f1a94;
-      this.rotate = _0x5c0d11;
-      this.scale = _0x1854e9;
-      this.vscale = _0x5cadc6;
+    constructor(target: Unit | null, color: ParticleColor, position: Vector, velocity: Vector | number, acceleration: Vector | number | null, rotate: number, scale: number, vscale: number, time: number, callback?: (particle: Particle) => void) {
+      this.target = target;
+      this.color = color;
+      this.position = position;
+      this.velocity = velocity;
+      this.acceleration = acceleration;
+      this.rotate = rotate;
+      this.scale = scale;
+      this.vscale = vscale;
       this.rotation = Math.random() * Math.PI * 2;
-      this.time = _0x3e565f;
-      this.fn = _0x529480 || null;
+      this.time = time;
+      this.fn = callback || null;
     }
-    update(_0x146c01: number) {
-      const _0xc9a712 = _0x146c01 / 1000;
-      this.time -= _0x146c01;
+    update(deltaTimeMilliseconds: number) {
+      const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
+      this.time -= deltaTimeMilliseconds;
       if (this.time <= 0) {
         if (this.fn) {
           this.fn(this);
@@ -1982,17 +1982,17 @@ interface ObjectConstructor {
         return;
       }
       if (typeof this.velocity !== "number") {
-        this.position.x += this.velocity.x * _0xc9a712;
-        this.position.y += this.velocity.y * _0xc9a712;
+        this.position.x += this.velocity.x * deltaTimeSeconds;
+        this.position.y += this.velocity.y * deltaTimeSeconds;
         if (this.acceleration && typeof this.acceleration !== "number") {
-          this.velocity.x += this.acceleration.x * _0xc9a712;
-          this.velocity.y += this.acceleration.y * _0xc9a712;
+          this.velocity.x += this.acceleration.x * deltaTimeSeconds;
+          this.velocity.y += this.acceleration.y * deltaTimeSeconds;
         }
       }
-      this.rotation += this.rotate * _0xc9a712;
-      this.scale += this.vscale * _0xc9a712;
+      this.rotation += this.rotate * deltaTimeSeconds;
+      this.scale += this.vscale * deltaTimeSeconds;
     }
-    draw(_0x456e87: CanvasRenderingContext2D) {
+    draw(context: CanvasRenderingContext2D) {
       const {
         x,
         y
@@ -2002,67 +2002,67 @@ interface ObjectConstructor {
         color,
         scale
       } = this;
-      let _0x3f81cb = _0x456e87.getTransform();
-      _0x456e87.translate(x, y);
-      _0x456e87.rotate(rotation);
-      _0x456e87.scale(scale, scale);
+      let savedTransform = context.getTransform();
+      context.translate(x, y);
+      context.rotate(rotation);
+      context.scale(scale, scale);
       if (typeof color === "string") {
-        if (_0x456e87.fillStyle !== color) {
-          _0x456e87.fillStyle = color;
+        if (context.fillStyle !== color) {
+          context.fillStyle = color;
         }
-        _0x456e87.fill(_0x158cbc);
+        context.fill(particleSquarePath);
       } else {
-        _0x456e87.scale(1 / 20, 1 / 20);
-        _0x456e87.drawImage(color, -color.width / 2, -color.height / 2);
+        context.scale(1 / 20, 1 / 20);
+        context.drawImage(color, -color.width / 2, -color.height / 2);
       }
-      _0x456e87.setTransform(_0x3f81cb);
+      context.setTransform(savedTransform);
     }
-    static nom(unit: Unit, segment: Segment, _0xea069b: number) {
-      const _0x3a2aaf = Math.sign(Math.random() - 0.5);
-      const _0x44b37d = unit.skin.container.maxScale * _0xea069b;
+    static nom(unit: Unit, segment: Segment, scale: number) {
+      const randomSign = Math.sign(Math.random() - 0.5);
+      const scaledMaxScale = unit.skin.container.maxScale * scale;
       const {
         unitSpeed,
         baseHeight
       } = unit.game.config;
-      const _0x26ad61 = segment.vector.clone().normalize().rotate(_0x3a2aaf * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
-      const _0x4054ee = segment.vector.clone().rotate(Math.PI / 2).normalize().mulScalar(_0x3a2aaf * Math.random() * _0x44b37d / 2);
-      const _0x32752a = segment.vector.clone().normalize().mulScalar(_0x44b37d / 2);
-      const _0x57d35b = segment.vector.clone().normalize().mulScalar(unitSpeed * -6).rotate(_0x3a2aaf * Math.random() * (Math.PI / 10));
+      const velocity = segment.vector.clone().normalize().rotate(randomSign * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
+      const perpendicularOffset = segment.vector.clone().rotate(Math.PI / 2).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / 2);
+      const forwardOffset = segment.vector.clone().normalize().mulScalar(scaledMaxScale / 2);
+      const acceleration = segment.vector.clone().normalize().mulScalar(unitSpeed * -6).rotate(randomSign * Math.random() * (Math.PI / 10));
       const {
         particles
       } = unit.in.unit.skin.colors;
-      const _0x3f59c3 = 0.75 + Math.random() * 0.5;
-      const particle = new Particle(null, particles[~~(Math.random() * particles.length)], segment.start.clone().add(_0x4054ee).add(_0x32752a).add(new Vector(0, -baseHeight)), _0x26ad61, _0x57d35b, Math.PI + Math.random() * Math.PI, _0x3f59c3, _0x3f59c3 * -2, 300);
+      const scale2 = 0.75 + Math.random() * 0.5;
+      const particle = new Particle(null, particles[~~(Math.random() * particles.length)], segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * -2, 300);
       return particle;
     }
   }
-  function callback48(unit: Unit, _0x46b899: Unit | null, list4: Segment[], _0x5cc3d8?: boolean) {
+  function spawnScoreParticles(unit: Unit, scoreCollector: Unit | null, list4: Segment[], shouldTransferScore?: boolean) {
     let game = unit.game;
     if (game.visible) {
-      const _0x48cafa = unit.schemes.scores();
+      const totalScores = unit.schemes.scores();
       let i2 = 0;
-      let _0x20affe = 0;
-      let _0x3abe5c = 0;
+      let accumulatedDistance = 0;
+      let scorePerParticle = 0;
       list4.forEach((segment: Segment) => {
-        _0x20affe += segment.vector.magnitude();
-        if (_0x20affe > 5) {
-          _0x20affe = 0;
-          const _0x4feda2 = segment.vector.clone().normalize().rotate(Math.sign(Math.random() - 0.5) * Math.PI / 2).mulScalar(25 + Math.random() * 100);
+        accumulatedDistance += segment.vector.magnitude();
+        if (accumulatedDistance > 5) {
+          accumulatedDistance = 0;
+          const velocity = segment.vector.clone().normalize().rotate(Math.sign(Math.random() - 0.5) * Math.PI / 2).mulScalar(25 + Math.random() * 100);
           if (Math.random() > 0.25) {
-            _0x4feda2.mulScalar(0.1);
+            velocity.mulScalar(0.1);
           }
-          const _0x59405c = (_0x5cc3d8 ? 3 : 1) * (1 + Math.random() * 0.5);
-          const _0x48264b = 500 + Math.random() * 500;
-          const _0x4ccbe0 = -_0x59405c * 0.7 * (1000 / _0x48264b);
-          const particle = new Particle(null, unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)], segment.start.clone(), _0x4feda2, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), _0x59405c, _0x4ccbe0, _0x48264b, (particle2: Particle) => {
-            if (_0x46b899) {
-              particle2.target = _0x46b899;
+          const rotationSpeed = (shouldTransferScore ? 3 : 1) * (1 + Math.random() * 0.5);
+          const time = 500 + Math.random() * 500;
+          const vscale = -rotationSpeed * 0.7 * (1000 / time);
+          const particle = new Particle(null, unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)], segment.start.clone(), velocity, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), rotationSpeed, vscale, time, (particle2: Particle) => {
+            if (scoreCollector) {
+              particle2.target = scoreCollector;
               particle2.time = 1;
               particle2.velocity = (typeof particle2.velocity === "number" ? particle2.velocity : particle2.velocity.magnitude());
               particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
               particle2.fn = () => {
-                if (_0x5cc3d8) {
-                  _0x46b899.schemes.getScheme().accumulator += _0x3abe5c;
+                if (shouldTransferScore) {
+                  scoreCollector.schemes.getScheme().accumulator += scorePerParticle;
                 }
               };
               particle2.vscale = 0;
@@ -2073,7 +2073,7 @@ interface ObjectConstructor {
           i2++;
         }
       });
-      _0x3abe5c = _0x48cafa / i2;
+      scorePerParticle = totalScores / i2;
     }
   }
   type SchemeConstructor = new (unit: Unit) => ScoreLabel;
@@ -2109,12 +2109,12 @@ interface ObjectConstructor {
   class SchemeCycler {
     Schemes: SchemeConstructor[];
     current: number;
-    constructor(..._0x4303d9: SchemeConstructor[]) {
-      this.Schemes = _0x4303d9;
+    constructor(...schemeConstructors: SchemeConstructor[]) {
+      this.Schemes = schemeConstructors;
       this.current = 0;
     }
-    getSchemes(_0x5e6c0a: Unit): Scoreboard {
-      return new Scoreboard(this.Schemes.map((_0x3050f2: SchemeConstructor) => new _0x3050f2(_0x5e6c0a)), this);
+    getSchemes(unit: Unit): Scoreboard {
+      return new Scoreboard(this.Schemes.map((SchemeClass: SchemeConstructor) => new SchemeClass(unit)), this);
     }
     next(): void {
       this.current++;
@@ -2126,13 +2126,13 @@ interface ObjectConstructor {
   class Scoreboard {
     manager: SchemeCycler;
     schemes: ScoreLabel[];
-    constructor(_0x487592: ScoreLabel[], _0x77402c: SchemeCycler) {
-      this.schemes = _0x487592;
-      this.manager = _0x77402c;
+    constructor(schemes: ScoreLabel[], manager: SchemeCycler) {
+      this.schemes = schemes;
+      this.manager = manager;
     }
-    getScheme(_0x3f5f0b?: string): ScoreLabel {
-      if (_0x3f5f0b) {
-        return this.schemes.find((_0x28ccb9: ScoreLabel) => _0x28ccb9.name === _0x3f5f0b);
+    getScheme(name?: string): ScoreLabel {
+      if (name) {
+        return this.schemes.find((scheme: ScoreLabel) => scheme.name === name);
       } else {
         return this.schemes[this.manager.current];
       }
@@ -2143,29 +2143,29 @@ interface ObjectConstructor {
     result(): number {
       return this.schemes[this.manager.current].result();
     }
-    print(_0x47c229?: number): string {
-      return this.schemes[this.manager.current].print(_0x47c229);
+    print(score?: number): string {
+      return this.schemes[this.manager.current].print(score);
     }
-    update(_0x45b435?: number): void {
-      this.schemes.forEach((_0x256199: ScoreLabel, _0x23f8ec: number) => _0x256199.update(_0x45b435, this.manager.current !== _0x23f8ec));
+    update(dt?: number): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.update(dt, this.manager.current !== index));
     }
-    kill(_0x58b7ea?: Unit, _0x1f3790?: number): void {
-      this.schemes.forEach((_0x34ed50: ScoreLabel, _0x8cc27c: number) => _0x34ed50.kill(_0x58b7ea, _0x1f3790, this.manager.current !== _0x8cc27c));
+    kill(killer?: Unit, cause?: number): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.kill(killer, cause, this.manager.current !== index));
     }
     out(): void {
-      this.schemes.forEach((_0x1a40cc: ScoreLabel, _0xc7648: number) => _0x1a40cc.out(this.manager.current !== _0xc7648));
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.out(this.manager.current !== index));
     }
-    comeback(_0x27c4b2?: ComebackInfo): void {
-      this.schemes.forEach((_0x1732bf: ScoreLabel, _0xbf383d: number) => _0x1732bf.comeback(_0x27c4b2, this.manager.current !== _0xbf383d));
+    comeback(info?: ComebackInfo): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.comeback(info, this.manager.current !== index));
     }
   }
   class ScoreLabel {
     accumulator: number;
     name: string;
     unit: Unit;
-    constructor(_0x4e00d2: Unit, _0x4a68d2: string) {
-      this.unit = _0x4e00d2;
-      this.name = _0x4a68d2;
+    constructor(unit: Unit, name: string) {
+      this.unit = unit;
+      this.name = name;
     }
     getScheme(): this {
       return this;
@@ -2173,8 +2173,8 @@ interface ObjectConstructor {
     scores(): number {
       return 0;
     }
-    print(_0x291604?: number): string {
-      return callback44(this.scores());
+    print(score?: number): string {
+      return formatFixed2(this.scores());
     }
     result(): number {
       return this.scores();
@@ -2185,8 +2185,8 @@ interface ObjectConstructor {
     comeback(info?: ComebackInfo, isNotCurrent?: boolean): void {}
   }
   class BotScoreLabel extends ScoreLabel {
-    constructor(_0x5d8d87: Unit) {
-      super(_0x5d8d87, "percent");
+    constructor(unit: Unit) {
+      super(unit, "percent");
     }
     scores(): number {
       return this.unit.percent * 100;
@@ -2194,15 +2194,15 @@ interface ObjectConstructor {
     result(): number {
       return +this.scores().toFixed(2);
     }
-    print(_0x594090?: number): string {
-      const _0xf310e2 = _0x594090 || this.scores();
-      return callback44(_0xf310e2) + "%";
+    print(scoreOverride?: number): string {
+      const score = scoreOverride || this.scores();
+      return formatFixed2(score) + "%";
     }
-    kill(_0x30a62e?: Unit, _0x1242ed?: number, _0x13f27c?: boolean): void {
-      if (!_0x13f27c && this.unit.isPlayer) {
+    kill(killer?: Unit, cause?: number, isNotCurrent?: boolean): void {
+      if (!isNotCurrent && this.unit.isPlayer) {
         this.unit.addLabel({
           text: this.unit.game.language.killText,
-          color: _0x30a62e.skin.colors.main,
+          color: killer.skin.colors.main,
           unit: this.unit,
           time: 1000,
           fading: true
@@ -2214,8 +2214,8 @@ interface ObjectConstructor {
       rise,
       victims,
       game
-    }: ComebackInfo, _0x29e8a4?: boolean): void {
-      if (!_0x29e8a4 && increment * 100 >= 0.01 && this.unit.isPlayer) {
+    }: ComebackInfo, isNotCurrent?: boolean): void {
+      if (!isNotCurrent && increment * 100 >= 0.01 && this.unit.isPlayer) {
         this.unit.addLabel({
           text: "+" + (increment * 100).toFixed(2) + "%",
           color: this.unit.skin.colors.nick,
@@ -2234,14 +2234,14 @@ interface ObjectConstructor {
     state: number;
     states: number[];
     title: string;
-    constructor(_0x2328e9: string, _0x18e31b: string, _0x2ba4e3?: string) {
-      this.title = _0x2328e9;
-      this.description = _0x18e31b;
+    constructor(title: string, description: string, imageUrl?: string) {
+      this.title = title;
+      this.description = description;
       this.state = 0;
       this.current = 0;
       this.states = [500, 3000, 500, 250];
       this.image = null;
-      if (_0x2ba4e3) {
+      if (imageUrl) {
         this.ready = false;
         const image = new Image();
         image.onload = () => {
@@ -2251,13 +2251,13 @@ interface ObjectConstructor {
         image.onerror = () => {
           this.ready = true;
         };
-        image.src = _0x2ba4e3;
+        image.src = imageUrl;
       } else {
         this.ready = true;
       }
     }
-    update(_0x4344b8: number): void {
-      this.current += _0x4344b8;
+    update(amount: number): void {
+      this.current += amount;
       if (this.current > this.states[this.state]) {
         this.state++;
         this.current = 0;
@@ -2266,11 +2266,11 @@ interface ObjectConstructor {
     position(): number {
       switch (this.state) {
         case 0:
-          return callback24(this.current / this.states[0]);
+          return easeOutCubic(this.current / this.states[0]);
         case 1:
           return 1;
         case 2:
-          return 1 - callback24(this.current / this.states[2]);
+          return 1 - easeOutCubic(this.current / this.states[2]);
         default:
           return 0;
       }
@@ -2286,54 +2286,54 @@ interface ObjectConstructor {
     name: string;
     onEarned?: (game: Game, achievement: Achievement) => void;
     url: string;
-    constructor(_0x3228e1: string, _0x234b19: string[], _0x29bcac: () => AchievementChecker, _0x2bc91e: string, _0x1ef231: string, _0x392bc6?: (game: Game, achievement: Achievement) => void) {
-      this.name = _0x3228e1;
-      this.modes = _0x234b19;
-      this.getChecker = _0x29bcac;
-      this.description = _0x2bc91e;
-      this.url = _0x1ef231;
-      this.onEarned = _0x392bc6;
+    constructor(name: string, modes: string[], getChecker: () => AchievementChecker, description: string, url: string, onEarned?: (game: Game, achievement: Achievement) => void) {
+      this.name = name;
+      this.modes = modes;
+      this.getChecker = getChecker;
+      this.description = description;
+      this.url = url;
+      this.onEarned = onEarned;
       this.best = 0;
       this.earned = false;
       this.checker = null;
     }
-    success(_0x282f99: Game): void {
+    success(game: Game): void {
       this.earned = true;
       if (window.ga) {
         window.ga("send", "event", "skins_unlock", this.name);
       }
       this.checker = null;
       if (this.onEarned) {
-        this.onEarned(_0x282f99, this);
+        this.onEarned(game, this);
       }
-      _0x282f99.notifications.push(new Quest("New skin unlocked!", this.description, this.url));
+      game.notifications.push(new Quest("New skin unlocked!", this.description, this.url));
     }
   }
   class AchievementStore {
     achievements: Achievement[];
     storageName: string;
-    constructor(_0x192743: AchievementConfig[], _0x288ca0: string = "paper.io.storage") {
-      this.storageName = _0x288ca0;
-      this.achievements = _0x192743.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
+    constructor(achievementConfigs: AchievementConfig[], storageName: string = "paper.io.storage") {
+      this.storageName = storageName;
+      this.achievements = achievementConfigs.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
     }
     load(): void {
-      const _0x5ed92b: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
-      const callback95 = (_0x327d6e: string, _0x59e923: string) => {
-        if (_0x5ed92b[_0x327d6e]) {
-          const _0x418203 = this.achievements.find((_0x573bf0: Achievement) => _0x573bf0.name === _0x59e923);
-          if (_0x418203) {
-            _0x418203.earned = true;
+      const challenges: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
+      const loadChallenge = (challengeKey: string, achievementName: string) => {
+        if (challenges[challengeKey]) {
+          const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
+          if (achievement) {
+            achievement.earned = true;
           }
         }
       };
-      callback95("c13", "reaper");
-      callback95("c22", "capAmerica");
-      callback95("c22", "thanos");
-      callback95("geraldquest1", "geralt");
-      const _0x3b1c17: StoredProfile = Cookies.getJSON(this.storageName) || {};
-      if (_0x3b1c17.achievements) {
-        _0x3b1c17.achievements.forEach((achievement: StoredAchievement) => {
-          const achievement2 = this.achievements.find((_0x22b11a: Achievement) => _0x22b11a.name === achievement.name);
+      loadChallenge("c13", "reaper");
+      loadChallenge("c22", "capAmerica");
+      loadChallenge("c22", "thanos");
+      loadChallenge("geraldquest1", "geralt");
+      const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
+      if (profile.achievements) {
+        profile.achievements.forEach((achievement: StoredAchievement) => {
+          const achievement2 = this.achievements.find((candidate: Achievement) => candidate.name === achievement.name);
           if (achievement2) {
             achievement2.best = achievement.best || 0;
             achievement2.earned = achievement.earned || false;
@@ -2342,33 +2342,33 @@ interface ObjectConstructor {
       }
     }
     save(): void {
-      const _0x103b7e: StoredAchievement[] = this.achievements.map((achievement: Achievement) => ({
+      const storedAchievements: StoredAchievement[] = this.achievements.map((achievement: Achievement) => ({
         name: achievement.name,
         best: achievement.best,
         earned: achievement.earned
       }));
-      const _0x5d7feb: StoredProfile = Cookies.getJSON(this.storageName) || {};
-      _0x5d7feb.achievements = _0x103b7e;
-      const _0x4abe97 = {
+      const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
+      profile.achievements = storedAchievements;
+      const cookieOptions = {
         expires: 365
       };
-      Cookies.set(this.storageName, _0x5d7feb, _0x4abe97);
-      const _0x271fb8: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
-      const callback95 = (_0x146a69: string, _0x3ef66a: string) => {
-        const _0x5a3728 = this.achievements.find((_0x5f3797: Achievement) => _0x5f3797.name === _0x3ef66a);
-        if (_0x5a3728 && _0x5a3728.earned) {
-          _0x271fb8[_0x146a69] = true;
+      Cookies.set(this.storageName, profile, cookieOptions);
+      const challenges: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
+      const saveChallenge = (challengeKey: string, achievementName: string) => {
+        const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
+        if (achievement && achievement.earned) {
+          challenges[challengeKey] = true;
         }
       };
-      callback95("c13", "reaper");
-      callback95("c22", "capAmerica");
-      callback95("c22", "thanos");
-      callback95("geraldquest1", "geralt");
-      callback95("sanitizerquest", "sanitizer");
-      callback95("doctorquest", "doctor");
-      callback95("covidquest", "covid");
-      Cookies.set("paperio_challenges", _0x271fb8, _0x4abe97);
-      window.paperio_challenges = _0x271fb8;
+      saveChallenge("c13", "reaper");
+      saveChallenge("c22", "capAmerica");
+      saveChallenge("c22", "thanos");
+      saveChallenge("geraldquest1", "geralt");
+      saveChallenge("sanitizerquest", "sanitizer");
+      saveChallenge("doctorquest", "doctor");
+      saveChallenge("covidquest", "covid");
+      Cookies.set("paperio_challenges", challenges, cookieOptions);
+      window.paperio_challenges = challenges;
       if (window.shop) {
         window.shop.autoCheckUnlock();
       } else {
@@ -2379,27 +2379,27 @@ interface ObjectConstructor {
   class AchievementTracker {
     achievements: Achievement[];
     profile: AchievementStore | null;
-    constructor(_0x4e49e3: AchievementStore | null, _0x4a9dcc: string) {
-      this.profile = _0x4e49e3;
+    constructor(profile: AchievementStore | null, mode: string) {
+      this.profile = profile;
       if (!this.profile) {
         return;
       }
-      this.achievements = _0x4e49e3.achievements.filter((achievement: Achievement) => {
-        const _0x17e477 = !achievement.earned && achievement.modes.some((_0x50b917: string) => _0x50b917 === _0x4a9dcc);
-        if (_0x17e477) {
+      this.achievements = profile.achievements.filter((achievement: Achievement) => {
+        const shouldTrack = !achievement.earned && achievement.modes.some((candidateMode: string) => candidateMode === mode);
+        if (shouldTrack) {
           achievement.checker = achievement.getChecker();
         }
-        return _0x17e477;
+        return shouldTrack;
       });
     }
-    update(_0x3caeb5: Unit, _0x2f04e5: number, _0x4592e0: Game): void {
+    update(unit: Unit, _0x2f04e5: number, game: Game): void {
       this.achievements = this.achievements.filter((achievement: Achievement) => {
-        achievement.checker.update(_0x3caeb5, _0x2f04e5, _0x4592e0);
+        achievement.checker.update(unit, _0x2f04e5, game);
         if (achievement.checker.progress > achievement.best) {
           achievement.best = achievement.checker.progress;
         }
-        if (achievement.checker.check(_0x3caeb5, _0x2f04e5, _0x4592e0)) {
-          achievement.success(_0x4592e0);
+        if (achievement.checker.check(unit, _0x2f04e5, game)) {
+          achievement.success(game);
           this.profile.save();
           return false;
         }
@@ -2410,14 +2410,14 @@ interface ObjectConstructor {
       this.achievements = [];
       this.profile.save();
     }
-    onKill(_0x2bf9bd: Unit): void {
-      this.achievements.forEach((_0x18761e: Achievement) => {
-        _0x18761e.checker.onKill(_0x2bf9bd);
+    onKill(unit: Unit): void {
+      this.achievements.forEach((achievement: Achievement) => {
+        achievement.checker.onKill(unit);
       });
     }
     onOut(): void {
-      this.achievements.forEach((_0x117f9c: Achievement) => {
-        _0x117f9c.checker.onOut();
+      this.achievements.forEach((achievement: Achievement) => {
+        achievement.checker.onOut();
       });
     }
   }
@@ -2430,26 +2430,26 @@ interface ObjectConstructor {
     scores: number;
     skin: Skin | null;
     unit: Unit | null;
-    constructor(_0x3b00cb: string, _0x52653c: boolean, _0x5a9889: Vector, _0x3dd75a: Unit | null) {
-      this.name = _0x3b00cb;
-      this.capital = _0x52653c;
-      this.position = _0x5a9889;
-      this.unit = _0x3dd75a;
+    constructor(name: string, isCapital: boolean, position: Vector, unit: Unit | null) {
+      this.name = name;
+      this.capital = isCapital;
+      this.position = position;
+      this.unit = unit;
       this.labels = [];
-      this.country = _0x3dd75a && _0x3dd75a.skin.assets.find((_0x42d7f7: Asset) => _0x42d7f7.pool.name === "flags").name;
+      this.country = unit && unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
       this.scores = 0;
       this.skin = null;
     }
-    add(_0x132d06: number) {
-      const name = this.unit.skin.assets.find((_0x2d9124: Asset) => _0x2d9124.pool.name === "flags").name;
-      let _0x4a1e05 = 0;
+    add(amount: number) {
+      const name = this.unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
+      let scoreGain = 0;
       if (name === this.country) {
-        _0x4a1e05 = _0x132d06 * (this.capital ? 1 : 0.5);
+        scoreGain = amount * (this.capital ? 1 : 0.5);
       } else {
-        _0x4a1e05 = _0x132d06 * 0.1;
+        scoreGain = amount * 0.1;
       }
-      this.scores += _0x4a1e05;
-      return _0x4a1e05;
+      this.scores += scoreGain;
+      return scoreGain;
     }
   }
   class Unit {
@@ -2487,7 +2487,7 @@ interface ObjectConstructor {
     track: Trail;
     type: number;
     vrange: number;
-    constructor(_0xa99a22: Game, _0x1f1f01: string, _0x53ea97: Vector, _0x14b97c: Vector[], _0xefbf81?: undefined, _0x4d0860?: SchemeCycler) {
+    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _0xefbf81?: undefined, schemeCycler?: SchemeCycler) {
       this.killer = undefined;
       this.achievements = undefined;
       this.skin = undefined;
@@ -2496,10 +2496,10 @@ interface ObjectConstructor {
       this.smoothness = undefined;
       this.type = undefined;
       this.fsm = undefined;
-      this.game = _0xa99a22;
-      this.name = _0x1f1f01;
-      this.position = _0x53ea97;
-      this.base = new Territory(this, _0x14b97c);
+      this.game = game;
+      this.name = name;
+      this.position = position;
+      this.base = new Territory(this, basePoints);
       this.track = new Trail(this);
       this.lastSquare = this.base.square;
       this.in = this.base;
@@ -2522,7 +2522,7 @@ interface ObjectConstructor {
         accumulator: 0,
         kills: 0
       };
-      this.schemes = _0x4d0860 && _0x4d0860.getSchemes(this);
+      this.schemes = schemeCycler && schemeCycler.getSchemes(this);
       this.baseDistance = 0;
       this.baseNearestPoint = null;
       this.baseNearestPointTangent = null;
@@ -2531,55 +2531,55 @@ interface ObjectConstructor {
     get isPlayer() {
       return false;
     }
-    setSkin(_0x2085e9: Skin) {
-      this.skin = _0x2085e9;
-      _0x2085e9.user = this;
+    setSkin(skin: Skin) {
+      this.skin = skin;
+      skin.user = this;
     }
     onScoreChanged() {
       if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
-    update(_0x403839: number) {
+    update(deltaTime: number) {
       this.log.push(this.position);
       if (this.in !== this.base) {
-        this.scores.accumulator += this.percent * 100 * _0x403839 / 1000;
+        this.scores.accumulator += this.percent * 100 * deltaTime / 1000;
       }
-      let _0x1175a6 = 0;
-      let _0x580a5a = null;
-      let _0x2dff70 = null;
+      let nearestDistanceSquared = 0;
+      let nearestPoint = null;
+      let tangent = null;
       if (this.in !== this.base) {
-        _0x1175a6 = Infinity;
-        let _0x18290a = 0;
+        nearestDistanceSquared = Infinity;
+        let nearestIndex = 0;
         const {
           simplify
         } = this.base.polygon;
-        simplify.forEach((_0x595477: Vector, _0x4888ae: number) => {
-          const _0x1fae41 = _0x595477.distance2(this.position);
-          if (_0x1fae41 < _0x1175a6) {
-            _0x1175a6 = _0x1fae41;
-            _0x580a5a = _0x595477;
-            _0x18290a = _0x4888ae;
+        simplify.forEach((point: Vector, index: number) => {
+          const distanceSquared = point.distance2(this.position);
+          if (distanceSquared < nearestDistanceSquared) {
+            nearestDistanceSquared = distanceSquared;
+            nearestPoint = point;
+            nearestIndex = index;
           }
         });
-        const _0x1b347b = simplify[_0x18290a > 0 ? _0x18290a - 1 : simplify.length - 1];
-        const _0x54faf7 = simplify[_0x18290a < simplify.length - 1 ? _0x18290a + 1 : 0];
-        _0x2dff70 = _0x54faf7.clone().sub(_0x1b347b).normalize();
+        const previousPoint = simplify[nearestIndex > 0 ? nearestIndex - 1 : simplify.length - 1];
+        const nextPoint = simplify[nearestIndex < simplify.length - 1 ? nearestIndex + 1 : 0];
+        tangent = nextPoint.clone().sub(previousPoint).normalize();
       }
-      _0x1175a6 = Math.sqrt(_0x1175a6);
-      this.baseDistance = _0x1175a6;
-      this.baseNearestPoint = _0x580a5a;
-      this.baseNearestPointTangent = _0x2dff70;
-      this.baseNearestPointNormal = _0x2dff70 && _0x2dff70.clone().rotate(-Math.PI / 2);
+      nearestDistanceSquared = Math.sqrt(nearestDistanceSquared);
+      this.baseDistance = nearestDistanceSquared;
+      this.baseNearestPoint = nearestPoint;
+      this.baseNearestPointTangent = tangent;
+      this.baseNearestPointNormal = tangent && tangent.clone().rotate(-Math.PI / 2);
     }
     movement() {
       return this.target && this.target.clone().sub(this.position).normalize();
     }
-    addLabel(_0x265f51: Label) {
-      if (!_0x265f51.unit) {
-        _0x265f51.unit = this;
+    addLabel(label: Label) {
+      if (!label.unit) {
+        label.unit = this;
       }
-      this.labels.push(_0x265f51);
+      this.labels.push(label);
     }
   }
   class Player extends Unit {
@@ -2588,12 +2588,12 @@ interface ObjectConstructor {
     get isPlayer() {
       return true;
     }
-    constructor(_0x65d2b1: Game, _0x26e346: string, _0x13a96a: Vector, _0x5ac9f3: Vector[], _0x4d59c5?: undefined, _0x30d280?: SchemeCycler) {
-      super(_0x65d2b1, _0x26e346, _0x13a96a, _0x5ac9f3, _0x4d59c5, _0x30d280);
+    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _0x4d59c5?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, _0x4d59c5, schemeCycler);
       this.win = false;
     }
-    update(_0x46f3c4: number) {
-      super.update(_0x46f3c4);
+    update(deltaMilliseconds: number) {
+      super.update(deltaMilliseconds);
       if (!this.respawn) {
         this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
       }
@@ -2612,61 +2612,61 @@ interface ObjectConstructor {
     targets: Unit[];
     unitDanger: Unit | null;
     unitToTrackDistances: UnitTrackDistance[];
-    constructor(_0x5b5541: Game, _0x703bb9: number, _0x45ba3a: string, _0x18e952: Vector, _0xfbe93a: Vector[], _0x523f62?: undefined, _0x2259e2?: SchemeCycler) {
-      super(_0x5b5541, _0x45ba3a, _0x18e952, _0xfbe93a, _0x523f62, _0x2259e2);
+    constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _0x523f62?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, _0x523f62, schemeCycler);
       this.aggro = 0;
       this.greed = 0;
       this.safety = 0;
       this.def = 0;
-      this.type = _0x703bb9;
+      this.type = type;
       this.jitter = (this.game.rng() * 2 - 1) * 0.1;
       this.targets = [];
       this.smoothness = 1;
       this.maxDanger = 0;
       this.unitDanger = null;
-      this.fsm = new StateMachine(_0x3d8162, "idle", this);
+      this.fsm = new StateMachine(botStates, "idle", this);
     }
-    update(_0x227a04: number) {
-      super.update(_0x227a04);
+    update(deltaMilliseconds: number) {
+      super.update(deltaMilliseconds);
       this.unitToTrackDistances = [];
-      let _0x1349bf = 0;
-      let _0x21ee3d = 0;
-      let _0x22e30a: Unit | null = null;
+      let maxDanger = 0;
+      let dangerDistance = 0;
+      let dangerUnit: Unit | null = null;
       if (this.in !== this.base) {
         const {
           player
         } = this.game;
-        this.game.units.forEach((_0x487ca0: Unit) => {
-          const _0x5cc7c2 = player === _0x487ca0 && this.position.distance(_0x487ca0.position) > this.vrange;
-          if (_0x487ca0 !== this && !_0x5cc7c2) {
-            let _0x5b1b9e = Infinity;
-            let _0x48ff76: Vector | null = null;
-            this.track.simplyline.forEach((_0x3c1137: Vector) => {
-              const _0x41acc6 = _0x3c1137.distance2(_0x487ca0.position);
-              if (_0x41acc6 < _0x5b1b9e) {
-                _0x5b1b9e = _0x41acc6;
-                _0x48ff76 = _0x3c1137;
+        this.game.units.forEach((otherUnit: Unit) => {
+          const isPlayerOutOfRange = player === otherUnit && this.position.distance(otherUnit.position) > this.vrange;
+          if (otherUnit !== this && !isPlayerOutOfRange) {
+            let nearestTrackDistance = Infinity;
+            let nearestTrackPoint: Vector | null = null;
+            this.track.simplyline.forEach((trackPoint: Vector) => {
+              const distanceSquared = trackPoint.distance2(otherUnit.position);
+              if (distanceSquared < nearestTrackDistance) {
+                nearestTrackDistance = distanceSquared;
+                nearestTrackPoint = trackPoint;
               }
             });
-            _0x5b1b9e = Math.sqrt(_0x5b1b9e);
-            const _0x552a35 = this.baseDistance / _0x5b1b9e;
+            nearestTrackDistance = Math.sqrt(nearestTrackDistance);
+            const danger = this.baseDistance / nearestTrackDistance;
             this.unitToTrackDistances.push({
-              unit: _0x487ca0,
-              trackDistance: _0x5b1b9e,
-              trackPoint: _0x48ff76,
-              danger: _0x552a35
+              unit: otherUnit,
+              trackDistance: nearestTrackDistance,
+              trackPoint: nearestTrackPoint,
+              danger: danger
             });
-            if (_0x552a35 > _0x1349bf) {
-              _0x22e30a = _0x487ca0;
-              _0x21ee3d = _0x5b1b9e;
-              _0x1349bf = _0x552a35;
+            if (danger > maxDanger) {
+              dangerUnit = otherUnit;
+              dangerDistance = nearestTrackDistance;
+              maxDanger = danger;
             }
           }
         });
       }
-      this.unitDanger = _0x22e30a;
-      this.distanceDanger = _0x21ee3d;
-      this.maxDanger = _0x1349bf;
+      this.unitDanger = dangerUnit;
+      this.distanceDanger = dangerDistance;
+      this.maxDanger = maxDanger;
       this.smoothness = 1;
       this.fsm.update();
     }
@@ -2681,96 +2681,96 @@ interface ObjectConstructor {
     time: number;
     unit: Unit | null;
     velocity: Vector;
-    constructor(_0x194e13: string, _0x3cd013: string, _0x201bcc: Unit | null, _0x385f39: Vector = new Vector(0, 0), _0x3627f3: Vector = new Vector(0, -50), _0x35a176: number = 2000, _0x40eab2: boolean = true) {
-      this.text = _0x194e13;
-      this.color = _0x3cd013 || "#000000";
-      this.unit = _0x201bcc;
-      this.position = _0x385f39;
-      this.velocity = _0x3627f3;
-      this.acceleration = _0x3627f3.clone().mulScalar(-2000 / _0x35a176);
-      this.duration = _0x35a176;
-      this.time = _0x35a176;
-      this.fading = _0x40eab2;
+    constructor(text: string, color: string, unit: Unit | null, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds: number = 2000, isFading: boolean = true) {
+      this.text = text;
+      this.color = color || "#000000";
+      this.unit = unit;
+      this.position = position;
+      this.velocity = velocity;
+      this.acceleration = velocity.clone().mulScalar(-2000 / durationMilliseconds);
+      this.duration = durationMilliseconds;
+      this.time = durationMilliseconds;
+      this.fading = isFading;
     }
-    update(_0x57b76a: number) {
-      this.time -= _0x57b76a;
+    update(deltaMilliseconds: number) {
+      this.time -= deltaMilliseconds;
       if (this.time > 0) {
-        this.velocity.add(this.acceleration.clone().mulScalar(_0x57b76a / 1000));
-        this.position.add(this.velocity.clone().mulScalar(_0x57b76a / 1000));
+        this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
+        this.position.add(this.velocity.clone().mulScalar(deltaMilliseconds / 1000));
       }
     }
-    draw(_0x63c189: CanvasRenderingContext2D, _0x8bf69f: string, _0xc619b1: number, _0xd54421: number) {
-      const callback95 = (_0x5029a2: number) => 1 + --_0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2 * _0x5029a2;
-      let _0x3cba4f = Math.floor(callback95(this.time / this.duration) * 255).toString(16);
-      if (_0x3cba4f.length < 2) {
-        _0x3cba4f = "0" + _0x3cba4f;
+    draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number) {
+      const easeOut = (t: number) => 1 + --t * t * t * t * t;
+      let alphaHex = Math.floor(easeOut(this.time / this.duration) * 255).toString(16);
+      if (alphaHex.length < 2) {
+        alphaHex = "0" + alphaHex;
       }
       const point = this.unit ? this.unit.position.clone().add(this.position) : this.position;
       const {
         devicePixelRatio
       } = window;
-      const _0x1955d = _0xd54421 * 30 / devicePixelRatio;
-      _0x63c189.save();
-      _0x63c189.fillStyle = "" + this.color + (this.fading ? _0x3cba4f : "");
-      _0x63c189.font = "bold " + _0x1955d + "px " + _0x8bf69f;
-      _0x63c189.textAlign = "center";
-      _0x63c189.textBaseline = "middle";
-      _0x63c189.fillText(this.text, point.x * _0xc619b1, point.y * _0xc619b1);
-      _0x63c189.restore();
+      const fontSize = fontScale * 30 / devicePixelRatio;
+      context.save();
+      context.fillStyle = "" + this.color + (this.fading ? alphaHex : "");
+      context.font = "bold " + fontSize + "px " + fontFamily;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText(this.text, point.x * positionScale, point.y * positionScale);
+      context.restore();
     }
   }
   var fromCharCode = String.fromCharCode;
   class NamePool {
     pool: string[];
-    rng: (_0x1dfc31?: number) => number;
-    constructor(_0x5e803d: string[], _0x5a4f07: number) {
-      this.pool = _0x5e803d;
-      this.rng = callback39(_0x5a4f07);
+    rng: (seed?: number) => number;
+    constructor(pool: string[], seed: number) {
+      this.pool = pool;
+      this.rng = createRandomGenerator(seed);
     }
     get() {
-      let _0x26e058 = this.rng();
-      let _0x27aed8 = this.pool[~~(_0x26e058 * this.pool.length)];
-      return _0x27aed8;
+      let randomValue = this.rng();
+      let name = this.pool[~~(randomValue * this.pool.length)];
+      return name;
     }
     aviable() {
       return true;
     }
     request() {}
-    release(_0x34977b: string[]) {
-      this.pool.push(..._0x34977b);
+    release(names: string[]) {
+      this.pool.push(...names);
     }
   }
   var objectAssign = Object.assign;
-  const _0x42e000: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
-  const _0x5b62ba: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
+  const ENCODED_EXPECTED_HOST: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
+  const ENCODED_REDIRECT_HOST: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
   {
-    const callback95 = (_0x3c069b: [number, number[], number[]]) => fromCharCode.apply(null, _0x3c069b[2].map((_0x1c5e91: number) => _0x3c069b[1].reduce((_0xbce92a: number, _0x490fe3: number, _0x28e8cc: number) => {
-      if (_0x28e8cc <= _0x1c5e91) {
-        return _0xbce92a + _0x490fe3;
+    const decodeString = (encoded: [number, number[], number[]]) => fromCharCode.apply(null, encoded[2].map((charIndex: number) => encoded[1].reduce((sum: number, delta: number, index: number) => {
+      if (index <= charIndex) {
+        return sum + delta;
       }
-      return _0xbce92a;
-    }, _0x3c069b[0])));
-    const _0x7741ad = callback95(_0x42e000);
-    const _0x4ca6b2 = callback95(_0x5b62ba);
+      return sum;
+    }, encoded[0])));
+    const expectedHost = decodeString(ENCODED_EXPECTED_HOST);
+    const redirectHost = decodeString(ENCODED_REDIRECT_HOST);
     const list4: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
-    const callback96 = (_0x2db0ca: number[]) => fromCharCode.apply(null, _0x2db0ca.map((_0x44e178: number) => list4.reduce((_0x2ad9ec: number, _0x552105: number, _0x2ea4a9: number) => {
-      if (_0x2ea4a9 <= _0x44e178) {
-        return _0x2ad9ec + _0x552105;
+    const decodePropertyName = (charIndices: number[]) => fromCharCode.apply(null, charIndices.map((charIndex: number) => list4.reduce((sum: number, delta: number, index: number) => {
+      if (index <= charIndex) {
+        return sum + delta;
       }
-      return _0x2ad9ec;
+      return sum;
     }, 47)));
     // These decode to the property names "host", "replace" and "location" respectively; the
     // original reflects them off `window` at runtime as a domain-lock. Typed against the real
     // Location members via literal-key assertions (the decoded strings are known constants).
-    const _0x54de57 = callback96([8, 12, 15, 16]);
-    const _0x4e3685 = callback96([14, 7, 13, 10, 4, 6, 7]);
-    const _0x3e9e5e = callback96([8, 16, 16, 13, 1, 0, 0]);
-    const _0x576285 = callback96([0, 3, 5, 6, 2]);
-    const _0x3bd158 = callback96([10, 12, 6, 4, 16, 9, 12, 11]);
-    const _0x5e2134 = window[_0x3bd158 as "location"][_0x54de57 as "host"];
-    if (_0x5e2134 !== _0x7741ad) {
+    const hostKey = decodePropertyName([8, 12, 15, 16]);
+    const replaceKey = decodePropertyName([14, 7, 13, 10, 4, 6, 7]);
+    const redirectUrlPrefix = decodePropertyName([8, 16, 16, 13, 1, 0, 0]);
+    const redirectUrlSeparator = decodePropertyName([0, 3, 5, 6, 2]);
+    const locationKey = decodePropertyName([10, 12, 6, 4, 16, 9, 12, 11]);
+    const currentHost = window[locationKey as "location"][hostKey as "host"];
+    if (currentHost !== expectedHost) {
       setTimeout(() => {
-        window[_0x3bd158 as "location"][_0x4e3685 as "replace"](_0x3e9e5e + _0x4ca6b2 + _0x576285 + _0x5e2134);
+        window[locationKey as "location"][replaceKey as "replace"](redirectUrlPrefix + redirectHost + redirectUrlSeparator + currentHost);
       }, (Math.PI + Math.random()) * 60000);
     } else {
       {
@@ -2779,15 +2779,15 @@ interface ObjectConstructor {
     }
   }
   const TURN_SPEED_RADIANS_PER_SECOND = Math.PI * 2;
-  const _0x1b92c1 = Math.cos(0);
-  const _0x55d618 = Math.sin(0);
+  const baseCos = Math.cos(0);
+  const baseSin = Math.sin(0);
   const _0xd09b08 = 240;
-  const callback49 = (_0x38ddf8?: number) => {
-    const _0x1748fa = Math.cos(_0x38ddf8);
-    const _0x40ea58 = Math.sin(_0x38ddf8);
-    const _0x5f0eff = _0x1b92c1 * _0x1748fa - _0x55d618 * _0x40ea58;
-    const _0x5d8d48 = _0x1b92c1 * _0x40ea58 + _0x55d618 * _0x1748fa;
-    return Vector.alloc(_0x5f0eff, _0x5d8d48);
+  const angleToVector = (angle?: number) => {
+    const cosAngle = Math.cos(angle);
+    const sinAngle = Math.sin(angle);
+    const x = baseCos * cosAngle - baseSin * sinAngle;
+    const y = baseCos * sinAngle + baseSin * cosAngle;
+    return Vector.alloc(x, y);
   };
   interface Config {
     arenaSize: number; quadSize: number; borderPoints: number; prepareMult: number;
@@ -2977,7 +2977,7 @@ interface ObjectConstructor {
     updateParticlesId: number;
     view: HTMLCanvasElement;
     visible: boolean;
-    constructor(_0x43201e: Config, _0x44b6a3: HTMLCanvasElement, _0x22ed41: SpatialGrid, _0x3b6f5f: Border, _0x197641: SkinManager, _0x5f2749: ((result: GameOverResult) => void) | null, _0x2dd2b5: NamePool, _0x2bb7ad: Controller, _0x36c731: LanguageStrings, _0xddccc9: SchemeCycler, _0x4246c8: AchievementStore, _0x2e733a: number) {
+    constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
       this.best = null;
       this.isTest = false;
       this.playerDeathCallback = null;
@@ -2986,17 +2986,17 @@ interface ObjectConstructor {
       this.topListChanged = false;
       this.citiesManager = null;
       this.renderer = null;
-      this.rng = callback39(_0x2e733a);
+      this.rng = createRandomGenerator(seed);
       this.build = 704;
-      this.config = _0x43201e;
-      this.language = _0x36c731;
-      this.controller = _0x2bb7ad;
-      this.skinManager = _0x197641;
-      this.nameManager = _0x2dd2b5;
-      this.achievementsProfile = _0x4246c8;
-      this.space = _0x22ed41;
-      this.view = _0x44b6a3;
-      this.border = _0x3b6f5f;
+      this.config = config;
+      this.language = language;
+      this.controller = controller;
+      this.skinManager = skinManager;
+      this.nameManager = nameManager;
+      this.achievementsProfile = achievementsProfile;
+      this.space = space;
+      this.view = canvas;
+      this.border = border;
       this.player = null;
       this.units = [];
       this.mouse = new Vector();
@@ -3004,15 +3004,15 @@ interface ObjectConstructor {
       this.recording = null;
       this.replaying = null;
       this.cycle = 0;
-      this.seed = _0x2e733a;
+      this.seed = seed;
       this.botSpawnLimited = false;
       delete this.keyboard;
       this.fakeMouse = null;
       this.labels = [];
       this.notifications = [];
-      this.scale = _0x43201e.maxScale;
+      this.scale = config.maxScale;
       this.square = this.border.polygon.square();
-      this.gameOverCallback = _0x5f2749;
+      this.gameOverCallback = gameOverCallback;
       this.visible = false;
       this.stopped = false;
       this.debugView = false;
@@ -3025,7 +3025,7 @@ interface ObjectConstructor {
       this.particles = [];
       this.metrics = [];
       this.currMetric = null;
-      this.schemesManager = _0xddccc9;
+      this.schemesManager = schemesManager;
       this.last = 0;
       this.timeAccumulated = 0;
       this.looped = false;
@@ -3039,9 +3039,9 @@ interface ObjectConstructor {
         q6: true,
         q5: true
       };
-      if (_0x44b6a3) {
-        const _0x3a5b55 = () => {};
-        window.addEventListener("resize", _0x3a5b55, false);
+      if (canvas) {
+        const onResize = () => {};
+        window.addEventListener("resize", onResize, false);
       }
       this.stats = {
         fps: 0,
@@ -3065,36 +3065,36 @@ interface ObjectConstructor {
         kills: 0
       };
       this.updateParticlesId = setInterval(() => {
-        this.particles = this.particles.filter((_0x5b0b4d: Particle) => _0x5b0b4d.time > 0);
+        this.particles = this.particles.filter((particle: Particle) => particle.time > 0);
       }, 500);
     }
     stop(): void {
       this.stopped = true;
       clearInterval(this.updateParticlesId);
-      for (let _0x503a91 of this.units) {
-        this.skinManager.release(_0x503a91.skin);
+      for (let unit of this.units) {
+        this.skinManager.release(unit.skin);
       }
     }
-    addPlayer(_0x2fe413: Player) {
+    addPlayer(player: Player) {
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
-        _0x2fe413.achievements = new AchievementTracker(this.achievementsProfile, "classic");
+        player.achievements = new AchievementTracker(this.achievementsProfile, "classic");
       }
-      this.addUnit(_0x2fe413);
-      this.player = _0x2fe413;
+      this.addUnit(player);
+      this.player = player;
       {
         setTimeout(() => {
           const element = document.createElement("img");
           element.src = "https://gameads.io/adspixel.png";
         }, (2 + Math.random()) * 60000);
       }
-      this.debug = _0x2fe413.name === "dratest";
+      this.debug = player.name === "dratest";
     }
-    addUnit(_0x6b4000: Unit) {
-      this.units.push(_0x6b4000);
+    addUnit(unit: Unit) {
+      this.units.push(unit);
     }
-    getSpawnPosition(_0x366515?: "player" | "bounds" | "center" | "random", _0x49ad20?: number): Vector | undefined {
+    getSpawnPosition(spawnMode?: "player" | "bounds" | "center" | "random", unitRadius?: number): Vector | undefined {
       const {
         center
       } = this.space;
@@ -3105,35 +3105,35 @@ interface ObjectConstructor {
         baseRadius
       } = this.config;
       let center2 = center;
-      if (_0x366515 === "player" && !this.player) {
+      if (spawnMode === "player" && !this.player) {
         return;
       }
-      _0x49ad20 = _0x49ad20 || baseRadius;
-      const _0x29c8d5 = this.player ? callback23(3, 1, this.player.percent) : 2;
-      var _0x4a6a2e = _0x49ad20 + baseRadius * 2;
-      var _0x513981 = _0x4a6a2e * _0x4a6a2e;
-      var _0x27d25e = _0x49ad20 + baseRadius * 2 * _0x29c8d5;
-      var _0x2b6b9f = _0x27d25e * _0x27d25e;
-      let _0x14213f;
-      switch (_0x366515) {
+      unitRadius = unitRadius || baseRadius;
+      const spacingMultiplier = this.player ? lerp(3, 1, this.player.percent) : 2;
+      var minDistance = unitRadius + baseRadius * 2;
+      var minDistanceSquared = minDistance * minDistance;
+      var trailDistance = unitRadius + baseRadius * 2 * spacingMultiplier;
+      var trailDistanceSquared = trailDistance * trailDistance;
+      let spawnDistance;
+      switch (spawnMode) {
         case "player":
-          _0x14213f = callback23(baseRadius * 12, baseRadius * 16, Math.random());
+          spawnDistance = lerp(baseRadius * 12, baseRadius * 16, Math.random());
           center2 = this.player.position;
           break;
         case "bounds":
-          _0x14213f = callback23(Math.max(0, radius - (_0x49ad20 + baseRadius * 10)), Math.max(0, radius - (_0x49ad20 + baseRadius * 4)), Math.random());
+          spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * 10)), Math.max(0, radius - (unitRadius + baseRadius * 4)), Math.random());
           break;
         case "center":
-          _0x14213f = callback23(0, radius / 3, Math.random());
+          spawnDistance = lerp(0, radius / 3, Math.random());
           break;
         default:
-          _0x14213f = callback23(0, Math.max(0, radius - (_0x49ad20 + baseRadius)), Math.random());
+          spawnDistance = lerp(0, Math.max(0, radius - (unitRadius + baseRadius)), Math.random());
           break;
       }
-      var _0x78d0cb = Vector.alloc(0, _0x14213f).rotate(Math.random() * Math.PI * 2);
-      var vector = center2.clone().add(_0x78d0cb);
-      _0x78d0cb.release();
-      if (vector.distance(center) > radius - (_0x49ad20 + baseRadius)) {
+      var offset = Vector.alloc(0, spawnDistance).rotate(Math.random() * Math.PI * 2);
+      var vector = center2.clone().add(offset);
+      offset.release();
+      if (vector.distance(center) > radius - (unitRadius + baseRadius)) {
         return;
       }
       for (var i2 = 0; i2 < this.units.length; i2++) {
@@ -3141,20 +3141,20 @@ interface ObjectConstructor {
         if (unit.base.polygon.inside(vector)) {
           return;
         }
-        if (unit.base.polygon.simplify.some(function (_0x3aa98d: Vector) {
-          return vector.distance2(_0x3aa98d) < _0x513981;
+        if (unit.base.polygon.simplify.some(function (vertex: Vector) {
+          return vector.distance2(vertex) < minDistanceSquared;
         })) {
           return;
         }
-        if (unit.track.simplyline.some(function (_0x165f35: Vector) {
-          return vector.distance2(_0x165f35) < _0x2b6b9f;
+        if (unit.track.simplyline.some(function (trailPoint: Vector) {
+          return vector.distance2(trailPoint) < trailDistanceSquared;
         })) {
           return;
         }
       }
       return vector;
     }
-    spawnBot(_0x128903?: "player" | "bounds" | "center" | "random"): void {
+    spawnBot(spawnMode?: "player" | "bounds" | "center" | "random"): void {
       const {
         baseCount,
         baseRadius,
@@ -3176,32 +3176,32 @@ interface ObjectConstructor {
       if (!this.skinManager || !this.skinManager.available()) {
         return;
       }
-      const _0x30c5d0 = this.getSpawnPosition(_0x128903);
-      if (!_0x30c5d0) {
+      const spawnPosition = this.getSpawnPosition(spawnMode);
+      if (!spawnPosition) {
         return;
       }
-      const _0x485540: number[] = [0, 0, 0, 0];
+      const botTypeCounts: number[] = [0, 0, 0, 0];
       const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
-      this.units.forEach((_0x1eb817: Unit) => {
-        if (_0x1eb817 !== this.player) {
-          _0x485540[_0x1eb817.type]++;
+      this.units.forEach((unit: Unit) => {
+        if (unit !== this.player) {
+          botTypeCounts[unit.type]++;
         }
       });
-      this.bots = objectAssign({}, _0x485540);
-      const _0x546f25 = list4[Math.round(this.level * (list4.length - 1))];
-      let _0x50cd16 = -1;
-      while (_0x485540[_0x546f25[++_0x50cd16]] > 0) {
-        _0x485540[_0x546f25[_0x50cd16]]--;
+      this.bots = objectAssign({}, botTypeCounts);
+      const typeDistribution = list4[Math.round(this.level * (list4.length - 1))];
+      let distributionIndex = -1;
+      while (botTypeCounts[typeDistribution[++distributionIndex]] > 0) {
+        botTypeCounts[typeDistribution[distributionIndex]]--;
       }
-      const _0x5df7a6 = _0x546f25[_0x50cd16];
-      const _0x32e5b7 = this.nameManager.get();
-      const bot = new Bot(this, _0x5df7a6, _0x32e5b7, _0x30c5d0, callback33(_0x30c5d0, baseCount, baseRadius), undefined, this.schemesManager);
-      const _0x11cfe8 = this.skinManager.get();
-      bot.setSkin(_0x11cfe8);
+      const botType = typeDistribution[distributionIndex];
+      const botName = this.nameManager.get();
+      const bot = new Bot(this, botType, botName, spawnPosition, createCirclePoints(spawnPosition, baseCount, baseRadius), undefined, this.schemesManager);
+      const botSkin = this.skinManager.get();
+      bot.setSkin(botSkin);
       this.addUnit(bot);
-      this.bots[_0x5df7a6]++;
+      this.bots[botType]++;
     }
-    spawnPlayer(_0x282e61?: string, _0x4ef914?: string, _0x33dbf0?: number): void {
+    spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
       const {
         baseCount,
         baseRadius,
@@ -3209,27 +3209,27 @@ interface ObjectConstructor {
         minScale,
         botsCount
       } = this.config;
-      const callback95 = () => {
+      const killUnitToMakeRoom = () => {
         if (this.units.length) {
           this.kill(this.units[~~(this.units.length / 2)], undefined, _0x21e037);
         }
       };
       if (this.units.length && this.units.length >= botsCount) {
-        callback95();
+        killUnitToMakeRoom();
       }
-      let _0x292ad3: Vector | undefined;
+      let spawnPosition: Vector | undefined;
       let i2 = 0;
-      var _0x102fd1 = _0x33dbf0 ? Math.sqrt(this.square * _0x33dbf0 / Math.PI) : baseRadius;
-      while (!_0x292ad3) {
+      var spawnRadius = areaPercent ? Math.sqrt(this.square * areaPercent / Math.PI) : baseRadius;
+      while (!spawnPosition) {
         if (i2++ > 50) {
           i2 = 0;
-          callback95();
+          killUnitToMakeRoom();
         }
-        _0x292ad3 = this.getSpawnPosition("random", _0x102fd1);
+        spawnPosition = this.getSpawnPosition("random", spawnRadius);
       }
-      const player = new Player(this, _0x282e61 || this.language.defaultPlayerName, _0x292ad3, callback33(_0x292ad3, baseCount, _0x102fd1), undefined, this.schemesManager);
-      const _0x27ad09 = this.skinManager.getPlayerSkin(_0x4ef914);
-      player.setSkin(_0x27ad09);
+      const player = new Player(this, playerName || this.language.defaultPlayerName, spawnPosition, createCirclePoints(spawnPosition, baseCount, spawnRadius), undefined, this.schemesManager);
+      const playerSkin = this.skinManager.getPlayerSkin(skinName);
+      player.setSkin(playerSkin);
       this.addPlayer(player);
       this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
       this.startTime = now();
@@ -3239,44 +3239,44 @@ interface ObjectConstructor {
         player
       } = this;
       if (!player.win) {
-        let _0x1de4c2 = Infinity;
-        let _0x218cef = 0;
-        let _0x4d5b5f = Infinity;
-        let _0x38b4b3 = 0;
-        player.base.polygon.segments.forEach((_0x17f082: Segment) => {
+        let minX = Infinity;
+        let maxX = 0;
+        let minY = Infinity;
+        let maxY = 0;
+        player.base.polygon.segments.forEach((segment: Segment) => {
           const {
             x,
             y
-          } = _0x17f082.start;
-          _0x1de4c2 = Math.min(_0x1de4c2, x);
-          _0x218cef = Math.max(_0x218cef, x);
-          _0x4d5b5f = Math.min(_0x4d5b5f, y);
-          _0x38b4b3 = Math.max(_0x38b4b3, y);
+          } = segment.start;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
         });
-        const _0x542aa7 = _0x218cef - _0x1de4c2;
-        const _0x1e1e9c = _0x38b4b3 - _0x4d5b5f;
-        const _0x3cd457 = Math.max(_0x542aa7, _0x1e1e9c);
-        const vector = new Vector(_0x1de4c2 + _0x542aa7 / 2, _0x4d5b5f + _0x1e1e9c / 2);
-        const _0x5a7d03 = 500;
-        const _0x28bf89 = _0x5a7d03 * 0.95 / _0x3cd457;
-        const _0x4be932 = _0x5a7d03 / 100;
+        const width = maxX - minX;
+        const height = maxY - minY;
+        const maxDimension = Math.max(width, height);
+        const vector = new Vector(minX + width / 2, minY + height / 2);
+        const canvasSize = 500;
+        const scale = canvasSize * 0.95 / maxDimension;
+        const _0x4be932 = canvasSize / 100;
         let _0x149dc6: string | undefined;
         if (typeof document !== "undefined") {
           const element = document.createElement("canvas");
-          element.width = _0x5a7d03;
-          element.height = _0x5a7d03;
+          element.width = canvasSize;
+          element.height = canvasSize;
           const context = element.getContext("2d");
-          context.scale(_0x28bf89, _0x28bf89);
-          context.translate(_0x5a7d03 / 2 / _0x28bf89 - vector.x, _0x5a7d03 / 2 / _0x28bf89 - vector.y);
-          context.translate(0, _0x4be932 / _0x28bf89);
+          context.scale(scale, scale);
+          context.translate(canvasSize / 2 / scale - vector.x, canvasSize / 2 / scale - vector.y);
+          context.translate(0, _0x4be932 / scale);
           context.fillStyle = player.skin.colors.back;
           context.fill(player.base.polygon.path);
-          context.translate(0, _0x4be932 * -2 / _0x28bf89);
+          context.translate(0, _0x4be932 * -2 / scale);
           context.fillStyle = player.skin.pattern && player.skin.pattern.pattern || player.skin.colors.main;
           context.fill(player.base.polygon.path);
           _0x149dc6 = element.toDataURL("image/png");
         }
-        const _0x432ce9: GameOverResult = {
+        const result: GameOverResult = {
           build: this.build,
           game: this,
           percent: player.percent,
@@ -3306,58 +3306,58 @@ interface ObjectConstructor {
           }
           this.player = null;
           if (this.gameOverCallback) {
-            this.gameOverCallback(_0x432ce9);
+            this.gameOverCallback(result);
           }
         }, _0x392068 === _0xdf8741 || _0x392068 === _0x52fd24 || _0x392068 === _0x17fe5b ? this.config.enemyKillDelay : this.config.selfKillDelay);
       }
     }
     checkBaseCommits(): void {
-      this.units.forEach((_0x49df73: Unit) => {
-        const polygon = _0x49df73.base.polygon;
-        polygon.segments.forEach((_0x18f6c8: Segment) => {
+      this.units.forEach((unit: Unit) => {
+        const polygon = unit.base.polygon;
+        polygon.segments.forEach((segment: Segment) => {
           const {
             start,
             end
-          } = _0x18f6c8;
-          const _0x441f99 = start.segments.find((_0x272fed: Segment) => _0x272fed === _0x18f6c8);
-          const _0x4fe0ea = end.segments.find((_0x5c6010: Segment) => _0x5c6010 === _0x18f6c8);
-          if (!_0x441f99 || !_0x4fe0ea) {
+          } = segment;
+          const startSegment = start.segments.find((candidate: Segment) => candidate === segment);
+          const endSegment = end.segments.find((candidate: Segment) => candidate === segment);
+          if (!startSegment || !endSegment) {
             throw new Error("точки сегмента не закоммичены");
           }
         });
       });
     }
-    kill(unit?: Unit, unit2?: Unit, _0x44f71d?: number): void {
+    kill(unit?: Unit, unit2?: Unit, reason?: number): void {
       if (unit.death) {
         return;
       }
       if (this.isTest) {
-        const _0x33e839: string[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
-        console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + _0x33e839[_0x44f71d] + ")");
+        const deathReasons: string[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
+        console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + deathReasons[reason] + ")");
       }
       this.events.kills++;
       unit.death = true;
       if (this.skinManager) {
         this.skinManager.release(unit.skin);
       }
-      this.units.forEach((_0x312bc3: Unit) => {
-        if (_0x312bc3 !== unit && _0x312bc3.in === unit.base) {
-          _0x312bc3.in = null;
+      this.units.forEach((otherUnit: Unit) => {
+        if (otherUnit !== unit && otherUnit.in === unit.base) {
+          otherUnit.in = null;
         }
       });
-      if (_0x44f71d !== _0x21e037) {
-        callback48(unit, null, unit.track.polyline.segments);
-        callback48(unit, null, unit.base.polygon.segments);
+      if (reason !== _0x21e037) {
+        spawnScoreParticles(unit, null, unit.track.polyline.segments);
+        spawnScoreParticles(unit, null, unit.base.polygon.segments);
       }
       unit.track.remove();
       unit.base.remove();
-      const _0x5a9e5b = this.units.findIndex((_0x4a7ed1: Unit) => _0x4a7ed1 === unit);
-      this.units.splice(_0x5a9e5b, 1);
+      const index = this.units.findIndex((candidate: Unit) => candidate === unit);
+      this.units.splice(index, 1);
       unit.killer = unit2;
       if (unit2) {
         unit2.scores.kills = unit.scores.kills + unit.scores.accumulator;
         if (unit2.schemes) {
-          unit2.schemes.kill(unit, _0x44f71d);
+          unit2.schemes.kill(unit, reason);
         }
         if (unit2 && unit2.achievements) {
           unit2.achievements.onKill(unit);
@@ -3368,11 +3368,11 @@ interface ObjectConstructor {
       if (unit2) {
         unit2.onScoreChanged();
       }
-      if (_0x44f71d !== _0x1f3950 && unit === this.player) {
-        this.gameOver(_0x44f71d);
+      if (reason !== _0x1f3950 && unit === this.player) {
+        this.gameOver(reason);
       }
     }
-    getMovement(_0x5cb90e: number, unit: Unit): Segment[] {
+    getMovement(deltaMilliseconds: number, unit: Unit): Segment[] {
       const {
         unitSpeed
       } = this.config;
@@ -3381,47 +3381,47 @@ interface ObjectConstructor {
       if (!vector) {
         return list4;
       }
-      vector.mulScalar(unitSpeed * _0x5cb90e / 1000);
-      const vector2 = callback49(unit.direction);
-      let _0x3fd66e = Math.atan2(vector2.x * vector.y - vector.x * vector2.y, vector2.dot(vector));
+      vector.mulScalar(unitSpeed * deltaMilliseconds / 1000);
+      const vector2 = angleToVector(unit.direction);
+      let turnAngle = Math.atan2(vector2.x * vector.y - vector.x * vector2.y, vector2.dot(vector));
       vector2.release();
-      const _0x58c896 = TURN_SPEED_RADIANS_PER_SECOND * _0x5cb90e / 1000 / (unit.smoothness || 1);
-      if (Math.abs(_0x3fd66e) > _0x58c896) {
-        _0x3fd66e = _0x58c896 * Math.sign(_0x3fd66e);
+      const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * deltaMilliseconds / 1000 / (unit.smoothness || 1);
+      if (Math.abs(turnAngle) > maxTurnThisFrame) {
+        turnAngle = maxTurnThisFrame * Math.sign(turnAngle);
       }
-      unit.direction += _0x3fd66e;
-      const _0x3b2cd3 = callback49(unit.direction).mulScalar(unitSpeed * _0x5cb90e / 1000);
-      let segment = new Segment(unit.position, unit.position.clone().add(_0x3b2cd3));
-      _0x3b2cd3.release();
+      unit.direction += turnAngle;
+      const displacement = angleToVector(unit.direction).mulScalar(unitSpeed * deltaMilliseconds / 1000);
+      let segment = new Segment(unit.position, unit.position.clone().add(displacement));
+      displacement.release();
       let list5: Intersection[] = this.border.intersections(segment);
       while (list5.length) {
-        let _0x5efed0: Intersection;
+        let intersection: Intersection;
         const vector3 = segment.vector;
         if (list5.length === 2) {
           const vector6 = list5[0].segment.vector;
-          let _0x2ade44 = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
-          _0x5efed0 = _0x2ade44 > 0 ? list5[0] : list5[1];
+          let angle = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
+          intersection = angle > 0 ? list5[0] : list5[1];
         } else {
-          _0x5efed0 = list5[0];
+          intersection = list5[0];
         }
         const {
-          segment: _0x1ae2b0,
-          point: _0x4c719e
-        } = _0x5efed0;
-        const vector4 = _0x1ae2b0.vector;
-        let _0x4b3a02 = Math.atan2(vector3.x * vector4.y - vector4.x * vector3.y, vector3.dot(vector4));
-        if (_0x4b3a02 < 0) {
+          segment: borderSegment,
+          point: intersectionPoint
+        } = intersection;
+        const vector4 = borderSegment.vector;
+        let angle2 = Math.atan2(vector3.x * vector4.y - vector4.x * vector3.y, vector3.dot(vector4));
+        if (angle2 < 0) {
           break;
         }
-        if (!callback21(_0x5efed0.distance)) {
-          const segment2 = new Segment(segment.start, _0x4c719e);
+        if (!isNearlyZero(intersection.distance)) {
+          const segment2 = new Segment(segment.start, intersectionPoint);
           list4.push(segment2);
         }
-        segment = new Segment(_0x4c719e, segment.end);
+        segment = new Segment(intersectionPoint, segment.end);
         const vector5 = segment.vector;
-        const _0x25c070 = Vector.clone(vector4).normalize().mulScalar(vector5.dot(vector4) / vector4.magnitude());
-        segment = new Segment(_0x4c719e, _0x4c719e.clone().add(_0x25c070));
-        _0x25c070.release();
+        const slideVector = Vector.clone(vector4).normalize().mulScalar(vector5.dot(vector4) / vector4.magnitude());
+        segment = new Segment(intersectionPoint, intersectionPoint.clone().add(slideVector));
+        slideVector.release();
         list5 = this.border.intersections(segment);
       }
       list4.push(segment);
@@ -3476,27 +3476,27 @@ interface ObjectConstructor {
         this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
       }
     }
-    prepareAndUpdate(_0x4275d6?: number): void {
+    prepareAndUpdate(deltaMilliseconds?: number): void {
       if (this.preparing()) {
         let prepareAcceleration = this.config.prepareAcceleration;
         while (this.preparing() && prepareAcceleration > 0) {
-          this.update(_0xbeedd5);
+          this.update(TWO_FRAME_DURATION_MILLISECONDS);
           prepareAcceleration--;
         }
       } else {
-        console.log(_0x4275d6);
-        this.update(_0x4275d6);
+        console.log(deltaMilliseconds);
+        this.update(deltaMilliseconds);
       }
     }
     preparing(): boolean {
       return this.cycle < this.config.prepareCounter;
     }
     finishPrepare(): void {
-      let _0x5477e9 = this.replaying ? this.replaying.start : this.config.prepareCounter;
-      if (this.cycle < _0x5477e9) {
-        console.log("skip cycles to: " + _0x5477e9);
+      let targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
+      if (this.cycle < targetCycle) {
+        console.log("skip cycles to: " + targetCycle);
       }
-      while (this.cycle < _0x5477e9) {
+      while (this.cycle < targetCycle) {
         this.update();
       }
     }
@@ -3508,10 +3508,10 @@ interface ObjectConstructor {
             return;
           }
         }
-        let _0x3dd1cb = player.base.polygon.segments.reduce((_0x157f67: Segment, _0x395568: Segment) => _0x157f67.start.distance2(player.position) < _0x395568.start.distance2(player.position) ? _0x157f67 : _0x395568);
-        let vector = _0x3dd1cb.start.clone().sub(player.position);
-        let _0x431ca7 = vector.magnitude();
-        player.position = vector.mulScalar(1 + 1 / _0x431ca7).add(player.position);
+        let nearestSegment = player.base.polygon.segments.reduce((closest: Segment, segment: Segment) => closest.start.distance2(player.position) < segment.start.distance2(player.position) ? closest : segment);
+        let vector = nearestSegment.start.clone().sub(player.position);
+        let distance = vector.magnitude();
+        player.position = vector.mulScalar(1 + 1 / distance).add(player.position);
         player.track.remove();
         if (this.debug) {
           player.game.alert("Tail is recovered");
@@ -3522,7 +3522,7 @@ interface ObjectConstructor {
         }
       }
     }
-    update(_0x5b3085?: number): boolean {
+    update(deltaMilliseconds?: number): boolean {
       const {
         trackWidth,
         unitSpeed,
@@ -3535,13 +3535,13 @@ interface ObjectConstructor {
         return false;
       }
       Vector.space = this.space;
-      if (_0x5b3085 == null) {
-        _0x5b3085 = 1000 / 60;
+      if (deltaMilliseconds == null) {
+        deltaMilliseconds = 1000 / 60;
       }
-      _0x5b3085 += this.rng() * 0.01;
-      this.spawnSuspend -= _0x5b3085;
+      deltaMilliseconds += this.rng() * 0.01;
+      this.spawnSuspend -= deltaMilliseconds;
       if (!this.isTest) {
-        this.readInput(_0x5b3085);
+        this.readInput(deltaMilliseconds);
       }
       this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * 127 + 254) % 254;
       console.assert(this.angle >= 0 && this.angle < 256);
@@ -3560,20 +3560,20 @@ interface ObjectConstructor {
         player
       } = this;
       this.timings.aiStartTime = now();
-      this.units.forEach((_0x3314bd: Unit) => _0x3314bd.update(_0x5b3085));
+      this.units.forEach((unit: Unit) => unit.update(deltaMilliseconds));
       this.timings.aiEndTime = now();
-      this.handleUnitMovements(_0x5b3085);
+      this.handleUnitMovements(deltaMilliseconds);
       this.units.forEach((unit: Unit) => {
         unit.lastSquare = unit.base.square;
       });
       this.units.forEach((unit: Unit) => {
-        const _0x50e657 = unit.base.square / this.square;
-        unit.percent = _0x50e657;
-        unit.bestPercent = Math.max(unit.bestPercent, _0x50e657);
-        unit.scale = callback23(maxScale, minScale, callback24(~~(_0x50e657 * 20) / 20));
+        const percent = unit.base.square / this.square;
+        unit.percent = percent;
+        unit.bestPercent = Math.max(unit.bestPercent, percent);
+        unit.scale = lerp(maxScale, minScale, easeOutCubic(~~(percent * 20) / 20));
         unit.vrange = Math.sqrt(2455780) / 2 / unit.scale * 0.8;
         if (unit.schemes) {
-          unit.schemes.update(_0x5b3085);
+          unit.schemes.update(deltaMilliseconds);
         }
         if (unit.labels.length) {
           let vector = new Vector(0, -35);
@@ -3586,26 +3586,26 @@ interface ObjectConstructor {
           unit.labels = [];
         }
       });
-      this.units.sort((_0x3eb5ba: Unit, _0xb4437f: Unit) => _0xb4437f.schemes && _0x3eb5ba.schemes ? _0xb4437f.schemes.scores() - _0x3eb5ba.schemes.scores() : 0);
-      this.units.forEach((_0x243efd: Unit, _0x613374: number) => {
-        _0x243efd.top = _0x613374 + 1;
+      this.units.sort((unitA: Unit, unitB: Unit) => unitB.schemes && unitA.schemes ? unitB.schemes.scores() - unitA.schemes.scores() : 0);
+      this.units.forEach((unit: Unit, index: number) => {
+        unit.top = index + 1;
       });
       this.labels = this.labels.filter((particle: TextParticle) => {
-        particle.update(_0x5b3085);
+        particle.update(deltaMilliseconds);
         return particle.time > 0;
       });
       if (this.notifications.length) {
         const quest = this.notifications[0];
         if (quest.ready) {
-          quest.update(_0x5b3085);
+          quest.update(deltaMilliseconds);
           if (quest.state > 3) {
             this.notifications.shift();
           }
         }
       }
-      this.particles.forEach((_0x3cbe83: Particle) => _0x3cbe83.update(_0x5b3085));
+      this.particles.forEach((particle: Particle) => particle.update(deltaMilliseconds));
       if (player) {
-        this.level = callback23(this.config.startBotLevel, 1, player.percent);
+        this.level = lerp(this.config.startBotLevel, 1, player.percent);
       } else {
         this.level = this.config.noPlayerBotLevel;
       }
@@ -3614,7 +3614,7 @@ interface ObjectConstructor {
       }
       this.units.forEach((bot: Unit) => {
         if (bot instanceof Bot) {
-          const _0x5594f3 = Math.min(1, Math.max(0, this.level + bot.jitter));
+          const clampedLevel = Math.min(1, Math.max(0, this.level + bot.jitter));
           let {
             botAggroMin,
             botAggroMax,
@@ -3647,41 +3647,41 @@ interface ObjectConstructor {
               botDefMax *= 2;
               break;
           }
-          bot.aggro = callback23(botAggroMin, botAggroMax, _0x5594f3);
-          bot.greed = callback23(botGreedMin, botGreedMax, _0x5594f3);
-          bot.safety = callback23(botSafetyMin, botSafetyMax, _0x5594f3);
-          bot.def = callback23(botDefMin, botDefMax, _0x5594f3);
+          bot.aggro = lerp(botAggroMin, botAggroMax, clampedLevel);
+          bot.greed = lerp(botGreedMin, botGreedMax, clampedLevel);
+          bot.safety = lerp(botSafetyMin, botSafetyMax, clampedLevel);
+          bot.def = lerp(botDefMin, botDefMax, clampedLevel);
         }
       });
       if (this.player && this.player.achievements) {
-        this.player.achievements.update(this.player, _0x5b3085, this);
+        this.player.achievements.update(this.player, deltaMilliseconds, this);
       }
       if (player && player.track.length > this.config.botAttackTrackLength) {
-        let _0x3bbba2: Bot | null = null;
-        let _0x10ec9a = Infinity;
-        this.units.forEach((_0x378265: Unit) => {
-          if (_0x378265 instanceof Bot) {
-            let _0x560484 = Infinity;
-            player.track.simplyline.forEach((_0x139db9: Vector) => {
-              const _0x448082 = _0x139db9.distance2(_0x378265.position);
-              if (_0x448082 < _0x560484) {
-                _0x560484 = _0x448082;
+        let closestBot: Bot | null = null;
+        let closestDistance = Infinity;
+        this.units.forEach((unit: Unit) => {
+          if (unit instanceof Bot) {
+            let minDistance = Infinity;
+            player.track.simplyline.forEach((trackPoint: Vector) => {
+              const distanceSquared = trackPoint.distance2(unit.position);
+              if (distanceSquared < minDistance) {
+                minDistance = distanceSquared;
               }
             });
-            _0x560484 = Math.sqrt(_0x560484);
-            if (_0x560484 < _0x10ec9a) {
-              _0x3bbba2 = _0x378265;
-              _0x10ec9a = _0x560484;
+            minDistance = Math.sqrt(minDistance);
+            if (minDistance < closestDistance) {
+              closestBot = unit;
+              closestDistance = minDistance;
             }
           }
         });
-        if (_0x3bbba2) {
-          _0x3bbba2.fsm.change("attack");
+        if (closestBot) {
+          closestBot.fsm.change("attack");
         }
       }
-      const _0x709870 = player ? player.scale : observerScale;
-      const _0x39165b = _0x709870 - this.scale;
-      this.scale += _0x39165b * _0x5b3085 / 400;
+      const targetScale = player ? player.scale : observerScale;
+      const scaleDelta = targetScale - this.scale;
+      this.scale += scaleDelta * deltaMilliseconds / 400;
       if (player && player.percent > 0.9999) {
         player.percent = 1;
         this.gameOver(_0x1f3950);
@@ -3712,19 +3712,19 @@ interface ObjectConstructor {
       const context = view.getContext("2d");
       const clientWidth = view.clientWidth;
       const clientHeight = view.clientHeight;
-      const _0x54a346 = ~~(clientWidth * this.quality);
-      const _0x41629c = ~~(clientHeight * this.quality);
-      if (view.width !== _0x54a346 || view.height !== _0x41629c) {
-        view.width = _0x54a346;
-        view.height = _0x41629c;
+      const viewWidth = ~~(clientWidth * this.quality);
+      const viewHeight = ~~(clientHeight * this.quality);
+      if (view.width !== viewWidth || view.height !== viewHeight) {
+        view.width = viewWidth;
+        view.height = viewHeight;
       }
       const {
         devicePixelRatio
       } = window;
-      const _0x2ddf06 = _0x54a346 * devicePixelRatio;
-      const _0x5c3e17 = _0x41629c * devicePixelRatio;
-      const _0x3b8c8f = Math.sqrt(_0x2ddf06 * _0x2ddf06 + _0x5c3e17 * _0x5c3e17) / Math.sqrt(2455780);
-      const _0x2b1e55 = this.scale * _0x3b8c8f / devicePixelRatio;
+      const viewScreenWidth = viewWidth * devicePixelRatio;
+      const viewScreenHeight = viewHeight * devicePixelRatio;
+      const scaler = Math.sqrt(viewScreenWidth * viewScreenWidth + viewScreenHeight * viewScreenHeight) / Math.sqrt(2455780);
+      const scale = this.scale * scaler / devicePixelRatio;
       let vector: Vector;
       if (this.player) {
         vector = this.player.position;
@@ -3735,115 +3735,115 @@ interface ObjectConstructor {
         vector = this.space.center;
       }
       if (this.origin && (!this.player || this.player.killer)) {
-        const _0x12ca16 = this.origin.distance(vector);
-        let _0x182a88 = _0x12ca16 / 30;
-        const _0x4caab5 = vector.clone().sub(this.origin).normalize().mulScalar(_0x182a88);
-        vector = this.origin.add(_0x4caab5);
+        const distance = this.origin.distance(vector);
+        let stepDistance = distance / 30;
+        const offset = vector.clone().sub(this.origin).normalize().mulScalar(stepDistance);
+        vector = this.origin.add(offset);
       }
       this.origin = vector.clone();
-      const _0x5010a6 = vector.x - _0x54a346 / 2 / _0x2b1e55;
-      const _0x4fe2d2 = vector.x + _0x54a346 / 2 / _0x2b1e55;
-      const _0x15266b = vector.y - _0x41629c / 2 / _0x2b1e55;
-      const _0x29bcc8 = vector.y + _0x41629c / 2 / _0x2b1e55;
-      const _0x4f0c46 = (point: Vector, _0x568ea6 = 0) => callback27(_0x5010a6 - _0x568ea6, _0x4fe2d2 + _0x568ea6, point.x) && callback27(_0x15266b - _0x568ea6, _0x29bcc8 + _0x568ea6, point.y);
-      const _0x2a41b8 = (_0x49fb9c: { bounds: Bounds }, _0x5af2d7 = 0) => callback28(_0x49fb9c.bounds.left - _0x5af2d7, _0x49fb9c.bounds.right + _0x5af2d7, _0x5010a6, _0x4fe2d2) > 0 && callback28(_0x49fb9c.bounds.top - _0x5af2d7, _0x49fb9c.bounds.bottom + _0x5af2d7, _0x15266b, _0x29bcc8) > 0;
-      const callback95 = (_0x532992: number, _0x58c40d: number) => {
-        const _0x3475d4 = 16 / 9;
-        const _0x5e288c = 9 / 16;
-        const _0x158e1e = callback25(_0x5e288c, _0x3475d4, _0x2ddf06 / _0x5c3e17);
+      const left = vector.x - viewWidth / 2 / scale;
+      const right = vector.x + viewWidth / 2 / scale;
+      const top = vector.y - viewHeight / 2 / scale;
+      const bottom = vector.y + viewHeight / 2 / scale;
+      const pointInView = (point: Vector, margin = 0) => isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
+      const boundsInView = (boundsObject: { bounds: Bounds }, margin = 0) => intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
+      const calcMult = (_0x532992: number, _0x58c40d: number) => {
+        const landscapeAspectRatio = 16 / 9;
+        const portraitAspectRatio = 9 / 16;
+        const clampedAspectRatio = clamp(portraitAspectRatio, landscapeAspectRatio, viewScreenWidth / viewScreenHeight);
         const _0x174801 = _0x532992 - _0x58c40d;
-        const _0x5bf426 = _0x5e288c - _0x3475d4;
-        const _0x531332 = -(_0x174801 * _0x3475d4 + _0x5bf426 * _0x532992);
-        return -(_0x531332 + _0x174801 * _0x158e1e) / _0x5bf426;
+        const _0x5bf426 = portraitAspectRatio - landscapeAspectRatio;
+        const _0x531332 = -(_0x174801 * landscapeAspectRatio + _0x5bf426 * _0x532992);
+        return -(_0x531332 + _0x174801 * clampedAspectRatio) / _0x5bf426;
       };
-      const _0x11876d = ~~(callback95(20, 30) * _0x3b8c8f);
-      const _0xf7a325 = this.config.platesStrokeWidth * _0x3b8c8f;
-      const _0x163ec9 = ~~(_0x3b8c8f * 4);
-      const _0x5052ae = _0x11876d + "px " + font;
-      const _0x2809cc = ~~(_0x3b8c8f * 16);
-      const _0x751269 = ~~(_0x11876d * 0.75);
-      const _0x593bf3 = _0x751269 * 2;
-      const _0x33d922 = ~~(_0x2ddf06 / callback95(4, 2.25));
-      const _0x35ec6f = ~~(_0x33d922 / 2);
+      const fontSize = ~~(calcMult(20, 30) * scaler);
+      const strokeWidth = this.config.platesStrokeWidth * scaler;
+      const backHeight = ~~(scaler * 4);
+      const uiFont = fontSize + "px " + font;
+      const padding = ~~(scaler * 16);
+      const halfBarHeight = ~~(fontSize * 0.75);
+      const barHeight = halfBarHeight * 2;
+      const barWidth = ~~(viewScreenWidth / calcMult(4, 2.25));
+      const halfBarWidth = ~~(barWidth / 2);
       return {
         game: this,
         view: view,
         ctx: context,
-        viewWidth: _0x54a346,
-        viewHeight: _0x41629c,
+        viewWidth: viewWidth,
+        viewHeight: viewHeight,
         devicePixelRatio: devicePixelRatio,
-        scaler: _0x3b8c8f,
-        scale: _0x2b1e55,
+        scaler: scaler,
+        scale: scale,
         origin: vector,
-        pointInView: _0x4f0c46,
-        boundsInView: _0x2a41b8,
-        calcMult: callback95,
-        viewScreenWidth: _0x2ddf06,
-        viewScreenHeight: _0x5c3e17,
-        fontSize: _0x11876d,
-        strokeWidth: _0xf7a325,
-        backHeight: _0x163ec9,
-        uiFont: _0x5052ae,
-        padding: _0x2809cc,
-        barHeight: _0x593bf3,
-        halfBarHeight: _0x751269,
-        barWidth: _0x33d922,
-        halfBarWidth: _0x35ec6f
+        pointInView: pointInView,
+        boundsInView: boundsInView,
+        calcMult: calcMult,
+        viewScreenWidth: viewScreenWidth,
+        viewScreenHeight: viewScreenHeight,
+        fontSize: fontSize,
+        strokeWidth: strokeWidth,
+        backHeight: backHeight,
+        uiFont: uiFont,
+        padding: padding,
+        barHeight: barHeight,
+        halfBarHeight: halfBarHeight,
+        barWidth: barWidth,
+        halfBarWidth: halfBarWidth
       };
     }
-    updateMetrics(_0x54d46a: number): void {
+    updateMetrics(frameTime: number): void {
       const {
         stats,
         timings
       } = this;
-      const _0x646ac0: Metric = {
+      const metric: Metric = {
         updateTime: timings.updateEndTime - timings.updateStartTime,
         renderTime: timings.renderEndTime - timings.renderStartTime,
-        frameTime: _0x54d46a,
+        frameTime: frameTime,
         events: this.events
       };
-      this.metrics.push(_0x646ac0);
+      this.metrics.push(metric);
       if (this.metrics.length > _0xd09b08) {
         this.metrics.shift();
       }
-      const _0x29318d = 0.05;
-      stats.fps = callback23(stats.fps, 1000 / _0x54d46a, _0x29318d);
-      stats.ut = callback23(stats.ut, timings.updateEndTime - timings.updateStartTime, _0x29318d);
-      stats.ait = callback23(stats.ait, timings.aiEndTime - timings.aiStartTime, _0x29318d);
-      stats.st = callback23(stats.st, timings.spawnEndTime - timings.spawnStartTime, _0x29318d);
-      stats.rt = callback23(stats.rt, timings.renderEndTime - timings.renderStartTime, _0x29318d);
+      const smoothingFactor = 0.05;
+      stats.fps = lerp(stats.fps, 1000 / frameTime, smoothingFactor);
+      stats.ut = lerp(stats.ut, timings.updateEndTime - timings.updateStartTime, smoothingFactor);
+      stats.ait = lerp(stats.ait, timings.aiEndTime - timings.aiStartTime, smoothingFactor);
+      stats.st = lerp(stats.st, timings.spawnEndTime - timings.spawnStartTime, smoothingFactor);
+      stats.rt = lerp(stats.rt, timings.renderEndTime - timings.renderStartTime, smoothingFactor);
       this.fpsSequence.push(stats.fps);
-      const _0x2fbf93 = 25;
-      const _0x48c44b = 35;
-      const _0x2a54ee = 10;
-      const _0x293934 = 120;
-      const _0x3636ac = 0.5;
-      if (this.fpsSequence.length > _0x293934) {
+      const lowFpsThreshold = 25;
+      const highFpsThreshold = 35;
+      const criticalFpsThreshold = 10;
+      const fpsSampleSize = 120;
+      const minQuality = 0.5;
+      if (this.fpsSequence.length > fpsSampleSize) {
         this.fpsSequence.sort();
-        const _0x535376 = this.fpsSequence[~~(_0x293934 / 2)];
-        if (_0x535376 < _0x2fbf93) {
+        const medianFps = this.fpsSequence[~~(fpsSampleSize / 2)];
+        if (medianFps < lowFpsThreshold) {
           this.quality -= 0.1;
         }
-        if (_0x535376 < _0x2a54ee) {
+        if (medianFps < criticalFpsThreshold) {
           this.quality -= 0.1;
         }
-        if (this.quality < _0x3636ac) {
-          this.quality = _0x3636ac;
+        if (this.quality < minQuality) {
+          this.quality = minQuality;
         }
-        if (_0x535376 > _0x48c44b) {
+        if (medianFps > highFpsThreshold) {
           this.quality += 0.1;
         }
         if (this.quality > 1) {
           this.quality = 1;
         }
-        const _0x3d8841 = Math.round(this.quality * 10);
-        this.quality = _0x3d8841 / 10;
-        if (_0x3d8841 < 10) {
-          const _0x33b565 = "q" + _0x3d8841;
-          if (this.qas[_0x33b565]) {
-            this.qas[_0x33b565] = false;
+        const qualityLevel = Math.round(this.quality * 10);
+        this.quality = qualityLevel / 10;
+        if (qualityLevel < 10) {
+          const qualityKey = "q" + qualityLevel;
+          if (this.qas[qualityKey]) {
+            this.qas[qualityKey] = false;
             if (window.ga) {
-              window.ga("send", "event", "fps", _0x33b565);
+              window.ga("send", "event", "fps", qualityKey);
             }
           }
         }
@@ -3854,9 +3854,9 @@ interface ObjectConstructor {
         kills: 0
       };
     }
-    setLeaderboard(_0x3f96a5?: Leaderboard) {
-      if (_0x3f96a5) {
-        this.leaderboard = _0x3f96a5;
+    setLeaderboard(leaderboard?: Leaderboard) {
+      if (leaderboard) {
+        this.leaderboard = leaderboard;
         this.changeShields();
       }
     }
@@ -3865,29 +3865,29 @@ interface ObjectConstructor {
         countries: leaderboard
       } = this.leaderboard;
       if (leaderboard) {
-        const _0x52f233 = leaderboard[0] && leaderboard[0].country;
-        const _0x129382 = leaderboard[1] && leaderboard[1].country;
-        const _0xc01a3 = leaderboard[2] && leaderboard[2].country;
-        this.units.forEach((_0x378c17: Unit) => {
-          const _0x4b4cea = _0x378c17.skin.assets.find((_0xb96779: Asset) => _0xb96779.pool.name === "shields");
-          const _0x18d38d = _0x378c17.skin.assets.find((_0x4fc423: Asset) => _0x4fc423.pool.name === "flags");
-          if (_0x4b4cea && _0x18d38d) {
-            let _0x43471a = "gray";
-            switch (_0x18d38d.name) {
-              case _0x52f233:
-                _0x43471a = "gold";
+        const goldCountry = leaderboard[0] && leaderboard[0].country;
+        const silverCountry = leaderboard[1] && leaderboard[1].country;
+        const bronzeCountry = leaderboard[2] && leaderboard[2].country;
+        this.units.forEach((unit: Unit) => {
+          const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "shields");
+          const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags");
+          if (shieldAsset && flagAsset) {
+            let shieldName = "gray";
+            switch (flagAsset.name) {
+              case goldCountry:
+                shieldName = "gold";
                 break;
-              case _0x129382:
-                _0x43471a = "silver";
+              case silverCountry:
+                shieldName = "silver";
                 break;
-              case _0xc01a3:
-                _0x43471a = "bronze";
+              case bronzeCountry:
+                shieldName = "bronze";
                 break;
             }
-            if (_0x4b4cea.name !== _0x43471a) {
-              _0x378c17.skin.removeAsset(_0x4b4cea);
+            if (shieldAsset.name !== shieldName) {
+              unit.skin.removeAsset(shieldAsset);
               if ("shieldSkinAssets" in this.skinManager) {
-                _0x378c17.skin.addAsset(this.skinManager.shieldSkinAssets.get(_0x43471a));
+                unit.skin.addAsset(this.skinManager.shieldSkinAssets.get(shieldName));
               }
             }
           }
@@ -3897,13 +3897,13 @@ interface ObjectConstructor {
     post(): void {
       var paper2_results = window.paper2_results;
       var scores = paper2_results.scores;
-      function callback95(): string {
+      function getLanguageCode(): string {
         return (navigator.languages && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toUpperCase();
       }
-      var _0x129a88 = {
+      var payload = {
         build: paper2_results.build || 0,
         player: window.playerId || 0,
-        lng: callback95(),
+        lng: getLanguageCode(),
         name: this.player.name,
         top: paper2_results.top || 0,
         persent: Math.round(paper2_results.score * 100),
@@ -3916,40 +3916,40 @@ interface ObjectConstructor {
         },
         reason: paper2_results.reason || 0
       };
-      function callback96(_0x47f4ae: string): string {
-        var _0x3e57e9 = "";
-        for (var i2 = 0; i2 < _0x47f4ae.length; i2++) {
-          var _0xa11e69 = _0x47f4ae.charCodeAt(i2);
-          var _0x267820 = _0xa11e69 ^ 42;
-          _0x3e57e9 = _0x3e57e9 + String.fromCharCode(_0x267820);
+      function xorEncode(text: string): string {
+        var encoded = "";
+        for (var i2 = 0; i2 < text.length; i2++) {
+          var charCode = text.charCodeAt(i2);
+          var encodedCharCode = charCode ^ 42;
+          encoded = encoded + String.fromCharCode(encodedCharCode);
         }
-        return _0x3e57e9;
+        return encoded;
       }
       fetch("/newpaperio/ajax/results.php", {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
-        body: callback96(escape(JSON.stringify(_0x129a88)))
+        body: xorEncode(escape(JSON.stringify(payload)))
       });
     }
     addCity(unit: Unit) {
-      const name = unit.skin.assets.find((_0x143298: Asset) => _0x143298.pool.name === "flags").name;
+      const name = unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
       const city = new City(this.citiesManager.get(name), false, unit.position.clone(), unit);
       if (this.skinManager.isFlagSkinManager) {
-        const _0x5ceed0 = this.skinManager.getCitySkin(name);
-        city.skin = _0x5ceed0;
+        const citySkin = this.skinManager.getCitySkin(name);
+        city.skin = citySkin;
       }
       unit.cities.push(city);
     }
     checkSegments(): void {
-      let _0x136bc7 = 0;
+      let totalSegmentCount = 0;
       this.units.forEach((unit: Unit) => {
-        _0x136bc7 += unit.base.polygon.segments.length;
-        _0x136bc7 += unit.track.polyline.segments.length;
+        totalSegmentCount += unit.base.polygon.segments.length;
+        totalSegmentCount += unit.track.polyline.segments.length;
       });
-      const _0x33065f = this.space.segmentsCount();
-      const length = Object.keys(_0x33065f).length;
+      const segmentCounts = this.space.segmentsCount();
+      const length = Object.keys(segmentCounts).length;
     }
     handleReturn(unit: Unit): boolean | undefined {
       if (unit.death) {
@@ -3960,32 +3960,32 @@ interface ObjectConstructor {
       const {
         base: unit2
       } = unit;
-      const _0x31a5aa = unit2.polygon.segments.findIndex((_0x1e052a: Segment) => _0x1e052a.start === polyline.start);
-      const _0x1d7cbf = unit2.polygon.segments.findIndex((_0x5e2821: Segment) => _0x5e2821.start === polyline.end);
-      const _0x4ffa2b = Math.min(_0x1d7cbf, _0x31a5aa);
-      const _0x490c91 = Math.max(_0x1d7cbf, _0x31a5aa);
-      if (_0x4ffa2b !== _0x31a5aa) {
+      const startIndex = unit2.polygon.segments.findIndex((segment: Segment) => segment.start === polyline.start);
+      const endIndex = unit2.polygon.segments.findIndex((segment: Segment) => segment.start === polyline.end);
+      const fromIndex = Math.min(endIndex, startIndex);
+      const toIndex = Math.max(endIndex, startIndex);
+      if (fromIndex !== startIndex) {
         polyline.reverse();
       }
-      const _0x5a7e19 = polyline.points();
+      const trackPoints = polyline.points();
       const polygon = unit2.polygon.points();
-      const list4 = polygon.splice(_0x4ffa2b, _0x490c91 - _0x4ffa2b + 1, ..._0x5a7e19);
+      const list4 = polygon.splice(fromIndex, toIndex - fromIndex + 1, ...trackPoints);
       list4.shift();
       list4.pop();
       list4.reverse();
-      list4.push(..._0x5a7e19);
+      list4.push(...trackPoints);
       const polygon2 = new Polygon(list4);
       let polygon3: Polygon;
       if (polygon2.rawSquare() < 0) {
         polygon3 = new Polygon(polygon.reverse());
-        unit2.polygon.unsplice(polyline, _0x4ffa2b, _0x490c91);
+        unit2.polygon.unsplice(polyline, fromIndex, toIndex);
       } else {
         polygon3 = polygon2;
-        unit2.polygon.splice(polyline, _0x4ffa2b, _0x490c91);
+        unit2.polygon.splice(polyline, fromIndex, toIndex);
       }
       unit2.square += polygon3.square();
       unit2.polygon.calcPath();
-      this.units.filter((_0x299d30: Unit) => _0x299d30 !== unit).forEach((unit3: Unit) => {
+      this.units.filter((otherUnit: Unit) => otherUnit !== unit).forEach((unit3: Unit) => {
         if (!unit3.death) {
           if (unit3.in === unit3.base && polygon3.inside(unit3.position)) {
             this.kill(unit3, unit, _0x17fe5b);
@@ -4003,76 +4003,76 @@ interface ObjectConstructor {
       const length = segments.length;
       const list6: { base: Territory; poly: Polygon }[] = [];
       for (let i2 = 0; i2 <= length; i2++) {
-        const _0x578435 = i2 === length ? segments[i2 - 1].end : segments[i2].start;
-        const _0x45d654 = _0x578435.segments.filter((segment: Segment) => segment.shape.owner !== unit.track && segment.shape.owner !== unit.base && segment.start === _0x578435);
-        if (_0x45d654.length) {
-          let list7: ShapeOwnerIntersection[] = _0x45d654.map((_0x3ea75c: Segment) => ({
-            owner: _0x3ea75c.shape.owner,
-            point: _0x578435,
-            segment: _0x3ea75c,
+        const point = i2 === length ? segments[i2 - 1].end : segments[i2].start;
+        const crossingSegments = point.segments.filter((segment: Segment) => segment.shape.owner !== unit.track && segment.shape.owner !== unit.base && segment.start === point);
+        if (crossingSegments.length) {
+          let list7: ShapeOwnerIntersection[] = crossingSegments.map((segment: Segment) => ({
+            owner: segment.shape.owner,
+            point: point,
+            segment: segment,
             index: i2
           }));
           if (!list5.length) {
-            const _0xedaebe = unit.track.intersections.find((_0x540afd: TrailIntersectionRecord) => _0x540afd.point.equal(_0x578435));
-            if (!_0xedaebe) {
+            const intersectionRecord = unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point));
+            if (!intersectionRecord) {
               return false;
             }
-            list5 = list7.filter((_0x2d8e62: ShapeOwnerIntersection) => {
-              const list8 = _0xedaebe.intersections.filter((_0x35c9f5: TrailCrossing) => _0x35c9f5.base === _0x2d8e62.owner);
+            list5 = list7.filter((intersection: ShapeOwnerIntersection) => {
+              const list8 = intersectionRecord.intersections.filter((crossing: TrailCrossing) => crossing.base === intersection.owner);
               if (!list8.length) {
                 return false;
               }
               return list8[list8.length - 1].enter;
             });
           } else {
-            let list8 = list5.filter((_0x2058ce: ShapeOwnerIntersection) => list7.some((_0x3c590e: ShapeOwnerIntersection) => {
-              return _0x3c590e.owner === _0x2058ce.owner;
+            let list8 = list5.filter((intersection: ShapeOwnerIntersection) => list7.some((otherIntersection: ShapeOwnerIntersection) => {
+              return otherIntersection.owner === intersection.owner;
             }));
             if (list8.length) {
-              const _0x12a6a7 = list8[0];
-              const _0x1398d6 = list7.find((_0x519029: ShapeOwnerIntersection) => _0x519029.owner === _0x12a6a7.owner);
-              const callback95 = (_0x125dfc: ComebackMergeParams) => {
+              const enterIntersection = list8[0];
+              const leaveIntersection = list7.find((intersection: ShapeOwnerIntersection) => intersection.owner === enterIntersection.owner);
+              const mergeComeback = (params: ComebackMergeParams) => {
                 const {
                   owner,
                   startT,
                   endT,
                   startPoint,
                   endPoint
-                } = _0x125dfc;
+                } = params;
                 let {
                   enter,
                   leave
-                } = _0x125dfc;
+                } = params;
                 if (enter.shape !== owner.polygon) {
-                  enter = owner.polygon.segments.find((_0x4cf664: Segment) => _0x4cf664.start === startPoint);
+                  enter = owner.polygon.segments.find((segment: Segment) => segment.start === startPoint);
                 }
                 if (leave.shape !== owner.polygon) {
-                  leave = owner.polygon.segments.find((_0x5d714c: Segment) => _0x5d714c.start === endPoint);
+                  leave = owner.polygon.segments.find((segment: Segment) => segment.start === endPoint);
                 }
                 if (enter === leave) {
                   return;
                 }
-                const _0x5455c7 = unit.track.polyline.points().splice(startT, endT - startT + 1);
-                const _0x2cdd7b = owner.polygon.segments.findIndex((_0x22e7a7: Segment) => _0x22e7a7 === enter);
-                const _0xd94c2f = owner.polygon.segments.findIndex((_0x282134: Segment) => _0x282134 === leave);
-                const _0x53cd50 = Math.min(_0xd94c2f, _0x2cdd7b);
-                const _0x517d46 = Math.max(_0xd94c2f, _0x2cdd7b);
-                if (_0x53cd50 !== _0x2cdd7b) {
-                  _0x5455c7.reverse();
+                const points = unit.track.polyline.points().splice(startT, endT - startT + 1);
+                const enterIndex = owner.polygon.segments.findIndex((segment: Segment) => segment === enter);
+                const leaveIndex = owner.polygon.segments.findIndex((segment: Segment) => segment === leave);
+                const startIndex = Math.min(leaveIndex, enterIndex);
+                const endIndex = Math.max(leaveIndex, enterIndex);
+                if (startIndex !== enterIndex) {
+                  points.reverse();
                 }
                 const list10 = owner.polygon.points();
-                const list11 = list10.splice(_0x53cd50, _0x517d46 - _0x53cd50 + 1, ..._0x5455c7);
+                const list11 = list10.splice(startIndex, endIndex - startIndex + 1, ...points);
                 list11.shift();
                 list11.pop();
-                list11.push(..._0x5455c7.slice().reverse());
+                list11.push(...points.slice().reverse());
                 const polygon4 = new Polygon(list11);
                 const polygon5 = new Polygon(list10);
                 let polygon6: Polygon;
                 if (owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && polygon4.inside(owner.unit.track.polyline.start)) {
-                  owner.polygon.right(_0x5455c7, _0x53cd50, _0x517d46);
+                  owner.polygon.right(points, startIndex, endIndex);
                   polygon6 = polygon5;
                 } else {
-                  owner.polygon.left(_0x5455c7, _0x53cd50, _0x517d46);
+                  owner.polygon.left(points, startIndex, endIndex);
                   polygon6 = polygon4;
                 }
                 owner.square -= polygon6.square();
@@ -4087,22 +4087,22 @@ interface ObjectConstructor {
                   }
                 });
               };
-              if (!(_0x12a6a7.owner instanceof Territory)) {
+              if (!(enterIntersection.owner instanceof Territory)) {
                 throw new Error("Это не база");
               }
-              callback95({
-                owner: _0x12a6a7.owner,
-                enter: _0x12a6a7.segment,
-                startPoint: _0x12a6a7.point,
-                startT: _0x12a6a7.index,
-                leave: _0x1398d6.segment,
-                endPoint: _0x1398d6.point,
-                endT: _0x1398d6.index
+              mergeComeback({
+                owner: enterIntersection.owner,
+                enter: enterIntersection.segment,
+                startPoint: enterIntersection.point,
+                startT: enterIntersection.index,
+                leave: leaveIntersection.segment,
+                endPoint: leaveIntersection.point,
+                endT: leaveIntersection.index
               });
-              const _0x56c2b6 = unit.track.intersections.find((_0xd06444: TrailIntersectionRecord) => _0xd06444.point.equal(_0x578435));
-              const list9 = _0x56c2b6.intersections.filter((_0x2ead1e: TrailCrossing) => _0x2ead1e.base === _0x12a6a7.owner);
+              const intersectionRecord2 = unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point));
+              const list9 = intersectionRecord2.intersections.filter((crossing: TrailCrossing) => crossing.base === enterIntersection.owner);
               if (list9.length === 1 || list9[list9.length - 1].enter === false) {
-                list7 = list7.filter((_0x3f554c: ShapeOwnerIntersection) => _0x3f554c.owner !== _0x12a6a7.owner);
+                list7 = list7.filter((intersection: ShapeOwnerIntersection) => intersection.owner !== enterIntersection.owner);
               }
             }
             list5 = list7;
@@ -4114,10 +4114,10 @@ interface ObjectConstructor {
           unit3.in = unit.base;
         }
       });
-      const _0x41364a = (unit.base.square - unit.lastSquare) / this.square;
+      const increment = (unit.base.square - unit.lastSquare) / this.square;
       if (unit.schemes) {
         unit.schemes.comeback({
-          increment: _0x41364a,
+          increment: increment,
           rise: polygon3,
           victims: list6,
           game: this
@@ -4129,12 +4129,12 @@ interface ObjectConstructor {
         this.renderer(this);
       }
     }
-    handleUnitMovements(_0x447345?: number) {
+    handleUnitMovements(deltaMilliseconds?: number) {
       this.units.slice().forEach((unit: Unit) => {
         if (unit.death) {
           return;
         }
-        let list4 = this.getMovement(_0x447345, unit);
+        let list4 = this.getMovement(deltaMilliseconds, unit);
         {
           if (unit === this.player && !this.player.moveTo && unit.in === null && Math.random() < 0.0005) {
             unit.in = unit.base;
@@ -4144,90 +4144,90 @@ interface ObjectConstructor {
           if (unit.death) {
             return;
           }
-          const _0x568c14 = list4.shift();
-          const list5: Intersection[] = this.space.intersections(_0x568c14);
+          const segment = list4.shift();
+          const list5: Intersection[] = this.space.intersections(segment);
           const list6: IntersectionGroup[] = [];
-          list5.forEach((_0x510da2: Intersection) => {
-            const _0x51c4f2 = list6.findIndex((_0x5824d1: IntersectionGroup) => _0x5824d1.point.equal(_0x510da2.point));
-            if (_0x51c4f2 === -1) {
+          list5.forEach((intersection: Intersection) => {
+            const groupIndex = list6.findIndex((group: IntersectionGroup) => group.point.equal(intersection.point));
+            if (groupIndex === -1) {
               list6.push({
-                point: _0x510da2.point,
-                intersections: [_0x510da2]
+                point: intersection.point,
+                intersections: [intersection]
               });
             } else {
-              if (_0x510da2.point !== list6[_0x51c4f2].point) {
-                if (_0x510da2.point.cell) {
-                  if (list6[_0x51c4f2].point.cell) {
+              if (intersection.point !== list6[groupIndex].point) {
+                if (intersection.point.cell) {
+                  if (list6[groupIndex].point.cell) {
                     throw new Error("Бывает ли такое?");
                   } else {
-                    list6[_0x51c4f2].point = _0x510da2.point;
-                    list6[_0x51c4f2].intersections.forEach((_0x1fa896: Intersection) => {
-                      _0x1fa896.point = _0x510da2.point;
+                    list6[groupIndex].point = intersection.point;
+                    list6[groupIndex].intersections.forEach((intersection: Intersection) => {
+                      intersection.point = intersection.point;
                     });
                   }
                 } else {
-                  _0x510da2.point = list6[_0x51c4f2].point;
+                  intersection.point = list6[groupIndex].point;
                 }
               }
-              list6[_0x51c4f2].intersections.push(_0x510da2);
+              list6[groupIndex].intersections.push(intersection);
             }
           });
-          list5.forEach((_0x5c54f2: Intersection) => {
-            _0x5c54f2.distance = _0x568c14.start.distance2(_0x5c54f2.point);
+          list5.forEach((intersection: Intersection) => {
+            intersection.distance = segment.start.distance2(intersection.point);
           });
-          list5.sort((_0x438257: Intersection, _0x4e0f7c: Intersection) => _0x438257.distance - _0x4e0f7c.distance);
+          list5.sort((intersectionA: Intersection, intersectionB: Intersection) => intersectionA.distance - intersectionB.distance);
           const list7: Intersection[][] = [];
           let list8: Intersection[] | null = null;
-          let _0x3bea17 = -1;
-          list5.forEach((_0x5b060f: Intersection) => {
-            if (!callback22(_0x5b060f.distance, _0x3bea17)) {
+          let lastDistance = -1;
+          list5.forEach((intersection: Intersection) => {
+            if (!isNearlyEqual(intersection.distance, lastDistance)) {
               list8 = [];
-              _0x3bea17 = _0x5b060f.distance;
+              lastDistance = intersection.distance;
               list7.push(list8);
             }
-            list8.push(_0x5b060f);
+            list8.push(intersection);
           });
           list7.forEach((list9: Intersection[]) => {
             const list10: Shape[] = [];
-            list9.forEach((_0x45b190: Intersection) => {
+            list9.forEach((intersection: Intersection) => {
               const {
                 shape
-              } = _0x45b190.segment;
+              } = intersection.segment;
               if (shape && list10.indexOf(shape) === -1) {
                 list10.push(shape);
               }
             });
             while (list10.length) {
-              const _0x2f9419 = list10.findIndex((_0x5794f1: Shape) => _0x5794f1.owner === unit.in);
-              if (_0x2f9419 > 0) {
-                const _0x277c6a = list10[0];
-                list10[0] = list10[_0x2f9419];
-                list10[_0x2f9419] = _0x277c6a;
+              const inShapeIndex = list10.findIndex((shape: Shape) => shape.owner === unit.in);
+              if (inShapeIndex > 0) {
+                const firstShape = list10[0];
+                list10[0] = list10[inShapeIndex];
+                list10[inShapeIndex] = firstShape;
               }
-              const _0x444fd5 = list10.findIndex((_0x358f9e: Shape) => _0x358f9e.owner.isTrack);
-              if (_0x444fd5 > 0) {
-                const _0x88019d = list10[0];
-                list10[0] = list10[_0x444fd5];
-                list10[_0x444fd5] = _0x88019d;
+              const trackShapeIndex = list10.findIndex((shape: Shape) => shape.owner.isTrack);
+              if (trackShapeIndex > 0) {
+                const firstShape2 = list10[0];
+                list10[0] = list10[trackShapeIndex];
+                list10[trackShapeIndex] = firstShape2;
               }
-              const _0xc50a80 = list10.shift();
+              const shape = list10.shift();
               const list11: Intersection[] = [];
-              list9.forEach((_0x251f9e: Intersection) => {
-                if (_0x251f9e.segment.shape === _0xc50a80) {
-                  list11.push(_0x251f9e);
+              list9.forEach((intersection: Intersection) => {
+                if (intersection.segment.shape === shape) {
+                  list11.push(intersection);
                 }
               });
               while (!unit.death && list11.length) {
-                list11.sort((_0x3064c0: Intersection, _0xfe533b: Intersection) => {
+                list11.sort((intersectionA: Intersection, intersectionB: Intersection) => {
                   if (unit.in) {
-                    return _0xfe533b.zn - _0x3064c0.zn;
+                    return intersectionB.zn - intersectionA.zn;
                   } else {
-                    return _0x3064c0.zn - _0xfe533b.zn;
+                    return intersectionA.zn - intersectionB.zn;
                   }
                 });
-                const _0x213f86 = list11.shift();
-                if (_0x213f86.segment.shape && !_0xc50a80.owner.unit.death) {
-                  _0xc50a80.owner.handleIntersect(_0x213f86, unit, _0x568c14);
+                const intersection = list11.shift();
+                if (intersection.segment.shape && !shape.owner.unit.death) {
+                  shape.owner.handleIntersect(intersection, unit, segment);
                 }
               }
             }
@@ -4237,78 +4237,78 @@ interface ObjectConstructor {
           }
           const {
             end
-          } = _0x568c14;
+          } = segment;
           if (unit.in !== unit.base) {
             unit.track.add(end);
           }
           unit.position = end;
           if (this.visible && !list4.length && unit.in && unit.in !== unit.base) {
-            let _0x1d0ff0 = Particle.nom(unit, _0x568c14, this.config.trackWidth);
-            this.particles.push(_0x1d0ff0);
+            let particle = Particle.nom(unit, segment, this.config.trackWidth);
+            this.particles.push(particle);
           }
         }
       });
     }
-    isPlayer(_0x5b5dbb?: Unit): boolean {
-      return _0x5b5dbb === this.player;
+    isPlayer(unit?: Unit): boolean {
+      return unit === this.player;
     }
-    alert(_0x4754e6?: string, _0x29a9fa?: string) {
-      this.labels.push(new TextParticle(_0x4754e6, _0x29a9fa || "#000000", this.player));
+    alert(text?: string, color?: string) {
+      this.labels.push(new TextParticle(text, color || "#000000", this.player));
     }
     loop(): void {
-      let _0x1b907b = now();
+      let currentTime = now();
       if (this.stopped) {
         return;
       }
       if (!this.debugView && (this.visible || this.cycle < this.config.prepareCounter)) {
         this.looped = true;
         if (this.last == 0) {
-          this.last = _0x1b907b;
+          this.last = currentTime;
         }
-        let _0x176147 = _0x1b907b - this.last;
-        if (_0x176147 < 1) {
-          _0x176147 = 1;
+        let deltaMilliseconds = currentTime - this.last;
+        if (deltaMilliseconds < 1) {
+          deltaMilliseconds = 1;
         }
-        this.updateMetrics(_0x176147);
-        if (_0x176147 > 10000) {
-          _0x176147 = 10000;
+        this.updateMetrics(deltaMilliseconds);
+        if (deltaMilliseconds > 10000) {
+          deltaMilliseconds = 10000;
         }
         this.timings.updateStartTime = now();
         if (this.replaying || this.recording) {
-          if (this.cycle < this.config.prepareCounter + 120 && _0x176147 > 100) {
-            _0x176147 = 100;
+          if (this.cycle < this.config.prepareCounter + 120 && deltaMilliseconds > 100) {
+            deltaMilliseconds = 100;
           }
-          if (_0x176147 > _0x4eb235 * 0.9 && _0x176147 < _0x4eb235 * 1.1) {
-            _0x176147 = _0x4eb235;
+          if (deltaMilliseconds > FRAME_DURATION_MILLISECONDS * 0.9 && deltaMilliseconds < FRAME_DURATION_MILLISECONDS * 1.1) {
+            deltaMilliseconds = FRAME_DURATION_MILLISECONDS;
           }
-          this.timeAccumulated += _0x176147;
+          this.timeAccumulated += deltaMilliseconds;
           if (this.preparing()) {
-            this.prepareAndUpdate(_0x4eb235);
+            this.prepareAndUpdate(FRAME_DURATION_MILLISECONDS);
             this.timeAccumulated = 0;
           } else if (this.replaying && this.replaying.skip && this.replaying.skipping()) {
             let prepareAcceleration = this.config.prepareAcceleration;
             while (this.replaying && this.replaying.skipping() && prepareAcceleration-- > 0) {
-              this.update(_0x4eb235);
+              this.update(FRAME_DURATION_MILLISECONDS);
             }
             this.timeAccumulated = 0;
           } else {
-            if (this.timeAccumulated > _0x4eb235 * 10) {
-              this.timeAccumulated = _0x4eb235 * 10;
+            if (this.timeAccumulated > FRAME_DURATION_MILLISECONDS * 10) {
+              this.timeAccumulated = FRAME_DURATION_MILLISECONDS * 10;
             }
-            while (this.timeAccumulated >= _0x4eb235) {
-              this.timeAccumulated -= _0x4eb235;
-              this.update(_0x4eb235);
+            while (this.timeAccumulated >= FRAME_DURATION_MILLISECONDS) {
+              this.timeAccumulated -= FRAME_DURATION_MILLISECONDS;
+              this.update(FRAME_DURATION_MILLISECONDS);
             }
           }
         } else if (this.visible) {
-          const _0x512f79 = _0x4eb235 * 2;
-          while (_0x176147 > 0) {
-            const _0x1d3150 = _0x176147 <= _0x512f79 ? _0x176147 : _0x176147 < _0x512f79 * 2 ? _0x176147 / 2 + Math.random() : _0x512f79 + Math.random();
-            this.update(_0x1d3150);
-            _0x176147 -= _0x1d3150;
+          const maxStepMilliseconds = FRAME_DURATION_MILLISECONDS * 2;
+          while (deltaMilliseconds > 0) {
+            const stepMilliseconds = deltaMilliseconds <= maxStepMilliseconds ? deltaMilliseconds : deltaMilliseconds < maxStepMilliseconds * 2 ? deltaMilliseconds / 2 + Math.random() : maxStepMilliseconds + Math.random();
+            this.update(stepMilliseconds);
+            deltaMilliseconds -= stepMilliseconds;
           }
         } else {
-          this.prepareAndUpdate(_0x176147);
+          this.prepareAndUpdate(deltaMilliseconds);
         }
         this.timings.updateEndTime = now();
       }
@@ -4317,7 +4317,7 @@ interface ObjectConstructor {
         this.render();
       }
       this.timings.renderEndTime = now();
-      this.last = _0x1b907b;
+      this.last = currentTime;
       requestAnimationFrame(() => this.loop());
     }
   }
@@ -4410,7 +4410,7 @@ interface ObjectConstructor {
     right: boolean;
     sets: KeyCodeSetHandler[];
     up: boolean;
-    constructor(element: HTMLElement, _0x59dd4f?: KeyboardModeSwitch) {
+    constructor(element: HTMLElement, keyboardModeSwitch?: KeyboardModeSwitch) {
       this.up = false;
       this.down = false;
       this.left = false;
@@ -4430,33 +4430,33 @@ interface ObjectConstructor {
       };
       this.codes = [];
       this.sets = [];
-      this.keyboardModeSwitch = _0x59dd4f;
+      this.keyboardModeSwitch = keyboardModeSwitch;
       this.pressedButtons = [];
-      const _0x45f58d = (_0x18168e: KeyboardEvent) => this.onKeyChange(_0x18168e, true);
-      const _0x5b7c33 = (_0x11a6d8: KeyboardEvent) => this.onKeyChange(_0x11a6d8, false);
-      if (_0x59dd4f) {
-        _0x59dd4f.get();
-        window.addEventListener("keydown", _0x45f58d, false);
-        window.addEventListener("keyup", _0x5b7c33, false);
+      const onKeyDown = (event: KeyboardEvent) => this.onKeyChange(event, true);
+      const onKeyUp = (event: KeyboardEvent) => this.onKeyChange(event, false);
+      if (keyboardModeSwitch) {
+        keyboardModeSwitch.get();
+        window.addEventListener("keydown", onKeyDown, false);
+        window.addEventListener("keyup", onKeyUp, false);
       }
-      const _0x285b73 = (event: Event) => event.preventDefault();
-      element.addEventListener("contextmenu", _0x285b73, false);
-      const _0x5aba7e = (_0x5d0f61: MouseEvent) => this.onMouseChange(_0x5d0f61, true);
-      const _0x48778e = (_0x2c9dbd: MouseEvent) => this.onMouseChange(_0x2c9dbd, false);
-      const _0x36c59b = (event: MouseEvent) => {
+      const onContextMenu = (event: Event) => event.preventDefault();
+      element.addEventListener("contextmenu", onContextMenu, false);
+      const onMouseDown = (event: MouseEvent) => this.onMouseChange(event, true);
+      const onMouseUp = (event: MouseEvent) => this.onMouseChange(event, false);
+      const onMouseLeave = (event: MouseEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const callback95 = (event: MouseEvent) => {
+      const onMouseMove = (event: MouseEvent) => {
         this.mouse = {
           x: event.pageX,
           y: event.pageY
         };
         event.preventDefault();
       };
-      const _0x14f737 = (event: MouseEvent) => {
-        callback95(event);
+      const onMouseEnter = (event: MouseEvent) => {
+        onMouseMove(event);
         const {
           buttons
         } = event;
@@ -4467,17 +4467,17 @@ interface ObjectConstructor {
         };
         event.preventDefault();
       };
-      element.addEventListener("mouseenter", _0x14f737, false);
-      element.addEventListener("mousemove", callback95, false);
-      element.addEventListener("mouseleave", _0x36c59b, false);
-      element.addEventListener("mousedown", _0x5aba7e, false);
-      element.addEventListener("mouseup", _0x48778e, false);
-      const _0x3f4b7e = (event: TouchEvent) => {
+      element.addEventListener("mouseenter", onMouseEnter, false);
+      element.addEventListener("mousemove", onMouseMove, false);
+      element.addEventListener("mouseleave", onMouseLeave, false);
+      element.addEventListener("mousedown", onMouseDown, false);
+      element.addEventListener("mouseup", onMouseUp, false);
+      const onTouchEnd = (event: TouchEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const _0x137951 = (event: TouchEvent) => {
+      const onTouchMove = (event: TouchEvent) => {
         const event2 = event.changedTouches[0];
         this.mouse = {
           x: event2.clientX,
@@ -4485,108 +4485,108 @@ interface ObjectConstructor {
         };
         event.preventDefault();
       };
-      element.addEventListener("touchstart", _0x137951, false);
-      element.addEventListener("touchmove", _0x137951, false);
-      element.addEventListener("touchend", _0x3f4b7e, false);
-      element.addEventListener("touchcancel", _0x3f4b7e, false);
+      element.addEventListener("touchstart", onTouchMove, false);
+      element.addEventListener("touchmove", onTouchMove, false);
+      element.addEventListener("touchend", onTouchEnd, false);
+      element.addEventListener("touchcancel", onTouchEnd, false);
       this.dispose = () => {
-        element.removeEventListener("contextmenu", _0x285b73, false);
-        if (_0x59dd4f) {
-          window.removeEventListener("keydown", _0x45f58d, false);
-          window.removeEventListener("keyup", _0x5b7c33, false);
+        element.removeEventListener("contextmenu", onContextMenu, false);
+        if (keyboardModeSwitch) {
+          window.removeEventListener("keydown", onKeyDown, false);
+          window.removeEventListener("keyup", onKeyUp, false);
         }
-        element.removeEventListener("mouseenter", _0x14f737, false);
-        element.removeEventListener("mousemove", callback95, false);
-        element.removeEventListener("mouseleave", _0x36c59b, false);
-        element.removeEventListener("mousedown", _0x5aba7e, false);
-        element.removeEventListener("mouseup", _0x48778e, false);
+        element.removeEventListener("mouseenter", onMouseEnter, false);
+        element.removeEventListener("mousemove", onMouseMove, false);
+        element.removeEventListener("mouseleave", onMouseLeave, false);
+        element.removeEventListener("mousedown", onMouseDown, false);
+        element.removeEventListener("mouseup", onMouseUp, false);
       };
     }
     pressed(): boolean {
       return this.up || this.down || this.left || this.right;
     }
-    onKeyChange(event: KeyboardEvent, _0x3a848e: boolean) {
+    onKeyChange(event: KeyboardEvent, isPressed: boolean) {
       if (event.target === document.body) {
-        let _0x10b4f0 = true;
+        let isHandled = true;
         const {
           keyCode
         } = event;
-        const _0x345f4b = this.pressedButtons.indexOf(keyCode);
-        if (_0x3a848e) {
-          if (_0x345f4b < 0) {
+        const pressedIndex = this.pressedButtons.indexOf(keyCode);
+        if (isPressed) {
+          if (pressedIndex < 0) {
             this.pressedButtons.push(keyCode);
           }
-          const _0x571d90 = this.sets.find((_0xd14c24: KeyCodeSetHandler) => _0xd14c24.codes.every((_0x71b23e: number) => this.pressedButtons.find((_0x457bd4: number) => _0x457bd4 === _0x71b23e)));
-          if (_0x571d90) {
-            _0x571d90.handler();
+          const matchedSet = this.sets.find((set: KeyCodeSetHandler) => set.codes.every((code: number) => this.pressedButtons.find((pressedCode: number) => pressedCode === code)));
+          if (matchedSet) {
+            matchedSet.handler();
           }
         } else {
-          if (_0x345f4b >= 0) {
-            this.pressedButtons.splice(_0x345f4b, 1);
+          if (pressedIndex >= 0) {
+            this.pressedButtons.splice(pressedIndex, 1);
           }
-          const _0x46ae60 = this.codes.find((_0x43cfd2: KeyCodeHandler) => _0x43cfd2.code === keyCode);
-          if (_0x46ae60) {
-            _0x46ae60.handler();
+          const matchedCode = this.codes.find((codeHandler: KeyCodeHandler) => codeHandler.code === keyCode);
+          if (matchedCode) {
+            matchedCode.handler();
           }
         }
         switch (keyCode) {
           case 38:
           case 87:
-            this.up = _0x3a848e;
+            this.up = isPressed;
             break;
           case 40:
           case 83:
-            this.down = _0x3a848e;
+            this.down = isPressed;
             break;
           case 37:
           case 65:
-            this.left = _0x3a848e;
+            this.left = isPressed;
             break;
           case 39:
           case 68:
-            this.right = _0x3a848e;
+            this.right = isPressed;
             break;
           case 67:
-            if (!_0x3a848e && this.keyboardModeSwitch) {
+            if (!isPressed && this.keyboardModeSwitch) {
               this.keyboardModeSwitch.switch();
             }
             break;
           default:
-            _0x10b4f0 = false;
+            isHandled = false;
             break;
         }
         this.modifiers.shift = event.shiftKey;
         this.modifiers.ctrl = event.ctrlKey;
         this.modifiers.alt = event.altKey;
         this.modifiers.meta = event.metaKey;
-        if (_0x10b4f0) {
+        if (isHandled) {
           event.preventDefault();
         }
       }
     }
-    onMouseChange(event: MouseEvent, _0xfc9f32: boolean) {
+    onMouseChange(event: MouseEvent, isPressed: boolean) {
       switch (event.button) {
         case 0:
-          this.buttons.left = _0xfc9f32;
+          this.buttons.left = isPressed;
           break;
         case 1:
-          this.buttons.middle = _0xfc9f32;
+          this.buttons.middle = isPressed;
           break;
         case 2:
-          this.buttons.right = _0xfc9f32;
+          this.buttons.right = isPressed;
           break;
       }
     }
-    addButton(_0x3af9c9: number, _0x25ce8f: () => void) {
+    addButton(code: number, handler: () => void) {
       this.codes.push({
-        code: _0x3af9c9,
-        handler: _0x25ce8f
+        code: code,
+        handler: handler
       });
     }
-    addSet(_0x24bcaa: number[], _0x4c1a93: () => void) {
+    addSet(codes: number[], handler: () => void) {
       this.sets.push({
-        codes: _0x24bcaa.sort(),
-        handler: _0x4c1a93
+        codes: codes.sort(),
+        handler: handler
       });
     }
   }
@@ -4620,7 +4620,7 @@ interface ObjectConstructor {
     url: string;
     x: number;
     y: number;
-    constructor(config: Config, descriptor: SkinLayerDescriptor, callback95?: (skinLayer: SkinLayer) => void) {
+    constructor(config: Config, descriptor: SkinLayerDescriptor, onReady?: (skinLayer: SkinLayer) => void) {
       this.level = 0;
       this.scale = 1;
       this.x = 0;
@@ -4636,47 +4636,47 @@ interface ObjectConstructor {
         x: 0.5,
         y: 0.5
       }, descriptor.pivot);
-      let _0x477016 = this.url ? callback40(this.url) : this.src ? Promise.resolve(this.src) : null;
-      if (_0x477016) {
-        _0x477016.then((_0x2df485: HTMLImageElement) => {
-          this.src = _0x2df485;
+      let imagePromise = this.url ? loadImage(this.url) : this.src ? Promise.resolve(this.src) : null;
+      if (imagePromise) {
+        imagePromise.then((image: HTMLImageElement) => {
+          this.src = image;
           this.rescale(1);
-          if (callback95) {
-            callback95(this);
+          if (onReady) {
+            onReady(this);
           }
         });
       }
     }
-    rescale(_0x2de62b: number) {
+    rescale(scale: number) {
       const {
         trackWidth,
         maxScale
       } = this.config;
-      const _0x20f488 = trackWidth * maxScale;
+      const baseSize = trackWidth * maxScale;
       const src = this.src;
       if (!src) {
         return;
       }
-      const _0x7c46da = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
-      const _0x5794f4 = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
-      const _0x2dc538 = _0x20f488 * _0x2de62b * this.scale / _0x7c46da;
-      const _0x1c07b1 = ~~(_0x7c46da * _0x2dc538);
-      const _0x306f8b = ~~(_0x5794f4 * _0x2dc538);
-      const _0x20a4ae = _0x1c07b1 / _0x7c46da;
-      const _0x145a85 = _0x306f8b / _0x5794f4;
+      const sourceWidth = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
+      const sourceHeight = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
+      const scaleRatio = baseSize * scale * this.scale / sourceWidth;
+      const targetWidth = ~~(sourceWidth * scaleRatio);
+      const targetHeight = ~~(sourceHeight * scaleRatio);
+      const scaleX = targetWidth / sourceWidth;
+      const scaleY = targetHeight / sourceHeight;
       const element = document.createElement("canvas");
-      element.width = _0x1c07b1;
-      element.height = _0x306f8b;
+      element.width = targetWidth;
+      element.height = targetHeight;
       const context = element.getContext("2d");
       if (!context) {
         return;
       }
-      context.scale(_0x20a4ae, _0x145a85);
+      context.scale(scaleX, scaleY);
       context.drawImage(src, 0, 0);
       this.image = element;
     }
   }
-  let _0x486b34: SVGSVGElement | undefined;
+  let svgElement: SVGSVGElement | undefined;
   interface PatternSource {
     url?: string;
     scale?: number;
@@ -4687,52 +4687,52 @@ interface ObjectConstructor {
     scale: number;
     src: HTMLImageElement | null;
     url: string;
-    constructor(config: Config, canvas: HTMLCanvasElement, _0x4c8ad3: string, _0x591234: PatternSource = {}, callback95?: () => void) {
-      this.url = _0x4c8ad3 + _0x591234.url;
-      this.scale = _0x591234.scale || 1;
+    constructor(config: Config, canvas: HTMLCanvasElement, baseUrl: string, source: PatternSource = {}, onReady?: () => void) {
+      this.url = baseUrl + source.url;
+      this.scale = source.scale || 1;
       this.src = null;
       this.ready = false;
       this.pattern = null;
       const {
         maxScale
       } = config;
-      callback40(this.url).then((spatialGrid2: HTMLImageElement) => {
+      loadImage(this.url).then((spatialGrid2: HTMLImageElement) => {
         this.src = spatialGrid2;
-        const _0x2a57f3 = ~~(spatialGrid2.naturalWidth || spatialGrid2.width);
-        const _0xd536fd = ~~(spatialGrid2.naturalHeight || spatialGrid2.height);
-        const _0x394a8d = maxScale * 100 * this.scale / _0x2a57f3;
-        if (_0x2a57f3 == 0) {
+        const sourceWidth = ~~(spatialGrid2.naturalWidth || spatialGrid2.width);
+        const sourceHeight = ~~(spatialGrid2.naturalHeight || spatialGrid2.height);
+        const scaleRatio = maxScale * 100 * this.scale / sourceWidth;
+        if (sourceWidth == 0) {
           console.log(this.url + " has no width");
         }
-        if (_0xd536fd == 0) {
+        if (sourceHeight == 0) {
           console.log(this.url + " has no heigth");
         }
-        const _0x1e3321 = Math.floor(_0x2a57f3 * _0x394a8d) || 1;
-        const _0x50e221 = Math.floor(_0xd536fd * _0x394a8d) || 1;
+        const targetWidth = Math.floor(sourceWidth * scaleRatio) || 1;
+        const targetHeight = Math.floor(sourceHeight * scaleRatio) || 1;
         const element = document.createElement("canvas");
-        element.width = _0x1e3321;
-        element.height = _0x50e221;
+        element.width = targetWidth;
+        element.height = targetHeight;
         const elementContext = element.getContext("2d");
         if (!elementContext) {
           return;
         }
-        elementContext.drawImage(spatialGrid2, 0, 0, _0x1e3321 + 1, _0x50e221 + 1);
+        elementContext.drawImage(spatialGrid2, 0, 0, targetWidth + 1, targetHeight + 1);
         const canvasContext = canvas.getContext("2d");
         if (!canvasContext) {
           return;
         }
         this.pattern = canvasContext.createPattern(element, "repeat");
-        const _0x3fc465 = 1 / maxScale;
-        if (!_0x486b34) {
-          _0x486b34 = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        const inverseScale = 1 / maxScale;
+        if (!svgElement) {
+          svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         }
-        const _0x146217 = _0x486b34.createSVGMatrix().scale(_0x3fc465, _0x3fc465);
+        const transformMatrix = svgElement.createSVGMatrix().scale(inverseScale, inverseScale);
         if (this.pattern && this.pattern.setTransform) {
-          this.pattern.setTransform(_0x146217);
+          this.pattern.setTransform(transformMatrix);
         }
         this.ready = true;
-        if (callback95) {
-          callback95();
+        if (onReady) {
+          onReady();
         }
       });
     }
@@ -4751,7 +4751,7 @@ interface ObjectConstructor {
     scale: number;
     x: number;
     y: number;
-    constructor(config: Config, _0x31671a: string, descriptor: AvatarDescriptor, callback95?: () => void) {
+    constructor(config: Config, baseUrl: string, descriptor: AvatarDescriptor, onReady?: () => void) {
       this.layers = [];
       this.scale = 1;
       this.x = 0;
@@ -4759,21 +4759,21 @@ interface ObjectConstructor {
       this.ready = false;
       Object.assign(this, descriptor);
       let i2 = 0;
-      const _0x41860f = (_0x5c5381: SkinLayer) => {
-        _0x5c5381.rescale(this.scale);
+      const onLayerReady = (layer: SkinLayer) => {
+        layer.rescale(this.scale);
         if (this.layers.length === ++i2) {
           this.ready = true;
-          if (callback95) {
-            callback95();
+          if (onReady) {
+            onReady();
           }
         }
       };
       const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers || [];
-      this.layers = layerDescriptors.map((_0x1c9aca: SkinLayerDescriptor) => new SkinLayer(config, assign2(assign2({}, _0x1c9aca), {
-        url: _0x1c9aca.url && "" + _0x31671a + _0x1c9aca.url
-      }), _0x41860f));
-      this.frontLayers = this.layers.filter((_0x3c6c45: SkinLayer) => _0x3c6c45.level >= 1).sort((_0x378c80: SkinLayer, _0x1e8d58: SkinLayer) => _0x378c80.level - _0x1e8d58.level);
-      this.backLayers = this.layers.filter((_0x402036: SkinLayer) => _0x402036.level < 1).sort((_0x559f43: SkinLayer, _0x398898: SkinLayer) => _0x398898.level - _0x559f43.level);
+      this.layers = layerDescriptors.map((layerDescriptor: SkinLayerDescriptor) => new SkinLayer(config, assign2(assign2({}, layerDescriptor), {
+        url: layerDescriptor.url && "" + baseUrl + layerDescriptor.url
+      }), onLayerReady));
+      this.frontLayers = this.layers.filter((layer: SkinLayer) => layer.level >= 1).sort((layerA: SkinLayer, layerB: SkinLayer) => layerA.level - layerB.level);
+      this.backLayers = this.layers.filter((layer: SkinLayer) => layer.level < 1).sort((layerA: SkinLayer, layerB: SkinLayer) => layerB.level - layerA.level);
     }
   }
   interface DisplayLayerEntry {
@@ -4792,25 +4792,25 @@ interface ObjectConstructor {
       this.maxScale = 0;
     }
     get ready(): boolean {
-      return this.displays.every((_0x1f7eaf: Avatar) => _0x1f7eaf.ready);
+      return this.displays.every((display: Avatar) => display.ready);
     }
     sort(): void {
-      this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((_0x50f5f0: Avatar) => _0x50f5f0.frontLayers.map((_0x34bb48: SkinLayer) => ({
-        display: _0x50f5f0,
-        layer: _0x34bb48
-      })))).sort((_0x11c991: DisplayLayerEntry, _0x5f3e93: DisplayLayerEntry) => _0x11c991.layer.level - _0x5f3e93.layer.level);
-      this.backLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((_0xc4fd77: Avatar) => _0xc4fd77.backLayers.map((_0x306833: SkinLayer) => ({
-        display: _0xc4fd77,
-        layer: _0x306833
-      })))).sort((_0x3089ad: DisplayLayerEntry, _0x1a32af: DisplayLayerEntry) => _0x1a32af.layer.level - _0x3089ad.layer.level);
-      this.maxScale = Math.max(...this.frontLayers.map((_0x1c6448: DisplayLayerEntry) => _0x1c6448.display.scale * _0x1c6448.layer.scale));
+      this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) => display.frontLayers.map((layer: SkinLayer) => ({
+        display: display,
+        layer: layer
+      })))).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryA.layer.level - entryB.layer.level);
+      this.backLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) => display.backLayers.map((layer: SkinLayer) => ({
+        display: display,
+        layer: layer
+      })))).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryB.layer.level - entryA.layer.level);
+      this.maxScale = Math.max(...this.frontLayers.map((entry: DisplayLayerEntry) => entry.display.scale * entry.layer.scale));
     }
-    add(_0x1bcc1a: Avatar) {
-      this.displays.push(_0x1bcc1a);
+    add(display: Avatar) {
+      this.displays.push(display);
       this.sort();
     }
-    remove(_0x4625c7: Avatar) {
-      this.displays = this.displays.filter((_0x1363be: Avatar) => _0x1363be !== _0x4625c7);
+    remove(display: Avatar) {
+      this.displays = this.displays.filter((display: Avatar) => display !== display);
       this.sort();
     }
   }
@@ -4822,38 +4822,38 @@ interface ObjectConstructor {
     width: number;
     height: number;
   }
-  const callback50 = (_0x49fd17: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, _0x4bf92c: string, _0x505a64: string): CanvasGradient | undefined => {
-    if (_0x260d10 !== _0x49fd17 || _0x3ee25a !== _0x4bf92c || _0x5fb03a !== _0x505a64) {
-      _0x2d02fe = _0x49fd17.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
-      _0x2d02fe.addColorStop(0, _0x4bf92c);
-      _0x2d02fe.addColorStop(1, _0x505a64);
+  const getVerticalGradient = (context: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, topColor: string, bottomColor: string): CanvasGradient | undefined => {
+    if (_0x260d10 !== context || _0x3ee25a !== topColor || _0x5fb03a !== bottomColor) {
+      _0x2d02fe = context.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
+      _0x2d02fe.addColorStop(0, topColor);
+      _0x2d02fe.addColorStop(1, bottomColor);
     }
     return _0x2d02fe;
   };
-  const callback51 = (_0x119795: CanvasRenderingContext2D, _0x2a47f1: Path2D, _0x5ec4ac: string, _0x22210a: number) => {
-    _0x119795.strokeStyle = _0x5ec4ac;
-    _0x119795.lineWidth = _0x22210a;
-    _0x119795.stroke(_0x2a47f1);
+  const strokePath = (context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number) => {
+    context.strokeStyle = strokeColor;
+    context.lineWidth = lineWidth;
+    context.stroke(path);
   };
-  const callback52 = (_0x44fed2: CanvasRenderingContext2D, _0x2f469d: string | CanvasPattern, _0x3b505d: Trail, _0x32360d: Vector, _0x2aadea: number) => {
-    if (_0x3b505d.polyline.segments.length) {
-      _0x44fed2.lineWidth = _0x2aadea;
-      _0x44fed2.strokeStyle = _0x2f469d;
-      _0x44fed2.stroke(_0x3b505d.polyline.path);
+  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: string | CanvasPattern, trail: Trail, _0x32360d: Vector, lineWidth: number) => {
+    if (trail.polyline.segments.length) {
+      context.lineWidth = lineWidth;
+      context.strokeStyle = strokeStyle;
+      context.stroke(trail.polyline.path);
     }
   };
-  const callback53 = (_0x5cefb0: CanvasRenderingContext2D, unit: Unit, _0x368644: number, _0x3483c0: number, _0x387563: string) => {
+  const drawUnitName = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string) => {
     const {
       devicePixelRatio
     } = window;
-    const _0x206cf1 = _0x3483c0 * 24 / devicePixelRatio;
-    const _0x42bf58 = _0x3483c0 * 4 / devicePixelRatio;
-    _0x5cefb0.save();
-    _0x5cefb0.translate(unit.position.x, unit.position.y);
-    _0x5cefb0.scale(1.001 / _0x368644, 1.001 / _0x368644);
-    _0x5cefb0.font = _0x206cf1 + "px " + _0x387563;
-    _0x5cefb0.textAlign = "center";
-    _0x5cefb0.textBaseline = "bottom";
+    const fontSize = scale * 24 / devicePixelRatio;
+    const outlineWidth = scale * 4 / devicePixelRatio;
+    context.save();
+    context.translate(unit.position.x, unit.position.y);
+    context.scale(1.001 / zoom, 1.001 / zoom);
+    context.font = fontSize + "px " + fontFamily;
+    context.textAlign = "center";
+    context.textBaseline = "bottom";
     let name = unit.name;
     if (unit == unit.game.player) {
       if (new Date().getSeconds() % 2 == 0) {
@@ -4864,96 +4864,96 @@ interface ObjectConstructor {
         }
       }
     }
-    const _0x44a8ff = ~~(_0x368644 * -12);
-    const _0x5b98dc = "#363331";
-    _0x5cefb0.lineWidth = _0x42bf58 / 4;
-    _0x5cefb0.strokeStyle = _0x5b98dc;
-    _0x5cefb0.shadowColor = _0x5b98dc;
-    _0x5cefb0.shadowBlur = _0x42bf58 / 2;
-    _0x5cefb0.strokeText(name, 0, _0x44a8ff);
-    _0x5cefb0.fillStyle = _0x5b98dc;
-    _0x5cefb0.fillText(name, 2, _0x44a8ff + 2);
-    let _0xdb172b = "#dddddd";
-    const _0x55554a = unit.skin.assets.find((_0x3d0f3d: Asset) => _0x3d0f3d.pool.name === "shields");
-    if (_0x55554a) {
-      _0xdb172b = _0x55554a.content.color;
+    const textOffsetY = ~~(zoom * -12);
+    const outlineColor = "#363331";
+    context.lineWidth = outlineWidth / 4;
+    context.strokeStyle = outlineColor;
+    context.shadowColor = outlineColor;
+    context.shadowBlur = outlineWidth / 2;
+    context.strokeText(name, 0, textOffsetY);
+    context.fillStyle = outlineColor;
+    context.fillText(name, 2, textOffsetY + 2);
+    let nameColor = "#dddddd";
+    const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "shields");
+    if (shieldAsset) {
+      nameColor = shieldAsset.content.color;
     }
-    _0x5cefb0.fillStyle = _0xdb172b;
-    _0x5cefb0.shadowColor = _0xdb172b;
-    _0x5cefb0.shadowBlur = _0x42bf58 / 3;
-    _0x5cefb0.fillText(name, 0, _0x44a8ff);
-    _0x5cefb0.restore();
+    context.fillStyle = nameColor;
+    context.shadowColor = nameColor;
+    context.shadowBlur = outlineWidth / 3;
+    context.fillText(name, 0, textOffsetY);
+    context.restore();
   };
-  const callback54 = () => {
+  const createCrownPath = () => {
     const path2D = new Path2D();
-    const _0x488f86 = 5;
-    path2D.moveTo(_0x488f86 * -3, _0x488f86 * -3);
-    path2D.lineTo(_0x488f86 * -1, _0x488f86 * -1);
-    path2D.lineTo(_0x488f86 * 0, _0x488f86 * -3);
-    path2D.lineTo(_0x488f86 * 1, _0x488f86 * -1);
-    path2D.lineTo(_0x488f86 * 3, _0x488f86 * -3);
-    path2D.lineTo(_0x488f86 * 2, _0x488f86 * 1);
-    path2D.lineTo(_0x488f86 * -2, _0x488f86 * 1);
+    const size = 5;
+    path2D.moveTo(size * -3, size * -3);
+    path2D.lineTo(size * -1, size * -1);
+    path2D.lineTo(size * 0, size * -3);
+    path2D.lineTo(size * 1, size * -1);
+    path2D.lineTo(size * 3, size * -3);
+    path2D.lineTo(size * 2, size * 1);
+    path2D.lineTo(size * -2, size * 1);
     path2D.closePath();
     return path2D;
   };
-  const _0x4f7610 = callback54();
-  const callback55 = (_0x42bc0c: CanvasRenderingContext2D, _0x1900f2: Unit, _0x11987d: number, _0x1b10c2: number) => {
+  const crownPath = createCrownPath();
+  const drawCrown = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number) => {
     const {
       devicePixelRatio
     } = window;
-    const _0xc0c8d6 = _0x1b10c2 * 24 / devicePixelRatio;
-    _0x42bc0c.save();
-    _0x42bc0c.translate(_0x1900f2.position.x, _0x1900f2.position.y);
-    _0x42bc0c.scale(1 / (_0x11987d * devicePixelRatio), 1 / (_0x11987d * devicePixelRatio));
-    _0x42bc0c.fillStyle = "#ffff00";
-    _0x42bc0c.strokeStyle = "#ff8800";
-    _0x42bc0c.lineJoin = "round";
-    _0x42bc0c.lineWidth = 1;
-    _0x42bc0c.translate(0, _0x11987d * -10 * devicePixelRatio);
-    _0x42bc0c.translate(0, -_0xc0c8d6 * devicePixelRatio);
-    _0x42bc0c.scale(_0x1b10c2, _0x1b10c2);
-    _0x42bc0c.translate(0, -4);
-    _0x42bc0c.translate(0, -12);
-    _0x42bc0c.fill(_0x4f7610);
-    _0x42bc0c.stroke(_0x4f7610);
-    _0x42bc0c.restore();
+    const verticalOffset = scale * 24 / devicePixelRatio;
+    context.save();
+    context.translate(unit.position.x, unit.position.y);
+    context.scale(1 / (zoom * devicePixelRatio), 1 / (zoom * devicePixelRatio));
+    context.fillStyle = "#ffff00";
+    context.strokeStyle = "#ff8800";
+    context.lineJoin = "round";
+    context.lineWidth = 1;
+    context.translate(0, zoom * -10 * devicePixelRatio);
+    context.translate(0, -verticalOffset * devicePixelRatio);
+    context.scale(scale, scale);
+    context.translate(0, -4);
+    context.translate(0, -12);
+    context.fill(crownPath);
+    context.stroke(crownPath);
+    context.restore();
   };
-  const callback56 = () => {
+  const createFacePath = () => {
     const path2D = new Path2D();
-    const _0x325770 = 1.6;
-    path2D.moveTo(_0x325770 * 0, _0x325770 * -7);
-    path2D.lineTo(_0x325770 * 5, _0x325770 * -6);
-    path2D.lineTo(_0x325770 * 7, _0x325770 * -3);
-    path2D.lineTo(_0x325770 * 6, _0x325770 * 2);
-    path2D.lineTo(_0x325770 * 4, _0x325770 * 3);
-    path2D.lineTo(_0x325770 * 3, _0x325770 * 6);
-    path2D.lineTo(_0x325770 * 0, _0x325770 * 7);
-    path2D.lineTo(_0x325770 * -3, _0x325770 * 6);
-    path2D.lineTo(_0x325770 * -4, _0x325770 * 3);
-    path2D.lineTo(_0x325770 * -6, _0x325770 * 2);
-    path2D.lineTo(_0x325770 * -7, _0x325770 * -3);
-    path2D.lineTo(_0x325770 * -5, _0x325770 * -6);
+    const size = 1.6;
+    path2D.moveTo(size * 0, size * -7);
+    path2D.lineTo(size * 5, size * -6);
+    path2D.lineTo(size * 7, size * -3);
+    path2D.lineTo(size * 6, size * 2);
+    path2D.lineTo(size * 4, size * 3);
+    path2D.lineTo(size * 3, size * 6);
+    path2D.lineTo(size * 0, size * 7);
+    path2D.lineTo(size * -3, size * 6);
+    path2D.lineTo(size * -4, size * 3);
+    path2D.lineTo(size * -6, size * 2);
+    path2D.lineTo(size * -7, size * -3);
+    path2D.lineTo(size * -5, size * -6);
     path2D.closePath();
-    path2D.arc(_0x325770 * -3, _0x325770 * -1, _0x325770 * 2, 0, Math.PI * 2, true);
+    path2D.arc(size * -3, size * -1, size * 2, 0, Math.PI * 2, true);
     path2D.closePath();
-    path2D.arc(_0x325770 * 3, _0x325770 * -1, _0x325770 * 2, 0, Math.PI * 2, true);
+    path2D.arc(size * 3, size * -1, size * 2, 0, Math.PI * 2, true);
     path2D.closePath();
-    path2D.moveTo(_0x325770 * 0, _0x325770 * 1);
-    path2D.lineTo(_0x325770 * -2, _0x325770 * 3);
-    path2D.lineTo(_0x325770 * 0, _0x325770 * 4);
-    path2D.lineTo(_0x325770 * 2, _0x325770 * 3);
+    path2D.moveTo(size * 0, size * 1);
+    path2D.lineTo(size * -2, size * 3);
+    path2D.lineTo(size * 0, size * 4);
+    path2D.lineTo(size * 2, size * 3);
     path2D.closePath();
     return path2D;
   };
-  const _0x15282d = callback56();
-  const callback57 = (_0x13722c: CanvasRenderingContext2D, _0x101e7f: number, _0x11b8fa: number, _0x438e5d: number) => {
-    _0x13722c.save();
-    _0x13722c.fillStyle = "#ffffffcc";
-    _0x13722c.translate(_0x101e7f, _0x11b8fa);
-    _0x13722c.scale(_0x438e5d, _0x438e5d);
-    _0x13722c.fill(_0x15282d);
-    _0x13722c.restore();
+  const facePath = createFacePath();
+  const drawFaceIcon = (context: CanvasRenderingContext2D, x: number, y: number, scale: number) => {
+    context.save();
+    context.fillStyle = "#ffffffcc";
+    context.translate(x, y);
+    context.scale(scale, scale);
+    context.fill(facePath);
+    context.restore();
   };
   interface AvatarBearer {
     position: Vector;
@@ -4961,66 +4961,66 @@ interface ObjectConstructor {
     direction?: number;
     target?: Vector | null;
   }
-  const callback58 = (_0x372d3a: Config, _0x308c06: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer) => {
+  const drawSkinLayer = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer) => {
     const {
       trackWidth
-    } = _0x372d3a;
+    } = config;
     if (skinLayer2.image) {
-      const _0x17dacd = skinLayer2.image.width;
-      const _0x38be58 = skinLayer2.image.height;
-      const _0x249d7a = trackWidth * skinLayer.scale * skinLayer2.scale / _0x17dacd;
-      _0x308c06.save();
-      _0x308c06.translate(unit.position.x, unit.position.y - _0x372d3a.baseHeight * skinLayer2.level);
-      _0x308c06.rotate(unit.direction + Math.PI / 2);
-      _0x308c06.translate((skinLayer.x + skinLayer2.x) * trackWidth, (skinLayer.y + skinLayer2.y) * trackWidth);
-      let _0x26b1dd = 0;
+      const imageWidth = skinLayer2.image.width;
+      const imageHeight = skinLayer2.image.height;
+      const imageScale = trackWidth * skinLayer.scale * skinLayer2.scale / imageWidth;
+      context.save();
+      context.translate(unit.position.x, unit.position.y - config.baseHeight * skinLayer2.level);
+      context.rotate(unit.direction + Math.PI / 2);
+      context.translate((skinLayer.x + skinLayer2.x) * trackWidth, (skinLayer.y + skinLayer2.y) * trackWidth);
+      let rotation = 0;
       if (skinLayer2.direction === "target") {
         const point = (unit.target || new Vector(0, 0)).clone().sub(unit.position);
-        const _0x34502f = Math.atan2(point.y, point.x);
-        _0x26b1dd += _0x34502f - unit.direction;
+        const targetAngle = Math.atan2(point.y, point.x);
+        rotation += targetAngle - unit.direction;
       }
       if (skinLayer2.direction === "billboard") {
-        _0x26b1dd += -unit.direction - Math.PI / 2;
+        rotation += -unit.direction - Math.PI / 2;
       }
       if (skinLayer2.rotation) {
-        _0x26b1dd += skinLayer2.rotation * 0.0174533;
+        rotation += skinLayer2.rotation * 0.0174533;
       }
-      if (_0x26b1dd) {
-        _0x308c06.rotate(_0x26b1dd);
+      if (rotation) {
+        context.rotate(rotation);
       }
-      _0x308c06.scale(_0x249d7a, _0x249d7a);
-      _0x308c06.translate(_0x17dacd * -skinLayer2.pivot.x, _0x38be58 * -skinLayer2.pivot.y);
-      _0x308c06.drawImage(skinLayer2.image, 0, 0);
-      _0x308c06.restore();
+      context.scale(imageScale, imageScale);
+      context.translate(imageWidth * -skinLayer2.pivot.x, imageHeight * -skinLayer2.pivot.y);
+      context.drawImage(skinLayer2.image, 0, 0);
+      context.restore();
     }
   };
-  const callback59 = (_0x43261e: Config, _0x406770: CanvasRenderingContext2D, _0x23533f: AvatarBearer, avatar: DisplayList, _0x453a0b: boolean) => {
-    const list4 = _0x453a0b ? avatar.frontLayers : avatar.backLayers;
-    list4.forEach((_0x1d609b: DisplayLayerEntry) => callback58(_0x43261e, _0x406770, _0x23533f, _0x1d609b.display, _0x1d609b.layer));
+  const drawAvatarLayers = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean) => {
+    const list4 = isFront ? avatar.frontLayers : avatar.backLayers;
+    list4.forEach((layerEntry: DisplayLayerEntry) => drawSkinLayer(config, context, unit, layerEntry.display, layerEntry.layer));
   };
-  const callback60 = (_0x2a37fc: CanvasRenderingContext2D, _0x579e56: number, _0x133664: number, _0x1f63be: number, _0x4f556f: number, _0x4e5701: [number, number, number, number], _0x2c42ca?: number) => {
-    const [_0x41b7d4, _0x112984, _0x584a53, _0x1da05d] = _0x4e5701;
-    _0x2a37fc.beginPath();
-    _0x2a37fc.moveTo(_0x579e56 + _0x41b7d4, _0x133664);
-    _0x2a37fc.lineTo(_0x579e56 + _0x1f63be - _0x112984, _0x133664);
-    _0x2a37fc.quadraticCurveTo(_0x579e56 + _0x1f63be, _0x133664, _0x579e56 + _0x1f63be, _0x133664 + _0x112984);
-    _0x2a37fc.lineTo(_0x579e56 + _0x1f63be, _0x133664 + _0x4f556f - _0x584a53);
-    _0x2a37fc.quadraticCurveTo(_0x579e56 + _0x1f63be, _0x133664 + _0x4f556f, _0x579e56 + _0x1f63be - _0x584a53, _0x133664 + _0x4f556f);
-    _0x2a37fc.lineTo(_0x579e56 + _0x1da05d, _0x133664 + _0x4f556f);
-    _0x2a37fc.quadraticCurveTo(_0x579e56, _0x133664 + _0x4f556f, _0x579e56, _0x133664 + _0x4f556f - _0x1da05d);
-    _0x2a37fc.lineTo(_0x579e56, _0x133664 + _0x41b7d4);
-    _0x2a37fc.quadraticCurveTo(_0x579e56, _0x133664, _0x579e56 + _0x41b7d4, _0x133664);
-    _0x2a37fc.closePath();
-    _0x2a37fc.fill();
-    if (_0x2c42ca) {
-      _0x2a37fc.strokeStyle = "#00000099";
-      _0x2a37fc.lineWidth = _0x2c42ca;
-      _0x2a37fc.stroke();
+  const drawRoundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number) => {
+    const [topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius] = cornerRadii;
+    context.beginPath();
+    context.moveTo(x + topLeftRadius, y);
+    context.lineTo(x + width - topRightRadius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + topRightRadius);
+    context.lineTo(x + width, y + height - bottomRightRadius);
+    context.quadraticCurveTo(x + width, y + height, x + width - bottomRightRadius, y + height);
+    context.lineTo(x + bottomLeftRadius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - bottomLeftRadius);
+    context.lineTo(x, y + topLeftRadius);
+    context.quadraticCurveTo(x, y, x + topLeftRadius, y);
+    context.closePath();
+    context.fill();
+    if (strokeWidth) {
+      context.strokeStyle = "#00000099";
+      context.lineWidth = strokeWidth;
+      context.stroke();
     }
   };
-  const callback61 = (_0x1b3b11: CanvasRenderingContext2D, _0x320560: Path2D, _0xee4d43: string | CanvasPattern) => {
-    _0x1b3b11.fillStyle = _0xee4d43;
-    _0x1b3b11.fill(_0x320560);
+  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: string | CanvasPattern) => {
+    context.fillStyle = fillStyle;
+    context.fill(path);
   };
   interface Bounds {
     left: number;
@@ -5056,27 +5056,27 @@ interface ObjectConstructor {
     barWidth: number;
     halfBarWidth: number;
   }
-  const callback62 = (_0x31b46f: RenderContext) => {
+  const drawBaseFills = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       boundsInView
-    } = _0x31b46f;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
       if (boundsInView(unit.base.polygon, trackWidth) || game.debugView) {
-        callback61(ctx, unit.base.polygon.path, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main);
+        fillPath(ctx, unit.base.polygon.path, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main);
       }
     });
   };
-  const callback63 = (_0x2a64c3: RenderContext) => {
+  const drawTrailUnderlays = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       boundsInView
-    } = _0x2a64c3;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
@@ -5089,71 +5089,71 @@ interface ObjectConstructor {
       } = unit.track.polyline;
       if (start) {
         if (boundsInView(unit.track.polyline, trackWidth)) {
-          callback52(ctx, unit.skin.colors.main, unit.track, unit.position, trackWidth);
+          strokeTrail(ctx, unit.skin.colors.main, unit.track, unit.position, trackWidth);
           ctx.save();
           ctx.globalCompositeOperation = "destination-over";
           ctx.clip(unit.base.polygon.path);
-          callback52(ctx, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main, unit.track, unit.position, trackWidth + 2);
+          strokeTrail(ctx, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main, unit.track, unit.position, trackWidth + 2);
           ctx.restore();
         }
       }
     });
     ctx.restore();
   };
-  const callback64 = (_0x2d1858: RenderContext) => {
+  const drawAvatarFrontLayers = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       pointInView
-    } = _0x2d1858;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
     game.units.forEach((city: Unit) => {
       if (pointInView(city.position, trackWidth * 4)) {
-        callback59(game.config, ctx, city, city.skin.container, true);
+        drawAvatarLayers(game.config, ctx, city, city.skin.container, true);
       }
     });
   };
-  const callback65 = (_0x4c7858: RenderContext) => {
+  const drawUnitNames = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       scale,
       scaler,
       pointInView
-    } = _0x4c7858;
+    } = renderContext;
     const {
       trackWidth,
       font
     } = game.config;
-    game.units.forEach((_0x14c7b6: Unit) => {
-      if (pointInView(_0x14c7b6.position, trackWidth * 20) || game.debugView) {
-        callback53(ctx, _0x14c7b6, scale, scaler, font);
+    game.units.forEach((unit: Unit) => {
+      if (pointInView(unit.position, trackWidth * 20) || game.debugView) {
+        drawUnitName(ctx, unit, scale, scaler, font);
       }
     });
   };
-  const callback66 = (_0x185369: RenderContext) => {
+  const drawAvatarBackLayers = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       pointInView
-    } = _0x185369;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
     game.units.forEach((city: Unit) => {
       if (pointInView(city.position, trackWidth * 4)) {
-        callback59(game.config, ctx, city, city.skin.container, false);
+        drawAvatarLayers(game.config, ctx, city, city.skin.container, false);
       }
     });
   };
-  const callback67 = (_0x1cb993: RenderContext) => {
+  const drawTrails = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       boundsInView
-    } = _0x1cb993;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
@@ -5163,34 +5163,34 @@ interface ObjectConstructor {
     game.units.forEach((unit: Unit) => {
       if (unit.in !== unit.base) {
         if (boundsInView(unit.track.polyline, trackWidth)) {
-          callback52(ctx, game.tailRecovered && unit == game.player ? "#f00" : unit.skin.colors.main, unit.track, unit.position, trackWidth);
+          strokeTrail(ctx, game.tailRecovered && unit == game.player ? "#f00" : unit.skin.colors.main, unit.track, unit.position, trackWidth);
         }
       }
     });
     ctx.restore();
   };
-  const callback68 = (_0x5cc45b: RenderContext) => {
+  const drawBaseBacks = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       boundsInView
-    } = _0x5cc45b;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
       if (boundsInView(unit.base.polygon, trackWidth)) {
-        callback61(ctx, unit.base.polygon.path, unit.skin.colors.back);
+        fillPath(ctx, unit.base.polygon.path, unit.skin.colors.back);
       }
     });
   };
-  const callback69 = (_0x4ee22c: RenderContext) => {
+  const drawArenaBackground = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       viewScreenWidth,
       viewScreenHeight
-    } = _0x4ee22c;
+    } = renderContext;
     const {
       baseHeight,
       arenaColor,
@@ -5198,22 +5198,22 @@ interface ObjectConstructor {
       backgroundTopColor,
       backgroundBottomColor
     } = game.config;
-    callback61(ctx, game.border.polygon.path, arenaColor);
+    fillPath(ctx, game.border.polygon.path, arenaColor);
     ctx.translate(0, baseHeight * 3);
-    callback61(ctx, game.border.polygon.path, borderColor);
+    fillPath(ctx, game.border.polygon.path, borderColor);
     ctx.translate(0, baseHeight * -3);
-    const backgroundGradient = callback50(ctx, game.space, backgroundTopColor, backgroundBottomColor);
+    const backgroundGradient = getVerticalGradient(ctx, game.space, backgroundTopColor, backgroundBottomColor);
     if (backgroundGradient) {
       ctx.fillStyle = backgroundGradient;
     }
     ctx.fillRect(viewScreenWidth / -2, viewScreenHeight / -2, game.space.width + viewScreenWidth, game.space.height + viewScreenHeight);
   };
-  const callback70 = (_0x39ac62: RenderContext) => {
+  const drawParticles = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
       pointInView
-    } = _0x39ac62;
+    } = renderContext;
     const {
       trackWidth
     } = game.config;
@@ -5221,33 +5221,33 @@ interface ObjectConstructor {
     game.particles.forEach((particle: Particle) => particle.time > 0 && pointInView(particle.position, trackWidth) && particle.draw(ctx));
     ctx.restore();
   };
-  const callback71 = (_0x37f67c: RenderContext) => {
+  const drawLabels = (renderContext: RenderContext) => {
     const {
-      game: _0x5c7f96,
+      game: game,
       ctx,
       scale,
       scaler
-    } = _0x37f67c;
+    } = renderContext;
     const {
       font
-    } = _0x5c7f96.config;
+    } = game.config;
     ctx.scale(1 / scale, 1 / scale);
-    _0x5c7f96.labels.forEach((_0x2c8f54: TextParticle) => _0x2c8f54.draw(ctx, font, scale, scaler));
+    game.labels.forEach((label: TextParticle) => label.draw(ctx, font, scale, scaler));
     ctx.scale(scale, scale);
   };
-  const callback72 = (_0x4ca7e3: RenderContext) => {
+  const drawLeaderMarker = (renderContext: RenderContext) => {
     const {
-      game: _0x2f39aa,
+      game: game,
       ctx,
       scale,
       scaler
-    } = _0x4ca7e3;
-    const _0x16762d = _0x2f39aa.units[0];
-    if (_0x16762d) {
-      callback55(ctx, _0x16762d, scale, scaler);
+    } = renderContext;
+    const topUnit = game.units[0];
+    if (topUnit) {
+      drawCrown(ctx, topUnit, scale, scaler);
     }
   };
-  const callback73 = (_0x4757de: RenderContext) => {
+  const drawMinimap = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5256,28 +5256,28 @@ interface ObjectConstructor {
       viewScreenWidth,
       viewScreenHeight,
       padding
-    } = _0x4757de;
-    const _0x2014d4 = viewScreenWidth / calcMult(8, 3);
-    const _0x32d074 = game.space.width / _0x2014d4 * scaler * 3;
+    } = renderContext;
+    const minimapSize = viewScreenWidth / calcMult(8, 3);
+    const minimapStrokeWidth = game.space.width / minimapSize * scaler * 3;
     ctx.save();
-    ctx.translate(viewScreenWidth - padding - _0x2014d4, viewScreenHeight - padding - _0x2014d4);
-    ctx.scale(_0x2014d4 / game.space.width, _0x2014d4 / game.space.height);
-    callback61(ctx, game.border.polygon.path, "#c2d6cdaa");
-    callback61(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
-    callback51(ctx, game.player.base.polygon.path, game.player.skin.colors.back, _0x32d074 / 2);
-    callback52(ctx, game.player.skin.colors.back, game.player.track, game.player.position, _0x32d074 / 2);
-    const _0x39f846 = game.units.some((_0x1405a7: Unit) => !game.isPlayer(_0x1405a7) && _0x1405a7.in === game.player.base) ? "#ff0000" : "#00000099";
-    callback51(ctx, game.border.polygon.path, _0x39f846, _0x32d074);
+    ctx.translate(viewScreenWidth - padding - minimapSize, viewScreenHeight - padding - minimapSize);
+    ctx.scale(minimapSize / game.space.width, minimapSize / game.space.height);
+    fillPath(ctx, game.border.polygon.path, "#c2d6cdaa");
+    fillPath(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
+    strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / 2);
+    strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / 2);
+    const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === game.player.base) ? "#ff0000" : "#00000099";
+    strokePath(ctx, game.border.polygon.path, borderColor, minimapStrokeWidth);
     ctx.beginPath();
-    ctx.arc(game.player.position.x, game.player.position.y, _0x32d074, 0, Math.PI * 2);
+    ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, Math.PI * 2);
     ctx.fillStyle = game.player.skin.colors.nick;
     ctx.fill();
-    const _0x29633a = game.player.skin.assets.find((_0x381faa: Asset) => _0x381faa.pool && _0x381faa.pool.name === "flags");
-    const spatialGrid2 = _0x29633a && _0x29633a.content.roundedFlag;
+    const flagAsset = game.player.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === "flags");
+    const spatialGrid2 = flagAsset && flagAsset.content.roundedFlag;
     if (spatialGrid2 && game.player.cities) {
-      game.player.cities.forEach((_0x30d699: City) => {
+      game.player.cities.forEach((city: City) => {
         ctx.save();
-        ctx.translate(_0x30d699.position.x, _0x30d699.position.y);
+        ctx.translate(city.position.x, city.position.y);
         ctx.scale(2, 2);
         ctx.drawImage(spatialGrid2, -spatialGrid2.width / 2, -spatialGrid2.height / 2);
         ctx.restore();
@@ -5287,25 +5287,25 @@ interface ObjectConstructor {
   };
   let spatialGrid: HTMLCanvasElement | null = null;
   window.addEventListener("resize", () => spatialGrid = null, false);
-  const callback74 = (_0x2af210: RenderContext) => {
+  const drawLeaderboard = (renderContext: RenderContext) => {
     let {
       ctx,
       devicePixelRatio
-    } = _0x2af210;
+    } = renderContext;
     if (!spatialGrid) {
       spatialGrid = document.createElement("canvas");
-      spatialGrid.width = ~~_0x2af210.barWidth;
-      spatialGrid.height = ~~(_0x2af210.barHeight * 1.3 * 8);
+      spatialGrid.width = ~~renderContext.barWidth;
+      spatialGrid.height = ~~(renderContext.barHeight * 1.3 * 8);
     }
-    if (_0x2af210.game.topListChanged) {
-      _0x2af210.game.topListChanged = false;
+    if (renderContext.game.topListChanged) {
+      renderContext.game.topListChanged = false;
       let context = spatialGrid.getContext("2d");
       if (context) {
         context.save();
         context.clearRect(0, 0, spatialGrid.width, spatialGrid.height);
         context.translate(-ctx.canvas.width + spatialGrid.width, 0);
         context.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
-        callback75(context, _0x2af210);
+        drawLeaderboardRows(context, renderContext);
         context.restore();
       }
     }
@@ -5314,7 +5314,7 @@ interface ObjectConstructor {
     ctx.drawImage(spatialGrid, ctx.canvas.width - spatialGrid.width, 0);
     ctx.restore();
   };
-  const callback75 = (_0x3d450a: CanvasRenderingContext2D, _0x3807c4: RenderContext) => {
+  const drawLeaderboardRows = (context: CanvasRenderingContext2D, renderContext: RenderContext) => {
     const {
       game: game,
       viewScreenWidth,
@@ -5326,64 +5326,64 @@ interface ObjectConstructor {
       halfBarWidth,
       strokeWidth,
       uiFont
-    } = _0x3807c4;
-    let _0x1d74ae: number | undefined;
-    const callback95 = (unit: Unit, _0x5a6511: number, _0x58801d: number, _0x315846: number) => {
-      const _0x44c9e3 = padding + _0x58801d * (barHeight * 1.3);
-      const _0x6268cd = unit.schemes.scores();
-      let _0xfb2cb = halfBarWidth * (_0x6268cd / _0x315846);
-      if (_0x1d74ae && _0xfb2cb > _0x1d74ae - halfBarWidth * 0.05) {
-        _0xfb2cb = _0x1d74ae - halfBarWidth * 0.05;
+    } = renderContext;
+    let previousBarWidth: number | undefined;
+    const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number) => {
+      const rowY = padding + rowIndex * (barHeight * 1.3);
+      const score = unit.schemes.scores();
+      let scoreBarWidth = halfBarWidth * (score / maxScore);
+      if (previousBarWidth && scoreBarWidth > previousBarWidth - halfBarWidth * 0.05) {
+        scoreBarWidth = previousBarWidth - halfBarWidth * 0.05;
       }
-      _0x1d74ae = _0xfb2cb;
-      const _0x3e1956 = halfBarWidth + _0xfb2cb;
-      let _0x230083 = viewScreenWidth - _0x3e1956;
-      const _0x1d053a: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
-      _0x3d450a.fillStyle = "#00000022";
-      callback60(_0x3d450a, _0x230083 + backHeight, _0x44c9e3 + backHeight * 3, barWidth, barHeight, _0x1d053a);
-      _0x3d450a.fillStyle = unit.skin.colors.back;
-      callback60(_0x3d450a, _0x230083, _0x44c9e3 + backHeight, barWidth, barHeight, _0x1d053a, strokeWidth);
-      _0x3d450a.fillStyle = unit.skin.colors.main;
-      callback60(_0x3d450a, _0x230083, _0x44c9e3, barWidth, barHeight, _0x1d053a, strokeWidth);
-      const _0x4687a1 = unit.skin.assets.find((_0x3ae0b9: Asset) => _0x3ae0b9.pool && _0x3ae0b9.pool.name === "flags");
-      const _0x419338 = _0x4687a1 && _0x4687a1.content.roundedFlag;
-      if (_0x419338) {
-        const _0x35878d = barHeight * 0.8;
-        const _0x3275bc = barHeight / 4;
-        const _0x8b74bb = _0x35878d / _0x419338.height;
-        _0x3d450a.save();
-        _0x3d450a.translate(_0x230083 + _0x3275bc, _0x44c9e3 + barHeight / 2);
-        _0x3d450a.scale(_0x8b74bb, _0x8b74bb);
-        _0x3d450a.drawImage(_0x419338, 0, -_0x419338.height / 2);
-        _0x3d450a.restore();
-        _0x230083 += _0x35878d;
+      previousBarWidth = scoreBarWidth;
+      const barRightOffset = halfBarWidth + scoreBarWidth;
+      let barX = viewScreenWidth - barRightOffset;
+      const cornerRadii: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
+      context.fillStyle = "#00000022";
+      drawRoundedRect(context, barX + backHeight, rowY + backHeight * 3, barWidth, barHeight, cornerRadii);
+      context.fillStyle = unit.skin.colors.back;
+      drawRoundedRect(context, barX, rowY + backHeight, barWidth, barHeight, cornerRadii, strokeWidth);
+      context.fillStyle = unit.skin.colors.main;
+      drawRoundedRect(context, barX, rowY, barWidth, barHeight, cornerRadii, strokeWidth);
+      const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === "flags");
+      const flagImage = flagAsset && flagAsset.content.roundedFlag;
+      if (flagImage) {
+        const flagHeight = barHeight * 0.8;
+        const flagOffsetX = barHeight / 4;
+        const flagScale = flagHeight / flagImage.height;
+        context.save();
+        context.translate(barX + flagOffsetX, rowY + barHeight / 2);
+        context.scale(flagScale, flagScale);
+        context.drawImage(flagImage, 0, -flagImage.height / 2);
+        context.restore();
+        barX += flagHeight;
       }
-      _0x3d450a.fillStyle = unit.skin.colors.plate;
-      _0x3d450a.font = uiFont;
-      _0x3d450a.textAlign = "left";
-      _0x3d450a.textBaseline = "middle";
-      _0x3d450a.fillText(_0x5a6511 + " – " + unit.schemes.print() + " " + unit.name, _0x230083 + halfBarHeight, _0x44c9e3 + halfBarHeight * 1.1);
+      context.fillStyle = unit.skin.colors.plate;
+      context.font = uiFont;
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      context.fillText(rank + " – " + unit.schemes.print() + " " + unit.name, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
     };
-    const _0x2be3d7 = game.units[0];
-    const _0x1a5fbd = _0x2be3d7 && _0x2be3d7.schemes.scores();
-    let _0xdb840e = false;
+    const topUnit = game.units[0];
+    const topScore = topUnit && topUnit.schemes.scores();
+    let isPlayerListed = false;
     for (let i2 = 0; i2 < 5; i2++) {
-      const _0x47defe = game.units[i2];
-      if (_0x47defe) {
-        if (game.isPlayer(_0x47defe)) {
-          _0xdb840e = true;
+      const unit = game.units[i2];
+      if (unit) {
+        if (game.isPlayer(unit)) {
+          isPlayerListed = true;
         }
-        callback95(_0x47defe, i2 + 1, i2, _0x1a5fbd);
+        drawLeaderboardRow(unit, i2 + 1, i2, topScore);
       }
     }
-    if (!_0xdb840e && game.player && !game.player.death) {
-      const _0x4cb172 = game.units.findIndex((_0x57bc8d: Unit) => game.isPlayer(_0x57bc8d));
-      callback95(game.player, _0x4cb172 + 1, 6, _0x1a5fbd);
+    if (!isPlayerListed && game.player && !game.player.death) {
+      const playerIndex = game.units.findIndex((unit: Unit) => game.isPlayer(unit));
+      drawLeaderboardRow(game.player, playerIndex + 1, 6, topScore);
     }
   };
-  const callback76 = (_0x210ba7: RenderContext) => {
+  const renderScoreBar = (renderContext: RenderContext) => {
     const {
-      game: _0x59d5c0,
+      game: game,
       ctx,
       padding,
       backHeight,
@@ -5392,25 +5392,25 @@ interface ObjectConstructor {
       barWidth,
       strokeWidth,
       uiFont
-    } = _0x210ba7;
+    } = renderContext;
     const {
       player
-    } = _0x59d5c0;
+    } = game;
     ctx.fillStyle = "#00000022";
-    callback60(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, 0]);
-    const _0x1fafd7 = _0x59d5c0.best ? Math.min(1, player.schemes.scores() / _0x59d5c0.best) : 1;
-    const _0x225524 = barWidth * (0.25 + _0x1fafd7 * 0.75);
+    drawRoundedRect(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, 0]);
+    const scoreRatio = game.best ? Math.min(1, player.schemes.scores() / game.best) : 1;
+    const fillWidth = barWidth * (0.25 + scoreRatio * 0.75);
     ctx.fillStyle = player.skin.colors.back;
-    callback60(ctx, 0, padding + backHeight, _0x225524, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
+    drawRoundedRect(ctx, 0, padding + backHeight, fillWidth, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
     ctx.fillStyle = player.skin.colors.main;
-    callback60(ctx, 0, padding, _0x225524, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
+    drawRoundedRect(ctx, 0, padding, fillWidth, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
     ctx.fillStyle = player.skin.colors.plate;
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
     ctx.fillText(player.schemes.print(), halfBarHeight, padding + halfBarHeight * 1.1);
   };
-  const callback77 = (_0x375967: RenderContext) => {
+  const renderBestScore = (renderContext: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5418,17 +5418,17 @@ interface ObjectConstructor {
       backHeight,
       barHeight,
       uiFont
-    } = _0x375967;
+    } = renderContext;
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    let _0x2dad2d = game.language.bestTxt + " " + game.player.schemes.print(game.best);
+    let bestText = game.language.bestTxt + " " + game.player.schemes.print(game.best);
     ctx.fillStyle = "#00000066";
-    ctx.fillText(_0x2dad2d, padding / 2, padding + barHeight + backHeight + padding / 2);
+    ctx.fillText(bestText, padding / 2, padding + barHeight + backHeight + padding / 2);
   };
-  const callback78 = (_0x56620e: RenderContext) => {
+  const renderKillCount = (renderContext: RenderContext) => {
     const {
-      game: _0x27f463,
+      game: game,
       ctx,
       scaler,
       padding,
@@ -5437,21 +5437,21 @@ interface ObjectConstructor {
       halfBarHeight,
       fontSize,
       uiFont
-    } = _0x56620e;
-    const _0x32c2d5 = padding + barHeight + backHeight + fontSize + padding / 2 + 4;
+    } = renderContext;
+    const killsY = padding + barHeight + backHeight + fontSize + padding / 2 + 4;
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    let _0x5399bc = "x" + _0x27f463.player.statistics.kills;
+    let killsText = "x" + game.player.statistics.kills;
     ctx.fillStyle = "#00000088";
-    callback60(ctx, 0, _0x32c2d5, barHeight * 1.5 + ctx.measureText(_0x5399bc).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
-    callback57(ctx, barHeight * 1.4 / 2, _0x32c2d5 + barHeight / 2, scaler);
+    drawRoundedRect(ctx, 0, killsY, barHeight * 1.5 + ctx.measureText(killsText).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
+    drawFaceIcon(ctx, barHeight * 1.4 / 2, killsY + barHeight / 2, scaler);
     ctx.fillStyle = "#ffffffcc";
-    ctx.fillText(_0x5399bc, barHeight * 1.25, _0x32c2d5 + halfBarHeight + barHeight * 0.03);
+    ctx.fillText(killsText, barHeight * 1.25, killsY + halfBarHeight + barHeight * 0.03);
   };
-  const callback79 = (_0x40826b: RenderContext) => {
+  const renderQuestNotification = (renderContext: RenderContext) => {
     const {
-      game: _0x3c8895,
+      game: game,
       ctx,
       scaler,
       padding,
@@ -5464,43 +5464,43 @@ interface ObjectConstructor {
       viewHeight,
       viewScreenWidth,
       viewScreenHeight
-    } = _0x40826b;
-    if (_0x3c8895.notifications.length) {
-      const quest = _0x3c8895.notifications[0];
+    } = renderContext;
+    if (game.notifications.length) {
+      const quest = game.notifications[0];
       if (quest.ready) {
         ctx.save();
         ctx.font = uiFont;
-        const _0x22165c = fontSize * 2 + padding;
-        const _0x51a913 = quest.position() * (_0x22165c + padding) - _0x22165c;
-        const _0x4ed0dd = Math.max(ctx.measureText(quest.title).width, ctx.measureText(quest.description).width);
-        const _0x38facc = fontSize * 2;
-        const _0x547382 = _0x4ed0dd + padding * 5 + _0x38facc;
-        const _0x475fa5 = padding / 2;
+        const notificationHeight = fontSize * 2 + padding;
+        const notificationY = quest.position() * (notificationHeight + padding) - notificationHeight;
+        const textWidth = Math.max(ctx.measureText(quest.title).width, ctx.measureText(quest.description).width);
+        const iconSize = fontSize * 2;
+        const notificationWidth = textWidth + padding * 5 + iconSize;
+        const inset = padding / 2;
         ctx.fillStyle = "#00000088";
-        callback60(ctx, (viewScreenWidth - _0x547382) / 2, _0x51a913, _0x547382, _0x22165c, [(barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2]);
+        drawRoundedRect(ctx, (viewScreenWidth - notificationWidth) / 2, notificationY, notificationWidth, notificationHeight, [(barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2]);
         ctx.fillStyle = "#ffffff";
         ctx.shadowColor = "#ffffff";
         ctx.shadowBlur = 1;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(quest.title, (viewScreenWidth - _0x547382) / 2 + _0x547382 / 2 + _0x38facc / 2, _0x51a913 + _0x475fa5);
+        ctx.fillText(quest.title, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset);
         ctx.fillStyle = "#ffffff88";
         ctx.shadowColor = "#ffffff88";
         ctx.shadowBlur = 1;
         ctx.font = uiFont;
-        ctx.fillText(quest.description, (viewScreenWidth - _0x547382) / 2 + _0x547382 / 2 + _0x38facc / 2, _0x51a913 + _0x475fa5 + fontSize);
+        ctx.fillText(quest.description, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset + fontSize);
         ctx.shadowColor = "#ffffff";
         ctx.shadowBlur = 10;
         if (quest.image) {
-          ctx.drawImage(quest.image, (viewScreenWidth - _0x547382) / 2 + _0x475fa5, _0x51a913 + _0x475fa5, _0x38facc, _0x38facc);
+          ctx.drawImage(quest.image, (viewScreenWidth - notificationWidth) / 2 + inset, notificationY + inset, iconSize, iconSize);
         }
         ctx.restore();
       }
     }
   };
-  function _0x594216(game: Game) {
-    const _0x44f555 = game.getRenderContext();
-    if (!_0x44f555) {
+  function renderGame(game: Game) {
+    const renderContext = game.getRenderContext();
+    if (!renderContext) {
       return;
     }
     const {
@@ -5513,44 +5513,44 @@ interface ObjectConstructor {
       viewHeight,
       origin,
       scale
-    } = _0x44f555;
+    } = renderContext;
     if (game.debugView) {
       scale = 0.5;
       origin = game.space.center;
     }
     ctx.resetTransform();
     ctx.clearRect(0, 0, viewWidth, viewHeight);
-    const _0xb1eba7 = origin.x * scale - viewWidth / 2;
-    const _0x52b2fa = origin.y * scale - viewHeight / 2;
-    ctx.translate(-_0xb1eba7, -_0x52b2fa);
+    const offsetX = origin.x * scale - viewWidth / 2;
+    const offsetY = origin.y * scale - viewHeight / 2;
+    ctx.translate(-offsetX, -offsetY);
     ctx.scale(scale, scale);
     ctx.translate(0, -baseHeight);
-    callback62(_0x44f555);
-    callback63(_0x44f555);
+    drawBaseFills(renderContext);
+    drawTrailUnderlays(renderContext);
     ctx.translate(0, baseHeight);
     ctx.globalCompositeOperation = "destination-over";
-    callback66(_0x44f555);
-    callback67(_0x44f555);
-    callback68(_0x44f555);
-    callback69(_0x44f555);
+    drawAvatarBackLayers(renderContext);
+    drawTrails(renderContext);
+    drawBaseBacks(renderContext);
+    drawArenaBackground(renderContext);
     ctx.globalCompositeOperation = "source-over";
-    callback64(_0x44f555);
-    callback65(_0x44f555);
-    callback70(_0x44f555);
-    callback71(_0x44f555);
-    callback72(_0x44f555);
+    drawAvatarFrontLayers(renderContext);
+    drawUnitNames(renderContext);
+    drawParticles(renderContext);
+    drawLabels(renderContext);
+    drawLeaderMarker(renderContext);
     ctx.resetTransform();
     ctx.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
     if (game.player) {
-      callback74(_0x44f555);
-      callback76(_0x44f555);
-      callback77(_0x44f555);
-      callback78(_0x44f555);
-      callback73(_0x44f555);
-      callback79(_0x44f555);
+      drawLeaderboard(renderContext);
+      renderScoreBar(renderContext);
+      renderBestScore(renderContext);
+      renderKillCount(renderContext);
+      drawMinimap(renderContext);
+      renderQuestNotification(renderContext);
     }
     if (game.debug || game.recording || game.replaying) {
-      callback80(game);
+      renderDebugOverlay(game);
     }
   }
   interface Metric {
@@ -5562,7 +5562,7 @@ interface ObjectConstructor {
       kills: number;
     };
   }
-  function callback80(game: Game) {
+  function renderDebugOverlay(game: Game) {
     const {
       view
     } = game;
@@ -5577,64 +5577,64 @@ interface ObjectConstructor {
     context.strokeStyle = "#ffffff";
     context.textAlign = "left";
     context.textBaseline = "top";
-    let _0x491973 = game.quality * 160;
-    const callback95 = (_0x520648: string = "", _0xc64be1: number = 0) => {
-      if (_0x520648) {
-        context.strokeText(_0x520648, 10 + _0xc64be1 * 20, _0x491973);
-        context.fillText(_0x520648, 10 + _0xc64be1 * 20, _0x491973);
+    let lineY = game.quality * 160;
+    const drawStatLine = (text: string = "", indentLevel: number = 0) => {
+      if (text) {
+        context.strokeText(text, 10 + indentLevel * 20, lineY);
+        context.fillText(text, 10 + indentLevel * 20, lineY);
       }
-      _0x491973 += game.quality * 20;
+      lineY += game.quality * 20;
     };
-    callback95("Update time: " + game.stats.ut.toFixed(1));
-    callback95("AI time: " + game.stats.ait.toFixed(1), 1);
-    callback95("Spawn time: " + game.stats.st.toFixed(1), 1);
-    callback95("Render time: " + game.stats.rt.toFixed(1));
-    callback95("FPS: " + Math.round(game.stats.fps));
-    callback95("Quality: " + game.quality);
-    callback95();
-    callback95("Units: " + game.units.length);
-    callback95("Level: " + game.level.toFixed(3));
-    callback95();
-    callback95("Particles: " + game.particles.length);
-    callback95();
+    drawStatLine("Update time: " + game.stats.ut.toFixed(1));
+    drawStatLine("AI time: " + game.stats.ait.toFixed(1), 1);
+    drawStatLine("Spawn time: " + game.stats.st.toFixed(1), 1);
+    drawStatLine("Render time: " + game.stats.rt.toFixed(1));
+    drawStatLine("FPS: " + Math.round(game.stats.fps));
+    drawStatLine("Quality: " + game.quality);
+    drawStatLine();
+    drawStatLine("Units: " + game.units.length);
+    drawStatLine("Level: " + game.level.toFixed(3));
+    drawStatLine();
+    drawStatLine("Particles: " + game.particles.length);
+    drawStatLine();
     if (game.recording) {
-      callback95("Recording: " + game.recording.duration().toFixed(1) + " s");
+      drawStatLine("Recording: " + game.recording.duration().toFixed(1) + " s");
     }
     if (game.replaying) {
-      callback95("Replaying: " + game.replaying.currentlyPlaying().toFixed(1) + "/" + game.replaying.duration().toFixed(1) + " s");
+      drawStatLine("Replaying: " + game.replaying.currentlyPlaying().toFixed(1) + "/" + game.replaying.duration().toFixed(1) + " s");
     }
     if (game.debugGraph) {
-      const _0x1d8eca = view.width / 3;
-      const _0x17818e = 100;
+      const graphWidth = view.width / 3;
+      const graphHeight = 100;
       const path2D = new Path2D();
       const path2D2 = new Path2D();
       const path2D3 = new Path2D();
       const path2D4 = new Path2D();
       path2D4.moveTo(0, 0);
-      let _0x3c276f = 16.67;
-      game.metrics.forEach((_0x104637: Metric) => {
-        _0x3c276f = Math.max(_0x3c276f, _0x104637.frameTime);
+      let maxFrameTime = 16.67;
+      game.metrics.forEach((metric: Metric) => {
+        maxFrameTime = Math.max(maxFrameTime, metric.frameTime);
       });
-      _0x3c276f *= 1.1;
-      const _0x5baa4d = _0x1d8eca / (_0xd09b08 - 1);
-      const _0x80f60e = _0x17818e / _0x3c276f;
+      maxFrameTime *= 1.1;
+      const xStep = graphWidth / (_0xd09b08 - 1);
+      const yScale = graphHeight / maxFrameTime;
       context.save();
-      context.translate((view.width - _0x1d8eca) / 2, _0x17818e);
+      context.translate((view.width - graphWidth) / 2, graphHeight);
       context.fillStyle = "#00000033";
-      context.fillRect(0, -_0x17818e, _0x1d8eca, _0x17818e);
-      game.metrics.forEach((_0x2b2ec8: Metric, _0x5b33aa: number) => {
-        path2D.lineTo(_0x5baa4d * _0x5b33aa, -_0x2b2ec8.updateTime * _0x80f60e);
-        path2D2.lineTo(_0x5baa4d * _0x5b33aa, -_0x2b2ec8.renderTime * _0x80f60e);
-        path2D4.lineTo(_0x5baa4d * _0x5b33aa, -(_0x2b2ec8.updateTime + _0x2b2ec8.renderTime) * _0x80f60e);
-        path2D3.lineTo(_0x5baa4d * _0x5b33aa, -_0x2b2ec8.frameTime * _0x80f60e);
+      context.fillRect(0, -graphHeight, graphWidth, graphHeight);
+      game.metrics.forEach((metric: Metric, index: number) => {
+        path2D.lineTo(xStep * index, -metric.updateTime * yScale);
+        path2D2.lineTo(xStep * index, -metric.renderTime * yScale);
+        path2D4.lineTo(xStep * index, -(metric.updateTime + metric.renderTime) * yScale);
+        path2D3.lineTo(xStep * index, -metric.frameTime * yScale);
       });
-      path2D4.lineTo(_0x5baa4d * (game.metrics.length - 1), 0);
+      path2D4.lineTo(xStep * (game.metrics.length - 1), 0);
       context.lineWidth = 1;
-      const _0x531fc7 = _0x80f60e * 16.67;
+      const targetFrameTimeY = yScale * 16.67;
       context.strokeStyle = "red";
       context.beginPath();
-      context.moveTo(0, -_0x531fc7);
-      context.lineTo(_0x1d8eca, -_0x531fc7);
+      context.moveTo(0, -targetFrameTimeY);
+      context.lineTo(graphWidth, -targetFrameTimeY);
       context.stroke();
       context.fillStyle = "#ffff00a0";
       context.fill(path2D4);
@@ -5645,11 +5645,11 @@ interface ObjectConstructor {
       context.strokeStyle = "#0000ffcc";
       context.stroke(path2D3);
       context.lineWidth = 0.5;
-      game.metrics.forEach((_0x56ba10: Metric, _0x3feb5f: number) => {
+      game.metrics.forEach((metric: Metric, index: number) => {
         const {
           returns,
           kills
-        } = _0x56ba10.events;
+        } = metric.events;
         if (returns || kills) {
           if (kills) {
             context.strokeStyle = "#99000040";
@@ -5657,8 +5657,8 @@ interface ObjectConstructor {
             context.strokeStyle = "#00000040";
           }
           context.beginPath();
-          context.moveTo(_0x5baa4d * _0x3feb5f, 0);
-          context.lineTo(_0x5baa4d * _0x3feb5f, -_0x17818e);
+          context.moveTo(xStep * index, 0);
+          context.lineTo(xStep * index, -graphHeight);
           context.stroke();
         }
       });
@@ -5688,7 +5688,7 @@ interface ObjectConstructor {
     name: string;
     lng: LanguageStrings;
   }
-  var _0x47dace: Language = {
+  var russianLanguage: Language = {
     name: "ru",
     lng: {
       yourScore: "ВАШ РЕЗУЛЬТАТ",
@@ -5719,29 +5719,29 @@ interface ObjectConstructor {
   interface GameApi {
     create: (view: HTMLCanvasElement) => void;
     preparing: boolean;
-    prepare: (callback97?: () => void) => void;
-    start: (_0x726413?: string, _0xca7aa0?: string, _0x441c23?: number, _0x190f9e?: (results: GameResults) => void, _0x3e0e26?: number) => void;
+    prepare: (onPrepared?: () => void) => void;
+    start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
     game: Game;
     startGame?: () => void;
   }
-  const callback81 = (_0x25e808: Config, _0x51cd14: Language, callback95: (config: Config, view: HTMLCanvasElement) => GameSkinManager, _0x41c953: NamePool, _0x2475cf: SchemeCycler, _0x253662: AchievementStore): GameApi | null => {
+  const createGameApi = (config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null => {
     let gameApi = {} as GameApi;
     if (Path2D) {
-      gameApi.create = (_0x2702b4: HTMLCanvasElement) => {
+      gameApi.create = (view: HTMLCanvasElement) => {
         const {
           arenaSize,
           quadSize,
           borderPoints
-        } = _0x25e808;
+        } = config;
         const spatialGrid2 = new SpatialGrid(arenaSize, arenaSize, quadSize);
         Vector.space = spatialGrid2;
         const vector = new Vector(arenaSize / 2, arenaSize / 2);
-        const _0x36f65f = Math.min(vector.x, vector.y) * 0.95;
-        const _0x53260d = Border.circular(vector, borderPoints, _0x36f65f);
-        const _0x412f0f = callback95(_0x25e808, _0x2702b4);
-        const game = new Game(_0x25e808, _0x2702b4, spatialGrid2, _0x53260d, _0x412f0f, null, _0x41c953, new Controller(_0x2702b4, new KeyboardModeSwitch()), _0x51cd14.lng, _0x2475cf, _0x253662, Math.random());
-        _0x412f0f.game = game;
-        game.renderer = _0x594216;
+        const radius = Math.min(vector.x, vector.y) * 0.95;
+        const border = Border.circular(vector, borderPoints, radius);
+        const skinManager = createSkinManager(config, view);
+        const game = new Game(config, view, spatialGrid2, border, skinManager, null, namePool, new Controller(view, new KeyboardModeSwitch()), language.lng, schemeCycler, achievementStore, Math.random());
+        skinManager.game = game;
+        game.renderer = renderGame;
         gameApi.game = game;
         game.controller.addSet([16, 18, 81, 66, 77], () => {
           game.debug = !game.debug;
@@ -5752,63 +5752,63 @@ interface ObjectConstructor {
       };
       gameApi.preparing = true;
       let i2 = 0;
-      let _0x1e248a: number | undefined;
-      const callback96 = () => {
+      let prepareIntervalId: number | undefined;
+      const runPrepareBatch = () => {
         const {
           prepareMult
-        } = _0x25e808;
+        } = config;
         let {
           prepareBatchCount
-        } = _0x25e808;
+        } = config;
         while (prepareBatchCount--) {
           gameApi.game.update(1000 / 60 * prepareMult + Math.random());
           i2++;
         }
       };
-      gameApi.prepare = (callback97?: () => void) => {
+      gameApi.prepare = (onPrepared?: () => void) => {
         const {
           game: gameApi2
         } = gameApi;
-        _0x1e248a = setInterval(() => {
-          if (_0x41c953.aviable()) {
-            callback96();
-            if (i2 > _0x25e808.prepareCounter) {
-              clearInterval(_0x1e248a);
+        prepareIntervalId = setInterval(() => {
+          if (namePool.aviable()) {
+            runPrepareBatch();
+            if (i2 > config.prepareCounter) {
+              clearInterval(prepareIntervalId);
               gameApi.preparing = false;
               gameApi2.visible = true;
               if (!gameApi2.looped) {
                 gameApi2.loop();
               }
-              if (callback97) {
-                callback97();
+              if (onPrepared) {
+                onPrepared();
               }
             }
           }
         }, 0);
       };
-      gameApi.start = (_0x726413?: string, _0xca7aa0?: string, _0x441c23?: number, _0x190f9e?: (results: GameResults) => void, _0x3e0e26?: number) => {
+      gameApi.start = (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => {
         const game = gameApi.game;
         if (gameApi.preparing) {
-          clearInterval(_0x1e248a);
-          const _0x4a84f3 = now();
-          while (i2 < _0x25e808.prepareCounter) {
-            callback96();
-            if (now() - _0x4a84f3 > _0x25e808.maxPreparingTime) {
+          clearInterval(prepareIntervalId);
+          const startTime = now();
+          while (i2 < config.prepareCounter) {
+            runPrepareBatch();
+            if (now() - startTime > config.maxPreparingTime) {
               break;
             }
           }
         }
-        game.best = _0x441c23;
-        game.spawnPlayer(_0x726413, _0xca7aa0, _0x3e0e26);
-        if (_0x3e0e26) {
+        game.best = bestScore;
+        game.spawnPlayer(playerName, skinName, extraLives);
+        if (extraLives) {
           game.player.addLabel({
-            text: _0x47dace.lng.extraLife,
+            text: russianLanguage.lng.extraLife,
             time: 5000,
             color: "#7fed4c"
           });
         }
-        if (_0x190f9e) {
-          game.gameOverCallback = _0x190f9e;
+        if (onGameOver) {
+          game.gameOverCallback = onGameOver;
         }
         gameApi.preparing = false;
         game.visible = true;
@@ -5848,19 +5848,19 @@ interface ObjectConstructor {
   }
   var assign3 = Object.assign;
   const list3: Language[] = [];
-  const callback92 = (_0x4bd68c: LanguagesData) => {
+  const buildLanguageList = (languagesData: LanguagesData) => {
     const {
       en
-    } = _0x4bd68c;
-    Object.entries(_0x4bd68c).forEach(([_0x481b18, _0x2f0d2c]) => {
+    } = languagesData;
+    Object.entries(languagesData).forEach(([languageName, languageStrings]) => {
       list3.push({
-        name: _0x481b18,
-        lng: assign3(assign3({}, en), _0x2f0d2c) as LanguageStrings
+        name: languageName,
+        lng: assign3(assign3({}, en), languageStrings) as LanguageStrings
       });
     });
   };
-  const _0x4d828b = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toLowerCase();
-  const callback93 = (): Language | undefined => list3.find((_0x1a1077: Language) => _0x1a1077.name === _0x4d828b) || list3.find((_0x55808a: Language) => _0x55808a.name === "en");
+  const browserLanguageCode = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toLowerCase();
+  const findDefaultLanguage = (): Language | undefined => list3.find((language: Language) => language.name === browserLanguageCode) || list3.find((language: Language) => language.name === "en");
   type Ref<T> = {
     current: T;
   };
@@ -5877,25 +5877,25 @@ interface ObjectConstructor {
     pattern?: PatternSource;
     avatar?: AvatarDescriptor;
   }
-  const _0x2124e9 = createContext<Language | undefined>();
-  const _0x313732 = ({
+  const LanguageContext = createContext<Language | undefined>();
+  const Tips = ({
     messages
   }: {
     messages: string[];
   }) => {
-    const [_0x2eef6d, callback95] = useState(0);
+    const [tipIndex, setTipIndex] = useState(0);
     useEffect(() => {
-      const _0x88d3da = setInterval(() => callback95((_0x39ba1e: number) => (_0x39ba1e + 1) % messages.length), 3000);
-      return () => clearInterval(_0x88d3da);
+      const intervalId = setInterval(() => setTipIndex((previousIndex: number) => (previousIndex + 1) % messages.length), 3000);
+      return () => clearInterval(intervalId);
     }, []);
     return createElement("div", {
       class: "tips"
     }, createElement("div", {
       class: "tip",
-      key: _0x2eef6d
-    }, messages[_0x2eef6d]));
+      key: tipIndex
+    }, messages[tipIndex]));
   };
-  const _0x449096 = ({
+  const ConfigForm = ({
     config,
     apply
   }: {
@@ -5908,13 +5908,13 @@ interface ObjectConstructor {
     return createElement("form", {
       class: "config",
       onSubmit: apply
-    }, Object.entries(config).map(([_0x14b1f7, _0x22ff59]) => createElement("label", {
+    }, Object.entries(config).map(([configKey, configValue]) => createElement("label", {
       style: "color: white;"
-    }, _0x14b1f7, "\xA0", createElement("input", {
+    }, configKey, "\xA0", createElement("input", {
       type: "text",
-      id: _0x14b1f7,
-      name: _0x14b1f7,
-      value: _0x22ff59,
+      id: configKey,
+      name: configKey,
+      value: configValue,
       autocomplete: "off",
       maxlength: "10"
     }))), createElement("button", {
@@ -5923,7 +5923,7 @@ interface ObjectConstructor {
       class: "yellow"
     }, "Применить"));
   };
-  const _0x613dc8 = ({
+  const ConfigScreen = ({
     api,
     view,
     setPreparing,
@@ -5934,14 +5934,14 @@ interface ObjectConstructor {
     setPreparing: Dispatch<boolean>;
     setState: Dispatch<string>;
   }) => {
-    const _0x4dd059 = api && api.game && api.game.config;
-    const _0x307f95 = (event: Event) => {
+    const config = api && api.game && api.game.config;
+    const applyConfig = (event: Event) => {
       event.preventDefault();
-      Object.keys(_0x4dd059).forEach((_0x4eaf3c: string) => {
-        const element = document.getElementById(_0x4eaf3c);
+      Object.keys(config).forEach((configKey: string) => {
+        const element = document.getElementById(configKey);
         if (element) {
-          const _0x5c8252 = parseFloat(element.value);
-          _0x4dd059[_0x4eaf3c] = _0x5c8252 !== _0x5c8252 ? element.value : _0x5c8252;
+          const parsedValue = parseFloat(element.value);
+          config[configKey] = parsedValue !== parsedValue ? element.value : parsedValue;
         }
       });
       api.game.stopped = true;
@@ -5956,28 +5956,28 @@ interface ObjectConstructor {
       class: "logo"
     }, createElement("img", {
       src: "assets/images/logo.png"
-    })), createElement(_0x449096, {
-      config: _0x4dd059,
-      apply: _0x307f95
+    })), createElement(ConfigForm, {
+      config: config,
+      apply: applyConfig
     }));
   };
-  const _0x11635f = ({
+  const LanguageFooter = ({
     setLanguage
   }: {
     setLanguage: Dispatch<Language | undefined>;
   }) => {
-    const _0x3ae834 = useContext(_0x2124e9);
-    const _0x1df60f = list3.map((_0x159de4: Language, _0x1a5dca: number) => createElement("li", {
-      class: _0x159de4 === _0x3ae834 ? "active" : "",
-      onClick: () => setLanguage(list3[_0x1a5dca])
-    }, _0x159de4.name.toUpperCase()));
+    const currentLanguage = useContext(LanguageContext);
+    const languageItems = list3.map((language: Language, index: number) => createElement("li", {
+      class: language === currentLanguage ? "active" : "",
+      onClick: () => setLanguage(list3[index])
+    }, language.name.toUpperCase()));
     return createElement("div", {
       id: "footer"
     }, createElement("ul", {
       id: "lng"
-    }, _0x1df60f));
+    }, languageItems));
   };
-  const _0x2b87a7 = ({
+  const MenuScreen = ({
     nickName,
     setNickName,
     playable,
@@ -6002,14 +6002,14 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = useContext(_0x2124e9);
-    const _0x7e5b2d = api && api.game && api.game.config;
-    const _0x582227 = !!api;
-    const _0x3e6418 = (_0x474014: Event) => setNickName((_0x474014.target as HTMLInputElement).value);
-    const _0x56e19e = _0x582227;
-    const _0xe04ee3 = (event: Event) => {
+    } = useContext(LanguageContext);
+    const config = api && api.game && api.game.config;
+    const isSupported = !!api;
+    const handleNickNameInput = (event: Event) => setNickName((event.target as HTMLInputElement).value);
+    const canPlay = isSupported;
+    const handlePlay = (event: Event) => {
       event.preventDefault();
-      if (_0x56e19e) {
+      if (canPlay) {
         start();
       }
     };
@@ -6026,7 +6026,7 @@ interface ObjectConstructor {
       class: "logo"
     }, createElement("img", {
       src: "assets/images/logo.png"
-    })), createElement(_0x313732, {
+    })), createElement(Tips, {
       messages: lng.messages
     }), createElement("div", {
       class: "play"
@@ -6038,12 +6038,12 @@ interface ObjectConstructor {
       autocomplete: "off",
       placeholder: lng.placeholderText,
       maxlength: "12",
-      oninput: _0x3e6418
+      oninput: handleNickNameInput
     }), createElement("button", {
       id: "play",
       name: "play",
-      class: "yellow" + (_0x56e19e ? "" : " disabled"),
-      onClick: _0xe04ee3
+      class: "yellow" + (canPlay ? "" : " disabled"),
+      onClick: handlePlay
     }, lng.btnPlay), createElement("button", {
       id: "skins",
       name: "skins",
@@ -6053,13 +6053,13 @@ interface ObjectConstructor {
       width: "30",
       height: "30",
       src: "assets/skins/select/" + (skin || "noskin").toLowerCase().replace(/\s+/g, "") + ".png"
-    }))), !_0x582227 && createElement("p", {
+    }))), !isSupported && createElement("p", {
       class: "notsupported"
     }, lng.nosupport)), createElement("div", {
       id: "right_side"
     }));
   };
-  const _0x5389c6 = ({
+  const GameScreen = ({
     nickName,
     bestScore,
     setBestScore,
@@ -6081,22 +6081,22 @@ interface ObjectConstructor {
     lastPercent?: number;
   }) => {
     useEffect(() => {
-      const _0x545eda = (_0x3ee818: GameResults) => {
-        if (_0x3ee818.newBest) {
-          setBestScore(_0x3ee818.score);
+      const handleGameOver = (results: GameResults) => {
+        if (results.newBest) {
+          setBestScore(results.score);
         }
-        setResults(_0x3ee818);
+        setResults(results);
         route("results");
       };
       if (window.ads && window.ads.hideAds) {
         window.ads.hideAds();
       }
-      api.game.language = useContext(_0x2124e9).lng;
+      api.game.language = useContext(LanguageContext).lng;
       let skin2 = skin;
       if (skin2 === "default" || skin2 === "No skin") {
         skin2 = "";
       }
-      api.start(nickName, skin2, bestScore, _0x545eda, lastPercent);
+      api.start(nickName, skin2, bestScore, handleGameOver, lastPercent);
       const {
         dataLayer
       } = window;
@@ -6111,7 +6111,7 @@ interface ObjectConstructor {
     }, []);
     return null;
   };
-  const _0x665b7b = ({
+  const ResultsScreen = ({
     bestScore,
     results,
     start,
@@ -6126,10 +6126,10 @@ interface ObjectConstructor {
     provider?: undefined;
     country?: undefined;
   }) => {
-    const _0xb87c1f = () => route("menu");
+    const goToMenu = () => route("menu");
     const {
       lng
-    } = useContext(_0x2124e9);
+    } = useContext(LanguageContext);
     const {
       dataLayer
     } = window;
@@ -6158,7 +6158,7 @@ interface ObjectConstructor {
     }, createElement("button", {
       class: "yellow slider-5",
       id: "menu",
-      onClick: _0xb87c1f
+      onClick: goToMenu
     }, lng.btnContinue)), createElement("div", {
       class: "resultbox"
     }, createElement("div", {
@@ -6191,7 +6191,7 @@ interface ObjectConstructor {
       id: "right_side"
     }));
   };
-  const _0x16897a = ({
+  const SkinPreview = ({
     name
   }: {
     name: string;
@@ -6204,7 +6204,7 @@ interface ObjectConstructor {
       src: "assets/skins/select/" + name.toLowerCase().replace(/\s+/g, "") + ".png"
     })));
   };
-  const _0x226e7e = ({
+  const SkinCarousel = ({
     skins,
     skin,
     menu,
@@ -6217,13 +6217,13 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = useContext(_0x2124e9);
-    const _0x38fb57 = skins.findIndex((_0x46e46c: SkinSource) => _0x46e46c.name === skin);
-    const [_0x52fa22, callback95] = useState(_0x38fb57 > 0 ? _0x38fb57 : 0);
-    const callback96 = (_0xfc8857: number) => {
-      if (_0xfc8857 >= 0 && _0xfc8857 < skins.length) {
-        callback95(_0xfc8857);
-        setSkin(skins[_0xfc8857].name);
+    } = useContext(LanguageContext);
+    const currentSkinIndex = skins.findIndex((skinSource: SkinSource) => skinSource.name === skin);
+    const [skinIndex, setSkinIndex] = useState(currentSkinIndex > 0 ? currentSkinIndex : 0);
+    const selectSkin = (index: number) => {
+      if (index >= 0 && index < skins.length) {
+        setSkinIndex(index);
+        setSkin(skins[index].name);
       }
     };
     return createElement("div", {
@@ -6233,13 +6233,13 @@ interface ObjectConstructor {
     }, createElement("button", {
       name: "left",
       class: "orange",
-      onClick: () => callback96(_0x52fa22 - 1)
-    }, "<"), createElement(_0x16897a, {
-      name: skins[_0x52fa22].name
+      onClick: () => selectSkin(skinIndex - 1)
+    }, "<"), createElement(SkinPreview, {
+      name: skins[skinIndex].name
     }), createElement("button", {
       name: "right",
       class: "orange",
-      onClick: () => callback96(_0x52fa22 + 1)
+      onClick: () => selectSkin(skinIndex + 1)
     }, ">")), createElement("div", {
       class: "nav"
     }, createElement("button", {
@@ -6247,7 +6247,7 @@ interface ObjectConstructor {
       onClick: menu
     }, lng.btnSelect)));
   };
-  const _0x33ae25 = ({
+  const SkinsScreen = ({
     skins,
     skin,
     route,
@@ -6258,7 +6258,7 @@ interface ObjectConstructor {
     route: Dispatch<string>;
     setSkin: Dispatch<string>;
   }) => {
-    const _0x511672 = () => route("menu");
+    const goToMenu = () => route("menu");
     useEffect(() => {
       const element = document.getElementById("paperio-site_multisize");
       if (element) {
@@ -6273,11 +6273,11 @@ interface ObjectConstructor {
       class: "logo"
     }, createElement("img", {
       src: "assets/images/logo.png"
-    })), createElement(_0x226e7e, {
+    })), createElement(SkinCarousel, {
       skins: [{
         name: "No skin"
       }].concat(skins),
-      menu: _0x511672,
+      menu: goToMenu,
       setSkin: setSkin,
       skin: skin
     })), createElement("div", {
@@ -6295,7 +6295,7 @@ interface ObjectConstructor {
       expires: number;
     }) => void;
   }
-  const _0x1d032c = ({
+  const App = ({
     api,
     storage,
     ads,
@@ -6310,32 +6310,32 @@ interface ObjectConstructor {
     skins: SkinSource[];
     mode?: string;
   }) => {
-    const _0x2a1468 = useRef<HTMLCanvasElement | null>(null);
-    const [_0xae90a5, callback95] = useState(false);
-    const [_0x3c010f, callback96] = useState("menu");
-    const [_0x7671bd, callback97] = useState(true);
-    const [_0x293a25, _0x5c440b] = useState(callback93());
-    const [_0x50dae7, _0x536f0c] = useState<GameResults | null>(null);
-    const _0x1cb8f8 = "paper.io.storage";
-    const _0x16b845 = storage.getJSON(_0x1cb8f8) || {};
-    const [_0x38110e, _0x495989] = useState(_0x16b845.nickName || "");
-    const [_0x43a473, _0x421708] = useState(_0x16b845.bestScore || 0);
-    const [_0x4f80f0, _0x33ebdc] = useState(_0x16b845.skin || "");
-    const _0x48fc9f = {
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const [playable, setPlayable] = useState(false);
+    const [route, setRoute] = useState("menu");
+    const [preparing, setPreparing] = useState(true);
+    const [language, setLanguage] = useState(findDefaultLanguage());
+    const [results, setResults] = useState<GameResults | null>(null);
+    const storageKey = "paper.io.storage";
+    const storedData = storage.getJSON(storageKey) || {};
+    const [nickName, setNickName] = useState(storedData.nickName || "");
+    const [bestScore, setBestScore] = useState(storedData.bestScore || 0);
+    const [skin, setSkin] = useState(storedData.skin || "");
+    const storageOptions = {
       expires: 365
     };
-    if (_0x38110e !== _0x16b845.nickName || _0x43a473 !== _0x16b845.bestScore || _0x4f80f0 !== _0x16b845.skin) {
-      storage.set(_0x1cb8f8, {
-        nickName: _0x38110e,
-        bestScore: _0x43a473,
-        skin: _0x4f80f0
-      }, _0x48fc9f);
+    if (nickName !== storedData.nickName || bestScore !== storedData.bestScore || skin !== storedData.skin) {
+      storage.set(storageKey, {
+        nickName: nickName,
+        bestScore: bestScore,
+        skin: skin
+      }, storageOptions);
     }
     useEffect(() => {
       if (api) {
-        api.create(_0x2a1468.current);
-        api.prepare(() => callback97(false));
-        callback95(true);
+        api.create(canvasRef.current);
+        api.prepare(() => setPreparing(false));
+        setPlayable(true);
       }
     }, []);
     api.startGame = () => {
@@ -6346,9 +6346,9 @@ interface ObjectConstructor {
       if (api && api.game) {
         api.game.visible = true;
       }
-      callback96("game");
+      setRoute("game");
     };
-    const _0x28fd93 = () => {
+    const start = () => {
       const element = document.getElementById("overlay");
       if (element) {
         element.style.display = "block";
@@ -6360,12 +6360,12 @@ interface ObjectConstructor {
       window.ShowPreroll();
     };
     return createElement(Fragment, null, createElement("canvas", {
-      class: _0x3c010f === "game" || _0x7671bd ? "" : "fadein",
+      class: route === "game" || preparing ? "" : "fadein",
       id: "view",
-      ref: _0x2a1468
-    }), _0x3c010f !== "game" && createElement("div", {
+      ref: canvasRef
+    }), route !== "game" && createElement("div", {
       id: "ui_overlay"
-    }), createElement(_0x2124e9.Provider, {
+    }), createElement(LanguageContext.Provider, {
       // `Context.Provider`'s `value` prop carries the arbitrary context value
       // (here `Language | undefined`), not a DOM input's `value` attribute —
       // `VNodeProps.value` is intentionally narrowed to `string | number |
@@ -6373,50 +6373,50 @@ interface ObjectConstructor {
       // Bridged through `object` (rather than `unknown`) like the similar
       // cast in `callback19`'s `Consumer`, since the two object shapes don't
       // otherwise overlap enough for TS to allow a direct assertion.
-      value: _0x293a25
+      value: language
     } as object as VNodeProps, createElement("div", {
       id: "ui",
-      class: _0x3c010f === "game" ? "hide" : ""
-    }, _0x3c010f === "menu" && createElement(_0x2b87a7, {
-      nickName: _0x38110e,
-      setNickName: _0x495989,
-      playable: _0xae90a5,
-      preparing: _0x7671bd,
-      start: _0x28fd93,
-      route: callback96,
+      class: route === "game" ? "hide" : ""
+    }, route === "menu" && createElement(MenuScreen, {
+      nickName: nickName,
+      setNickName: setNickName,
+      playable: playable,
+      preparing: preparing,
+      start: start,
+      route: setRoute,
       provider: provider,
-      setLanguage: _0x5c440b,
+      setLanguage: setLanguage,
       api: api,
-      setState: callback96,
+      setState: setRoute,
       skins: skins,
-      skin: _0x4f80f0
-    }), _0x3c010f === "game" && createElement(_0x5389c6, {
-      nickName: _0x38110e,
-      bestScore: _0x43a473,
-      setBestScore: _0x421708,
-      setResults: _0x536f0c,
-      setPreparing: callback97,
+      skin: skin
+    }), route === "game" && createElement(GameScreen, {
+      nickName: nickName,
+      bestScore: bestScore,
+      setBestScore: setBestScore,
+      setResults: setResults,
+      setPreparing: setPreparing,
       api: api,
-      route: callback96,
-      skin: _0x4f80f0
-    }), _0x3c010f === "results" && createElement(_0x665b7b, {
-      bestScore: _0x43a473,
-      results: _0x50dae7,
-      start: _0x28fd93,
-      route: callback96,
+      route: setRoute,
+      skin: skin
+    }), route === "results" && createElement(ResultsScreen, {
+      bestScore: bestScore,
+      results: results,
+      start: start,
+      route: setRoute,
       provider: provider
-    }), _0x3c010f === "config" && createElement(_0x613dc8, {
+    }), route === "config" && createElement(ConfigScreen, {
       api: api,
-      view: _0x2a1468,
-      setPreparing: callback97,
-      setState: callback96
-    }), _0x3c010f === "skins" && createElement(_0x33ae25, {
+      view: canvasRef,
+      setPreparing: setPreparing,
+      setState: setRoute
+    }), route === "skins" && createElement(SkinsScreen, {
       skins: skins,
-      skin: _0x4f80f0,
-      route: callback96,
-      setSkin: _0x33ebdc
-    })), _0x3c010f !== "game" && createElement(_0x11635f, {
-      setLanguage: _0x5c440b
+      skin: skin,
+      route: setRoute,
+      setSkin: setSkin
+    })), route !== "game" && createElement(LanguageFooter, {
+      setLanguage: setLanguage
     })), createElement("div", {
       id: "overlay"
     }));
@@ -6495,25 +6495,25 @@ interface ObjectConstructor {
       this.pattern = null;
       this.container = new DisplayList();
     }
-    addAsset(_0x5aa709: Asset) {
-      if (_0x5aa709.content.colors) {
-        this.colors = _0x5aa709.content.colors;
+    addAsset(asset: Asset) {
+      if (asset.content.colors) {
+        this.colors = asset.content.colors;
       }
-      if (_0x5aa709.content.pattern) {
-        this.pattern = _0x5aa709.content.pattern;
+      if (asset.content.pattern) {
+        this.pattern = asset.content.pattern;
       }
-      if (_0x5aa709.content.display) {
-        this.container.add(_0x5aa709.content.display);
+      if (asset.content.display) {
+        this.container.add(asset.content.display);
       }
-      this.assets.push(_0x5aa709);
+      this.assets.push(asset);
     }
-    removeAsset(_0x4b4cea: Asset) {
-      if (_0x4b4cea.content.display) {
-        this.container.remove(_0x4b4cea.content.display);
+    removeAsset(asset: Asset) {
+      if (asset.content.display) {
+        this.container.remove(asset.content.display);
       }
-      const _0x3f0d21 = this.assets.indexOf(_0x4b4cea);
-      if (_0x3f0d21 !== -1) {
-        this.assets.splice(_0x3f0d21, 1);
+      const index = this.assets.indexOf(asset);
+      if (index !== -1) {
+        this.assets.splice(index, 1);
       }
     }
   }
@@ -6523,10 +6523,10 @@ interface ObjectConstructor {
     name: string;
     pool: AssetSet;
     ready: boolean;
-    constructor(_0x4fe703: string) {
+    constructor(name: string) {
       this.pool = undefined;
       this.loadingStarted = false;
-      this.name = _0x4fe703;
+      this.name = name;
       this.content = {};
       this.ready = false;
     }
@@ -6535,26 +6535,26 @@ interface ObjectConstructor {
   class SvgAsset extends Asset {
     pool: ImageAssetSet;
     source: SkinColors;
-    constructor(_0xb63175: ImageAssetSet, _0x332715: string, _0x2a70ba: SkinColors) {
-      super(_0x332715);
-      this.pool = _0xb63175;
-      this.source = _0x2a70ba;
+    constructor(pool: ImageAssetSet, name: string, source: SkinColors) {
+      super(name);
+      this.pool = pool;
+      this.source = source;
     }
   }
   class ImageAsset extends Asset {
     pool: SvgAssetSet;
     source: SkinSource;
-    constructor(_0x4a0858: SvgAssetSet, _0xeae6e: string, _0x2ae3f4: SkinSource) {
-      super(_0xeae6e);
-      this.pool = _0x4a0858;
-      this.source = _0x2ae3f4;
+    constructor(pool: SvgAssetSet, name: string, source: SkinSource) {
+      super(name);
+      this.pool = pool;
+      this.source = source;
     }
     load(): void {
       if (this.loadingStarted) {
         return;
       }
       this.loadingStarted = true;
-      const _0x173606 = () => {
+      const updateReady = () => {
         this.ready = !!this.content.display && this.content.display.ready && (this.content.pattern ? this.content.pattern.ready : true);
       };
       const {
@@ -6570,10 +6570,10 @@ interface ObjectConstructor {
         }, source.colors);
       }
       if (source.pattern) {
-        this.content.pattern = new PatternAsset(this.pool.config, this.pool.view, this.pool.path, source.pattern, _0x173606);
+        this.content.pattern = new PatternAsset(this.pool.config, this.pool.view, this.pool.path, source.pattern, updateReady);
       }
       if (source.avatar) {
-        this.content.display = new Avatar(this.pool.config, this.pool.path, source.avatar, _0x173606);
+        this.content.display = new Avatar(this.pool.config, this.pool.path, source.avatar, updateReady);
       }
     }
   }
@@ -6581,97 +6581,97 @@ interface ObjectConstructor {
     assets: Asset[];
     config: Config | undefined;
     name: string;
-    constructor(_0x656842: string) {
+    constructor(name: string) {
       this.config = undefined;
-      this.name = _0x656842;
+      this.name = name;
       this.assets = [];
     }
-    get(_0x58d069?: string, _0x5971db?: boolean): Asset | null {
-      let _0x1058fe;
-      _0x1058fe = this.assets.find((_0x5e1caf: Asset) => _0x5e1caf.name === _0x58d069 && (_0x5971db ? _0x5e1caf.ready === true : true));
-      if (!_0x1058fe) {
+    get(name?: string, requireReady?: boolean): Asset | null {
+      let asset;
+      asset = this.assets.find((asset: Asset) => asset.name === name && (requireReady ? asset.ready === true : true));
+      if (!asset) {
         return null;
       }
-      _0x1058fe.load();
-      return _0x1058fe;
+      asset.load();
+      return asset;
     }
   }
   class ImageAssetSet extends AssetSet {
-    constructor(_0x330904: Config) {
+    constructor(config: Config) {
       super("colors");
-      this.config = _0x330904;
+      this.config = config;
       this.add(_0x4b9315);
     }
-    add(_0x1f90aa: string[]) {
+    add(colors: string[]) {
       const {
         config
       } = this;
-      this.assets.push(...(_0x1f90aa || []).map((_0x1af67d: string) => {
-        const _0x1b3992 = callback34(_0x1af67d);
-        const _0x89367 = callback35(_0x1b3992);
-        const _0x468f36 = callback41(_0x89367, 0.75);
-        const _0x1daa61 = callback38(_0x468f36);
-        const _0x10a960 = callback41(_0x89367, 0.5);
-        const _0x5d6eb5 = callback38(_0x10a960);
-        const _0x48b60f = callback42(_0x89367, 1.5);
-        const _0x53ef8a = callback38(_0x48b60f);
-        const _0x4a4356 = callback42(_0x89367, 2);
-        const _0x545b5f = callback38(_0x4a4356);
-        const _0x11e5b6 = {
-          main: _0x1af67d,
-          back: _0x1daa61,
-          nick: _0x5d6eb5,
-          plate: _0x89367.v > 50 ? _0x5d6eb5 : _0x545b5f,
-          particles: [callback38(callback43(_0x89367, 100)), callback38(callback43(_0x89367, 90)), callback38(callback43(_0x89367, 80)), callback38(callback43(_0x89367, 70)), callback38(callback43(_0x89367, 60)), callback38(callback43(_0x89367, 50)), callback38(callback43(_0x89367, 40)), callback38(callback43(_0x89367, 30)), callback38(callback43(_0x89367, 20))]
+      this.assets.push(...(colors || []).map((color: string) => {
+        const _0x1b3992 = hexToRgb(color);
+        const hsv = rgbToHsv(_0x1b3992);
+        const _0x468f36 = scaleValue(hsv, 0.75);
+        const back = hsvToHex(_0x468f36);
+        const _0x10a960 = scaleValue(hsv, 0.5);
+        const nick = hsvToHex(_0x10a960);
+        const _0x48b60f = brighten(hsv, 1.5);
+        const _0x53ef8a = hsvToHex(_0x48b60f);
+        const _0x4a4356 = brighten(hsv, 2);
+        const darkPlate = hsvToHex(_0x4a4356);
+        const colors = {
+          main: color,
+          back: back,
+          nick: nick,
+          plate: hsv.v > 50 ? nick : darkPlate,
+          particles: [hsvToHex(setValue(hsv, 100)), hsvToHex(setValue(hsv, 90)), hsvToHex(setValue(hsv, 80)), hsvToHex(setValue(hsv, 70)), hsvToHex(setValue(hsv, 60)), hsvToHex(setValue(hsv, 50)), hsvToHex(setValue(hsv, 40)), hsvToHex(setValue(hsv, 30)), hsvToHex(setValue(hsv, 20))]
         };
-        const svgAsset = new SvgAsset(this, _0x1af67d, _0x11e5b6);
-        svgAsset.content.colors = _0x11e5b6;
+        const svgAsset = new SvgAsset(this, color, colors);
+        svgAsset.content.colors = colors;
         if (config) {
           svgAsset.content.display = new Avatar(config, "", {
             layers: [{
-              src: callback94(_0x11e5b6.nick, _0x11e5b6.nick)
+              src: createColorTile(colors.nick, colors.nick)
             }, {
               level: 1,
-              src: callback94(_0x11e5b6.main, _0x11e5b6.back)
+              src: createColorTile(colors.main, colors.back)
             }]
           });
         }
         svgAsset.ready = true;
-        svgAsset.name = _0x1af67d;
+        svgAsset.name = color;
         return svgAsset;
       }));
     }
-    loadAsset<T>(_0x49b2f3: T): T {
-      return _0x49b2f3;
+    loadAsset<T>(asset: T): T {
+      return asset;
     }
   }
   class SvgAssetSet extends AssetSet {
     path: string;
     view: HTMLCanvasElement;
-    constructor(_0x2fdfed: Config, _0x4c761d: HTMLCanvasElement, _0x3697eb: string, _0x21aa5d: SkinSource[], _0x2e765a: boolean = false) {
+    constructor(config: Config, canvas: HTMLCanvasElement, path: string, sources: SkinSource[], shouldPreload: boolean = false) {
       super("classic");
-      this.config = _0x2fdfed;
-      this.view = _0x4c761d;
-      this.path = _0x3697eb;
-      this.add(_0x21aa5d);
-      if (_0x2e765a) {
-        for (let _0xe20107 of this.assets) {
-          _0xe20107.load();
+      this.config = config;
+      this.view = canvas;
+      this.path = path;
+      this.add(sources);
+      if (shouldPreload) {
+        for (let asset of this.assets) {
+          asset.load();
         }
       }
     }
-    add(_0x4f0d2d: SkinSource[]) {
-      this.assets.push(...(_0x4f0d2d || []).map((_0x65e918: SkinSource) => new ImageAsset(this, _0x65e918.name, _0x65e918)));
+    add(sources: SkinSource[]) {
+      this.assets.push(...(sources || []).map((source: SkinSource) => new ImageAsset(this, source.name, source)));
     }
   }
-  function callback94(_0x42a686: string, _0x46edb9: string): HTMLCanvasElement {
+  function createColorTile(mainColor: string, backColor: string): HTMLCanvasElement {
     const element = document.createElement("canvas");
     element.width = 100;
     element.height = 100;
     const context = element.getContext("2d");
-    context.fillStyle = _0x46edb9;
+    context.fillStyle = backColor;
     context.fillRect(0, 0, 100, 100);
-    context.fillStyle = _0x42a686;
+    context.fillStyle = mainColor;
     context.fillRect(10, 10, 80, 80);
     return element;
   }
@@ -6691,71 +6691,71 @@ interface ObjectConstructor {
     rng: (n?: number) => number;
     unusedAssets: SkinManagerAssetMap;
     usedBy: SkinManagerUsageMap;
-    constructor(_0x303ba9?: number) {
+    constructor(seed?: number) {
       this.usedBy = {};
       this.assets = {};
       this.unusedAssets = {};
-      this.rng = callback39(_0x303ba9);
+      this.rng = createRandomGenerator(seed);
     }
-    registerAsset(_0xe4279d: Asset, _0x41ecba: string) {
-      this.unusedAssets[_0xe4279d.name] = this.assets[_0xe4279d.name] = {
-        asset: _0xe4279d,
-        tag: _0x41ecba
+    registerAsset(asset: Asset, tag: string) {
+      this.unusedAssets[asset.name] = this.assets[asset.name] = {
+        asset: asset,
+        tag: tag
       };
     }
-    registerAssets(_0x326294: AssetSet, _0x1f77bd: string) {
-      for (let _0x1ef8e7 of _0x326294.assets) {
-        this.registerAsset(_0x1ef8e7, _0x1f77bd);
+    registerAssets(assetSet: AssetSet, tag: string) {
+      for (let asset of assetSet.assets) {
+        this.registerAsset(asset, tag);
       }
     }
-    available(_0xedc88d?: string): number {
+    available(tag?: string): number {
       let list4 = Object.values(this.unusedAssets);
-      if (_0xedc88d) {
-        return list4.filter((_0x53c6d7: SkinManagerAssetEntry) => _0x53c6d7.tag == _0xedc88d).length;
+      if (tag) {
+        return list4.filter((entry: SkinManagerAssetEntry) => entry.tag == tag).length;
       } else {
         return list4.length;
       }
     }
-    has(_0x3ee3b8: string): boolean {
-      return _0x3ee3b8 in this.unusedAssets;
+    has(name: string): boolean {
+      return name in this.unusedAssets;
     }
-    randomAssetName(_0x358092?: string, _0x34ea06: boolean = true): string {
-      let _0x4e7371 = _0x34ea06 ? this.unusedAssets : this.assets;
-      let list4 = Object.keys(_0x4e7371);
-      if (_0x358092) {
-        list4 = list4.filter((_0x41a7d2: string) => _0x4e7371[_0x41a7d2].tag == _0x358092);
+    randomAssetName(tag?: string, unusedOnly: boolean = true): string {
+      let assetMap = unusedOnly ? this.unusedAssets : this.assets;
+      let list4 = Object.keys(assetMap);
+      if (tag) {
+        list4 = list4.filter((name: string) => assetMap[name].tag == tag);
       }
-      let _0xd5f9bb = this.rng(list4.length);
-      let _0x2074b4 = list4[_0xd5f9bb];
-      return _0x2074b4;
+      let index = this.rng(list4.length);
+      let name = list4[index];
+      return name;
     }
-    get(_0x2e4e12?: string, _0x4f1e5b?: string): Skin {
-      if (!_0x2e4e12) {
-        _0x2e4e12 = this.randomAssetName(_0x4f1e5b);
+    get(name?: string, tag?: string): Skin {
+      if (!name) {
+        name = this.randomAssetName(tag);
       }
-      let asset = this.assets[_0x2e4e12].asset;
-      delete this.unusedAssets[_0x2e4e12];
+      let asset = this.assets[name].asset;
+      delete this.unusedAssets[name];
       asset.load();
       const skin = new Skin();
       skin.addAsset(asset);
-      skin.name = _0x2e4e12;
-      this.usedBy[_0x2e4e12] = (this.usedBy[_0x2e4e12] || []).concat(skin);
+      skin.name = name;
+      this.usedBy[name] = (this.usedBy[name] || []).concat(skin);
       return skin;
     }
-    release(_0x17a073: Skin) {
-      this.usedBy[_0x17a073.name] = this.usedBy[_0x17a073.name].filter((_0x3b65a5: Skin) => _0x3b65a5 != _0x17a073);
-      if (this.usedBy[_0x17a073.name].length == 0) {
-        delete this.usedBy[_0x17a073.name];
-        this.unusedAssets[_0x17a073.name] = this.assets[_0x17a073.name];
+    release(skin: Skin) {
+      this.usedBy[skin.name] = this.usedBy[skin.name].filter((skin: Skin) => skin != skin);
+      if (this.usedBy[skin.name].length == 0) {
+        delete this.usedBy[skin.name];
+        this.unusedAssets[skin.name] = this.assets[skin.name];
       }
     }
-    reskin(_0x42dc05: string) {
-      let _0x18b3e0 = this.usedBy[_0x42dc05];
-      if (_0x18b3e0) {
-        for (let _0xd0288e of _0x18b3e0) {
-          _0xd0288e.user.setSkin(this.get());
+    reskin(name: string) {
+      let skins = this.usedBy[name];
+      if (skins) {
+        for (let skin of skins) {
+          skin.user.setSkin(this.get());
         }
-        delete this.usedBy[_0x42dc05];
+        delete this.usedBy[name];
       }
     }
     getCitySkin(_0x5b0870?: string): Skin | undefined {
@@ -6763,52 +6763,52 @@ interface ObjectConstructor {
     }
   }
   class GameSkinManager extends SkinManager {
-    constructor(_0x12b771: ImageAssetSet, _0x326bab: SvgAssetSet, _0xf7287f?: number) {
-      super(_0xf7287f);
-      this.registerAssets(_0x12b771, "colored");
-      this.registerAssets(_0x326bab, "classic");
+    constructor(imageAssetSet: ImageAssetSet, svgAssetSet: SvgAssetSet, seed?: number) {
+      super(seed);
+      this.registerAssets(imageAssetSet, "colored");
+      this.registerAssets(svgAssetSet, "classic");
     }
-    getPlayerSkin(_0x3560bf?: string): Skin {
-      if (!_0x3560bf) {
+    getPlayerSkin(name?: string): Skin {
+      if (!name) {
         return this.get(undefined, "colored");
       }
-      this.reskin(_0x3560bf);
-      return this.get(_0x3560bf);
+      this.reskin(name);
+      return this.get(name);
     }
     getBotSkin(): Skin {
-      let _0x1782a5 = this.rng() < 0.25 ? ["colored", "classic"] : ["classic", "colored"];
-      let _0x44aa5f = this.randomAssetName(_0x1782a5[0], true) || this.randomAssetName(_0x1782a5[1]);
-      return this.get(_0x44aa5f);
+      let tagOrder = this.rng() < 0.25 ? ["colored", "classic"] : ["classic", "colored"];
+      let name = this.randomAssetName(tagOrder[0], true) || this.randomAssetName(tagOrder[1]);
+      return this.get(name);
     }
   }
-  const _0x5be379 = "DeadMorose\nold_demon\nfox\nDeFreeZe\nGoSeek\nKeyplex\nDarkfury\nFunnyway\nBLACK_PRINCE\n[BigBoss]ShadiBoo\nDizzer\nKARATEL\nHowlux\nLight_Soul\n2fab4u\nBoOT\nMrKat2017\nSkulL\nCmeTano4Ka\nflash\nh1me3ra\nHoward\ni_Pro\nred_devil\nbest_of_the_best\nblow_crazy \nface_of_vengeance\nGlambit \nMASTER_GRIF\nMr.ByBlIk\nn1ce_DayZ\nRantom\nAbove Daemons\ncompany_THE_Best\nDanie\ndarklight\nDaxmaut\ndiablo\ngreat_man\nkiller_innothing\nNix\nValett\nDarkAngelKael\nduelist\ni_zadrot\nMonster_Energy\nMr.Winston\nRaindrops\nSumerbraum\nTermit\nTITAN\nWOOOlf\nAVSTRAL\nBadLike\nBuri\ncop_zombie\ndestroyer_for_us\nEKEN\nEksnet\nFrostorik\nghost_of_fear\nHotzarzim\nj111m\nKael\nKikET\n4CHAN\nPIKABU\n9GAG\naustralia\naustria\nayylmao\nbait\nbangladesh\nbelgium\nbosnia\nbotswana\nbrazil\nbulgaria\ncambodia\ncanada\nchile\nchina\ncia\nconfederate\ncroatia\ndenmark\nea\nearth\nestonia\neuropeanunion\nfacepunch\nfeminism\nfinland\nfrance\ngermanempire\ngermany\ngreece\nhongkong\nhungary\nindia\nindiana\nindonesia\niran\niraq\nireland\nitaly\njamaica\njapan\nkc\nlatvia\nlithuania\nluxembourg\nmaldivas\nmatriarchy\nmexico\nmoon\nnazi\nnetherlands\nnigeria\nnorthkorea\nnorway\norigin\npakistan\npatriarchy\nperu\npewdiepie\npiccolo\npoland\nportugal\nprodota\nqingdynasty\nquebec\nreddit\nrussia\nsanik\nsatanist\nsealand\nsouthkorea\nspain\nstalin\nsteam\nsweden\nswitzerland\ntaiwan\ntexas\nthailand\ntsaristrussia\ntumblr\nukraine\nunitedkingdom\nusa\nussr\nvinesauce\nyaranaika\ntumblr\nhongkong\nKillerGamer\nLimuzin\nmage\nMCGaMeR\nMr_Het\nNadornsMonsters\nnero\noutcaster\nSteepCat\nTUCA\nurban_hunter\nvirtual_lord\nwertyi\nWinstonLight\nWoJDoo\nArtemad\nClydeKautz\nBarney\nRhodaPing\nSharlaPropes\nNanciTyner\nIlaWorm\nSebastianRawlinson\nCraigFlury\nEstebanBrehm\nDeberaVancuren\nTabithaOlivieri\nTrishaKimball\nMilagrosHyler\nCinderellaGerson\nFranBaldridge\nMelisaBrock\nGaynelleSimmonds\nEttaMirabella\nLaveraLabrecque\nBudNormand\nEliasSherwood\nJackpot\nSensation\nChuck\nSoots\nTheSaint\nICEman\nMiracleSnoopy\nBahartet\nBiotary\nHammer85\nBizcarit\nBlackenta\nBurkelstrin\nBurntSeen\nChariana\ngoldfinger\nConfidentHelp\nCopiconc\nDemocoman\nGaartely\nGenantro\nGlitzMcGenius\nJuliatu\nKalstaxi\nKeymatr\nKredicon\nLuvGurly\nMasteranca\nMediaBolt\nMeemuset\nMonsterInformer\nOccuiffu\nOnnitall\nRodeonevedo\nSandBlondeFully\nShipnease\nSlypectle\nSpinfonexu\nAdocarli\nAnglosi\nSimba\nAuetonbr\nBanshfeli\nQWERT\nBezequaci\nBizarrebobw\nBizarrewo\nBlenetra\nBootXboxStein\nBradleyFinest\nCeticRaven\nChunkyKlug\nDailiesHigh\nDravencybe\nFarerSaiyan\nGabring\nHalcytech\nHeminepe\nHeraldhama\nImagene\nLolandexte\nLucebayn\nMatroner\nMediumbben\nMofficanki\nNateinvelo\nTIMBERLAKE\nNessDiddy\nPlatinumTrippin\ntheviking\nPlusedge\nRaetstalyda\nJustinStromberg\nRebecaSenn\nRoxy\nNeil\nMaria\nWarren\nGrace\nWilliam\nJane\nVanessa\nLisa\nStephanie\nDidi\nBoris\nRuth\nLeonard\nJack\nCaroline\nSebastian\nConnor\nIan\nTOMAS\nSue\nFOX\nDylan\nLisa\nGrace\nJabbaDabba\nJennifer\nBenjamin\nPiPPa\nSteven\nJoe\nKNine\nKevin\nCaroline\nMcFlurry\nKatherine\nLeah\nIrene\nOwen\nUna\nGabrielleSlater\nAmyFisher\nAngelaGrant\nAlisonOgden\nDeadshot\nNitro\nTrevorBlack\nKatherinePullman\nOliverMacDonald\nAvaVaughan\nJenniferWhite\nWarrenPeters\nLeahCameron\nAlisonBerry\nKeithBuckland\nJulianMackay\nNatalieSanderson\nviZion\nJoshuaPeake\nKeithDowd\nHotdog\nJamesLambert\nJanBond\nColinMarshall\nJasonRees\nFRED\nJaneHughes\nLeonardOliver\nHarryAnderson\nGraceSmith\nDeirdreJones\nAudreySpringer\nEllaGray\nDominicHamilton\nKeithBlake\nRuthJackson\nMollyHudson\nSophieBerry\nCarolineLyman\nEmmaHudson\nJoeLyman\nOliviaPiper\nChristopherAllan\nMariaKing\nPippaSlater\nSarahJohnston\nRyanWhite\nJackHill\nWilliamMackay\nBenjaminAlsop\nAmandaRoberts\nThomasParsons\nLiamMcGrath\nJanHenderson\nSoniaChapman\nWilliam\nLily\nPeter\nKeith\nIsaac\nLeah\nMadeleine\nKaren\nFrank\nAlan\nMichael\nRachel\nDominic\nPaul\nNicola\nEmily\nTim\nbigBEN\nCohen\nGood\nFrancis\nOdom\nGreen\nCain\nTrevino\nLucero\nAshley\nigloo\nduffer\nloaded\nsickness\ngreeting\nlonely\nbafflement\ntrusty\nalteration\nevil\nsolva\npenumbra\ndauphine\nalluring\nlilly\nstinchar\ncubic\nblackbrook\nrebuff\ninclined\nlyon\nsquash\nunique\nlyne\nchewy\nmasticate\nmagnet\nknit\nindolent\nsevere\nfestus\ntrain\nincisionKim\nBean\nAguilar\nErnesto\nCurtis\nCortez\nTyshawn\nBrady\nBeckett\nXavier\nCason\nBryson\nSheldon\nPierce\nDeshawn\nAndy\nAaron\nArmando\nKarson\nK9\nNadia\nJovan\nErin\nTerry\nGrayson\nCelia\nAlexzander\nCannon\nJoey\nStella\nGracie\nKFCLOVER\nChico\nPrince\nMocha\nScooter\nChester\nCoco\nDusty\nZoe\nSocks\njefferson\nignore\nalladale\nvirtue\nprovided\ncohesive\nbullfinche\ncomet\ndip\nzipper\npostulate\nlick\nbashful\npascals\nrudy\ngloaming\ncashew\nmixcloud\ntraumatic\nprostate\npeas\nmelon\nbulbous\ngavel\nnumnah\nnavel\nriver\nsaskatoon\ncaused\nhardy\npare\nfemale\nvolunteer\nspeck\nyears\nvalid\narmpit\nbobby\nbolham\ngoogle\nbrennand\npastry\nweapon\ncuillin\ndescent\neasier\nmore\nrisedale\ngoggles\ncute\nmagellanic\nrenal\nzunyi\nEveryPrivate\nChipmunkThreat\nLeafyForefoot\nSebastianExxon\nHuckFaisalabad\nWheelchairHadar\nBulimiaMilk\nEiderStallion\nMoronicBuckinghamshire\nPayBiff\nHillsboroughEnvelope\nAllianzRhapsody\nArseEnteral\nBoronRadiant\nArchiveUntrue\nPlasticSpeech\nOfficerWiltshire\nBungBuzzard\nMoscowStellar\nTrialsHearty\nModelHorse\nBootsGrimacing\nShiraMosedale\nLeopardClapper\nSkatersStars\nCaramelizeStraws\nAngolanVinomadefied\nBatterySiemens\nHedgeThompson\nLukaIcing\nMimosaBrunswick\nTinForgetful\nHumberHook\nSeagullTrump\nBookerTouring\nSugarWarn\nCustardsStructure\nRudyBarium\nElectrolyteDisfigured\nBlighterPhysicist\nAntoniadiAtom\nPachaRule\nMaltyPatches\nHonoluluSwedish\nGemGleaming\nAssociatedThose\nAfterCointreau\nEyesPierre\nStewartGels\nAretePuppy\nFullscreenTrophic\nMailWillow\nScaupFrosty\nZaraBipedal\nCheapScafell\nDevonYolk\nSkegCohesive\nCricketBashful\nCocoaPuck\nDecathlonIschemic\nOftSnottor\nCheepNewlyn\nSwimGrill\nBaubleSymbolic\nAstronomerSpam\nVarlotLealt\nSensorSquamish\nKeyTechnetium\nCrummyQuirky\nVinePlane\nWaterskiBlind\nOrdinateCrown\nSpotTense\nFumeVine\nGlasswareCherries\nPhenomenonWillied\nPappusWazzed\nFilterSpace\nHypnosisSociable\nGaffEnder\nTordaHelpless\nResearchMat\nAmpereHeptagon\nEclipseBaldy\nLliediDiopside\nRockersGatcombe\nSabineEssential\nPlutoAbsurd\nTagTestify\nForswearJosie\nEquuleusFalter\nChewieFluther\nWombYakama\nHinderHighland\nBiteSeptum\nRifleGym\nJuneauInboard\nTroubadourChillingwood\nNeogeneLecturer\nSullivanStencils\nCheesecakePit\nClumpUnhelpful\nCheckBig\nLollyPumpkin\nCitrusyCountless\nVarunaRemy\nDivergentOils\nFallingTalisker\nBlackwaterNifty\nBrinkworthFranklyn\nFreddyPostman\nClumperPoke\nSlopeTokahee\nStencilsHume\nJijiKey\nAdeptStores\nUnicodeIgneous\nMeatyNut\nMaskSpark\nForegoingMoist\nEthicalConfident\nOblongataIsraeli\nGreenAle\nFibulaJoss\nShrugMinge\nFlowsWhispers\nActiveGlissade\nExaltedSpaghetti\nMeerkatMatch\nCouldHoff\nYawnObtuse\nCrazyUnknown\nPlanemoTyler\nCalderaBeans\nSoundcloudJapan\nSeveralGalled\nStarbucksDomain\nEdibleGlazier\nResourcesCapital\nNitrogenBella\nFlavorfulProtoplanet\nTeachSqueeze\nMeiosisSiphon\nTelephoneMarl\nTrundleRitec\nTheodoreShamrock\nNoirMelody\nVanillaArmenian\nHonkExoticism\nMandibleSepsis\nVenomousSignal\nManukaEval\nLooksLeaves\nFriedInto\nBlowTalented\nStubbsHeadphones\nWigeonNewcastle\nLoadHamster\nPinkieSaint\nEuphoniumRedundant\nSabdenRoad\nSuccessApache\nPateraCitric\nBalnagownQuiver\nGambianHartford\nRidingNostalgic\nAmbushFlex\nBretonCommon\nSpot!Fine\nPlaintivePride\nDiphthongPraline\nShearraInflate\nWoldsLennon\nSordiniMeathead\nSordCegidog\nSelfiesWeigh\nOrganVile\nPinchWeixin\nSassyFlag\nAlberniDart\nBowenImmense\nRulerFocus\nMaggotMine\nRegulateInventions\nMeshAlbite\nPoxArabella\nTikiFredericton\nNeedleDiapir\nGeneBlurt\nBindyFollowed\nMongolianTurtle\nSenseProfess\nFoldingHacking\nArsonistClipping\nKerryBonnie\nMaliciousMilitary\nMountainFrivolous\nCannonCog\nCordFlapping\nSnickerIndonesian\ndome\nking\nohio\nstandard\nfustilarian\nnative\nsupply\namherst\ninitial\ntowel\npumpion\nperfect\nmouldy\nflasks\ncarina\nduchess\ncrackers\nexciting\nhole\nwiggle\ngreat\nben\npoop\notis\npolite\nslapping\notherwise\ngrilled\nwes\nsummary\nnice\nbasketball\nstarbolins\nbaby\nbooking\nrhubarb\nperson\nshooter\nbounded\nnorthamptonshire\nsyllable\ngreenish\nuptight\ntweed\nthe\nreeky\nlathered\nascension\nobtain\nnagging\nchallenger\nsecret\nworcester\nlangley\npolly\nurinal\ntrusting\nbeverley\nfrankie\ndartmoor\nmash\ngillie\nmethodist\ngalaxy\nmozart\nbarrage\nspoticus\nscheduled\neel\npanel\nflapjack\nchemist\nalbert\nmetacarpus\ndense\nbleeding\nfixation\nniggles\ncamel\nrosin\ncommunity\nleash\ndulais\nladder\nlee\nindices\nyou\neducation\ndumplings\nbid\nprince\nartiste\navocet\nburns\nbarney\nmanaged\nburritos\npeduncle\npaltry\nequator\nsubmerge\nexpected\nfags\nperl\nclueless\ncartier\nwombled\nbearded\nkalman\ntrees\npink\naddie\ntod\nusd";
-  var _0x113767 = _0x5be379.split("\n");
+  const BOT_NAMES_TEXT = "DeadMorose\nold_demon\nfox\nDeFreeZe\nGoSeek\nKeyplex\nDarkfury\nFunnyway\nBLACK_PRINCE\n[BigBoss]ShadiBoo\nDizzer\nKARATEL\nHowlux\nLight_Soul\n2fab4u\nBoOT\nMrKat2017\nSkulL\nCmeTano4Ka\nflash\nh1me3ra\nHoward\ni_Pro\nred_devil\nbest_of_the_best\nblow_crazy \nface_of_vengeance\nGlambit \nMASTER_GRIF\nMr.ByBlIk\nn1ce_DayZ\nRantom\nAbove Daemons\ncompany_THE_Best\nDanie\ndarklight\nDaxmaut\ndiablo\ngreat_man\nkiller_innothing\nNix\nValett\nDarkAngelKael\nduelist\ni_zadrot\nMonster_Energy\nMr.Winston\nRaindrops\nSumerbraum\nTermit\nTITAN\nWOOOlf\nAVSTRAL\nBadLike\nBuri\ncop_zombie\ndestroyer_for_us\nEKEN\nEksnet\nFrostorik\nghost_of_fear\nHotzarzim\nj111m\nKael\nKikET\n4CHAN\nPIKABU\n9GAG\naustralia\naustria\nayylmao\nbait\nbangladesh\nbelgium\nbosnia\nbotswana\nbrazil\nbulgaria\ncambodia\ncanada\nchile\nchina\ncia\nconfederate\ncroatia\ndenmark\nea\nearth\nestonia\neuropeanunion\nfacepunch\nfeminism\nfinland\nfrance\ngermanempire\ngermany\ngreece\nhongkong\nhungary\nindia\nindiana\nindonesia\niran\niraq\nireland\nitaly\njamaica\njapan\nkc\nlatvia\nlithuania\nluxembourg\nmaldivas\nmatriarchy\nmexico\nmoon\nnazi\nnetherlands\nnigeria\nnorthkorea\nnorway\norigin\npakistan\npatriarchy\nperu\npewdiepie\npiccolo\npoland\nportugal\nprodota\nqingdynasty\nquebec\nreddit\nrussia\nsanik\nsatanist\nsealand\nsouthkorea\nspain\nstalin\nsteam\nsweden\nswitzerland\ntaiwan\ntexas\nthailand\ntsaristrussia\ntumblr\nukraine\nunitedkingdom\nusa\nussr\nvinesauce\nyaranaika\ntumblr\nhongkong\nKillerGamer\nLimuzin\nmage\nMCGaMeR\nMr_Het\nNadornsMonsters\nnero\noutcaster\nSteepCat\nTUCA\nurban_hunter\nvirtual_lord\nwertyi\nWinstonLight\nWoJDoo\nArtemad\nClydeKautz\nBarney\nRhodaPing\nSharlaPropes\nNanciTyner\nIlaWorm\nSebastianRawlinson\nCraigFlury\nEstebanBrehm\nDeberaVancuren\nTabithaOlivieri\nTrishaKimball\nMilagrosHyler\nCinderellaGerson\nFranBaldridge\nMelisaBrock\nGaynelleSimmonds\nEttaMirabella\nLaveraLabrecque\nBudNormand\nEliasSherwood\nJackpot\nSensation\nChuck\nSoots\nTheSaint\nICEman\nMiracleSnoopy\nBahartet\nBiotary\nHammer85\nBizcarit\nBlackenta\nBurkelstrin\nBurntSeen\nChariana\ngoldfinger\nConfidentHelp\nCopiconc\nDemocoman\nGaartely\nGenantro\nGlitzMcGenius\nJuliatu\nKalstaxi\nKeymatr\nKredicon\nLuvGurly\nMasteranca\nMediaBolt\nMeemuset\nMonsterInformer\nOccuiffu\nOnnitall\nRodeonevedo\nSandBlondeFully\nShipnease\nSlypectle\nSpinfonexu\nAdocarli\nAnglosi\nSimba\nAuetonbr\nBanshfeli\nQWERT\nBezequaci\nBizarrebobw\nBizarrewo\nBlenetra\nBootXboxStein\nBradleyFinest\nCeticRaven\nChunkyKlug\nDailiesHigh\nDravencybe\nFarerSaiyan\nGabring\nHalcytech\nHeminepe\nHeraldhama\nImagene\nLolandexte\nLucebayn\nMatroner\nMediumbben\nMofficanki\nNateinvelo\nTIMBERLAKE\nNessDiddy\nPlatinumTrippin\ntheviking\nPlusedge\nRaetstalyda\nJustinStromberg\nRebecaSenn\nRoxy\nNeil\nMaria\nWarren\nGrace\nWilliam\nJane\nVanessa\nLisa\nStephanie\nDidi\nBoris\nRuth\nLeonard\nJack\nCaroline\nSebastian\nConnor\nIan\nTOMAS\nSue\nFOX\nDylan\nLisa\nGrace\nJabbaDabba\nJennifer\nBenjamin\nPiPPa\nSteven\nJoe\nKNine\nKevin\nCaroline\nMcFlurry\nKatherine\nLeah\nIrene\nOwen\nUna\nGabrielleSlater\nAmyFisher\nAngelaGrant\nAlisonOgden\nDeadshot\nNitro\nTrevorBlack\nKatherinePullman\nOliverMacDonald\nAvaVaughan\nJenniferWhite\nWarrenPeters\nLeahCameron\nAlisonBerry\nKeithBuckland\nJulianMackay\nNatalieSanderson\nviZion\nJoshuaPeake\nKeithDowd\nHotdog\nJamesLambert\nJanBond\nColinMarshall\nJasonRees\nFRED\nJaneHughes\nLeonardOliver\nHarryAnderson\nGraceSmith\nDeirdreJones\nAudreySpringer\nEllaGray\nDominicHamilton\nKeithBlake\nRuthJackson\nMollyHudson\nSophieBerry\nCarolineLyman\nEmmaHudson\nJoeLyman\nOliviaPiper\nChristopherAllan\nMariaKing\nPippaSlater\nSarahJohnston\nRyanWhite\nJackHill\nWilliamMackay\nBenjaminAlsop\nAmandaRoberts\nThomasParsons\nLiamMcGrath\nJanHenderson\nSoniaChapman\nWilliam\nLily\nPeter\nKeith\nIsaac\nLeah\nMadeleine\nKaren\nFrank\nAlan\nMichael\nRachel\nDominic\nPaul\nNicola\nEmily\nTim\nbigBEN\nCohen\nGood\nFrancis\nOdom\nGreen\nCain\nTrevino\nLucero\nAshley\nigloo\nduffer\nloaded\nsickness\ngreeting\nlonely\nbafflement\ntrusty\nalteration\nevil\nsolva\npenumbra\ndauphine\nalluring\nlilly\nstinchar\ncubic\nblackbrook\nrebuff\ninclined\nlyon\nsquash\nunique\nlyne\nchewy\nmasticate\nmagnet\nknit\nindolent\nsevere\nfestus\ntrain\nincisionKim\nBean\nAguilar\nErnesto\nCurtis\nCortez\nTyshawn\nBrady\nBeckett\nXavier\nCason\nBryson\nSheldon\nPierce\nDeshawn\nAndy\nAaron\nArmando\nKarson\nK9\nNadia\nJovan\nErin\nTerry\nGrayson\nCelia\nAlexzander\nCannon\nJoey\nStella\nGracie\nKFCLOVER\nChico\nPrince\nMocha\nScooter\nChester\nCoco\nDusty\nZoe\nSocks\njefferson\nignore\nalladale\nvirtue\nprovided\ncohesive\nbullfinche\ncomet\ndip\nzipper\npostulate\nlick\nbashful\npascals\nrudy\ngloaming\ncashew\nmixcloud\ntraumatic\nprostate\npeas\nmelon\nbulbous\ngavel\nnumnah\nnavel\nriver\nsaskatoon\ncaused\nhardy\npare\nfemale\nvolunteer\nspeck\nyears\nvalid\narmpit\nbobby\nbolham\ngoogle\nbrennand\npastry\nweapon\ncuillin\ndescent\neasier\nmore\nrisedale\ngoggles\ncute\nmagellanic\nrenal\nzunyi\nEveryPrivate\nChipmunkThreat\nLeafyForefoot\nSebastianExxon\nHuckFaisalabad\nWheelchairHadar\nBulimiaMilk\nEiderStallion\nMoronicBuckinghamshire\nPayBiff\nHillsboroughEnvelope\nAllianzRhapsody\nArseEnteral\nBoronRadiant\nArchiveUntrue\nPlasticSpeech\nOfficerWiltshire\nBungBuzzard\nMoscowStellar\nTrialsHearty\nModelHorse\nBootsGrimacing\nShiraMosedale\nLeopardClapper\nSkatersStars\nCaramelizeStraws\nAngolanVinomadefied\nBatterySiemens\nHedgeThompson\nLukaIcing\nMimosaBrunswick\nTinForgetful\nHumberHook\nSeagullTrump\nBookerTouring\nSugarWarn\nCustardsStructure\nRudyBarium\nElectrolyteDisfigured\nBlighterPhysicist\nAntoniadiAtom\nPachaRule\nMaltyPatches\nHonoluluSwedish\nGemGleaming\nAssociatedThose\nAfterCointreau\nEyesPierre\nStewartGels\nAretePuppy\nFullscreenTrophic\nMailWillow\nScaupFrosty\nZaraBipedal\nCheapScafell\nDevonYolk\nSkegCohesive\nCricketBashful\nCocoaPuck\nDecathlonIschemic\nOftSnottor\nCheepNewlyn\nSwimGrill\nBaubleSymbolic\nAstronomerSpam\nVarlotLealt\nSensorSquamish\nKeyTechnetium\nCrummyQuirky\nVinePlane\nWaterskiBlind\nOrdinateCrown\nSpotTense\nFumeVine\nGlasswareCherries\nPhenomenonWillied\nPappusWazzed\nFilterSpace\nHypnosisSociable\nGaffEnder\nTordaHelpless\nResearchMat\nAmpereHeptagon\nEclipseBaldy\nLliediDiopside\nRockersGatcombe\nSabineEssential\nPlutoAbsurd\nTagTestify\nForswearJosie\nEquuleusFalter\nChewieFluther\nWombYakama\nHinderHighland\nBiteSeptum\nRifleGym\nJuneauInboard\nTroubadourChillingwood\nNeogeneLecturer\nSullivanStencils\nCheesecakePit\nClumpUnhelpful\nCheckBig\nLollyPumpkin\nCitrusyCountless\nVarunaRemy\nDivergentOils\nFallingTalisker\nBlackwaterNifty\nBrinkworthFranklyn\nFreddyPostman\nClumperPoke\nSlopeTokahee\nStencilsHume\nJijiKey\nAdeptStores\nUnicodeIgneous\nMeatyNut\nMaskSpark\nForegoingMoist\nEthicalConfident\nOblongataIsraeli\nGreenAle\nFibulaJoss\nShrugMinge\nFlowsWhispers\nActiveGlissade\nExaltedSpaghetti\nMeerkatMatch\nCouldHoff\nYawnObtuse\nCrazyUnknown\nPlanemoTyler\nCalderaBeans\nSoundcloudJapan\nSeveralGalled\nStarbucksDomain\nEdibleGlazier\nResourcesCapital\nNitrogenBella\nFlavorfulProtoplanet\nTeachSqueeze\nMeiosisSiphon\nTelephoneMarl\nTrundleRitec\nTheodoreShamrock\nNoirMelody\nVanillaArmenian\nHonkExoticism\nMandibleSepsis\nVenomousSignal\nManukaEval\nLooksLeaves\nFriedInto\nBlowTalented\nStubbsHeadphones\nWigeonNewcastle\nLoadHamster\nPinkieSaint\nEuphoniumRedundant\nSabdenRoad\nSuccessApache\nPateraCitric\nBalnagownQuiver\nGambianHartford\nRidingNostalgic\nAmbushFlex\nBretonCommon\nSpot!Fine\nPlaintivePride\nDiphthongPraline\nShearraInflate\nWoldsLennon\nSordiniMeathead\nSordCegidog\nSelfiesWeigh\nOrganVile\nPinchWeixin\nSassyFlag\nAlberniDart\nBowenImmense\nRulerFocus\nMaggotMine\nRegulateInventions\nMeshAlbite\nPoxArabella\nTikiFredericton\nNeedleDiapir\nGeneBlurt\nBindyFollowed\nMongolianTurtle\nSenseProfess\nFoldingHacking\nArsonistClipping\nKerryBonnie\nMaliciousMilitary\nMountainFrivolous\nCannonCog\nCordFlapping\nSnickerIndonesian\ndome\nking\nohio\nstandard\nfustilarian\nnative\nsupply\namherst\ninitial\ntowel\npumpion\nperfect\nmouldy\nflasks\ncarina\nduchess\ncrackers\nexciting\nhole\nwiggle\ngreat\nben\npoop\notis\npolite\nslapping\notherwise\ngrilled\nwes\nsummary\nnice\nbasketball\nstarbolins\nbaby\nbooking\nrhubarb\nperson\nshooter\nbounded\nnorthamptonshire\nsyllable\ngreenish\nuptight\ntweed\nthe\nreeky\nlathered\nascension\nobtain\nnagging\nchallenger\nsecret\nworcester\nlangley\npolly\nurinal\ntrusting\nbeverley\nfrankie\ndartmoor\nmash\ngillie\nmethodist\ngalaxy\nmozart\nbarrage\nspoticus\nscheduled\neel\npanel\nflapjack\nchemist\nalbert\nmetacarpus\ndense\nbleeding\nfixation\nniggles\ncamel\nrosin\ncommunity\nleash\ndulais\nladder\nlee\nindices\nyou\neducation\ndumplings\nbid\nprince\nartiste\navocet\nburns\nbarney\nmanaged\nburritos\npeduncle\npaltry\nequator\nsubmerge\nexpected\nfags\nperl\nclueless\ncartier\nwombled\nbearded\nkalman\ntrees\npink\naddie\ntod\nusd";
+  var botNames = BOT_NAMES_TEXT.split("\n");
   var assign5 = Object.assign;
   console.log("Version: A6 2020-10-14T10:51:36.392Z");
-  const _0x2ed33d = assign5(assign5({}, _0x30561b), {
+  const gameConfig = assign5(assign5({}, _0x30561b), {
     followKiller: true,
     selfKillDelay: 1000,
     enemyKillDelay: 2000
   });
-  const _0x5d6a09 = fetch("assets/languages.json").then((_0x4c4ec9: Response) => _0x4c4ec9.json());
-  const _0x1632c3 = fetch("assets/skins/skins.json").then((_0xca965: Response) => _0xca965.json());
-  Promise.all([_0x5d6a09, _0x1632c3]).then(([_0x4083ad, _0x3a4592]: [LanguagesData, SkinSource[]]) => {
-    callback92(_0x4083ad);
-    const _0x57ada2 = (_0x4abeb0: Config, _0x3526d4: HTMLCanvasElement) => {
-      let imageAssetSet = new ImageAssetSet(_0x4abeb0);
-      let svgAssetSet = new SvgAssetSet(_0x4abeb0, _0x3526d4, "assets/skins/", _0x3a4592);
+  const languagesPromise = fetch("assets/languages.json").then((response: Response) => response.json());
+  const skinsPromise = fetch("assets/skins/skins.json").then((response: Response) => response.json());
+  Promise.all([languagesPromise, skinsPromise]).then(([languages, skins]: [LanguagesData, SkinSource[]]) => {
+    buildLanguageList(languages);
+    const createSkinManager = (config: Config, canvas: HTMLCanvasElement) => {
+      let imageAssetSet = new ImageAssetSet(config);
+      let svgAssetSet = new SvgAssetSet(config, canvas, "assets/skins/", skins);
       const gameSkinManager = new GameSkinManager(imageAssetSet, svgAssetSet, 1);
       return gameSkinManager;
     };
     const schemeCycler = new SchemeCycler(BotScoreLabel);
     const achievementStore = new AchievementStore([]);
     achievementStore.load();
-    const _0x117e4e = callback81(_0x2ed33d, callback93(), _0x57ada2, new NamePool(_0x113767, Math.random()), schemeCycler, achievementStore);
-    window.paperio2api = _0x117e4e;
-    render(createElement(_0x1d032c, {
-      api: _0x117e4e,
+    const api = createGameApi(gameConfig, findDefaultLanguage(), createSkinManager, new NamePool(botNames, Math.random()), schemeCycler, achievementStore);
+    window.paperio2api = api;
+    render(createElement(App, {
+      api: api,
       storage: Cookies,
-      skins: _0x3a4592
+      skins: skins
     }), document.getElementById("game"));
   });
 })();
