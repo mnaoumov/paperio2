@@ -4,41 +4,318 @@ interface Navigator { userLanguage: any; browserLanguage: any; }
 interface HTMLElement { value: any; }
 interface Function { __: any; contextType: any; }
 
+// `Object.entries(x)` called with an `x: any` argument (as application code
+// well past this file's Preact region does, on untyped destructured props)
+// resolves TypeScript's generic `entries<T>` overload with `T` left
+// un-inferable from an `any` source, which modern TS defaults to `unknown` —
+// poisoning every VNode-props object literal built from the result once
+// those props are checked against this file's now-real `VNodeProps` type.
+// The file has exactly two `Object.entries()` call sites and both pass an
+// untyped/`any` argument, so adding a non-generic overload here (instead of
+// an `any`/`unknown`-typed local workaround, which the Preact region's rules
+// disallow) fixes both without weakening any *strongly*-typed call — there
+// are none in this file — elsewhere.
+interface ObjectConstructor {
+  entries(source: object): [string, string | number | boolean][];
+}
+
 (function () {
   "use strict";
 
-  var preactOptions;
-  var list;
-  var _0x406d2a;
-  var _0x5406f9;
-  var _0x4c3ef1;
-  var _0x43d241;
-  var _0x316685: any = {};
-  var _0x9d84c4: any[] = [];
+  // --- Preact internal types (mangled field names kept verbatim) ---
+  type PreactChild = VNode | string | number | boolean | null | undefined;
+  type PreactChildren = PreactChild | PreactChildren[];
+  type PreactStateValue = string | number | boolean | object | null | undefined;
+
+  interface ComponentState {
+    [key: string]: PreactStateValue;
+  }
+
+  interface CssStyleProps {
+    [property: string]: string;
+  }
+
+  interface DangerouslySetInnerHtml {
+    __html: string;
+  }
+
+  type PreactEventListener = (event: Event) => void;
+
+  interface PreactEventListenerMap {
+    [eventKey: string]: PreactEventListener;
+  }
+
+  // Mirrors real Preact's internal `PreactElement`: the reconciler stores an
+  // event-listener map (`l`) on the DOM node and touches a few members
+  // (`checked`, `data`, `ownerSVGElement`) that only apply to some node kinds,
+  // so every extra member is optional to stay assignable from whatever
+  // `document.createElement`/`createElementNS`/`createTextNode` actually returns.
+  interface PreactElement extends Node {
+    attributes?: NamedNodeMap;
+    checked?: boolean;
+    data?: string;
+    innerHTML?: string;
+    // The root container also gets a `__k` expando (unrelated to `VNode.__k`)
+    // remembering the vnode currently mounted into it, for the next render/hydrate call.
+    __k?: VNode;
+    l?: PreactEventListenerMap;
+    localName?: string;
+    ownerSVGElement?: SVGElement | null;
+    style?: CSSStyleDeclaration;
+    value?: string | number | boolean;
+    // addEventListener/removeEventListener come from Node's own EventTarget
+    // base with a compatible signature already — no need to re-declare them.
+    removeAttribute?(name: string): void;
+    removeAttributeNS?(namespace: string | null, localName: string): void;
+    setAttribute?(name: string, value: string): void;
+    setAttributeNS?(namespace: string | null, name: string, value: string): void;
+  }
+
+  interface PreactRefObject {
+    current: PreactElement | Component | null;
+  }
+  type PreactRefCallback = (instance: PreactElement | Component | null) => void;
+  type PreactRef = PreactRefObject | PreactRefCallback | null | undefined;
+
+  // `object` covers the arbitrary custom-prop values (config records, option
+  // arrays, etc.) that application components pass through `createElement`
+  // — the reconciler itself only ever reads the well-known DOM-ish props
+  // named individually on `VNodeProps`, so it never needs to inspect these.
+  type VNodePropValue = PreactChildren | PreactRef | string | number | boolean | object | CssStyleProps | DangerouslySetInnerHtml | PreactEventListener | undefined;
+
+  // The "isHydrating" flag threaded through diffing is sometimes a real
+  // boolean and sometimes `VNode.__h` (a DOM node or null) reused directly as
+  // a truthy/falsy flag — mirrors real Preact's dual use of this parameter.
+  type HydrateFlag = boolean | PreactElement | null;
+
+  interface VNodeProps {
+    checked?: boolean;
+    children?: PreactChildren;
+    class?: string;
+    className?: string;
+    dangerouslySetInnerHTML?: DangerouslySetInnerHtml;
+    is?: string;
+    key?: string | number;
+    ref?: PreactRef;
+    style?: string | CssStyleProps;
+    value?: string | number | boolean;
+    [name: string]: VNodePropValue;
+  }
+
+  // The context bag threaded through diffing: context id -> the Provider
+  // component currently supplying that context.
+  interface ComponentContext {
+    [contextId: string]: Component;
+  }
+
+  // The resolved value handed to a component as `context`/`this.context`:
+  // either the whole bag (component doesn't declare `contextType`) or the
+  // specific value extracted for its `contextType`.
+  type PreactContextValue = ComponentContext | PreactStateValue;
+
+  interface PreactContext {
+    __: PreactContextValue;
+    __c: string;
+    Consumer: ComponentType;
+    Provider: ComponentType;
+    contextType?: PreactContext;
+  }
+
+  interface ComponentPrototype {
+    render?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => PreactChildren;
+  }
+
+  // A vnode's `type` is either a plain function component (call signature
+  // only, e.g. Fragment/Consumer/Provider) or a class component (also
+  // constructable, with a `.prototype.render`). Split into two interfaces
+  // (rather than one requiring both signatures) so `"prototype" in type`
+  // narrows the union the same way the reconciler's runtime check does.
+  interface ComponentTypeStatics {
+    contextType?: PreactContext;
+    defaultProps?: VNodeProps;
+    displayName?: string;
+    getDerivedStateFromError?: (error: Error) => Partial<ComponentState> | null;
+    getDerivedStateFromProps?: (props: VNodeProps, state: ComponentState) => Partial<ComponentState> | null;
+  }
+
+  // The `(...args: never[])` signatures (rather than `(props: VNodeProps, ...)`)
+  // are deliberate: `never[]` is assignable from *any* real parameter list, so
+  // these accept every application component in this file regardless of its
+  // own specific (and often narrower/differently-shaped) destructured props
+  // type — mirrors what the untyped original does at runtime (it never checks
+  // a component's declared prop shape against what callers pass). The
+  // reconciler's own call sites that actually INVOKE a `type` value use the
+  // `Invokable*` variants below (with real `VNodeProps` parameters) via a cast.
+  interface FunctionComponent extends ComponentTypeStatics {
+    (this: Component, ...args: never[]): PreactChildren;
+  }
+
+  interface ComponentClass extends ComponentTypeStatics {
+    new (...args: never[]): Component;
+    prototype: ComponentPrototype;
+  }
+
+  type ComponentType = FunctionComponent | ComponentClass;
+
+  type VNodeType = string | ComponentType | null;
+
+  interface InvokableFunctionComponent {
+    (this: Component, props: VNodeProps, context: PreactContextValue): PreactChildren;
+  }
+
+  interface InvokableComponentClass {
+    new (props: VNodeProps, context: PreactContextValue): Component;
+  }
+
+  interface VNode {
+    type: VNodeType;
+    // A text vnode (`type === null`) stores its raw text content directly in
+    // `props` instead of a props object — mirrors real Preact's dual use of
+    // this field, so it needs a cast to `VNodeProps` at every "host element"
+    // callsite and to `string` at every "text node" callsite.
+    props: VNodeProps | string | number;
+    key: string | number | null | undefined;
+    ref: PreactRef;
+    __k: VNode[] | null;
+    __: VNode | null;
+    __b: number;
+    __e: PreactElement | null;
+    __d: PreactElement | null | undefined;
+    __c: Component | null;
+    __h: boolean | null;
+    constructor: undefined;
+    __v: VNode | string | number;
+  }
+
+  interface Component {
+    props: VNodeProps;
+    context: PreactContextValue;
+    state: ComponentState;
+    __s: ComponentState | null;
+    __d: boolean;
+    __e: boolean;
+    __v: VNode | null;
+    __P: PreactElement | null;
+    __n: ComponentContext;
+    __E: Component | null;
+    __: Component | null;
+    __h: Array<() => void>;
+    base: PreactElement | null;
+    constructor: ComponentType;
+    render: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => PreactChildren;
+    sub?: (component: Component) => void;
+    getChildContext?: () => ComponentContext;
+    // Only ever compared with `=== false` at the call site, so implementations
+    // that opt out of returning anything (e.g. Provider's, a side-effect-only
+    // override) are valid too.
+    shouldComponentUpdate?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => boolean | void;
+    componentWillMount?: () => void;
+    componentDidMount?: () => void;
+    componentWillReceiveProps?: (props: VNodeProps, context: PreactContextValue) => void;
+    componentWillUpdate?: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => void;
+    componentDidUpdate?: (previousProps: VNodeProps, previousState: ComponentState, snapshot: PreactStateValue) => void;
+    componentWillUnmount?: () => void;
+    componentDidCatch?: (error: Error) => void;
+    getSnapshotBeforeUpdate?: (previousProps: VNodeProps, previousState: ComponentState) => PreactStateValue;
+    setState: (update: Partial<ComponentState> | ((state: ComponentState, props: VNodeProps) => Partial<ComponentState> | null) | null, callback?: () => void) => void;
+    forceUpdate: (callback?: () => void) => void;
+  }
+
+  // --- bundled js-cookie types (unrelated to Preact, but inside the same region) ---
+  type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+  interface CookieAttributes {
+    domain?: string;
+    // Starts as the caller-supplied `number | Date`, then gets overwritten
+    // in-place with its formatted `string` for the `document.cookie` write —
+    // see the cast at the `toUTCString()` call, which runs before that happens.
+    expires?: string | number | Date;
+    path?: string;
+    [attribute: string]: string | number | boolean | Date | undefined;
+  }
+
+  interface CookieJar {
+    // Named explicitly (rather than folded into the index signature) so this
+    // one well-known key — the only one application code iterates/reassigns
+    // as an array — keeps a non-union-polluted `JsonValue[]` type instead of
+    // the full `string | JsonValue` index-signature value type.
+    achievements?: JsonValue[];
+    [name: string]: string | JsonValue | undefined;
+  }
+
+  interface CookieConverter {
+    // The default converter (an empty function) is called both as `.read` and
+    // as the whole-converter read fallback and relies on returning `undefined`
+    // so the caller's `|| decode(...)` branch kicks in — hence `| undefined`.
+    (value: string, name: string): string | undefined;
+    read?: (value: string, name: string) => string;
+    write?: (value: JsonValue, name: string) => string;
+  }
+
+  interface CookiesApi {
+    (): void;
+    defaults?: CookieAttributes;
+    get?: (name?: string) => string | JsonValue | CookieJar | undefined;
+    // Narrower than `callback99`'s own inferred return type — every call site
+    // in this file treats the parsed cookie as a plain object, never a bare
+    // JSON primitive, so the public surface reflects that.
+    getJSON?: (name?: string) => CookieJar | undefined;
+    remove?: (name: string, options?: CookieAttributes) => void;
+    set?: (name: string, value: JsonValue, options?: CookieAttributes) => string | undefined;
+    withConverter?: (converter: CookieConverter) => CookiesApi;
+    noConflict?: () => CookiesApi;
+  }
+
+  interface PreactOptions {
+    vnode?: (vnode: VNode) => void;
+    __b?: (vnode: VNode) => void;
+    diffed?: (vnode: VNode) => void;
+    __r?: (vnode: VNode) => void;
+    unmount?: (vnode: VNode) => void;
+    __e: (error: Error, vnode: VNode, oldVNode?: VNode) => void;
+    event?: (event: Event) => Event;
+    __?: (vnode: PreactChildren, parentDom: PreactElement) => void;
+    __c?: (vnode: VNode, commitQueue: Component[]) => void;
+    debounceRendering?: (callback: () => void) => void;
+    // Installed later (by the bundled preact/hooks addon, outside this
+    // region) by monkey-patching this same shared `preactOptions` object.
+    __h?: (component: Component, index: number, type: number) => void;
+    __s?: boolean;
+    requestAnimationFrame?: (callback: () => void) => void;
+  }
+
+  var preactOptions: PreactOptions;
+  var list: Component[];
+  var _0x406d2a: (callback: () => void) => void;
+  var _0x5406f9: ((callback: () => void) => void) | undefined;
+  var _0x4c3ef1: object;
+  var _0x43d241: number;
+  var _0x316685: object = {};
+  var _0x9d84c4: VNode[] = [];
   var _0x322d6e = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
-  function callback(_0x3f91a4?: any, _0x3696bd?: any) {
+  function callback(_0x3f91a4?: object, _0x3696bd?: object) {
     for (var _0xb6f7ee in _0x3696bd) {
-      _0x3f91a4[_0xb6f7ee] = _0x3696bd[_0xb6f7ee];
+      (_0x3f91a4 as VNodeProps)[_0xb6f7ee] = (_0x3696bd as VNodeProps)[_0xb6f7ee];
     }
     return _0x3f91a4;
   }
-  function callback2(_0x53dc6d?: any) {
-    var parentNode = _0x53dc6d.parentNode;
+  function callback2(_0x53dc6d?: PreactElement) {
+    var parentNode = _0x53dc6d?.parentNode;
     if (parentNode) {
-      parentNode.removeChild(_0x53dc6d);
+      parentNode.removeChild(_0x53dc6d as PreactElement);
     }
   }
-  function createElement(_0x7ee35d?: any, _0x20f1ba?: any, list4?: any, ...args: any[]) {
-    var _0xa6339d;
-    var _0x48c719;
-    var _0x4203c8;
+  function createElement(_0x7ee35d?: VNodeType, _0x20f1ba?: VNodeProps, list4?: PreactChildren, ...args: PreactChild[]) {
+    var _0xa6339d: string | number | undefined;
+    var _0x48c719: PreactRef | undefined;
+    var _0x4203c8: string | number;
     var _0x3452c4 = arguments;
-    var _0x57b92b: any = {};
+    var _0x57b92b: VNodeProps = {};
     for (_0x4203c8 in _0x20f1ba) {
       if (_0x4203c8 == "key") {
-        _0xa6339d = _0x20f1ba[_0x4203c8];
+        _0xa6339d = _0x20f1ba[_0x4203c8] as string | number | undefined;
       } else if (_0x4203c8 == "ref") {
-        _0x48c719 = _0x20f1ba[_0x4203c8];
+        _0x48c719 = _0x20f1ba[_0x4203c8] as PreactRef;
       } else {
         _0x57b92b[_0x4203c8] = _0x20f1ba[_0x4203c8];
       }
@@ -62,8 +339,8 @@ interface Function { __: any; contextType: any; }
     }
     return callback3(_0x7ee35d, _0x57b92b, _0xa6339d, _0x48c719, null);
   }
-  function callback3(_0x311635?: any, _0x2f960f?: any, _0x2804a1?: any, _0x3fecb4?: any, _0x235b98?: any) {
-    var _0x326e2c = {
+  function callback3(_0x311635: VNodeType, _0x2f960f: VNodeProps | string | number, _0x2804a1: string | number | null | undefined, _0x3fecb4: PreactRef, _0x235b98: VNode | string | number | null) {
+    var _0x326e2c: VNode = {
       type: _0x311635,
       props: _0x2f960f,
       key: _0x2804a1,
@@ -86,14 +363,14 @@ interface Function { __: any; contextType: any; }
     }
     return _0x326e2c;
   }
-  function _0x1a6367(_0x403bd4?: any) {
+  function _0x1a6367(_0x403bd4: VNodeProps): PreactChildren {
     return _0x403bd4.children;
   }
-  function _0x6579ff(_0x1744cc?: any, _0x22eb36?: any) {
+  function _0x6579ff(this: Component, _0x1744cc: VNodeProps, _0x22eb36: PreactContextValue) {
     this.props = _0x1744cc;
     this.context = _0x22eb36;
   }
-  function callback4(_0x53ae95?: any, _0x28ea70?: any) {
+  function callback4(_0x53ae95: VNode, _0x28ea70?: number): PreactElement | null {
     if (_0x28ea70 == null) {
       if (_0x53ae95.__) {
         return callback4(_0x53ae95.__, _0x53ae95.__.__k.indexOf(_0x53ae95) + 1);
@@ -113,9 +390,9 @@ interface Function { __: any; contextType: any; }
       return null;
     }
   }
-  function callback5(_0x212da1?: any) {
-    var _0x1e6c54;
-    var _0x4e7ab4;
+  function callback5(_0x212da1: VNode | null): void {
+    var _0x1e6c54: number;
+    var _0x4e7ab4: VNode | null;
     if ((_0x212da1 = _0x212da1.__) != null && _0x212da1.__c != null) {
       _0x212da1.__e = _0x212da1.__c.base = null;
       _0x1e6c54 = 0;
@@ -128,31 +405,37 @@ interface Function { __: any; contextType: any; }
       return callback5(_0x212da1);
     }
   }
-  function callback6(_0x5b79a9?: any) {
+  function callback6(_0x5b79a9: Component): void {
     if (!_0x5b79a9.__d && (_0x5b79a9.__d = true) && list.push(_0x5b79a9) && !_0x154984.__r++ || _0x5406f9 !== preactOptions.debounceRendering) {
       ((_0x5406f9 = preactOptions.debounceRendering) || _0x406d2a)(_0x154984);
     }
   }
-  function _0x154984(...args: any[]) {
-    var _0xbcb4e6;
+  // `_0x154984` carries an extra `__r` counter property (mirrors real Preact's
+  // `process._rerenderCount`). Namespace-merging a property onto a `function`
+  // statement only works at module/namespace top level, not inside this IIFE,
+  // so it's declared as a `const` cast to a call-signature-plus-property type
+  // instead — safe here since it's only ever invoked after the whole IIFE body
+  // (including the `.__r = 0` initializer below) has finished running once.
+  const _0x154984 = function (): void {
+    var _0xbcb4e6: Component[];
     for (; _0x154984.__r = list.length;) {
-      _0xbcb4e6 = list.sort(function (_0x51146d?: any, _0x393279?: any) {
-        return _0x51146d.__v.__b - _0x393279.__v.__b;
+      _0xbcb4e6 = list.sort(function (_0x51146d: Component, _0x393279: Component) {
+        return (_0x51146d.__v as VNode).__b - (_0x393279.__v as VNode).__b;
       });
       list = [];
-      _0xbcb4e6.some(function (_0xca27c7?: any) {
-        var _0x43f181;
-        var _0x5e70d3;
-        var _0x23fc47;
-        var _0x337ebf;
-        var _0x2c1c69;
-        var _0x480b70;
-        var _0x51eeb1;
+      _0xbcb4e6.some(function (_0xca27c7: Component) {
+        var _0x43f181: Component;
+        var _0x5e70d3: Component[];
+        var _0x23fc47: VNode;
+        var _0x337ebf: PreactElement | null;
+        var _0x2c1c69: VNode;
+        var _0x480b70: PreactElement | null;
+        var _0x51eeb1: PreactElement | null;
         if (_0xca27c7.__d) {
           _0x480b70 = (_0x2c1c69 = (_0x43f181 = _0xca27c7).__v).__e;
           if (_0x51eeb1 = _0x43f181.__P) {
             _0x5e70d3 = [];
-            (_0x23fc47 = callback({}, _0x2c1c69)).__v = _0x23fc47;
+            (_0x23fc47 = callback({}, _0x2c1c69) as VNode).__v = _0x23fc47;
             _0x337ebf = callback13(_0x51eeb1, _0x2c1c69, _0x23fc47, _0x43f181.__n, _0x51eeb1.ownerSVGElement !== undefined, _0x2c1c69.__h != null ? [_0x480b70] : null, _0x5e70d3, _0x480b70 == null ? callback4(_0x2c1c69) : _0x480b70, _0x2c1c69.__h);
             callback14(_0x5e70d3, _0x2c1c69);
             if (_0x337ebf != _0x480b70) {
@@ -162,26 +445,33 @@ interface Function { __: any; contextType: any; }
         }
       });
     }
-  }
-  function callback7(_0x2e8ca3?: any, list4?: any, _0x403550?: any, _0x1d255f?: any, _0x37f344?: any, _0x2c2d9d?: any, list5?: any, _0x2f3096?: any, _0x4909bd?: any, _0x51ba47?: any) {
-    var _0x5b04cd;
-    var _0x3a4948;
-    var _0x21032d;
-    var _0x22f42d;
-    var _0x2b46cc;
-    var _0x4deee9;
-    var list6;
+  } as {
+    (): void;
+    __r: number;
+  };
+  function callback7(_0x2e8ca3: PreactElement, list4: PreactChild[], _0x403550: VNode, _0x1d255f: VNode | null, _0x37f344: ComponentContext, _0x2c2d9d: boolean, list5: PreactElement[] | null, _0x2f3096: Component[], _0x4909bd: PreactElement | object | null, _0x51ba47: HydrateFlag) {
+    var _0x5b04cd: number;
+    var _0x3a4948: number | PreactRef;
+    var _0x21032d: VNode | null;
+    var _0x22f42d: PreactChild;
+    var _0x2b46cc: PreactElement | null;
+    var _0x4deee9: PreactElement | null | undefined;
+    var list6: Array<PreactRef | Component | PreactElement | VNode | null> | undefined;
     var list7 = _0x1d255f && _0x1d255f.__k || _0x9d84c4;
     var length = list7.length;
     if (_0x4909bd == _0x316685) {
       _0x4909bd = list5 != null ? list5[0] : length ? callback4(_0x1d255f, 0) : null;
     }
+    // `_0x4909bd` can only still be the `_0x316685` EMPTY_OBJ sentinel here if the
+    // check above didn't fire, but it always did (the branch above unconditionally
+    // replaces it) — re-assert the post-sentinel shape once for the rest of this scope.
+    _0x4909bd = _0x4909bd as PreactElement | null;
     _0x403550.__k = [];
     _0x5b04cd = 0;
     for (; _0x5b04cd < list4.length; _0x5b04cd++) {
       if ((_0x22f42d = _0x403550.__k[_0x5b04cd] = (_0x22f42d = list4[_0x5b04cd]) == null || typeof _0x22f42d == "boolean" ? null : typeof _0x22f42d == "string" || typeof _0x22f42d == "number" ? callback3(null, _0x22f42d, null, null, _0x22f42d) : Array.isArray(_0x22f42d) ? callback3(_0x1a6367, {
         children: _0x22f42d
-      }, null, null, null) : _0x22f42d.__e != null || _0x22f42d.__c != null ? callback3(_0x22f42d.type, _0x22f42d.props, _0x22f42d.key, null, _0x22f42d.__v) : _0x22f42d) != null) {
+      }, null, null, null) : _0x22f42d.__e != null || _0x22f42d.__c != null ? callback3(_0x22f42d.type, _0x22f42d.props, _0x22f42d.key, null, _0x22f42d.__v) : (_0x22f42d as VNode)) != null) {
         _0x22f42d.__ = _0x403550;
         _0x22f42d.__b = _0x403550.__b + 1;
         if ((_0x21032d = list7[_0x5b04cd]) === null || _0x21032d && _0x22f42d.key == _0x21032d.key && _0x22f42d.type === _0x21032d.type) {
@@ -195,7 +485,7 @@ interface Function { __: any; contextType: any; }
             _0x21032d = null;
           }
         }
-        _0x2b46cc = callback13(_0x2e8ca3, _0x22f42d, _0x21032d = _0x21032d || _0x316685, _0x37f344, _0x2c2d9d, list5, _0x2f3096, _0x4909bd, _0x51ba47);
+        _0x2b46cc = callback13(_0x2e8ca3, _0x22f42d as VNode, _0x21032d = (_0x21032d || _0x316685) as VNode, _0x37f344, _0x2c2d9d, list5, _0x2f3096, _0x4909bd as PreactElement | null, _0x51ba47);
         if ((_0x3a4948 = _0x22f42d.ref) && _0x21032d.ref != _0x3a4948) {
           list6 ||= [];
           if (_0x21032d.ref) {
@@ -207,15 +497,15 @@ interface Function { __: any; contextType: any; }
           if (_0x4deee9 == null) {
             _0x4deee9 = _0x2b46cc;
           }
-          _0x4909bd = callback8(_0x2e8ca3, _0x22f42d, _0x21032d, list7, list5, _0x2b46cc, _0x4909bd);
+          _0x4909bd = callback8(_0x2e8ca3, _0x22f42d as VNode, _0x21032d, list7, list5, _0x2b46cc, _0x4909bd as PreactElement | null);
           if (_0x51ba47 || _0x403550.type != "option") {
             if (typeof _0x403550.type == "function") {
-              _0x403550.__d = _0x4909bd;
+              _0x403550.__d = _0x4909bd as PreactElement | null;
             }
           } else {
             _0x2e8ca3.value = "";
           }
-        } else if (_0x4909bd && _0x21032d.__e == _0x4909bd && _0x4909bd.parentNode != _0x2e8ca3) {
+        } else if (_0x4909bd && _0x21032d.__e == _0x4909bd && (_0x4909bd as PreactElement).parentNode != _0x2e8ca3) {
           _0x4909bd = callback4(_0x21032d);
         }
       }
@@ -235,14 +525,14 @@ interface Function { __: any; contextType: any; }
     }
     if (list6) {
       for (_0x5b04cd = 0; _0x5b04cd < list6.length; _0x5b04cd++) {
-        callback16(list6[_0x5b04cd], list6[++_0x5b04cd], list6[++_0x5b04cd]);
+        callback16(list6[_0x5b04cd] as PreactRef, list6[++_0x5b04cd] as PreactElement | Component | null, list6[++_0x5b04cd] as VNode);
       }
     }
   }
-  function callback8(element?: any, _0x202a1b?: any, _0x45dbcf?: any, _0x51008e?: any, _0x590606?: any, _0x16b8ee?: any, _0x45928d?: any) {
-    var _0x44321c;
-    var _0x2b771e;
-    var _0x371e16;
+  function callback8(element: PreactElement, _0x202a1b: VNode, _0x45dbcf: VNode | object | null | undefined, _0x51008e: VNode[] | null, _0x590606: PreactElement[] | null, _0x16b8ee: PreactElement | null, _0x45928d: PreactElement | null): PreactElement | null {
+    var _0x44321c: PreactElement | null | undefined;
+    var _0x2b771e: PreactElement | null | undefined;
+    var _0x371e16: number;
     if (_0x202a1b.__d !== undefined) {
       _0x44321c = _0x202a1b.__d;
       _0x202a1b.__d = undefined;
@@ -268,8 +558,8 @@ interface Function { __: any; contextType: any; }
       return _0x16b8ee.nextSibling;
     }
   }
-  function callback9(_0x264e65?: any, _0x1de6e4?: any, _0x48da97?: any, _0x3b8dff?: any, _0x112eb7?: any) {
-    var _0x1067d5;
+  function callback9(_0x264e65: PreactElement, _0x1de6e4: VNodeProps, _0x48da97: VNodeProps, _0x3b8dff: boolean, _0x112eb7: HydrateFlag) {
+    var _0x1067d5: string;
     for (_0x1067d5 in _0x48da97) {
       if (_0x1067d5 !== "children" && _0x1067d5 !== "key" && !(_0x1067d5 in _0x1de6e4)) {
         callback11(_0x264e65, _0x1067d5, null, _0x48da97[_0x1067d5], _0x3b8dff);
@@ -281,17 +571,17 @@ interface Function { __: any; contextType: any; }
       }
     }
   }
-  function callback10(_0x8caad3?: any, _0x1e8e8c?: any, _0x46b665?: any) {
+  function callback10(_0x8caad3: CSSStyleDeclaration, _0x1e8e8c: string, _0x46b665: VNodePropValue) {
     if (_0x1e8e8c[0] === "-") {
-      _0x8caad3.setProperty(_0x1e8e8c, _0x46b665);
+      _0x8caad3.setProperty(_0x1e8e8c, _0x46b665 as string);
     } else {
       _0x8caad3[_0x1e8e8c] = _0x46b665 == null ? "" : typeof _0x46b665 != "number" || _0x322d6e.test(_0x1e8e8c) ? _0x46b665 : _0x46b665 + "px";
     }
   }
-  function callback11(element?: any, _0x407e62?: any, _0x1f1db3?: any, _0x554518?: any, _0x50a1f8?: any) {
-    var _0x4a9714;
-    var _0x4234e0;
-    var _0x34ecd5;
+  function callback11(element: PreactElement, _0x407e62: string, _0x1f1db3: VNodePropValue, _0x554518: VNodePropValue, _0x50a1f8: boolean) {
+    var _0x4a9714: boolean;
+    var _0x4234e0: string;
+    var _0x34ecd5: PreactEventListener;
     if (_0x50a1f8 && _0x407e62 == "className") {
       _0x407e62 = "class";
     }
@@ -303,16 +593,16 @@ interface Function { __: any; contextType: any; }
           element.style.cssText = _0x554518 = "";
         }
         if (_0x554518) {
-          for (_0x407e62 in _0x554518) {
-            if (!_0x1f1db3 || !(_0x407e62 in _0x1f1db3)) {
+          for (_0x407e62 in _0x554518 as CssStyleProps) {
+            if (!_0x1f1db3 || !(_0x407e62 in (_0x1f1db3 as CssStyleProps))) {
               callback10(element.style, _0x407e62, "");
             }
           }
         }
         if (_0x1f1db3) {
-          for (_0x407e62 in _0x1f1db3) {
-            if (!_0x554518 || _0x1f1db3[_0x407e62] !== _0x554518[_0x407e62]) {
-              callback10(element.style, _0x407e62, _0x1f1db3[_0x407e62]);
+          for (_0x407e62 in _0x1f1db3 as CssStyleProps) {
+            if (!_0x554518 || (_0x1f1db3 as CssStyleProps)[_0x407e62] !== (_0x554518 as CssStyleProps)[_0x407e62]) {
+              callback10(element.style, _0x407e62, (_0x1f1db3 as CssStyleProps)[_0x407e62]);
             }
           }
         }
@@ -324,7 +614,7 @@ interface Function { __: any; contextType: any; }
       }
       _0x407e62 = _0x407e62.slice(2);
       element.l ||= {};
-      element.l[_0x407e62 + _0x4a9714] = _0x1f1db3;
+      (element.l as PreactEventListenerMap)[_0x407e62 + _0x4a9714] = _0x1f1db3 as PreactEventListener;
       _0x34ecd5 = _0x4a9714 ? _0x1f7f09 : _0x17209f;
       if (_0x1f1db3) {
         if (!_0x554518) {
@@ -340,24 +630,24 @@ interface Function { __: any; contextType: any; }
         if (_0x1f1db3 == null || _0x1f1db3 === false) {
           element.removeAttributeNS("http://www.w3.org/1999/xlink", _0x407e62.toLowerCase());
         } else {
-          element.setAttributeNS("http://www.w3.org/1999/xlink", _0x407e62.toLowerCase(), _0x1f1db3);
+          element.setAttributeNS("http://www.w3.org/1999/xlink", _0x407e62.toLowerCase(), _0x1f1db3 as string);
         }
       } else if (_0x1f1db3 == null || _0x1f1db3 === false && !/^ar/.test(_0x407e62)) {
         element.removeAttribute(_0x407e62);
       } else {
-        element.setAttribute(_0x407e62, _0x1f1db3);
+        element.setAttribute(_0x407e62, _0x1f1db3 as string);
       }
     }
   }
-  function _0x17209f(_0x2f73ae?: any) {
-    this.l[_0x2f73ae.type + false](preactOptions.event ? preactOptions.event(_0x2f73ae) : _0x2f73ae);
+  function _0x17209f(this: PreactElement, _0x2f73ae: Event) {
+    (this.l as PreactEventListenerMap)[_0x2f73ae.type + false](preactOptions.event ? preactOptions.event(_0x2f73ae) : _0x2f73ae);
   }
-  function _0x1f7f09(_0x39047b?: any) {
-    this.l[_0x39047b.type + true](preactOptions.event ? preactOptions.event(_0x39047b) : _0x39047b);
+  function _0x1f7f09(this: PreactElement, _0x39047b: Event) {
+    (this.l as PreactEventListenerMap)[_0x39047b.type + true](preactOptions.event ? preactOptions.event(_0x39047b) : _0x39047b);
   }
-  function callback12(_0x2182cf?: any, _0x110832?: any, _0x38e496?: any) {
-    var _0x254dda;
-    var _0x1da704;
+  function callback12(_0x2182cf: VNode, _0x110832: PreactElement | null, _0x38e496: PreactElement): void {
+    var _0x254dda: number;
+    var _0x1da704: VNode | null;
     for (_0x254dda = 0; _0x254dda < _0x2182cf.__k.length; _0x254dda++) {
       if (_0x1da704 = _0x2182cf.__k[_0x254dda]) {
         _0x1da704.__ = _0x2182cf;
@@ -373,18 +663,21 @@ interface Function { __: any; contextType: any; }
       }
     }
   }
-  function callback13(_0x7a94f6?: any, _0xcfc3de?: any, _0x38d1c8?: any, _0x57f96e?: any, _0x30c4e7?: any, list4?: any, list5?: any, _0x2d334e?: any, _0x302602?: any) {
-    var _0xaa662;
-    var _0x57ab31;
-    var _0xdc95d7;
-    var _0x490cde;
-    var _0x4c08c1;
-    var _0x496f8f;
-    var _0x531bff;
-    var _0x7c2e61;
-    var _0x36dd0c;
-    var _0x24bd6d;
-    var _0x27f629;
+  function callback13(_0x7a94f6: PreactElement, _0xcfc3de: VNode, _0x38d1c8: VNode, _0x57f96e: ComponentContext, _0x30c4e7: boolean, list4: PreactElement[] | null, list5: Component[], _0x2d334e: PreactElement | null, _0x302602: HydrateFlag): PreactElement | null {
+    // Reused scratch variable (mirrors real Preact's `diff()` `tmp`): holds an
+    // options hook, the resolved `contextType`, or the component's render
+    // result at different points, so its type is the union of all three.
+    var _0xaa662: ((vnode: VNode) => void) | PreactContext | PreactChildren;
+    var _0x57ab31: Component;
+    var _0xdc95d7: boolean | undefined;
+    var _0x490cde: VNodeProps;
+    var _0x4c08c1: ComponentState;
+    var _0x496f8f: PreactStateValue;
+    var _0x531bff: Component | null;
+    var _0x7c2e61: VNodeProps;
+    var _0x36dd0c: Component | undefined;
+    var _0x24bd6d: PreactContextValue;
+    var _0x27f629: PreactChildren;
     var type = _0xcfc3de.type;
     if (_0xcfc3de.constructor !== undefined) {
       return null;
@@ -400,14 +693,19 @@ interface Function { __: any; contextType: any; }
     }
     try {
       _0x38b1fe: if (typeof type == "function") {
-        _0x7c2e61 = _0xcfc3de.props;
-        _0x36dd0c = (_0xaa662 = type.contextType) && _0x57f96e[_0xaa662.__c];
-        _0x24bd6d = _0xaa662 ? _0x36dd0c ? _0x36dd0c.props.value : _0xaa662.__ : _0x57f96e;
+        _0x7c2e61 = _0xcfc3de.props as VNodeProps;
+        _0x36dd0c = (_0xaa662 = type.contextType) && _0x57f96e[(_0xaa662 as PreactContext).__c];
+        _0x24bd6d = _0xaa662 ? _0x36dd0c ? _0x36dd0c.props.value : (_0xaa662 as PreactContext).__ : _0x57f96e;
         if (_0x38d1c8.__c) {
           _0x531bff = (_0x57ab31 = _0xcfc3de.__c = _0x38d1c8.__c).__ = _0x57ab31.__E;
         } else {
           if ("prototype" in type && type.prototype.render) {
-            _0xcfc3de.__c = _0x57ab31 = new type(_0x7c2e61, _0x24bd6d);
+            // The `in` check proves this branch's `type` is a class component
+            // at runtime, but TS's `typeof type == "function"` narrowing above
+            // turned the union into `FunctionComponent & Function | ComponentClass
+            // & Function`, and `in` doesn't narrow away the non-constructable
+            // intersection member — hence the explicit cast.
+            _0xcfc3de.__c = _0x57ab31 = new (type as InvokableComponentClass)(_0x7c2e61, _0x24bd6d);
           } else {
             _0xcfc3de.__c = _0x57ab31 = new _0x6579ff(_0x7c2e61, _0x24bd6d);
             _0x57ab31.constructor = type;
@@ -428,7 +726,7 @@ interface Function { __: any; contextType: any; }
         }
         if (type.getDerivedStateFromProps != null) {
           if (_0x57ab31.__s == _0x57ab31.state) {
-            _0x57ab31.__s = callback({}, _0x57ab31.__s);
+            _0x57ab31.__s = callback({}, _0x57ab31.__s) as ComponentState;
           }
           callback(_0x57ab31.__s, type.getDerivedStateFromProps(_0x7c2e61, _0x57ab31.__s));
         }
@@ -464,8 +762,8 @@ interface Function { __: any; contextType: any; }
             _0x57ab31.componentWillUpdate(_0x7c2e61, _0x57ab31.__s, _0x24bd6d);
           }
           if (_0x57ab31.componentDidUpdate != null) {
-            _0x57ab31.__h.push(function (...args: any[]) {
-              _0x57ab31.componentDidUpdate(_0x490cde, _0x4c08c1, _0x496f8f);
+            _0x57ab31.__h.push(function () {
+              (_0x57ab31.componentDidUpdate as (previousProps: VNodeProps, previousState: ComponentState, snapshot: PreactStateValue) => void)(_0x490cde, _0x4c08c1, _0x496f8f);
             });
           }
         }
@@ -481,13 +779,13 @@ interface Function { __: any; contextType: any; }
         _0xaa662 = _0x57ab31.render(_0x57ab31.props, _0x57ab31.state, _0x57ab31.context);
         _0x57ab31.state = _0x57ab31.__s;
         if (_0x57ab31.getChildContext != null) {
-          _0x57f96e = callback(callback({}, _0x57f96e), _0x57ab31.getChildContext());
+          _0x57f96e = callback(callback({}, _0x57f96e), _0x57ab31.getChildContext()) as ComponentContext;
         }
         if (!_0xdc95d7 && _0x57ab31.getSnapshotBeforeUpdate != null) {
           _0x496f8f = _0x57ab31.getSnapshotBeforeUpdate(_0x490cde, _0x4c08c1);
         }
-        _0x27f629 = _0xaa662 != null && _0xaa662.type == _0x1a6367 && _0xaa662.key == null ? _0xaa662.props.children : _0xaa662;
-        callback7(_0x7a94f6, Array.isArray(_0x27f629) ? _0x27f629 : [_0x27f629], _0xcfc3de, _0x38d1c8, _0x57f96e, _0x30c4e7, list4, list5, _0x2d334e, _0x302602);
+        _0x27f629 = _0xaa662 != null && (_0xaa662 as VNode).type == _0x1a6367 && (_0xaa662 as VNode).key == null ? ((_0xaa662 as VNode).props as VNodeProps).children : _0xaa662;
+        callback7(_0x7a94f6, (Array.isArray(_0x27f629) ? _0x27f629 : [_0x27f629]) as PreactChild[], _0xcfc3de, _0x38d1c8, _0x57f96e, _0x30c4e7, list4, list5, _0x2d334e, _0x302602);
         _0x57ab31.base = _0xcfc3de.__e;
         _0xcfc3de.__h = null;
         if (_0x57ab31.__h.length) {
@@ -517,15 +815,19 @@ interface Function { __: any; contextType: any; }
     }
     return _0xcfc3de.__e;
   }
-  function callback14(_0x1803c8?: any, _0x12b46b?: any) {
+  // `_0x1803c8` starts as the commit queue (Component[]) and is reassigned,
+  // per-component, to that component's render-callback queue (Array<() => void>)
+  // — the same reuse pattern as `_0xaa662` above, so a couple of the roles need
+  // an explicit cast to pin down which shape is in play at that point.
+  function callback14(_0x1803c8: Component[] | Array<() => void>, _0x12b46b: VNode) {
     if (preactOptions.__c) {
-      preactOptions.__c(_0x12b46b, _0x1803c8);
+      preactOptions.__c(_0x12b46b, _0x1803c8 as Component[]);
     }
-    _0x1803c8.some(function (_0x4ac934?: any) {
+    (_0x1803c8 as Component[]).some(function (_0x4ac934: Component) {
       try {
         _0x1803c8 = _0x4ac934.__h;
         _0x4ac934.__h = [];
-        _0x1803c8.some(function (_0x2cb868?: any) {
+        (_0x1803c8 as Array<() => void>).some(function (_0x2cb868: () => void) {
           _0x2cb868.call(_0x4ac934);
         });
       } catch (_0x3c06b5) {
@@ -533,14 +835,14 @@ interface Function { __: any; contextType: any; }
       }
     });
   }
-  function callback15(element?: any, _0x3459df?: any, _0xafaf5a?: any, _0x4e97d6?: any, _0xa64301?: any, list4?: any, _0x3f9ad6?: any, _0x2a354f?: any) {
-    var _0x5e6fce;
-    var _0x4b0e30;
-    var _0x435245;
-    var _0x588a70;
-    var _0x3a51e6;
-    var props = _0xafaf5a.props;
-    var props2 = _0x3459df.props;
+  function callback15(element: PreactElement | null, _0x3459df: VNode, _0xafaf5a: VNode, _0x4e97d6: ComponentContext, _0xa64301: boolean, list4: PreactElement[] | null, _0x3f9ad6: Component[], _0x2a354f: HydrateFlag): PreactElement {
+    var _0x5e6fce: number | PreactChildren | string | boolean | undefined;
+    var _0x4b0e30: PreactElement | null;
+    var _0x435245: DangerouslySetInnerHtml | undefined;
+    var _0x588a70: DangerouslySetInnerHtml | undefined;
+    var _0x3a51e6: number;
+    var props = _0xafaf5a.props as VNodeProps;
+    var props2 = _0x3459df.props as VNodeProps;
     _0xa64301 = _0x3459df.type === "svg" || _0xa64301;
     if (list4 != null) {
       for (_0x5e6fce = 0; _0x5e6fce < list4.length; _0x5e6fce++) {
@@ -553,23 +855,23 @@ interface Function { __: any; contextType: any; }
     }
     if (element == null) {
       if (_0x3459df.type === null) {
-        return document.createTextNode(props2);
+        return document.createTextNode(_0x3459df.props as string);
       }
-      element = _0xa64301 ? document.createElementNS("http://www.w3.org/2000/svg", _0x3459df.type) : document.createElement(_0x3459df.type, props2.is && {
+      element = _0xa64301 ? document.createElementNS("http://www.w3.org/2000/svg", _0x3459df.type as string) : document.createElement(_0x3459df.type as string, props2.is ? {
         is: props2.is
-      });
+      } : undefined);
       list4 = null;
       _0x2a354f = false;
     }
     if (_0x3459df.type === null) {
-      if (props !== props2 && (!_0x2a354f || element.data !== props2)) {
-        element.data = props2;
+      if (_0xafaf5a.props !== _0x3459df.props && (!_0x2a354f || element.data !== (_0x3459df.props as string))) {
+        element.data = _0x3459df.props as string;
       }
     } else {
       if (list4 != null) {
         list4 = _0x9d84c4.slice.call(element.childNodes);
       }
-      _0x435245 = (props = _0xafaf5a.props || _0x316685).dangerouslySetInnerHTML;
+      _0x435245 = (props = (_0xafaf5a.props as VNodeProps) || (_0x316685 as VNodeProps)).dangerouslySetInnerHTML;
       _0x588a70 = props2.dangerouslySetInnerHTML;
       if (!_0x2a354f) {
         if (list4 != null) {
@@ -589,8 +891,8 @@ interface Function { __: any; contextType: any; }
       if (_0x588a70) {
         _0x3459df.__k = [];
       } else {
-        _0x5e6fce = _0x3459df.props.children;
-        callback7(element, Array.isArray(_0x5e6fce) ? _0x5e6fce : [_0x5e6fce], _0x3459df, _0xafaf5a, _0x4e97d6, _0x3459df.type !== "foreignObject" && _0xa64301, list4, _0x3f9ad6, _0x316685, _0x2a354f);
+        _0x5e6fce = (_0x3459df.props as VNodeProps).children;
+        callback7(element, (Array.isArray(_0x5e6fce) ? _0x5e6fce : [_0x5e6fce]) as PreactChild[], _0x3459df, _0xafaf5a, _0x4e97d6, _0x3459df.type !== "foreignObject" && _0xa64301, list4, _0x3f9ad6, _0x316685 as PreactElement | object | null, _0x2a354f);
       }
       if (!_0x2a354f) {
         if ("value" in props2 && (_0x5e6fce = props2.value) !== undefined && (_0x5e6fce !== element.value || _0x3459df.type === "progress" && !_0x5e6fce)) {
@@ -603,7 +905,7 @@ interface Function { __: any; contextType: any; }
     }
     return element;
   }
-  function callback16(_0x52f145?: any, _0x3013b5?: any, _0x43abad?: any) {
+  function callback16(_0x52f145: PreactRef, _0x3013b5: PreactElement | Component | null, _0x43abad: VNode) {
     try {
       if (typeof _0x52f145 == "function") {
         _0x52f145(_0x3013b5);
@@ -614,16 +916,19 @@ interface Function { __: any; contextType: any; }
       preactOptions.__e(_0x3f9d12, _0x43abad);
     }
   }
-  function callback17(_0x5bcf77?: any, _0x46fddb?: any, _0x274471?: any) {
-    var list4;
-    var _0x3a1192;
-    var _0x463e59;
+  function callback17(_0x5bcf77: VNode, _0x46fddb: VNode, _0x274471?: boolean) {
+    var list4: PreactRef | Component | VNode[] | undefined;
+    var _0x3a1192: PreactElement | null | undefined;
+    var _0x463e59: number;
     if (preactOptions.unmount) {
       preactOptions.unmount(_0x5bcf77);
     }
     if (list4 = _0x5bcf77.ref) {
-      if (!list4.current || list4.current === _0x5bcf77.__e) {
-        callback16(list4, null, _0x46fddb);
+      // A callback ref (function) has no `.current` — accessing it yields
+      // `undefined`, which is exactly the falsy value this check relies on,
+      // matching real Preact's behavior for that ref kind.
+      if (!(list4 as PreactRefObject).current || (list4 as PreactRefObject).current === _0x5bcf77.__e) {
+        callback16(list4 as PreactRef, null, _0x46fddb);
       }
     }
     if (!_0x274471 && typeof _0x5bcf77.type != "function") {
@@ -651,46 +956,60 @@ interface Function { __: any; contextType: any; }
       callback2(_0x3a1192);
     }
   }
-  function _0x6aab8d(_0x2bb351?: any, _0x136766?: any, _0x4dac4a?: any) {
-    return this.constructor(_0x2bb351, _0x4dac4a);
+  function _0x6aab8d(this: Component, _0x2bb351: VNodeProps, _0x136766: ComponentState, _0x4dac4a: PreactContextValue): PreactChildren {
+    // Only ever installed as `render` for plain function components (see
+    // below), so `this.constructor` is always the original function — cast
+    // just to give TS a callable type; this stays a plain method-style call
+    // (`this.constructor(...)`, not `.call()`) so the implicit `this` binding
+    // JS gives a call of the form `obj.method(...)` is preserved unchanged.
+    return (this.constructor as InvokableFunctionComponent)(_0x2bb351, _0x4dac4a);
   }
-  function callback18(_0xe1b337?: any, _0x4d1c6d?: any, _0x21c44d?: any) {
-    var _0x2ebb7f;
-    var _0x34cd7a;
-    var _0x38dafe;
+  function callback18(_0xe1b337: PreactChildren, _0x4d1c6d: PreactElement, _0x21c44d?: PreactElement) {
+    var _0x2ebb7f: boolean;
+    var _0x34cd7a: VNode | null | undefined;
+    var _0x38dafe: Component[];
     if (preactOptions.__) {
       preactOptions.__(_0xe1b337, _0x4d1c6d);
     }
     _0x34cd7a = (_0x2ebb7f = _0x21c44d === _0x4c3ef1) ? null : _0x21c44d && _0x21c44d.__k || _0x4d1c6d.__k;
     _0xe1b337 = createElement(_0x1a6367, null, [_0xe1b337]);
     _0x38dafe = [];
-    callback13(_0x4d1c6d, (_0x2ebb7f ? _0x4d1c6d : _0x21c44d || _0x4d1c6d).__k = _0xe1b337, _0x34cd7a || _0x316685, _0x316685, _0x4d1c6d.ownerSVGElement !== undefined, _0x21c44d && !_0x2ebb7f ? [_0x21c44d] : _0x34cd7a ? null : _0x4d1c6d.childNodes.length ? _0x9d84c4.slice.call(_0x4d1c6d.childNodes) : null, _0x38dafe, _0x21c44d || _0x316685, _0x2ebb7f);
+    callback13(_0x4d1c6d, (_0x2ebb7f ? _0x4d1c6d : _0x21c44d || _0x4d1c6d).__k = _0xe1b337 as VNode, (_0x34cd7a || _0x316685) as VNode, _0x316685 as ComponentContext, _0x4d1c6d.ownerSVGElement !== undefined, _0x21c44d && !_0x2ebb7f ? [_0x21c44d] : _0x34cd7a ? null : _0x4d1c6d.childNodes.length ? _0x9d84c4.slice.call(_0x4d1c6d.childNodes) : null, _0x38dafe, (_0x21c44d || _0x316685) as PreactElement | null, _0x2ebb7f);
     callback14(_0x38dafe, _0xe1b337);
   }
-  function callback19(_0x5beed0?: any, _0x33329b?: any) {
-    var _0x4e0e19 = {
+  function callback19(_0x5beed0?: PreactContextValue, _0x33329b?: string): PreactContext {
+    var _0x4e0e19: PreactContext = {
       __c: _0x33329b = "__cC" + _0x43d241++,
       __: _0x5beed0,
-      Consumer: function (_0x5c8130?: any, _0x11d62d?: any) {
-        return _0x5c8130.children(_0x11d62d);
+      Consumer: function (this: Component, _0x5c8130: VNodeProps, _0x11d62d: PreactContextValue) {
+        // `children` here is a Context.Consumer render-prop function, not
+        // renderable content — `PreactChildren` and a function type don't
+        // overlap for a single assertion, so bridge through `object` (both
+        // sides overlap it) rather than `unknown`.
+        return ((_0x5c8130.children as object) as (value: PreactContextValue) => PreactChildren)(_0x11d62d);
       },
-      Provider: function (_0xfc529f?: any, list4?: any, _0x30fb1b?: any) {
+      // `list4`/`_0x30fb1b` are only ever "parameters" in the minifier-golfed
+      // sense — Provider is always invoked with just `props`; they behave as
+      // ordinary locals initialized on the component's first render and then
+      // captured by the closures below, so they're typed optional to keep the
+      // call signature's arity compatible with `FunctionComponent`.
+      Provider: function (this: Component, _0xfc529f: VNodeProps, list4?: Component[], _0x30fb1b?: ComponentContext) {
         if (!this.getChildContext) {
           list4 = [];
-          (_0x30fb1b = {})[_0x33329b] = this;
-          this.getChildContext = function (...args: any[]) {
-            return _0x30fb1b;
+          (_0x30fb1b = {})[_0x33329b as string] = this;
+          this.getChildContext = function (this: Component): ComponentContext {
+            return _0x30fb1b as ComponentContext;
           };
-          this.shouldComponentUpdate = function (_0x4a0131?: any) {
+          this.shouldComponentUpdate = function (this: Component, _0x4a0131: VNodeProps) {
             if (this.props.value !== _0x4a0131.value) {
-              list4.some(callback6);
+              (list4 as Component[]).some(callback6);
             }
           };
-          this.sub = function (_0x54bd38?: any) {
-            list4.push(_0x54bd38);
+          this.sub = function (this: Component, _0x54bd38: Component) {
+            (list4 as Component[]).push(_0x54bd38);
             var componentWillUnmount = _0x54bd38.componentWillUnmount;
-            _0x54bd38.componentWillUnmount = function (...args: any[]) {
-              list4.splice(list4.indexOf(_0x54bd38), 1);
+            _0x54bd38.componentWillUnmount = function (this: Component): void {
+              (list4 as Component[]).splice((list4 as Component[]).indexOf(_0x54bd38), 1);
               if (componentWillUnmount) {
                 componentWillUnmount.call(_0x54bd38);
               }
@@ -700,13 +1019,16 @@ interface Function { __: any; contextType: any; }
         return _0xfc529f.children;
       }
     };
-    return _0x4e0e19.Provider.__ = _0x4e0e19.Consumer.contextType = _0x4e0e19;
+    // `.__` isn't part of `ComponentTypeStatics` — it's stamped onto the
+    // Provider function value via the ambient `Function.__` augmentation
+    // (see the untouched interface at the top of the file).
+    return (_0x4e0e19.Provider as Function).__ = _0x4e0e19.Consumer.contextType = _0x4e0e19;
   }
   preactOptions = {
-    __e: function (_0x56617d?: any, _0x4d6ef8?: any) {
-      var _0x261b62;
-      var _0x1c0b4c;
-      for (var _0x5c24e2, __h = _0x4d6ef8.__h; _0x4d6ef8 = _0x4d6ef8.__;) {
+    __e: function (_0x56617d: Error, _0x4d6ef8: VNode) {
+      var _0x261b62: Component | null;
+      var _0x1c0b4c: ComponentType | undefined;
+      for (var _0x5c24e2: boolean | undefined, __h = _0x4d6ef8.__h; _0x4d6ef8 = _0x4d6ef8.__;) {
         if ((_0x261b62 = _0x4d6ef8.__c) && !_0x261b62.__) {
           try {
             if ((_0x1c0b4c = _0x261b62.constructor) && _0x1c0b4c.getDerivedStateFromError != null) {
@@ -729,11 +1051,11 @@ interface Function { __: any; contextType: any; }
       throw _0x56617d;
     }
   };
-  _0x6579ff.prototype.setState = function (callback95?: any, _0x10f265?: any) {
-    var _0x31ea93;
-    _0x31ea93 = this.__s != null && this.__s !== this.state ? this.__s : this.__s = callback({}, this.state);
+  _0x6579ff.prototype.setState = function (this: Component, callback95: Partial<ComponentState> | ((state: ComponentState, props: VNodeProps) => Partial<ComponentState> | null) | null, _0x10f265?: () => void) {
+    var _0x31ea93: ComponentState;
+    _0x31ea93 = this.__s != null && this.__s !== this.state ? this.__s : this.__s = callback({}, this.state) as ComponentState;
     if (typeof callback95 == "function") {
-      callback95 = callback95(callback({}, _0x31ea93), this.props);
+      callback95 = callback95(callback({}, _0x31ea93) as ComponentState, this.props);
     }
     if (callback95) {
       callback(_0x31ea93, callback95);
@@ -745,7 +1067,7 @@ interface Function { __: any; contextType: any; }
       callback6(this);
     }
   };
-  _0x6579ff.prototype.forceUpdate = function (_0x4c9788?: any) {
+  _0x6579ff.prototype.forceUpdate = function (this: Component, _0x4c9788?: () => void) {
     if (this.__v) {
       this.__e = true;
       if (_0x4c9788) {
@@ -760,16 +1082,16 @@ interface Function { __: any; contextType: any; }
   _0x154984.__r = 0;
   _0x4c3ef1 = _0x316685;
   _0x43d241 = 0;
-  function callback20(callback95?: any, _0x56a002?: any) {
+  function callback20(callback95: (module: { exports: CookiesApi }, exports: CookiesApi) => void, _0x56a002?: { exports: CookiesApi }) {
     _0x56a002 = {
-      exports: {}
+      exports: {} as CookiesApi
     };
     callback95(_0x56a002, _0x56a002.exports);
     return _0x56a002.exports;
   }
-  var _0x480125 = callback20(function (_0x489395?: any, _0x32ffe2?: any) {
-    (function (callback95?: any) {
-      var _0x38a1e2;
+  var _0x480125 = callback20(function (_0x489395: { exports: CookiesApi }, _0x32ffe2: CookiesApi) {
+    (function (callback95: () => CookiesApi) {
+      var _0x38a1e2: boolean;
       {
         _0x489395.exports = callback95();
         _0x38a1e2 = true;
@@ -777,15 +1099,15 @@ interface Function { __: any; contextType: any; }
       if (!_0x38a1e2) {
         var Cookies = window.Cookies;
         var _0x5b9e40 = window.Cookies = callback95();
-        _0x5b9e40.noConflict = function (...args: any[]) {
+        _0x5b9e40.noConflict = function (): CookiesApi {
           window.Cookies = Cookies;
           return _0x5b9e40;
         };
       }
-    })(function (...args: any[]) {
-      function callback95(...args: any[]) {
+    })(function (): CookiesApi {
+      function callback95(...args: CookieAttributes[]): CookieAttributes {
         var i2 = 0;
-        var _0x541af5: any = {};
+        var _0x541af5: CookieAttributes = {};
         for (; i2 < arguments.length; i2++) {
           var _0x231da7 = arguments[i2];
           for (var _0x37b533 in _0x231da7) {
@@ -794,22 +1116,22 @@ interface Function { __: any; contextType: any; }
         }
         return _0x541af5;
       }
-      function callback96(_0x5776fd?: any) {
+      function callback96(_0x5776fd: string): string {
         return _0x5776fd.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent);
       }
-      function callback97(_0xa8c88?: any) {
-        function _0x316d13(...args: any[]) {}
-        function callback98(_0x5b7742?: any, _0x41d11e?: any, _0x5ddbc3?: any) {
+      function callback97(_0xa8c88: CookieConverter): CookiesApi {
+        function _0x316d13(): void {}
+        function callback98(_0x5b7742: string, _0x41d11e: JsonValue, _0x5ddbc3?: CookieAttributes) {
           if (typeof document === "undefined") {
             return;
           }
           _0x5ddbc3 = callback95({
             path: "/"
-          }, _0x316d13.defaults, _0x5ddbc3);
+          }, (_0x316d13 as CookiesApi).defaults, _0x5ddbc3);
           if (typeof _0x5ddbc3.expires === "number") {
-            _0x5ddbc3.expires = new Date((new Date() as any) * 1 + _0x5ddbc3.expires * 86400000);
+            _0x5ddbc3.expires = new Date(Number(new Date()) * 1 + _0x5ddbc3.expires * 86400000);
           }
-          _0x5ddbc3.expires = _0x5ddbc3.expires ? _0x5ddbc3.expires.toUTCString() : "";
+          _0x5ddbc3.expires = _0x5ddbc3.expires ? (_0x5ddbc3.expires as Date).toUTCString() : "";
           try {
             var _0x3c25e5 = JSON.stringify(_0x41d11e);
             if (/^[\{\[]/.test(_0x3c25e5)) {
@@ -827,15 +1149,15 @@ interface Function { __: any; contextType: any; }
             if (_0x5ddbc3[_0x3aa7f8] === true) {
               continue;
             }
-            _0x32de11 += "=" + _0x5ddbc3[_0x3aa7f8].split(";")[0];
+            _0x32de11 += "=" + (_0x5ddbc3[_0x3aa7f8] as string).split(";")[0];
           }
           return document.cookie = _0x5b7742 + "=" + _0x41d11e + _0x32de11;
         }
-        function callback99(_0x5eafdb?: any, _0x3b7cc9?: any) {
+        function callback99(_0x5eafdb: string | undefined, _0x3b7cc9: boolean) {
           if (typeof document === "undefined") {
             return;
           }
-          var _0x516511: any = {};
+          var _0x516511: CookieJar = {};
           var list4 = document.cookie ? document.cookie.split("; ") : [];
           var i2 = 0;
           for (; i2 < list4.length; i2++) {
@@ -864,31 +1186,33 @@ interface Function { __: any; contextType: any; }
             return _0x516511;
           }
         }
-        _0x316d13.set = callback98;
-        _0x316d13.get = function (_0x42280a?: any) {
+        (_0x316d13 as CookiesApi).set = callback98;
+        (_0x316d13 as CookiesApi).get = function (_0x42280a?: string) {
           return callback99(_0x42280a, false);
         };
-        _0x316d13.getJSON = function (_0x280463?: any) {
-          return callback99(_0x280463, true);
+        (_0x316d13 as CookiesApi).getJSON = function (_0x280463?: string) {
+          return callback99(_0x280463, true) as CookieJar | undefined;
         };
-        _0x316d13.remove = function (_0x396dda?: any, _0x3baebe?: any) {
-          callback98(_0x396dda, "", callback95(_0x3baebe, {
+        (_0x316d13 as CookiesApi).remove = function (_0x396dda: string, _0x3baebe?: CookieAttributes) {
+          callback98(_0x396dda, "", callback95(_0x3baebe as CookieAttributes, {
             expires: -1
           }));
         };
-        _0x316d13.defaults = {};
-        _0x316d13.withConverter = callback97;
+        (_0x316d13 as CookiesApi).defaults = {};
+        (_0x316d13 as CookiesApi).withConverter = callback97;
         return _0x316d13;
       }
-      return callback97(function (...args: any[]) {});
+      return callback97(function (): string | undefined {
+        return undefined;
+      });
     });
   });
   const _0x68ae04 = Math.pow(2, -26);
-  const callback21 = (_0x4232a1?: any) => Math.abs(_0x4232a1) <= _0x68ae04;
-  const callback22 = (_0x2bc84b?: any, _0x422639?: any) => Math.abs(_0x2bc84b - _0x422639) <= _0x68ae04;
-  const callback23 = (_0x497e73?: any, _0x1215fd?: any, _0xc805ba?: any) => _0x497e73 + (_0x1215fd - _0x497e73) * _0xc805ba;
-  const callback24 = (_0x570a19?: any) => --_0x570a19 * _0x570a19 * _0x570a19 + 1;
-  const callback25 = (_0x2cbd0e?: any, _0x349ac0?: any, _0x26617c?: any) => {
+  const callback21 = (_0x4232a1: number) => Math.abs(_0x4232a1) <= _0x68ae04;
+  const callback22 = (_0x2bc84b: number, _0x422639: number) => Math.abs(_0x2bc84b - _0x422639) <= _0x68ae04;
+  const callback23 = (_0x497e73: number, _0x1215fd: number, _0xc805ba: number) => _0x497e73 + (_0x1215fd - _0x497e73) * _0xc805ba;
+  const callback24 = (_0x570a19: number) => --_0x570a19 * _0x570a19 * _0x570a19 + 1;
+  const callback25 = (_0x2cbd0e: number, _0x349ac0: number, _0x26617c: number) => {
     if (_0x26617c < _0x2cbd0e) {
       return _0x2cbd0e;
     }
@@ -897,9 +1221,9 @@ interface Function { __: any; contextType: any; }
     }
     return _0x26617c;
   };
-  const callback26 = (_0x485df3?: any, _0x2a85fc?: any, _0x18d0a3?: any, _0x4b57d3?: any) => _0x485df3 * _0x4b57d3 - _0x2a85fc * _0x18d0a3;
-  const callback27 = (_0x50b329?: any, _0x1b8016?: any, _0x13f44a?: any) => Math.min(_0x50b329, _0x1b8016) - _0x68ae04 <= _0x13f44a && _0x13f44a <= Math.max(_0x50b329, _0x1b8016) + _0x68ae04;
-  const callback28 = (_0x398a2a?: any, _0x88af21?: any, _0x9eb278?: any, _0x369d4a?: any) => {
+  const callback26 = (_0x485df3: number, _0x2a85fc: number, _0x18d0a3: number, _0x4b57d3: number) => _0x485df3 * _0x4b57d3 - _0x2a85fc * _0x18d0a3;
+  const callback27 = (_0x50b329: number, _0x1b8016: number, _0x13f44a: number) => Math.min(_0x50b329, _0x1b8016) - _0x68ae04 <= _0x13f44a && _0x13f44a <= Math.max(_0x50b329, _0x1b8016) + _0x68ae04;
+  const callback28 = (_0x398a2a: number, _0x88af21: number, _0x9eb278: number, _0x369d4a: number) => {
     if (_0x398a2a > _0x88af21) {
       [_0x398a2a, _0x88af21] = [_0x88af21, _0x398a2a];
     }
@@ -908,7 +1232,7 @@ interface Function { __: any; contextType: any; }
     }
     return Math.min(_0x88af21, _0x369d4a) - Math.max(_0x398a2a, _0x9eb278);
   };
-  function callback29(list4?: any, _0x31b6be?: any, _0x35bcab?: any) {
+  function callback29(list4: number[][], _0x31b6be: number, _0x35bcab: number) {
     let _0x562c11 = false;
     let length = list4.length;
     for (let i2 = 0, _0xea5051 = length - 1; i2 < length; _0xea5051 = i2++) {
@@ -930,7 +1254,7 @@ interface Function { __: any; contextType: any; }
       return 0;
     }
   }
-  function callback30(_0xddb793?: any, _0x5909a8?: any, _0x546daf?: any, _0x21e81c?: any, _0x3d49bc?: any, _0x3776c9?: any) {
+  function callback30(_0xddb793: number, _0x5909a8: number, _0x546daf: number, _0x21e81c: number, _0x3d49bc: number, _0x3776c9: number) {
     let _0x539722 = _0x546daf - _0xddb793;
     let _0x4520c5 = _0x21e81c - _0x5909a8;
     let _0xbbd220 = _0x3d49bc - _0xddb793;
@@ -940,7 +1264,7 @@ interface Function { __: any; contextType: any; }
     return _0x3d83e6 == 0 && _0x10959f <= 0;
   }
   let _0x5e2101 = 1;
-  const callback31 = (...args: any[]) => _0x5e2101++;
+  const callback31 = () => _0x5e2101++;
   class Segment {
     a: any;
     b: any;
