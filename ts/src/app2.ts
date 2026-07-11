@@ -270,7 +270,7 @@ interface ObjectConstructor {
   // narrows the union the same way the reconciler's runtime check does.
   interface ComponentTypeStatics {
     // Stamped onto the `createContext()` Provider function value (see
-    // `callback19`) so the diffing code can look up the owning context from
+    // `createContext`) so the diffing code can look up the owning context from
     // either the Provider or its Consumer via `contextType`.
     __?: PreactContext;
     contextType?: PreactContext;
@@ -821,16 +821,16 @@ interface ObjectConstructor {
     }
   }
   Vector.space = undefined;
-  const _0x3e57df = 25;
-  const _0x2069c7 = _0x3e57df * _0x3e57df;
-  const _0x1f3950 = 0;
-  const _0x1466e3 = 1;
-  const _0x46f91a = 2;
-  const _0xdf8741 = 3;
-  const _0x52fd24 = 4;
-  const _0x17fe5b = 5;
-  const _0x21e037 = 6;
-  const _0x3bad23 = 7;
+  const MIN_POINT_DISTANCE = 25;
+  const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
+  const KILL_REASON_0 = 0;
+  const KILL_REASON_1 = 1;
+  const KILL_REASON_2 = 2;
+  const KILL_REASON_3 = 3;
+  const KILL_REASON_4 = 4;
+  const KILL_REASON_5 = 5;
+  const KILL_REASON_6 = 6;
+  const KILL_REASON_7 = 7;
   const FRAME_DURATION_MILLISECONDS = 1000 / 60;
   const TWO_FRAME_DURATION_MILLISECONDS = 1000 / 60 * 2;
   class Polyline {
@@ -1122,7 +1122,7 @@ interface ObjectConstructor {
           i2++;
         } else {
           const previousPoint = this.simplify[i2 - 2];
-          if (start.distance2(previousPoint) < _0x2069c7) {
+          if (start.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             this.simplify[i2 - 1] = start;
           } else {
             this.simplify.push(start);
@@ -1147,10 +1147,10 @@ interface ObjectConstructor {
         top = Math.min(top, y);
         bottom = Math.max(bottom, y);
       });
-      left -= _0x3e57df;
-      right += _0x3e57df;
-      top -= _0x3e57df;
-      bottom += _0x3e57df;
+      left -= MIN_POINT_DISTANCE;
+      right += MIN_POINT_DISTANCE;
+      top -= MIN_POINT_DISTANCE;
+      bottom += MIN_POINT_DISTANCE;
       this.bounds = {
         left: left,
         right: right,
@@ -1159,8 +1159,8 @@ interface ObjectConstructor {
       };
     }
   }
-  const _0x98c0a2 = typeof performance !== "undefined" ? performance : Date;
-  const now = _0x98c0a2.now.bind(_0x98c0a2);
+  const timeSource = typeof performance !== "undefined" ? performance : Date;
+  const now = timeSource.now.bind(timeSource);
   const createCirclePoints = (point: Vector, segmentCount: number, radius: number) => {
     if (typeof point.x !== "number") {
       throw Error("circle");
@@ -1326,7 +1326,7 @@ interface ObjectConstructor {
       seed = (seed * 69069 + 1) % 2147483648;
       return seed % bound;
     };
-    let random = (_0x1dfc31?: number) => _0x1dfc31 == null ? nextInt(1000000000) / 1000000000 : nextInt(_0x1dfc31);
+    let random = (max?: number) => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
     return random;
   }
   function loadImage(src: string) {
@@ -1391,8 +1391,8 @@ interface ObjectConstructor {
       this.radius = radius;
       this.center = center;
     }
-    static circular(center: Vector, _0x453954: number, radius: number) {
-      return new Border(new Polygon(createCirclePoints(center, _0x453954, radius)), center, radius);
+    static circular(center: Vector, segments: number, radius: number) {
+      return new Border(new Polygon(createCirclePoints(center, segments, radius)), center, radius);
     }
     intersections(segment: Segment): Intersection[] {
       {
@@ -1560,7 +1560,7 @@ interface ObjectConstructor {
         } = simplyline;
         if (length > 2) {
           const previousPoint = simplyline[length - 2];
-          if (point.distance2(previousPoint) < _0x2069c7) {
+          if (point.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             simplyline[length - 1] = point;
           } else {
             simplyline.push(point);
@@ -1601,11 +1601,11 @@ interface ObjectConstructor {
       if (unit === this.unit) {
         if (intersection.overlay === true || intersection.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
           this.unit.position = intersection.point;
-          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? _0x46f91a : _0x1466e3;
+          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_2 : KILL_REASON_1;
           game.kill(this.unit, undefined, killReason);
         }
       } else {
-        game.kill(this.unit, unit, _0xdf8741);
+        game.kill(this.unit, unit, KILL_REASON_3);
       }
     }
   }
@@ -1878,8 +1878,8 @@ interface ObjectConstructor {
         if (unit.target.distance(center) > radius + stepDistance * 0.75) {
           const fromCenter2 = unit.position.clone().sub(center);
           const targetAngle2 = fromCenter2.angle(toTarget);
-          const _0xdd44e6 = distanceToCenter;
-          const chordProjection = (radius * radius - stepDistance * stepDistance + _0xdd44e6 * _0xdd44e6) / (_0xdd44e6 * 2);
+          const centerDistance = distanceToCenter;
+          const chordProjection = (radius * radius - stepDistance * stepDistance + centerDistance * centerDistance) / (centerDistance * 2);
           const chordHalfLength = Math.sqrt(radius * radius - chordProjection * chordProjection);
           const centerDirection = unit.position.clone().sub(center).normalize();
           const projectionPoint = center.clone().add(centerDirection.clone().mulScalar(chordProjection));
@@ -1946,7 +1946,7 @@ interface ObjectConstructor {
   const particleSquarePath = createParticleSquarePath();
   class Particle {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
-    // callback48 reassigns them to scalar speeds on already-expiring particles (time===1),
+    // spawnScoreParticles reassigns them to scalar speeds on already-expiring particles (time===1),
     // so the field type is a union and the vector math below is typeof-guarded.
     acceleration: Vector | number | null;
     color: ParticleColor;
@@ -2392,13 +2392,13 @@ interface ObjectConstructor {
         return shouldTrack;
       });
     }
-    update(unit: Unit, _0x2f04e5: number, game: Game): void {
+    update(unit: Unit, value: number, game: Game): void {
       this.achievements = this.achievements.filter((achievement: Achievement) => {
-        achievement.checker.update(unit, _0x2f04e5, game);
+        achievement.checker.update(unit, value, game);
         if (achievement.checker.progress > achievement.best) {
           achievement.best = achievement.checker.progress;
         }
-        if (achievement.checker.check(unit, _0x2f04e5, game)) {
+        if (achievement.checker.check(unit, value, game)) {
           achievement.success(game);
           this.profile.save();
           return false;
@@ -2487,7 +2487,7 @@ interface ObjectConstructor {
     track: Trail;
     type: number;
     vrange: number;
-    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _0xefbf81?: undefined, schemeCycler?: SchemeCycler) {
+    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       this.killer = undefined;
       this.achievements = undefined;
       this.skin = undefined;
@@ -2588,8 +2588,8 @@ interface ObjectConstructor {
     get isPlayer() {
       return true;
     }
-    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _0x4d59c5?: undefined, schemeCycler?: SchemeCycler) {
-      super(game, name, position, basePoints, _0x4d59c5, schemeCycler);
+    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, _unused, schemeCycler);
       this.win = false;
     }
     update(deltaMilliseconds: number) {
@@ -2612,8 +2612,8 @@ interface ObjectConstructor {
     targets: Unit[];
     unitDanger: Unit | null;
     unitToTrackDistances: UnitTrackDistance[];
-    constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _0x523f62?: undefined, schemeCycler?: SchemeCycler) {
-      super(game, name, position, basePoints, _0x523f62, schemeCycler);
+    constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, _unused, schemeCycler);
       this.aggro = 0;
       this.greed = 0;
       this.safety = 0;
@@ -2781,7 +2781,7 @@ interface ObjectConstructor {
   const TURN_SPEED_RADIANS_PER_SECOND = Math.PI * 2;
   const baseCos = Math.cos(0);
   const baseSin = Math.sin(0);
-  const _0xd09b08 = 240;
+  const MAX_METRICS_SAMPLES = 240;
   const angleToVector = (angle?: number) => {
     const cosAngle = Math.cos(angle);
     const sinAngle = Math.sin(angle);
@@ -3211,7 +3211,7 @@ interface ObjectConstructor {
       } = this.config;
       const killUnitToMakeRoom = () => {
         if (this.units.length) {
-          this.kill(this.units[~~(this.units.length / 2)], undefined, _0x21e037);
+          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_6);
         }
       };
       if (this.units.length && this.units.length >= botsCount) {
@@ -3234,7 +3234,7 @@ interface ObjectConstructor {
       this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
       this.startTime = now();
     }
-    gameOver(_0x392068?: number): void {
+    gameOver(reason?: number): void {
       const {
         player
       } = this;
@@ -3259,8 +3259,8 @@ interface ObjectConstructor {
         const vector = new Vector(minX + width / 2, minY + height / 2);
         const canvasSize = 500;
         const scale = canvasSize * 0.95 / maxDimension;
-        const _0x4be932 = canvasSize / 100;
-        let _0x149dc6: string | undefined;
+        const sizeUnit = canvasSize / 100;
+        let dataUrl: string | undefined;
         if (typeof document !== "undefined") {
           const element = document.createElement("canvas");
           element.width = canvasSize;
@@ -3268,13 +3268,13 @@ interface ObjectConstructor {
           const context = element.getContext("2d");
           context.scale(scale, scale);
           context.translate(canvasSize / 2 / scale - vector.x, canvasSize / 2 / scale - vector.y);
-          context.translate(0, _0x4be932 / scale);
+          context.translate(0, sizeUnit / scale);
           context.fillStyle = player.skin.colors.back;
           context.fill(player.base.polygon.path);
-          context.translate(0, _0x4be932 * -2 / scale);
+          context.translate(0, sizeUnit * -2 / scale);
           context.fillStyle = player.skin.pattern && player.skin.pattern.pattern || player.skin.colors.main;
           context.fill(player.base.polygon.path);
-          _0x149dc6 = element.toDataURL("image/png");
+          dataUrl = element.toDataURL("image/png");
         }
         const result: GameOverResult = {
           build: this.build,
@@ -3288,10 +3288,10 @@ interface ObjectConstructor {
           bestPercent: player.bestPercent,
           time: now() - this.startTime,
           kills: player.statistics.kills,
-          image: _0x149dc6,
-          reason: _0x392068
+          image: dataUrl,
+          reason: reason
         };
-        if (_0x392068 === _0x1f3950) {
+        if (reason === KILL_REASON_0) {
           player.win = true;
         }
         if (player.achievements) {
@@ -3301,14 +3301,14 @@ interface ObjectConstructor {
           this.playerDeathCallback();
         }
         setTimeout(() => {
-          if (_0x392068 === _0x1f3950) {
-            this.kill(player, undefined, _0x392068);
+          if (reason === KILL_REASON_0) {
+            this.kill(player, undefined, reason);
           }
           this.player = null;
           if (this.gameOverCallback) {
             this.gameOverCallback(result);
           }
-        }, _0x392068 === _0xdf8741 || _0x392068 === _0x52fd24 || _0x392068 === _0x17fe5b ? this.config.enemyKillDelay : this.config.selfKillDelay);
+        }, reason === KILL_REASON_3 || reason === KILL_REASON_4 || reason === KILL_REASON_5 ? this.config.enemyKillDelay : this.config.selfKillDelay);
       }
     }
     checkBaseCommits(): void {
@@ -3345,7 +3345,7 @@ interface ObjectConstructor {
           otherUnit.in = null;
         }
       });
-      if (reason !== _0x21e037) {
+      if (reason !== KILL_REASON_6) {
         spawnScoreParticles(unit, null, unit.track.polyline.segments);
         spawnScoreParticles(unit, null, unit.base.polygon.segments);
       }
@@ -3368,7 +3368,7 @@ interface ObjectConstructor {
       if (unit2) {
         unit2.onScoreChanged();
       }
-      if (reason !== _0x1f3950 && unit === this.player) {
+      if (reason !== KILL_REASON_0 && unit === this.player) {
         this.gameOver(reason);
       }
     }
@@ -3684,7 +3684,7 @@ interface ObjectConstructor {
       this.scale += scaleDelta * deltaMilliseconds / 400;
       if (player && player.percent > 0.9999) {
         player.percent = 1;
-        this.gameOver(_0x1f3950);
+        this.gameOver(KILL_REASON_0);
       }
       this.timings.spawnStartTime = now();
       for (let i2 = 0; i2 < this.config.nearPlayerBotSpawnCount; i2++) {
@@ -3747,14 +3747,14 @@ interface ObjectConstructor {
       const bottom = vector.y + viewHeight / 2 / scale;
       const pointInView = (point: Vector, margin = 0) => isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
       const boundsInView = (boundsObject: { bounds: Bounds }, margin = 0) => intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
-      const calcMult = (_0x532992: number, _0x58c40d: number) => {
+      const calcMult = (a: number, b: number) => {
         const landscapeAspectRatio = 16 / 9;
         const portraitAspectRatio = 9 / 16;
         const clampedAspectRatio = clamp(portraitAspectRatio, landscapeAspectRatio, viewScreenWidth / viewScreenHeight);
-        const _0x174801 = _0x532992 - _0x58c40d;
-        const _0x5bf426 = portraitAspectRatio - landscapeAspectRatio;
-        const _0x531332 = -(_0x174801 * landscapeAspectRatio + _0x5bf426 * _0x532992);
-        return -(_0x531332 + _0x174801 * clampedAspectRatio) / _0x5bf426;
+        const delta = a - b;
+        const aspectSpan = portraitAspectRatio - landscapeAspectRatio;
+        const offset = -(delta * landscapeAspectRatio + aspectSpan * a);
+        return -(offset + delta * clampedAspectRatio) / aspectSpan;
       };
       const fontSize = ~~(calcMult(20, 30) * scaler);
       const strokeWidth = this.config.platesStrokeWidth * scaler;
@@ -3803,7 +3803,7 @@ interface ObjectConstructor {
         events: this.events
       };
       this.metrics.push(metric);
-      if (this.metrics.length > _0xd09b08) {
+      if (this.metrics.length > MAX_METRICS_SAMPLES) {
         this.metrics.shift();
       }
       const smoothingFactor = 0.05;
@@ -3988,13 +3988,13 @@ interface ObjectConstructor {
       this.units.filter((otherUnit: Unit) => otherUnit !== unit).forEach((unit3: Unit) => {
         if (!unit3.death) {
           if (unit3.in === unit3.base && polygon3.inside(unit3.position)) {
-            this.kill(unit3, unit, _0x17fe5b);
+            this.kill(unit3, unit, KILL_REASON_5);
           }
           if (unit3.track.polyline.start && polygon3.inside(unit3.track.polyline.start)) {
-            this.kill(unit3, unit, _0x52fd24);
+            this.kill(unit3, unit, KILL_REASON_4);
           }
           if (unit3.cities && unit3.cities[0] && polygon3.inside(unit3.cities[0].position)) {
-            this.kill(unit3, unit, _0x3bad23);
+            this.kill(unit3, unit, KILL_REASON_7);
           }
         }
       });
@@ -4814,28 +4814,28 @@ interface ObjectConstructor {
       this.sort();
     }
   }
-  let _0x2d02fe: CanvasGradient | undefined;
-  let _0x3ee25a: string | undefined;
-  let _0x5fb03a: string | undefined;
-  let _0x260d10: CanvasRenderingContext2D | undefined;
+  let cachedGradient: CanvasGradient | undefined;
+  let cachedTopColor: string | undefined;
+  let cachedBottomColor: string | undefined;
+  let cachedContext: CanvasRenderingContext2D | undefined;
   interface SizedGridLike {
     width: number;
     height: number;
   }
   const getVerticalGradient = (context: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, topColor: string, bottomColor: string): CanvasGradient | undefined => {
-    if (_0x260d10 !== context || _0x3ee25a !== topColor || _0x5fb03a !== bottomColor) {
-      _0x2d02fe = context.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
-      _0x2d02fe.addColorStop(0, topColor);
-      _0x2d02fe.addColorStop(1, bottomColor);
+    if (cachedContext !== context || cachedTopColor !== topColor || cachedBottomColor !== bottomColor) {
+      cachedGradient = context.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
+      cachedGradient.addColorStop(0, topColor);
+      cachedGradient.addColorStop(1, bottomColor);
     }
-    return _0x2d02fe;
+    return cachedGradient;
   };
   const strokePath = (context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number) => {
     context.strokeStyle = strokeColor;
     context.lineWidth = lineWidth;
     context.stroke(path);
   };
-  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: string | CanvasPattern, trail: Trail, _0x32360d: Vector, lineWidth: number) => {
+  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: string | CanvasPattern, trail: Trail, _unused: Vector, lineWidth: number) => {
     if (trail.polyline.segments.length) {
       context.lineWidth = lineWidth;
       context.strokeStyle = strokeStyle;
@@ -5616,7 +5616,7 @@ interface ObjectConstructor {
         maxFrameTime = Math.max(maxFrameTime, metric.frameTime);
       });
       maxFrameTime *= 1.1;
-      const xStep = graphWidth / (_0xd09b08 - 1);
+      const xStep = graphWidth / (MAX_METRICS_SAMPLES - 1);
       const yScale = graphHeight / maxFrameTime;
       context.save();
       context.translate((view.width - graphWidth) / 2, graphHeight);
@@ -6371,7 +6371,7 @@ interface ObjectConstructor {
       // `VNodeProps.value` is intentionally narrowed to `string | number |
       // boolean` for the latter, so this one Provider callsite needs a cast.
       // Bridged through `object` (rather than `unknown`) like the similar
-      // cast in `callback19`'s `Consumer`, since the two object shapes don't
+      // cast in `createContext`'s `Consumer`, since the two object shapes don't
       // otherwise overlap enough for TS to allow a direct assertion.
       value: language
     } as object as VNodeProps, createElement("div", {
@@ -6421,7 +6421,7 @@ interface ObjectConstructor {
       id: "overlay"
     }));
   };
-  let _0x30561b = {
+  let defaultConfig = {
     arenaSize: 2000,
     quadSize: 20,
     borderPoints: 300,
@@ -6463,7 +6463,7 @@ interface ObjectConstructor {
     botAttackTrackLength: 1500,
     font: "PT Sans Caption"
   };
-  var _0x4b9315: string[] = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
+  var COLOR_PALETTE: string[] = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
   var assign4 = Object.assign;
   interface AssetContent {
     colors?: SkinColors;
@@ -6600,23 +6600,23 @@ interface ObjectConstructor {
     constructor(config: Config) {
       super("colors");
       this.config = config;
-      this.add(_0x4b9315);
+      this.add(COLOR_PALETTE);
     }
     add(colors: string[]) {
       const {
         config
       } = this;
       this.assets.push(...(colors || []).map((color: string) => {
-        const _0x1b3992 = hexToRgb(color);
-        const hsv = rgbToHsv(_0x1b3992);
-        const _0x468f36 = scaleValue(hsv, 0.75);
-        const back = hsvToHex(_0x468f36);
-        const _0x10a960 = scaleValue(hsv, 0.5);
-        const nick = hsvToHex(_0x10a960);
-        const _0x48b60f = brighten(hsv, 1.5);
-        const _0x53ef8a = hsvToHex(_0x48b60f);
-        const _0x4a4356 = brighten(hsv, 2);
-        const darkPlate = hsvToHex(_0x4a4356);
+        const rgb = hexToRgb(color);
+        const hsv = rgbToHsv(rgb);
+        const backHsv = scaleValue(hsv, 0.75);
+        const back = hsvToHex(backHsv);
+        const nickHsv = scaleValue(hsv, 0.5);
+        const nick = hsvToHex(nickHsv);
+        const plateHsv = brighten(hsv, 1.5);
+        const plate = hsvToHex(plateHsv);
+        const darkPlateHsv = brighten(hsv, 2);
+        const darkPlate = hsvToHex(darkPlateHsv);
         const colors = {
           main: color,
           back: back,
@@ -6758,7 +6758,7 @@ interface ObjectConstructor {
         delete this.usedBy[name];
       }
     }
-    getCitySkin(_0x5b0870?: string): Skin | undefined {
+    getCitySkin(name?: string): Skin | undefined {
       return undefined;
     }
   }
@@ -6785,7 +6785,7 @@ interface ObjectConstructor {
   var botNames = BOT_NAMES_TEXT.split("\n");
   var assign5 = Object.assign;
   console.log("Version: A6 2020-10-14T10:51:36.392Z");
-  const gameConfig = assign5(assign5({}, _0x30561b), {
+  const gameConfig = assign5(assign5({}, defaultConfig), {
     followKiller: true,
     selfKillDelay: 1000,
     enemyKillDelay: 2000

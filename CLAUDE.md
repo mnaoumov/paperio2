@@ -69,10 +69,12 @@ death and during the pre-game "prepare" phase.
     deps into `ts/dist/app2.js` (a self-contained browser IIFE, **behaviorally equivalent to
     `app2.js`** — verified: game boots, 16 units, 0 console errors). Typecheck: `npm run
     typecheck` (`tsc --noEmit`, 0 errors; lenient config, `strict:false`).
-  - Identifier state: the extracted preact/js-cookie internals carried their real upstream
-    names before extraction. The game engine's own identifiers — classes, functions, and
-    many locals — are named; deep, genuinely-ambiguous pass-through locals may still read as
-    `_0x…` (left rather than given an invented, possibly-misleading name).
+  - Identifier state: **fully de-obfuscated — zero `_0x…` / `callbackN` identifiers remain.**
+    The extracted preact/js-cookie internals carried their real upstream names; the game
+    engine's own classes, functions, methods, parameters, and locals were recovered to
+    meaningful names (a multi-agent pass inferred each from its usage, applied via scope-safe
+    ts-morph renaming and verified by a headless boot). A few module constants whose exact
+    label is not recoverable are named descriptively by role (e.g. `KILL_REASON_0..7`).
   - The one-time deobfuscation toolchain (custom Babel string-inliner → `webcrack` under
     Node 22/24 → strip → scope-aware renames) lives in the git-ignored `research/deob/` —
     see `research/deob/NOTES.md`. Off-the-shelf deobfuscators alone can't inline this file's
