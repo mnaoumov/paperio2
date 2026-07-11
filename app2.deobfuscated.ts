@@ -3368,7 +3368,6 @@ interface Function { __: any; contextType: any; }
     botGreedMin: number; botGreedMax: number; botSafetyMin: number; botSafetyMax: number;
     botAttackTrackLength: number; font: string;
   }
-  interface Language { [key: string]: string }
   // Declaration merge: SkinManager (defined later in the file, still `any`-typed by another
   // worker) is only missing these two members as far as `Game` is concerned. Merging adds them
   // without touching that class's body.
@@ -3506,9 +3505,9 @@ interface Function { __: any; contextType: any; }
     fpsSequence: number[];
     gameOverCallback: ((result: GameOverResult) => void) | null;
     isTest: boolean;
-    keyboard?: Vector | null;
+    keyboard?: PointerState | null;
     labels: TextParticle[];
-    language: Language;
+    language: LanguageStrings;
     last: number;
     leaderboard: Leaderboard | null;
     level: number;
@@ -3545,7 +3544,7 @@ interface Function { __: any; contextType: any; }
     updateParticlesId: number;
     view: HTMLCanvasElement;
     visible: boolean;
-    constructor(_0x43201e: Config, _0x44b6a3: HTMLCanvasElement, _0x22ed41: SpatialGrid, _0x3b6f5f: Border, _0x197641: SkinManager, _0x5f2749: ((result: GameOverResult) => void) | null, _0x2dd2b5: NamePool, _0x2bb7ad: Controller, _0x36c731: Language, _0xddccc9: SchemeCycler, _0x4246c8: AchievementStore, _0x2e733a: number) {
+    constructor(_0x43201e: Config, _0x44b6a3: HTMLCanvasElement, _0x22ed41: SpatialGrid, _0x3b6f5f: Border, _0x197641: SkinManager, _0x5f2749: ((result: GameOverResult) => void) | null, _0x2dd2b5: NamePool, _0x2bb7ad: Controller, _0x36c731: LanguageStrings, _0xddccc9: SchemeCycler, _0x4246c8: AchievementStore, _0x2e733a: number) {
       this.best = null;
       this.isTest = false;
       this.playerDeathCallback = null;
@@ -5403,7 +5402,7 @@ interface Function { __: any; contextType: any; }
     _0x119795.lineWidth = _0x22210a;
     _0x119795.stroke(_0x2a47f1);
   };
-  const callback52 = (_0x44fed2: CanvasRenderingContext2D, _0x2f469d: string, _0x3b505d: Trail, _0x32360d: Vector, _0x2aadea: number) => {
+  const callback52 = (_0x44fed2: CanvasRenderingContext2D, _0x2f469d: string | CanvasPattern, _0x3b505d: Trail, _0x32360d: Vector, _0x2aadea: number) => {
     if (_0x3b505d.polyline.segments.length) {
       _0x44fed2.lineWidth = _0x2aadea;
       _0x44fed2.strokeStyle = _0x2f469d;
@@ -6644,7 +6643,6 @@ interface Function { __: any; contextType: any; }
   type Ref<T> = {
     current: T;
   };
-  type ParticleColor = string | HTMLCanvasElement | HTMLImageElement;
   interface SkinColors {
     main: string;
     back: string;
@@ -7281,6 +7279,15 @@ interface Function { __: any; contextType: any; }
       }
       this.assets.push(_0x5aa709);
     }
+    removeAsset(_0x4b4cea: Asset) {
+      if (_0x4b4cea.content.display) {
+        this.container.remove(_0x4b4cea.content.display);
+      }
+      const _0x3f0d21 = this.assets.indexOf(_0x4b4cea);
+      if (_0x3f0d21 !== -1) {
+        this.assets.splice(_0x3f0d21, 1);
+      }
+    }
   }
   class Asset {
     content: AssetContent;
@@ -7523,7 +7530,9 @@ interface Function { __: any; contextType: any; }
         delete this.usedBy[_0x42dc05];
       }
     }
-    getCitySkin(_0x5b0870?: string): void {}
+    getCitySkin(_0x5b0870?: string): Skin | undefined {
+      return undefined;
+    }
   }
   class GameSkinManager extends SkinManager {
     constructor(_0x12b771: ImageAssetSet, _0x326bab: SvgAssetSet, _0xf7287f?: number) {
