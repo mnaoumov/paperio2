@@ -4658,31 +4658,96 @@ interface Function { __: any; contextType: any; }
       requestAnimationFrame((_0x56970d?: any) => this.loop());
     }
   }
+  interface Config {
+    arenaSize: number;
+    quadSize: number;
+    borderPoints: number;
+    prepareMult: number;
+    prepareBatchCount: number;
+    maxPreparingTime: number;
+    baseRadius: number;
+    baseCount: number;
+    minScale: number;
+    maxScale: number;
+    observerScale: number;
+    trackWidth: number;
+    unitSpeed: number;
+    spawnTimeout: number;
+    prepareCounter: number;
+    prepareAcceleration: number;
+    baseHeight: number;
+    botsCount: number;
+    botLevel: number;
+    startBotLevel: number;
+    noPlayerBotLevel: number;
+    nearPlayerBotSpawnCount: number;
+    followKiller: boolean;
+    selfKillDelay: number;
+    enemyKillDelay: number;
+    arenaColor: string;
+    borderColor: string;
+    backgroundTopColor: string;
+    backgroundBottomColor: string;
+    platesStrokeWidth: number;
+    botAggroMin: number;
+    botAggroMax: number;
+    botDefMin: number;
+    botDefMax: number;
+    botGreedMin: number;
+    botGreedMax: number;
+    botSafetyMin: number;
+    botSafetyMax: number;
+    botAttackTrackLength: number;
+    font: string;
+  }
   class KeyboardModeSwitch {
     mode2: boolean;
-    constructor(...args: any[]) {
+    constructor() {
       this.mode2 = false;
     }
-    get(...args: any[]) {
+    get(): boolean {
       return this.mode2;
     }
-    switch(...args: any[]) {}
+    switch(): void {}
+  }
+  interface PointerState {
+    x: number;
+    y: number;
+  }
+  interface MouseButtonsState {
+    left: boolean;
+    middle: boolean;
+    right: boolean;
+  }
+  interface ModifiersState {
+    shift: boolean;
+    ctrl: boolean;
+    alt: boolean;
+    meta: boolean;
+  }
+  interface KeyCodeHandler {
+    code: number;
+    handler: () => void;
+  }
+  interface KeyCodeSetHandler {
+    codes: number[];
+    handler: () => void;
   }
   class Controller {
-    buttons: any;
-    codes: any[];
-    dispose: any;
+    buttons: MouseButtonsState;
+    codes: KeyCodeHandler[];
+    dispose: () => void;
     down: boolean;
-    keyboardModeSwitch: any;
-    lastMouse: any;
+    keyboardModeSwitch: KeyboardModeSwitch | undefined;
+    lastMouse: PointerState | null;
     left: boolean;
-    modifiers: any;
-    mouse: any;
-    pressedButtons: any[];
+    modifiers: ModifiersState;
+    mouse: PointerState | null;
+    pressedButtons: number[];
     right: boolean;
-    sets: any[];
+    sets: KeyCodeSetHandler[];
     up: boolean;
-    constructor(element?: any, _0x59dd4f?: any) {
+    constructor(element: HTMLElement, _0x59dd4f?: KeyboardModeSwitch) {
       this.up = false;
       this.down = false;
       this.left = false;
@@ -4704,31 +4769,30 @@ interface Function { __: any; contextType: any; }
       this.sets = [];
       this.keyboardModeSwitch = _0x59dd4f;
       this.pressedButtons = [];
-      const _0x45f58d = (_0x18168e?: any) => this.onKeyChange(_0x18168e, true);
-      const _0x5b7c33 = (_0x11a6d8?: any) => this.onKeyChange(_0x11a6d8, false);
+      const _0x45f58d = (_0x18168e: KeyboardEvent) => this.onKeyChange(_0x18168e, true);
+      const _0x5b7c33 = (_0x11a6d8: KeyboardEvent) => this.onKeyChange(_0x11a6d8, false);
       if (_0x59dd4f) {
         _0x59dd4f.get();
         window.addEventListener("keydown", _0x45f58d, false);
         window.addEventListener("keyup", _0x5b7c33, false);
       }
-      const _0x285b73 = (event?: any) => event.preventDefault();
+      const _0x285b73 = (event: Event) => event.preventDefault();
       element.addEventListener("contextmenu", _0x285b73, false);
-      const _0x5aba7e = (_0x5d0f61?: any) => this.onMouseChange(_0x5d0f61, true);
-      const _0x48778e = (_0x2c9dbd?: any) => this.onMouseChange(_0x2c9dbd, false);
-      const _0x36c59b = (event?: any) => {
+      const _0x5aba7e = (_0x5d0f61: MouseEvent) => this.onMouseChange(_0x5d0f61, true);
+      const _0x48778e = (_0x2c9dbd: MouseEvent) => this.onMouseChange(_0x2c9dbd, false);
+      const _0x36c59b = (event: MouseEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const callback95 = (event?: any) => {
-        if (this.mouse === null) {
-          this.mouse = {};
-        }
-        this.mouse.x = event.pageX;
-        this.mouse.y = event.pageY;
+      const callback95 = (event: MouseEvent) => {
+        this.mouse = {
+          x: event.pageX,
+          y: event.pageY
+        };
         event.preventDefault();
       };
-      const _0x14f737 = (event?: any) => {
+      const _0x14f737 = (event: MouseEvent) => {
         callback95(event);
         const {
           buttons
@@ -4745,25 +4809,24 @@ interface Function { __: any; contextType: any; }
       element.addEventListener("mouseleave", _0x36c59b, false);
       element.addEventListener("mousedown", _0x5aba7e, false);
       element.addEventListener("mouseup", _0x48778e, false);
-      const _0x3f4b7e = (event?: any) => {
+      const _0x3f4b7e = (event: TouchEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const _0x137951 = (event?: any) => {
-        if (this.mouse === null) {
-          this.mouse = {};
-        }
+      const _0x137951 = (event: TouchEvent) => {
         const event2 = event.changedTouches[0];
-        this.mouse.x = event2.clientX;
-        this.mouse.y = event2.clientY;
+        this.mouse = {
+          x: event2.clientX,
+          y: event2.clientY
+        };
         event.preventDefault();
       };
       element.addEventListener("touchstart", _0x137951, false);
       element.addEventListener("touchmove", _0x137951, false);
       element.addEventListener("touchend", _0x3f4b7e, false);
       element.addEventListener("touchcancel", _0x3f4b7e, false);
-      this.dispose = (...args: any[]) => {
+      this.dispose = () => {
         element.removeEventListener("contextmenu", _0x285b73, false);
         if (_0x59dd4f) {
           window.removeEventListener("keydown", _0x45f58d, false);
@@ -4776,10 +4839,10 @@ interface Function { __: any; contextType: any; }
         element.removeEventListener("mouseup", _0x48778e, false);
       };
     }
-    pressed(...args: any[]) {
+    pressed(): boolean {
       return this.up || this.down || this.left || this.right;
     }
-    onKeyChange(event?: any, _0x3a848e?: any) {
+    onKeyChange(event: KeyboardEvent, _0x3a848e: boolean) {
       if (event.target === document.body) {
         let _0x10b4f0 = true;
         const {
@@ -4790,7 +4853,7 @@ interface Function { __: any; contextType: any; }
           if (_0x345f4b < 0) {
             this.pressedButtons.push(keyCode);
           }
-          const _0x571d90 = this.sets.find((_0xd14c24?: any) => _0xd14c24.codes.every((_0x71b23e?: any) => this.pressedButtons.find((_0x457bd4?: any) => _0x457bd4 === _0x71b23e)));
+          const _0x571d90 = this.sets.find((_0xd14c24: KeyCodeSetHandler) => _0xd14c24.codes.every((_0x71b23e: number) => this.pressedButtons.find((_0x457bd4: number) => _0x457bd4 === _0x71b23e)));
           if (_0x571d90) {
             _0x571d90.handler();
           }
@@ -4798,7 +4861,7 @@ interface Function { __: any; contextType: any; }
           if (_0x345f4b >= 0) {
             this.pressedButtons.splice(_0x345f4b, 1);
           }
-          const _0x46ae60 = this.codes.find((_0x43cfd2?: any) => _0x43cfd2.code === keyCode);
+          const _0x46ae60 = this.codes.find((_0x43cfd2: KeyCodeHandler) => _0x43cfd2.code === keyCode);
           if (_0x46ae60) {
             _0x46ae60.handler();
           }
@@ -4821,7 +4884,7 @@ interface Function { __: any; contextType: any; }
             this.right = _0x3a848e;
             break;
           case 67:
-            if (!_0x3a848e) {
+            if (!_0x3a848e && this.keyboardModeSwitch) {
               this.keyboardModeSwitch.switch();
             }
             break;
@@ -4838,7 +4901,7 @@ interface Function { __: any; contextType: any; }
         }
       }
     }
-    onMouseChange(event?: any, _0xfc9f32?: any) {
+    onMouseChange(event: MouseEvent, _0xfc9f32: boolean) {
       switch (event.button) {
         case 0:
           this.buttons.left = _0xfc9f32;
@@ -4851,13 +4914,13 @@ interface Function { __: any; contextType: any; }
           break;
       }
     }
-    addButton(_0x3af9c9?: any, _0x25ce8f?: any) {
+    addButton(_0x3af9c9: number, _0x25ce8f: () => void) {
       this.codes.push({
         code: _0x3af9c9,
         handler: _0x25ce8f
       });
     }
-    addSet(_0x24bcaa?: any, _0x4c1a93?: any) {
+    addSet(_0x24bcaa: number[], _0x4c1a93: () => void) {
       this.sets.push({
         codes: _0x24bcaa.sort(),
         handler: _0x4c1a93
@@ -4865,19 +4928,36 @@ interface Function { __: any; contextType: any; }
     }
   }
   var assign2 = Object.assign;
+  interface SkinLayerDescriptor {
+    url?: string;
+    src?: HTMLCanvasElement | HTMLImageElement;
+    level?: number;
+    scale?: number;
+    x?: number;
+    y?: number;
+    direction?: string;
+    rotation?: number;
+    pivot?: {
+      x?: number;
+      y?: number;
+    };
+  }
   class SkinLayer {
-    config: any;
+    config: Config;
     direction: string;
-    image: any;
+    image: HTMLCanvasElement | null;
     level: number;
-    pivot: any;
+    pivot: {
+      x: number;
+      y: number;
+    };
     rotation: number;
     scale: number;
-    src: any;
+    src: HTMLCanvasElement | HTMLImageElement | null;
     url: string;
     x: number;
     y: number;
-    constructor(_0x46ac87?: any, _0x3a27c4?: any, callback95?: any) {
+    constructor(config: Config, descriptor: SkinLayerDescriptor, callback95?: (skinLayer: SkinLayer) => void) {
       this.level = 0;
       this.scale = 1;
       this.x = 0;
@@ -4887,15 +4967,15 @@ interface Function { __: any; contextType: any; }
       this.url = "";
       this.src = null;
       this.image = null;
-      this.config = _0x46ac87;
-      Object.assign(this, _0x3a27c4);
+      this.config = config;
+      Object.assign(this, descriptor);
       this.pivot = Object.assign({
         x: 0.5,
         y: 0.5
-      }, _0x3a27c4.pivot);
+      }, descriptor.pivot);
       let _0x477016 = this.url ? callback40(this.url) : this.src ? Promise.resolve(this.src) : null;
       if (_0x477016) {
-        _0x477016.then((_0x2df485?: any) => {
+        _0x477016.then((_0x2df485: HTMLImageElement) => {
           this.src = _0x2df485;
           this.rescale(1);
           if (callback95) {
@@ -4904,15 +4984,18 @@ interface Function { __: any; contextType: any; }
         });
       }
     }
-    rescale(_0x2de62b?: any) {
+    rescale(_0x2de62b: number) {
       const {
         trackWidth,
         maxScale
       } = this.config;
       const _0x20f488 = trackWidth * maxScale;
       const src = this.src;
-      const _0x7c46da = src.naturalWidth || src.width;
-      const _0x5794f4 = src.naturalHeight || src.height;
+      if (!src) {
+        return;
+      }
+      const _0x7c46da = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
+      const _0x5794f4 = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
       const _0x2dc538 = _0x20f488 * _0x2de62b * this.scale / _0x7c46da;
       const _0x1c07b1 = ~~(_0x7c46da * _0x2dc538);
       const _0x306f8b = ~~(_0x5794f4 * _0x2dc538);
@@ -4922,27 +5005,35 @@ interface Function { __: any; contextType: any; }
       element.width = _0x1c07b1;
       element.height = _0x306f8b;
       const context = element.getContext("2d");
+      if (!context) {
+        return;
+      }
       context.scale(_0x20a4ae, _0x145a85);
       context.drawImage(src, 0, 0);
       this.image = element;
     }
   }
-  let _0x486b34;
+  let _0x486b34: SVGSVGElement | undefined;
+  interface PatternSource {
+    url?: string;
+    scale?: number;
+  }
   class PatternAsset {
-    pattern: any;
+    pattern: CanvasPattern | null;
     ready: boolean;
-    scale: any;
-    src: any;
-    url: any;
-    constructor(_0x28e464?: any, canvas?: any, _0x4c8ad3?: any, _0x591234: any = {}, callback95?: any) {
+    scale: number;
+    src: HTMLImageElement | null;
+    url: string;
+    constructor(config: Config, canvas: HTMLCanvasElement, _0x4c8ad3: string, _0x591234: PatternSource = {}, callback95?: () => void) {
       this.url = _0x4c8ad3 + _0x591234.url;
       this.scale = _0x591234.scale || 1;
       this.src = null;
       this.ready = false;
+      this.pattern = null;
       const {
         maxScale
-      } = _0x28e464;
-      callback40(this.url).then((spatialGrid2?: any) => {
+      } = config;
+      callback40(this.url).then((spatialGrid2: HTMLImageElement) => {
         this.src = spatialGrid2;
         const _0x2a57f3 = ~~(spatialGrid2.naturalWidth || spatialGrid2.width);
         const _0xd536fd = ~~(spatialGrid2.naturalHeight || spatialGrid2.height);
@@ -4958,14 +5049,22 @@ interface Function { __: any; contextType: any; }
         const element = document.createElement("canvas");
         element.width = _0x1e3321;
         element.height = _0x50e221;
-        element.getContext("2d").drawImage(spatialGrid2, 0, 0, _0x1e3321 + 1, _0x50e221 + 1);
-        this.pattern = canvas.getContext("2d").createPattern(element, "repeat");
+        const elementContext = element.getContext("2d");
+        if (!elementContext) {
+          return;
+        }
+        elementContext.drawImage(spatialGrid2, 0, 0, _0x1e3321 + 1, _0x50e221 + 1);
+        const canvasContext = canvas.getContext("2d");
+        if (!canvasContext) {
+          return;
+        }
+        this.pattern = canvasContext.createPattern(element, "repeat");
         const _0x3fc465 = 1 / maxScale;
         if (!_0x486b34) {
           _0x486b34 = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         }
         const _0x146217 = _0x486b34.createSVGMatrix().scale(_0x3fc465, _0x3fc465);
-        if (this.pattern.setTransform) {
+        if (this.pattern && this.pattern.setTransform) {
           this.pattern.setTransform(_0x146217);
         }
         this.ready = true;
@@ -4975,23 +5074,29 @@ interface Function { __: any; contextType: any; }
       });
     }
   }
+  interface AvatarDescriptor {
+    layers?: SkinLayerDescriptor[];
+    scale?: number;
+    x?: number;
+    y?: number;
+  }
   class Avatar {
-    backLayers: any;
-    frontLayers: any;
-    layers: any;
+    backLayers: SkinLayer[];
+    frontLayers: SkinLayer[];
+    layers: SkinLayer[];
     ready: boolean;
     scale: number;
     x: number;
     y: number;
-    constructor(_0x527bba?: any, _0x31671a?: any, _0x3b76ff?: any, callback95?: any) {
+    constructor(config: Config, _0x31671a: string, descriptor: AvatarDescriptor, callback95?: () => void) {
       this.layers = [];
       this.scale = 1;
       this.x = 0;
       this.y = 0;
       this.ready = false;
-      Object.assign(this, _0x3b76ff);
+      Object.assign(this, descriptor);
       let i2 = 0;
-      const _0x41860f = (_0x5c5381?: any) => {
+      const _0x41860f = (_0x5c5381: SkinLayer) => {
         _0x5c5381.rescale(this.scale);
         if (this.layers.length === ++i2) {
           this.ready = true;
@@ -5000,52 +5105,61 @@ interface Function { __: any; contextType: any; }
           }
         }
       };
-      this.layers = (this.layers || []).map((_0x1c9aca?: any) => new SkinLayer(_0x527bba, assign2(assign2({}, _0x1c9aca), {
+      const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers || [];
+      this.layers = layerDescriptors.map((_0x1c9aca: SkinLayerDescriptor) => new SkinLayer(config, assign2(assign2({}, _0x1c9aca), {
         url: _0x1c9aca.url && "" + _0x31671a + _0x1c9aca.url
       }), _0x41860f));
-      this.frontLayers = this.layers.filter((_0x3c6c45?: any) => _0x3c6c45.level >= 1).sort((_0x378c80?: any, _0x1e8d58?: any) => _0x378c80.level - _0x1e8d58.level);
-      this.backLayers = this.layers.filter((_0x402036?: any) => _0x402036.level < 1).sort((_0x559f43?: any, _0x398898?: any) => _0x398898.level - _0x559f43.level);
+      this.frontLayers = this.layers.filter((_0x3c6c45: SkinLayer) => _0x3c6c45.level >= 1).sort((_0x378c80: SkinLayer, _0x1e8d58: SkinLayer) => _0x378c80.level - _0x1e8d58.level);
+      this.backLayers = this.layers.filter((_0x402036: SkinLayer) => _0x402036.level < 1).sort((_0x559f43: SkinLayer, _0x398898: SkinLayer) => _0x398898.level - _0x559f43.level);
     }
   }
+  interface DisplayLayerEntry {
+    display: Avatar;
+    layer: SkinLayer;
+  }
   class DisplayList {
-    backLayers: any[];
-    displays: any[];
-    frontLayers: any[];
+    backLayers: DisplayLayerEntry[];
+    displays: Avatar[];
+    frontLayers: DisplayLayerEntry[];
     maxScale: number;
-    constructor(...args: any[]) {
+    constructor() {
       this.displays = [];
       this.frontLayers = [];
       this.backLayers = [];
       this.maxScale = 0;
     }
-    get ready() {
-      return this.displays.every((_0x1f7eaf?: any) => _0x1f7eaf.ready);
+    get ready(): boolean {
+      return this.displays.every((_0x1f7eaf: Avatar) => _0x1f7eaf.ready);
     }
-    sort(...args: any[]) {
-      this.frontLayers = [].concat(...this.displays.map((_0x50f5f0?: any) => _0x50f5f0.frontLayers.map((_0x34bb48?: any) => ({
+    sort(): void {
+      this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((_0x50f5f0: Avatar) => _0x50f5f0.frontLayers.map((_0x34bb48: SkinLayer) => ({
         display: _0x50f5f0,
         layer: _0x34bb48
-      })))).sort((_0x11c991?: any, _0x5f3e93?: any) => _0x11c991.layer.level - _0x5f3e93.layer.level);
-      this.backLayers = [].concat(...this.displays.map((_0xc4fd77?: any) => _0xc4fd77.backLayers.map((_0x306833?: any) => ({
+      })))).sort((_0x11c991: DisplayLayerEntry, _0x5f3e93: DisplayLayerEntry) => _0x11c991.layer.level - _0x5f3e93.layer.level);
+      this.backLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((_0xc4fd77: Avatar) => _0xc4fd77.backLayers.map((_0x306833: SkinLayer) => ({
         display: _0xc4fd77,
         layer: _0x306833
-      })))).sort((_0x3089ad?: any, _0x1a32af?: any) => _0x1a32af.layer.level - _0x3089ad.layer.level);
-      this.maxScale = Math.max(...this.frontLayers.map((_0x1c6448?: any) => _0x1c6448.display.scale * _0x1c6448.layer.scale));
+      })))).sort((_0x3089ad: DisplayLayerEntry, _0x1a32af: DisplayLayerEntry) => _0x1a32af.layer.level - _0x3089ad.layer.level);
+      this.maxScale = Math.max(...this.frontLayers.map((_0x1c6448: DisplayLayerEntry) => _0x1c6448.display.scale * _0x1c6448.layer.scale));
     }
-    add(_0x1bcc1a?: any) {
+    add(_0x1bcc1a: Avatar) {
       this.displays.push(_0x1bcc1a);
       this.sort();
     }
-    remove(_0x4625c7?: any) {
-      this.displays = this.displays.filter((_0x1363be?: any) => _0x1363be !== _0x4625c7);
+    remove(_0x4625c7: Avatar) {
+      this.displays = this.displays.filter((_0x1363be: Avatar) => _0x1363be !== _0x4625c7);
       this.sort();
     }
   }
-  let _0x2d02fe;
-  let _0x3ee25a;
-  let _0x5fb03a;
-  let _0x260d10;
-  const callback50 = (_0x49fd17?: any, spatialGrid2?: any, _0x4bf92c?: any, _0x505a64?: any) => {
+  let _0x2d02fe: CanvasGradient | undefined;
+  let _0x3ee25a: string | undefined;
+  let _0x5fb03a: string | undefined;
+  let _0x260d10: CanvasRenderingContext2D | undefined;
+  interface SizedGridLike {
+    width: number;
+    height: number;
+  }
+  const callback50 = (_0x49fd17: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, _0x4bf92c: string, _0x505a64: string): CanvasGradient | undefined => {
     if (_0x260d10 !== _0x49fd17 || _0x3ee25a !== _0x4bf92c || _0x5fb03a !== _0x505a64) {
       _0x2d02fe = _0x49fd17.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
       _0x2d02fe.addColorStop(0, _0x4bf92c);
@@ -5053,19 +5167,19 @@ interface Function { __: any; contextType: any; }
     }
     return _0x2d02fe;
   };
-  const callback51 = (_0x119795?: any, _0x2a47f1?: any, _0x5ec4ac?: any, _0x22210a?: any) => {
+  const callback51 = (_0x119795: CanvasRenderingContext2D, _0x2a47f1: Path2D, _0x5ec4ac: string, _0x22210a: number) => {
     _0x119795.strokeStyle = _0x5ec4ac;
     _0x119795.lineWidth = _0x22210a;
     _0x119795.stroke(_0x2a47f1);
   };
-  const callback52 = (_0x44fed2?: any, _0x2f469d?: any, _0x3b505d?: any, _0x32360d?: any, _0x2aadea?: any) => {
+  const callback52 = (_0x44fed2: CanvasRenderingContext2D, _0x2f469d: string, _0x3b505d: Trail, _0x32360d: Vector, _0x2aadea: number) => {
     if (_0x3b505d.polyline.segments.length) {
       _0x44fed2.lineWidth = _0x2aadea;
       _0x44fed2.strokeStyle = _0x2f469d;
       _0x44fed2.stroke(_0x3b505d.polyline.path);
     }
   };
-  const callback53 = (_0x5cefb0?: any, unit?: any, _0x368644?: any, _0x3483c0?: any, _0x387563?: any) => {
+  const callback53 = (_0x5cefb0: CanvasRenderingContext2D, unit: Unit, _0x368644: number, _0x3483c0: number, _0x387563: string) => {
     const {
       devicePixelRatio
     } = window;
@@ -5097,7 +5211,7 @@ interface Function { __: any; contextType: any; }
     _0x5cefb0.fillStyle = _0x5b98dc;
     _0x5cefb0.fillText(name, 2, _0x44a8ff + 2);
     let _0xdb172b = "#dddddd";
-    const _0x55554a = unit.skin.assets.find((_0x3d0f3d?: any) => _0x3d0f3d.pool.name === "shields");
+    const _0x55554a = unit.skin.assets.find((_0x3d0f3d: Asset) => _0x3d0f3d.pool.name === "shields");
     if (_0x55554a) {
       _0xdb172b = _0x55554a.content.color;
     }
@@ -5107,7 +5221,7 @@ interface Function { __: any; contextType: any; }
     _0x5cefb0.fillText(name, 0, _0x44a8ff);
     _0x5cefb0.restore();
   };
-  const callback54 = (...args: any[]) => {
+  const callback54 = () => {
     const path2D = new Path2D();
     const _0x488f86 = 5;
     path2D.moveTo(_0x488f86 * -3, _0x488f86 * -3);
@@ -5121,7 +5235,7 @@ interface Function { __: any; contextType: any; }
     return path2D;
   };
   const _0x4f7610 = callback54();
-  const callback55 = (_0x42bc0c?: any, _0x1900f2?: any, _0x11987d?: any, _0x1b10c2?: any) => {
+  const callback55 = (_0x42bc0c: CanvasRenderingContext2D, _0x1900f2: Unit, _0x11987d: number, _0x1b10c2: number) => {
     const {
       devicePixelRatio
     } = window;
@@ -5142,7 +5256,7 @@ interface Function { __: any; contextType: any; }
     _0x42bc0c.stroke(_0x4f7610);
     _0x42bc0c.restore();
   };
-  const callback56 = (...args: any[]) => {
+  const callback56 = () => {
     const path2D = new Path2D();
     const _0x325770 = 1.6;
     path2D.moveTo(_0x325770 * 0, _0x325770 * -7);
@@ -5170,7 +5284,7 @@ interface Function { __: any; contextType: any; }
     return path2D;
   };
   const _0x15282d = callback56();
-  const callback57 = (_0x13722c?: any, _0x101e7f?: any, _0x11b8fa?: any, _0x438e5d?: any) => {
+  const callback57 = (_0x13722c: CanvasRenderingContext2D, _0x101e7f: number, _0x11b8fa: number, _0x438e5d: number) => {
     _0x13722c.save();
     _0x13722c.fillStyle = "#ffffffcc";
     _0x13722c.translate(_0x101e7f, _0x11b8fa);
@@ -5178,13 +5292,19 @@ interface Function { __: any; contextType: any; }
     _0x13722c.fill(_0x15282d);
     _0x13722c.restore();
   };
-  const callback58 = (_0x372d3a?: any, _0x308c06?: any, unit?: any, skinLayer?: any, skinLayer2?: any) => {
+  interface AvatarBearer {
+    position: Vector;
+    skin: Skin;
+    direction?: number;
+    target?: Vector | null;
+  }
+  const callback58 = (_0x372d3a: Config, _0x308c06: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer) => {
     const {
       trackWidth
     } = _0x372d3a;
     if (skinLayer2.image) {
-      const _0x17dacd = skinLayer2.image.naturalWidth || skinLayer2.image.width;
-      const _0x38be58 = skinLayer2.image.naturalHeight || skinLayer2.image.height;
+      const _0x17dacd = skinLayer2.image.width;
+      const _0x38be58 = skinLayer2.image.height;
       const _0x249d7a = trackWidth * skinLayer.scale * skinLayer2.scale / _0x17dacd;
       _0x308c06.save();
       _0x308c06.translate(unit.position.x, unit.position.y - _0x372d3a.baseHeight * skinLayer2.level);
@@ -5211,11 +5331,11 @@ interface Function { __: any; contextType: any; }
       _0x308c06.restore();
     }
   };
-  const callback59 = (_0x43261e?: any, _0x406770?: any, _0x23533f?: any, avatar?: any, _0x453a0b?: any) => {
+  const callback59 = (_0x43261e: Config, _0x406770: CanvasRenderingContext2D, _0x23533f: AvatarBearer, avatar: DisplayList, _0x453a0b: boolean) => {
     const list4 = _0x453a0b ? avatar.frontLayers : avatar.backLayers;
-    list4.forEach((_0x1d609b?: any) => callback58(_0x43261e, _0x406770, _0x23533f, _0x1d609b.display, _0x1d609b.layer));
+    list4.forEach((_0x1d609b: DisplayLayerEntry) => callback58(_0x43261e, _0x406770, _0x23533f, _0x1d609b.display, _0x1d609b.layer));
   };
-  const callback60 = (_0x2a37fc?: any, _0x579e56?: any, _0x133664?: any, _0x1f63be?: any, _0x4f556f?: any, _0x4e5701?: any, _0x2c42ca?: any) => {
+  const callback60 = (_0x2a37fc: CanvasRenderingContext2D, _0x579e56: number, _0x133664: number, _0x1f63be: number, _0x4f556f: number, _0x4e5701: [number, number, number, number], _0x2c42ca?: number) => {
     const [_0x41b7d4, _0x112984, _0x584a53, _0x1da05d] = _0x4e5701;
     _0x2a37fc.beginPath();
     _0x2a37fc.moveTo(_0x579e56 + _0x41b7d4, _0x133664);
@@ -5235,11 +5355,45 @@ interface Function { __: any; contextType: any; }
       _0x2a37fc.stroke();
     }
   };
-  const callback61 = (_0x1b3b11?: any, _0x320560?: any, _0xee4d43?: any) => {
+  const callback61 = (_0x1b3b11: CanvasRenderingContext2D, _0x320560: Path2D, _0xee4d43: string | CanvasPattern) => {
     _0x1b3b11.fillStyle = _0xee4d43;
     _0x1b3b11.fill(_0x320560);
   };
-  const callback62 = (_0x31b46f?: any) => {
+  interface Bounds {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }
+  interface HasBounds {
+    bounds: Bounds;
+  }
+  interface RenderContext {
+    game: Game;
+    view: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D;
+    viewWidth: number;
+    viewHeight: number;
+    devicePixelRatio: number;
+    scaler: number;
+    scale: number;
+    origin: Vector;
+    pointInView: (point: Vector, padding?: number) => boolean;
+    boundsInView: (target: HasBounds, padding?: number) => boolean;
+    calcMult: (a: number, b: number) => number;
+    viewScreenWidth: number;
+    viewScreenHeight: number;
+    fontSize: number;
+    strokeWidth: number;
+    backHeight: number;
+    uiFont: string;
+    padding: number;
+    barHeight: number;
+    halfBarHeight: number;
+    barWidth: number;
+    halfBarWidth: number;
+  }
+  const callback62 = (_0x31b46f: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5248,13 +5402,13 @@ interface Function { __: any; contextType: any; }
     const {
       trackWidth
     } = game.config;
-    game.units.forEach((unit?: any) => {
+    game.units.forEach((unit: Unit) => {
       if (boundsInView(unit.base.polygon, trackWidth) || game.debugView) {
         callback61(ctx, unit.base.polygon.path, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main);
       }
     });
   };
-  const callback63 = (_0x2a64c3?: any) => {
+  const callback63 = (_0x2a64c3: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5266,7 +5420,7 @@ interface Function { __: any; contextType: any; }
     ctx.save();
     ctx.lineCap = "round";
     ctx.globalCompositeOperation = "destination-out";
-    game.units.forEach((unit?: any) => {
+    game.units.forEach((unit: Unit) => {
       const {
         start
       } = unit.track.polyline;
@@ -5283,7 +5437,7 @@ interface Function { __: any; contextType: any; }
     });
     ctx.restore();
   };
-  const callback64 = (_0x2d1858?: any) => {
+  const callback64 = (_0x2d1858: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5292,13 +5446,13 @@ interface Function { __: any; contextType: any; }
     const {
       trackWidth
     } = game.config;
-    game.units.forEach((city?: any) => {
+    game.units.forEach((city: Unit) => {
       if (pointInView(city.position, trackWidth * 4)) {
         callback59(game.config, ctx, city, city.skin.container, true);
       }
     });
   };
-  const callback65 = (_0x4c7858?: any) => {
+  const callback65 = (_0x4c7858: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5310,13 +5464,13 @@ interface Function { __: any; contextType: any; }
       trackWidth,
       font
     } = game.config;
-    game.units.forEach((_0x14c7b6?: any) => {
+    game.units.forEach((_0x14c7b6: Unit) => {
       if (pointInView(_0x14c7b6.position, trackWidth * 20) || game.debugView) {
         callback53(ctx, _0x14c7b6, scale, scaler, font);
       }
     });
   };
-  const callback66 = (_0x185369?: any) => {
+  const callback66 = (_0x185369: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5325,13 +5479,13 @@ interface Function { __: any; contextType: any; }
     const {
       trackWidth
     } = game.config;
-    game.units.forEach((city?: any) => {
+    game.units.forEach((city: Unit) => {
       if (pointInView(city.position, trackWidth * 4)) {
         callback59(game.config, ctx, city, city.skin.container, false);
       }
     });
   };
-  const callback67 = (_0x1cb993?: any) => {
+  const callback67 = (_0x1cb993: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5343,7 +5497,7 @@ interface Function { __: any; contextType: any; }
     ctx.save();
     ctx.lineCap = "round";
     ctx.globalAlpha = 0.6;
-    game.units.forEach((unit?: any) => {
+    game.units.forEach((unit: Unit) => {
       if (unit.in !== unit.base) {
         if (boundsInView(unit.track.polyline, trackWidth)) {
           callback52(ctx, game.tailRecovered && unit == game.player ? "#f00" : unit.skin.colors.main, unit.track, unit.position, trackWidth);
@@ -5352,7 +5506,7 @@ interface Function { __: any; contextType: any; }
     });
     ctx.restore();
   };
-  const callback68 = (_0x5cc45b?: any) => {
+  const callback68 = (_0x5cc45b: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5361,13 +5515,13 @@ interface Function { __: any; contextType: any; }
     const {
       trackWidth
     } = game.config;
-    game.units.forEach((unit?: any) => {
+    game.units.forEach((unit: Unit) => {
       if (boundsInView(unit.base.polygon, trackWidth)) {
         callback61(ctx, unit.base.polygon.path, unit.skin.colors.back);
       }
     });
   };
-  const callback69 = (_0x4ee22c?: any) => {
+  const callback69 = (_0x4ee22c: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5385,10 +5539,13 @@ interface Function { __: any; contextType: any; }
     ctx.translate(0, baseHeight * 3);
     callback61(ctx, game.border.polygon.path, borderColor);
     ctx.translate(0, baseHeight * -3);
-    ctx.fillStyle = callback50(ctx, game.space, backgroundTopColor, backgroundBottomColor);
+    const backgroundGradient = callback50(ctx, game.space, backgroundTopColor, backgroundBottomColor);
+    if (backgroundGradient) {
+      ctx.fillStyle = backgroundGradient;
+    }
     ctx.fillRect(viewScreenWidth / -2, viewScreenHeight / -2, game.space.width + viewScreenWidth, game.space.height + viewScreenHeight);
   };
-  const callback70 = (_0x39ac62?: any) => {
+  const callback70 = (_0x39ac62: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5398,10 +5555,10 @@ interface Function { __: any; contextType: any; }
       trackWidth
     } = game.config;
     ctx.save();
-    game.particles.forEach((particle?: any) => particle.time > 0 && pointInView(particle.position, trackWidth) && particle.draw(ctx));
+    game.particles.forEach((particle: Particle) => particle.time > 0 && pointInView(particle.position, trackWidth) && particle.draw(ctx));
     ctx.restore();
   };
-  const callback71 = (_0x37f67c?: any) => {
+  const callback71 = (_0x37f67c: RenderContext) => {
     const {
       game: _0x5c7f96,
       ctx,
@@ -5412,10 +5569,10 @@ interface Function { __: any; contextType: any; }
       font
     } = _0x5c7f96.config;
     ctx.scale(1 / scale, 1 / scale);
-    _0x5c7f96.labels.forEach((_0x2c8f54?: any) => _0x2c8f54.draw(ctx, font, scale, scaler));
+    _0x5c7f96.labels.forEach((_0x2c8f54: TextParticle) => _0x2c8f54.draw(ctx, font, scale, scaler));
     ctx.scale(scale, scale);
   };
-  const callback72 = (_0x4ca7e3?: any) => {
+  const callback72 = (_0x4ca7e3: RenderContext) => {
     const {
       game: _0x2f39aa,
       ctx,
@@ -5427,7 +5584,7 @@ interface Function { __: any; contextType: any; }
       callback55(ctx, _0x16762d, scale, scaler);
     }
   };
-  const callback73 = (_0x4757de?: any) => {
+  const callback73 = (_0x4757de: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5446,16 +5603,16 @@ interface Function { __: any; contextType: any; }
     callback61(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
     callback51(ctx, game.player.base.polygon.path, game.player.skin.colors.back, _0x32d074 / 2);
     callback52(ctx, game.player.skin.colors.back, game.player.track, game.player.position, _0x32d074 / 2);
-    const _0x39f846 = game.units.some((_0x1405a7?: any) => !game.isPlayer(_0x1405a7) && _0x1405a7.in === game.player.base) ? "#ff0000" : "#00000099";
+    const _0x39f846 = game.units.some((_0x1405a7: Unit) => !game.isPlayer(_0x1405a7) && _0x1405a7.in === game.player.base) ? "#ff0000" : "#00000099";
     callback51(ctx, game.border.polygon.path, _0x39f846, _0x32d074);
     ctx.beginPath();
     ctx.arc(game.player.position.x, game.player.position.y, _0x32d074, 0, Math.PI * 2);
     ctx.fillStyle = game.player.skin.colors.nick;
     ctx.fill();
-    const _0x29633a = game.player.skin.assets.find((_0x381faa?: any) => _0x381faa.pool && _0x381faa.pool.name === "flags");
+    const _0x29633a = game.player.skin.assets.find((_0x381faa: Asset) => _0x381faa.pool && _0x381faa.pool.name === "flags");
     const spatialGrid2 = _0x29633a && _0x29633a.content.roundedFlag;
     if (spatialGrid2 && game.player.cities) {
-      game.player.cities.forEach((_0x30d699?: any) => {
+      game.player.cities.forEach((_0x30d699: City) => {
         ctx.save();
         ctx.translate(_0x30d699.position.x, _0x30d699.position.y);
         ctx.scale(2, 2);
@@ -5465,9 +5622,9 @@ interface Function { __: any; contextType: any; }
     }
     ctx.restore();
   };
-  let spatialGrid;
-  window.addEventListener("resize", (...args: any[]) => spatialGrid = null, false);
-  const callback74 = (_0x2af210?: any) => {
+  let spatialGrid: HTMLCanvasElement | null = null;
+  window.addEventListener("resize", () => spatialGrid = null, false);
+  const callback74 = (_0x2af210: RenderContext) => {
     let {
       ctx,
       devicePixelRatio
@@ -5480,19 +5637,21 @@ interface Function { __: any; contextType: any; }
     if (_0x2af210.game.topListChanged) {
       _0x2af210.game.topListChanged = false;
       let context = spatialGrid.getContext("2d");
-      context.save();
-      context.clearRect(0, 0, spatialGrid.width, spatialGrid.height);
-      context.translate(-ctx.canvas.width + spatialGrid.width, 0);
-      context.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
-      callback75(context, _0x2af210);
-      context.restore();
+      if (context) {
+        context.save();
+        context.clearRect(0, 0, spatialGrid.width, spatialGrid.height);
+        context.translate(-ctx.canvas.width + spatialGrid.width, 0);
+        context.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
+        callback75(context, _0x2af210);
+        context.restore();
+      }
     }
     ctx.save();
     ctx.resetTransform();
     ctx.drawImage(spatialGrid, ctx.canvas.width - spatialGrid.width, 0);
     ctx.restore();
   };
-  const callback75 = (_0x3d450a?: any, _0x3807c4?: any) => {
+  const callback75 = (_0x3d450a: CanvasRenderingContext2D, _0x3807c4: RenderContext) => {
     const {
       game: game,
       viewScreenWidth,
@@ -5505,8 +5664,8 @@ interface Function { __: any; contextType: any; }
       strokeWidth,
       uiFont
     } = _0x3807c4;
-    let _0x1d74ae;
-    const callback95 = (unit?: any, _0x5a6511?: any, _0x58801d?: any, _0x315846?: any) => {
+    let _0x1d74ae: number | undefined;
+    const callback95 = (unit: Unit, _0x5a6511: number, _0x58801d: number, _0x315846: number) => {
       const _0x44c9e3 = padding + _0x58801d * (barHeight * 1.3);
       const _0x6268cd = unit.schemes.scores();
       let _0xfb2cb = halfBarWidth * (_0x6268cd / _0x315846);
@@ -5516,14 +5675,14 @@ interface Function { __: any; contextType: any; }
       _0x1d74ae = _0xfb2cb;
       const _0x3e1956 = halfBarWidth + _0xfb2cb;
       let _0x230083 = viewScreenWidth - _0x3e1956;
-      const _0x1d053a: any[] = [halfBarHeight, 0, 0, halfBarHeight];
+      const _0x1d053a: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
       _0x3d450a.fillStyle = "#00000022";
       callback60(_0x3d450a, _0x230083 + backHeight, _0x44c9e3 + backHeight * 3, barWidth, barHeight, _0x1d053a);
       _0x3d450a.fillStyle = unit.skin.colors.back;
       callback60(_0x3d450a, _0x230083, _0x44c9e3 + backHeight, barWidth, barHeight, _0x1d053a, strokeWidth);
       _0x3d450a.fillStyle = unit.skin.colors.main;
       callback60(_0x3d450a, _0x230083, _0x44c9e3, barWidth, barHeight, _0x1d053a, strokeWidth);
-      const _0x4687a1 = unit.skin.assets.find((_0x3ae0b9?: any) => _0x3ae0b9.pool && _0x3ae0b9.pool.name === "flags");
+      const _0x4687a1 = unit.skin.assets.find((_0x3ae0b9: Asset) => _0x3ae0b9.pool && _0x3ae0b9.pool.name === "flags");
       const _0x419338 = _0x4687a1 && _0x4687a1.content.roundedFlag;
       if (_0x419338) {
         const _0x35878d = barHeight * 0.8;
@@ -5555,11 +5714,11 @@ interface Function { __: any; contextType: any; }
       }
     }
     if (!_0xdb840e && game.player && !game.player.death) {
-      const _0x4cb172 = game.units.findIndex((_0x57bc8d?: any) => game.isPlayer(_0x57bc8d));
+      const _0x4cb172 = game.units.findIndex((_0x57bc8d: Unit) => game.isPlayer(_0x57bc8d));
       callback95(game.player, _0x4cb172 + 1, 6, _0x1a5fbd);
     }
   };
-  const callback76 = (_0x210ba7?: any) => {
+  const callback76 = (_0x210ba7: RenderContext) => {
     const {
       game: _0x59d5c0,
       ctx,
@@ -5588,7 +5747,7 @@ interface Function { __: any; contextType: any; }
     ctx.textBaseline = "middle";
     ctx.fillText(player.schemes.print(), halfBarHeight, padding + halfBarHeight * 1.1);
   };
-  const callback77 = (_0x375967?: any) => {
+  const callback77 = (_0x375967: RenderContext) => {
     const {
       game: game,
       ctx,
@@ -5604,7 +5763,7 @@ interface Function { __: any; contextType: any; }
     ctx.fillStyle = "#00000066";
     ctx.fillText(_0x2dad2d, padding / 2, padding + barHeight + backHeight + padding / 2);
   };
-  const callback78 = (_0x56620e?: any) => {
+  const callback78 = (_0x56620e: RenderContext) => {
     const {
       game: _0x27f463,
       ctx,
@@ -5627,7 +5786,7 @@ interface Function { __: any; contextType: any; }
     ctx.fillStyle = "#ffffffcc";
     ctx.fillText(_0x5399bc, barHeight * 1.25, _0x32c2d5 + halfBarHeight + barHeight * 0.03);
   };
-  const callback79 = (_0x40826b?: any) => {
+  const callback79 = (_0x40826b: RenderContext) => {
     const {
       game: _0x3c8895,
       ctx,
@@ -5676,7 +5835,7 @@ interface Function { __: any; contextType: any; }
       }
     }
   };
-  function _0x594216(game?: any) {
+  function _0x594216(game: Game) {
     const _0x44f555 = game.getRenderContext();
     if (!_0x44f555) {
       return;
@@ -5731,23 +5890,32 @@ interface Function { __: any; contextType: any; }
       callback80(game);
     }
   }
-  function callback80(game?: any) {
+  interface Metric {
+    updateTime: number;
+    renderTime: number;
+    frameTime: number;
+    events: {
+      returns: number;
+      kills: number;
+    };
+  }
+  function callback80(game: Game) {
     const {
       view
     } = game;
     if (!view) {
       return;
     }
-    const {
-      font
-    } = game.config;
     const context = view.getContext("2d");
+    if (!context) {
+      return;
+    }
     context.fillStyle = "#000000";
     context.strokeStyle = "#ffffff";
     context.textAlign = "left";
     context.textBaseline = "top";
     let _0x491973 = game.quality * 160;
-    const callback95 = (_0x520648: any = "", _0xc64be1: any = 0) => {
+    const callback95 = (_0x520648: string = "", _0xc64be1: number = 0) => {
       if (_0x520648) {
         context.strokeText(_0x520648, 10 + _0xc64be1 * 20, _0x491973);
         context.fillText(_0x520648, 10 + _0xc64be1 * 20, _0x491973);
@@ -5781,7 +5949,7 @@ interface Function { __: any; contextType: any; }
       const path2D4 = new Path2D();
       path2D4.moveTo(0, 0);
       let _0x3c276f = 16.67;
-      game.metrics.forEach((_0x104637?: any) => {
+      game.metrics.forEach((_0x104637: Metric) => {
         _0x3c276f = Math.max(_0x3c276f, _0x104637.frameTime);
       });
       _0x3c276f *= 1.1;
@@ -5791,7 +5959,7 @@ interface Function { __: any; contextType: any; }
       context.translate((view.width - _0x1d8eca) / 2, _0x17818e);
       context.fillStyle = "#00000033";
       context.fillRect(0, -_0x17818e, _0x1d8eca, _0x17818e);
-      game.metrics.forEach((_0x2b2ec8?: any, _0x5b33aa?: any) => {
+      game.metrics.forEach((_0x2b2ec8: Metric, _0x5b33aa: number) => {
         path2D.lineTo(_0x5baa4d * _0x5b33aa, -_0x2b2ec8.updateTime * _0x80f60e);
         path2D2.lineTo(_0x5baa4d * _0x5b33aa, -_0x2b2ec8.renderTime * _0x80f60e);
         path2D4.lineTo(_0x5baa4d * _0x5b33aa, -(_0x2b2ec8.updateTime + _0x2b2ec8.renderTime) * _0x80f60e);
@@ -5814,7 +5982,7 @@ interface Function { __: any; contextType: any; }
       context.strokeStyle = "#0000ffcc";
       context.stroke(path2D3);
       context.lineWidth = 0.5;
-      game.metrics.forEach((_0x56ba10?: any, _0x3feb5f?: any) => {
+      game.metrics.forEach((_0x56ba10: Metric, _0x3feb5f: number) => {
         const {
           returns,
           kills
@@ -5834,7 +6002,30 @@ interface Function { __: any; contextType: any; }
       context.restore();
     }
   }
-  var _0x47dace = {
+  interface LanguageStrings {
+    yourScore: string;
+    bestScore: string;
+    newText: string;
+    timePlayed: string;
+    playersKilled: string;
+    playAgain: string;
+    menu: string;
+    messages: string[];
+    nosupport: string;
+    btnPlay: string;
+    placeholderText: string;
+    defaultPlayerName: string;
+    bestTxt: string;
+    killText: string;
+    btnContinue: string;
+    extraLife: string;
+    btnSelect: string;
+  }
+  interface Language {
+    name: string;
+    lng: LanguageStrings;
+  }
+  var _0x47dace: Language = {
     name: "ru",
     lng: {
       yourScore: "ВАШ РЕЗУЛЬТАТ",
@@ -5856,10 +6047,24 @@ interface Function { __: any; contextType: any; }
       btnSelect: "ВЫБРАТЬ"
     }
   };
-  const callback81 = (_0x25e808?: any, _0x51cd14?: any, callback95?: any, _0x41c953?: any, _0x2475cf?: any, _0x253662?: any) => {
-    let gameApi: any = {};
+  interface GameResults {
+    newBest: boolean;
+    score: number;
+    time: number;
+    kills: number;
+  }
+  interface GameApi {
+    create: (view: HTMLCanvasElement) => void;
+    preparing: boolean;
+    prepare: (callback97?: () => void) => void;
+    start: (_0x726413?: string, _0xca7aa0?: string, _0x441c23?: number, _0x190f9e?: (results: GameResults) => void, _0x3e0e26?: number) => void;
+    game: Game;
+    startGame?: () => void;
+  }
+  const callback81 = (_0x25e808: Config, _0x51cd14: Language, callback95: (config: Config, view: HTMLCanvasElement) => GameSkinManager, _0x41c953: NamePool, _0x2475cf: SchemeCycler, _0x253662: AchievementStore): GameApi | null => {
+    let gameApi = {} as GameApi;
     if (Path2D) {
-      gameApi.create = (_0x2702b4?: any) => {
+      gameApi.create = (_0x2702b4: HTMLCanvasElement) => {
         const {
           arenaSize,
           quadSize,
@@ -5875,17 +6080,17 @@ interface Function { __: any; contextType: any; }
         _0x412f0f.game = game;
         game.renderer = _0x594216;
         gameApi.game = game;
-        game.controller.addSet([16, 18, 81, 66, 77], (...args: any[]) => {
+        game.controller.addSet([16, 18, 81, 66, 77], () => {
           game.debug = !game.debug;
         });
-        game.controller.addButton(71, (...args: any[]) => {
+        game.controller.addButton(71, () => {
           game.debugGraph = !game.debugGraph;
         });
       };
       gameApi.preparing = true;
       let i2 = 0;
-      let _0x1e248a;
-      const callback96 = (...args: any[]) => {
+      let _0x1e248a: number | undefined;
+      const callback96 = () => {
         const {
           prepareMult
         } = _0x25e808;
@@ -5897,11 +6102,11 @@ interface Function { __: any; contextType: any; }
           i2++;
         }
       };
-      gameApi.prepare = (callback97?: any) => {
+      gameApi.prepare = (callback97?: () => void) => {
         const {
           game: gameApi2
         } = gameApi;
-        _0x1e248a = setInterval((...args: any[]) => {
+        _0x1e248a = setInterval(() => {
           if (_0x41c953.aviable()) {
             callback96();
             if (i2 > _0x25e808.prepareCounter) {
@@ -5918,7 +6123,7 @@ interface Function { __: any; contextType: any; }
           }
         }, 0);
       };
-      gameApi.start = (_0x726413?: any, _0xca7aa0?: any, _0x441c23?: any, _0x190f9e?: any, _0x3e0e26?: any) => {
+      gameApi.start = (_0x726413?: string, _0xca7aa0?: string, _0x441c23?: number, _0x190f9e?: (results: GameResults) => void, _0x3e0e26?: number) => {
         const game = gameApi.game;
         if (gameApi.preparing) {
           clearInterval(_0x1e248a);
@@ -5949,21 +6154,60 @@ interface Function { __: any; contextType: any; }
         }
         window.focus();
       };
+      return gameApi;
     } else {
-      gameApi = null;
+      return null;
     }
-    return gameApi;
   };
-  var _0x4214bf;
-  var _0x336185;
-  var _0x5146fe;
+  type Dispatch<T> = (action: T | ((prevState: T) => T)) => void;
+  interface PreactContextProvider {
+    sub: (component: PreactComponent) => void;
+    props: {
+      value: object;
+    };
+  }
+  interface PreactContextMap {
+    [contextId: string]: PreactContextProvider | undefined;
+  }
+  interface PreactComponent {
+    __H?: HooksContainer;
+    __h?: HookSlot[];
+    __P?: object;
+    __v?: object;
+    context: PreactContextMap;
+    setState: (state: object) => void;
+  }
+  interface PreactContext<T = object> {
+    __c: string;
+    __: T;
+  }
+  interface HookSlot {
+    t?: (state: object, action: object) => object;
+    __?: object | boolean;
+    __c?: PreactComponent | PreactContext;
+    __H?: object[];
+    __h?: () => object;
+    u?: void | (() => void);
+  }
+  interface HooksContainer {
+    __: HookSlot[];
+    __h: HookSlot[];
+  }
+  interface PreactVNode {
+    __c: PreactComponent;
+    __v?: object;
+    __P?: object;
+  }
+  var _0x4214bf: number;
+  var _0x336185: PreactComponent | undefined;
+  var _0x5146fe: ((callback: () => void) => void) | undefined;
   var _0x45ddd0 = 0;
-  var list2: any[] = [];
-  var __r = preactOptions.__r;
-  var diffed = preactOptions.diffed;
-  var __c = preactOptions.__c;
-  var unmount = preactOptions.unmount;
-  function callback82(_0x5bec12?: any, _0x375caa?: any) {
+  var list2: PreactComponent[] = [];
+  var __r: ((vnode: PreactVNode) => void) | undefined = preactOptions.__r;
+  var diffed: ((vnode: PreactVNode) => void) | undefined = preactOptions.diffed;
+  var __c: ((vnode: PreactVNode, commitQueue: PreactComponent[]) => void) | undefined = preactOptions.__c;
+  var unmount: ((vnode: PreactVNode) => void) | undefined = preactOptions.unmount;
+  function callback82(_0x5bec12: number, _0x375caa: number): HookSlot {
     if (preactOptions.__h) {
       preactOptions.__h(_0x336185, _0x5bec12, _0x45ddd0 || _0x375caa);
     }
@@ -5977,26 +6221,32 @@ interface Function { __: any; contextType: any; }
     }
     return _0x5d4bf0.__[_0x5bec12];
   }
-  function callback83(_0x179f26?: any) {
+  function callback83<T>(_0x179f26: T | (() => T)): [T, Dispatch<T>] {
     _0x45ddd0 = 1;
     return callback84(callback91, _0x179f26);
   }
-  function callback84(_0x268a16?: any, _0x77450f?: any, callback95?: any) {
+  function callback84<TState, TAction = TState>(_0x268a16: (state: TState, action: TAction) => TState, _0x77450f: TState | (() => TState), callback95?: (initial: TState | (() => TState)) => TState): [TState, Dispatch<TAction>] {
     var _0xa8da50 = callback82(_0x4214bf++, 2);
-    _0xa8da50.t = _0x268a16;
+    _0xa8da50.t = _0x268a16 as (state: object, action: object) => object;
     if (!_0xa8da50.__c) {
-      _0xa8da50.__ = [callback95 ? callback95(_0x77450f) : callback91(undefined, _0x77450f), function (_0x4eeef0?: any) {
-        var _0xfd25aa = _0xa8da50.t(_0xa8da50.__[0], _0x4eeef0);
-        if (_0xa8da50.__[0] !== _0xfd25aa) {
-          _0xa8da50.__ = [_0xfd25aa, _0xa8da50.__[1]];
-          _0xa8da50.__c.setState({});
+      const dispatch: Dispatch<TAction> = function (_0x4eeef0: TAction | ((prevState: TAction) => TAction)) {
+        const reducer = _0xa8da50.t as (state: TState, action: TAction | ((prevState: TAction) => TAction)) => TState;
+        const currentTuple = _0xa8da50.__ as [TState, Dispatch<TAction>];
+        var _0xfd25aa = reducer(currentTuple[0], _0x4eeef0);
+        if (currentTuple[0] !== _0xfd25aa) {
+          _0xa8da50.__ = [_0xfd25aa, currentTuple[1]];
+          const owner = _0xa8da50.__c;
+          if (owner && "setState" in owner) {
+            owner.setState({});
+          }
         }
-      }];
+      };
+      _0xa8da50.__ = [callback95 ? callback95(_0x77450f) : callback91(undefined, _0x77450f), dispatch];
       _0xa8da50.__c = _0x336185;
     }
-    return _0xa8da50.__;
+    return _0xa8da50.__ as [TState, Dispatch<TAction>];
   }
-  function callback85(_0x525b68?: any, _0x28f13b?: any) {
+  function callback85(_0x525b68: () => void | (() => void), _0x28f13b?: object[]) {
     var _0x301297 = callback82(_0x4214bf++, 3);
     if (!preactOptions.__s && callback90(_0x301297.__H, _0x28f13b)) {
       _0x301297.__ = _0x525b68;
@@ -6004,39 +6254,41 @@ interface Function { __: any; contextType: any; }
       _0x336185.__H.__h.push(_0x301297);
     }
   }
-  function callback86(_0x31b960?: any) {
+  function callback86<T>(_0x31b960: T): {
+    current: T;
+  } {
     _0x45ddd0 = 5;
-    return callback87(function (...args: any[]) {
+    return callback87(function () {
       return {
         current: _0x31b960
       };
     }, []);
   }
-  function callback87(callback95?: any, _0x481e03?: any) {
+  function callback87<T>(callback95: () => T, _0x481e03?: object[]): T {
     var _0xbe7f9a = callback82(_0x4214bf++, 7);
     if (callback90(_0xbe7f9a.__H, _0x481e03)) {
-      _0xbe7f9a.__ = callback95();
+      _0xbe7f9a.__ = callback95() as object;
       _0xbe7f9a.__H = _0x481e03;
-      _0xbe7f9a.__h = callback95;
+      _0xbe7f9a.__h = callback95 as () => object;
     }
-    return _0xbe7f9a.__;
+    return _0xbe7f9a.__ as T;
   }
-  function callback88(_0x535df1?: any) {
+  function callback88<T>(_0x535df1: PreactContext<T>): T {
     var _0x243c65 = _0x336185.context[_0x535df1.__c];
     var _0x2f0f35 = callback82(_0x4214bf++, 9);
-    _0x2f0f35.__c = _0x535df1;
+    _0x2f0f35.__c = _0x535df1 as PreactContext;
     if (_0x243c65) {
       if (_0x2f0f35.__ == null) {
         _0x2f0f35.__ = true;
         _0x243c65.sub(_0x336185);
       }
-      return _0x243c65.props.value;
+      return _0x243c65.props.value as T;
     } else {
       return _0x535df1.__;
     }
   }
-  function _0x3d47c1(...args: any[]) {
-    list2.some(function (_0xe5fad4?: any) {
+  function _0x3d47c1() {
+    list2.some(function (_0xe5fad4: PreactComponent) {
       if (_0xe5fad4.__P) {
         try {
           _0xe5fad4.__H.__h.forEach(_0x4f712f);
@@ -6051,7 +6303,7 @@ interface Function { __: any; contextType: any; }
     });
     list2 = [];
   }
-  preactOptions.__r = function (_0x1baac8?: any) {
+  preactOptions.__r = function (_0x1baac8: PreactVNode) {
     if (__r) {
       __r(_0x1baac8);
     }
@@ -6063,16 +6315,16 @@ interface Function { __: any; contextType: any; }
       __H.__h = [];
     }
   };
-  preactOptions.diffed = function (_0x293972?: any) {
+  preactOptions.diffed = function (_0x293972: PreactVNode) {
     if (diffed) {
       diffed(_0x293972);
     }
     var __c2 = _0x293972.__c;
     if (__c2 && __c2.__H && __c2.__H.__h.length) {
       if (list2.push(__c2) === 1 || _0x5146fe !== preactOptions.requestAnimationFrame) {
-        ((_0x5146fe = preactOptions.requestAnimationFrame) || function (_0x1a6409?: any) {
-          var _0x2ecb0f;
-          function _0x711e95(...args: any[]) {
+        ((_0x5146fe = preactOptions.requestAnimationFrame) || function (_0x1a6409: () => void) {
+          var _0x2ecb0f: number;
+          function _0x711e95() {
             clearTimeout(_0xb55311);
             if (_0x22bd21) {
               cancelAnimationFrame(_0x2ecb0f);
@@ -6087,15 +6339,15 @@ interface Function { __: any; contextType: any; }
       }
     }
   };
-  preactOptions.__c = function (_0x47bb76?: any, _0x1ced3b?: any) {
-    _0x1ced3b.some(function (_0x33039f?: any) {
+  preactOptions.__c = function (_0x47bb76: PreactVNode, _0x1ced3b: PreactComponent[]) {
+    _0x1ced3b.some(function (_0x33039f: PreactComponent) {
       try {
         _0x33039f.__h.forEach(_0x4f712f);
-        _0x33039f.__h = _0x33039f.__h.filter(function (_0x37019a?: any) {
+        _0x33039f.__h = _0x33039f.__h.filter(function (_0x37019a: HookSlot) {
           return !_0x37019a.__ || callback89(_0x37019a);
         });
       } catch (_0x1bd124) {
-        _0x1ced3b.some(function (_0x25d555?: any) {
+        _0x1ced3b.some(function (_0x25d555: PreactComponent) {
           _0x25d555.__h &&= [];
         });
         _0x1ced3b = [];
@@ -6106,7 +6358,7 @@ interface Function { __: any; contextType: any; }
       __c(_0x47bb76, _0x1ced3b);
     }
   };
-  preactOptions.unmount = function (_0x24219e?: any) {
+  preactOptions.unmount = function (_0x24219e: PreactVNode) {
     if (unmount) {
       unmount(_0x24219e);
     }
@@ -6120,49 +6372,71 @@ interface Function { __: any; contextType: any; }
     }
   };
   var _0x22bd21 = typeof requestAnimationFrame == "function";
-  function _0x4f712f(_0x4727c2?: any) {
+  function _0x4f712f(_0x4727c2: HookSlot) {
     if (typeof _0x4727c2.u == "function") {
       _0x4727c2.u();
     }
   }
-  function callback89(_0x411e83?: any) {
-    _0x411e83.u = _0x411e83.__();
+  function callback89(_0x411e83: HookSlot) {
+    _0x411e83.u = (_0x411e83.__ as () => void | (() => void))();
   }
-  function callback90(list4?: any, _0x66baa3?: any) {
-    return !list4 || list4.length !== _0x66baa3.length || _0x66baa3.some(function (_0x2b70d2?: any, _0x489d28?: any) {
+  function callback90(list4: object[] | undefined, _0x66baa3?: object[]): boolean {
+    return !list4 || !_0x66baa3 || list4.length !== _0x66baa3.length || _0x66baa3.some(function (_0x2b70d2: object, _0x489d28: number) {
       return _0x2b70d2 !== list4[_0x489d28];
     });
   }
-  function callback91(_0x3b7587?: any, callback95?: any) {
+  function callback91<T>(_0x3b7587: T | undefined, callback95: T | ((prevState: T | undefined) => T)): T {
     if (typeof callback95 == "function") {
-      return callback95(_0x3b7587);
+      return (callback95 as (prevState: T | undefined) => T)(_0x3b7587);
     } else {
       return callback95;
     }
   }
+  interface LanguagesData {
+    [languageCode: string]: Partial<LanguageStrings>;
+  }
   var assign3 = Object.assign;
-  const list3: any[] = [];
-  const callback92 = (_0x4bd68c?: any) => {
+  const list3: Language[] = [];
+  const callback92 = (_0x4bd68c: LanguagesData) => {
     const {
       en
     } = _0x4bd68c;
     Object.entries(_0x4bd68c).forEach(([_0x481b18, _0x2f0d2c]) => {
       list3.push({
         name: _0x481b18,
-        lng: assign3(assign3({}, en), _0x2f0d2c)
+        lng: assign3(assign3({}, en), _0x2f0d2c) as LanguageStrings
       });
     });
   };
   const _0x4d828b = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toLowerCase();
-  const callback93 = (...args: any[]) => list3.find((_0x1a1077?: any) => _0x1a1077.name === _0x4d828b) || list3.find((_0x55808a?: any) => _0x55808a.name === "en");
+  const callback93 = (): Language | undefined => list3.find((_0x1a1077: Language) => _0x1a1077.name === _0x4d828b) || list3.find((_0x55808a: Language) => _0x55808a.name === "en");
+  type Ref<T> = {
+    current: T;
+  };
+  type ParticleColor = string | HTMLCanvasElement | HTMLImageElement;
+  interface SkinColors {
+    main: string;
+    back: string;
+    nick: string;
+    plate: string;
+    particles: ParticleColor[];
+  }
+  interface SkinSource {
+    name: string;
+    colors?: Partial<SkinColors>;
+    pattern?: PatternSource;
+    avatar?: AvatarDescriptor;
+  }
   const _0x2124e9 = callback19();
   const _0x313732 = ({
     messages
+  }: {
+    messages: string[];
   }) => {
     const [_0x2eef6d, callback95] = callback83(0);
-    callback85((...args: any[]) => {
-      const _0x88d3da = setInterval((...args: any[]) => callback95((_0x39ba1e?: any) => (_0x39ba1e + 1) % messages.length), 3000);
-      return (...args: any[]) => clearInterval(_0x88d3da);
+    callback85(() => {
+      const _0x88d3da = setInterval(() => callback95((_0x39ba1e: number) => (_0x39ba1e + 1) % messages.length), 3000);
+      return () => clearInterval(_0x88d3da);
     }, []);
     return createElement("div", {
       class: "tips"
@@ -6174,6 +6448,9 @@ interface Function { __: any; contextType: any; }
   const _0x449096 = ({
     config,
     apply
+  }: {
+    config: Config | null | undefined;
+    apply: (event: Event) => void;
   }) => {
     if (!config) {
       return null;
@@ -6201,11 +6478,16 @@ interface Function { __: any; contextType: any; }
     view,
     setPreparing,
     setState
+  }: {
+    api: GameApi | null;
+    view: Ref<HTMLCanvasElement | null>;
+    setPreparing: Dispatch<boolean>;
+    setState: Dispatch<string>;
   }) => {
     const _0x4dd059 = api && api.game && api.game.config;
-    const _0x307f95 = (event?: any) => {
+    const _0x307f95 = (event: Event) => {
       event.preventDefault();
-      Object.keys(_0x4dd059).forEach((_0x4eaf3c?: any) => {
+      Object.keys(_0x4dd059).forEach((_0x4eaf3c: string) => {
         const element = document.getElementById(_0x4eaf3c);
         if (element) {
           const _0x5c8252 = parseFloat(element.value);
@@ -6215,7 +6497,7 @@ interface Function { __: any; contextType: any; }
       api.game.stopped = true;
       api.create(view.current);
       setPreparing(true);
-      api.prepare((...args: any[]) => setPreparing(false));
+      api.prepare(() => setPreparing(false));
       setState("menu");
     };
     return createElement("div", {
@@ -6231,11 +6513,13 @@ interface Function { __: any; contextType: any; }
   };
   const _0x11635f = ({
     setLanguage
+  }: {
+    setLanguage: Dispatch<Language | undefined>;
   }) => {
     const _0x3ae834 = callback88(_0x2124e9);
-    const _0x1df60f = list3.map((_0x159de4?: any, _0x1a5dca?: any) => createElement("li", {
+    const _0x1df60f = list3.map((_0x159de4: Language, _0x1a5dca: number) => createElement("li", {
       class: _0x159de4 === _0x3ae834 ? "active" : "",
-      onClick: (...args: any[]) => setLanguage(list3[_0x1a5dca])
+      onClick: () => setLanguage(list3[_0x1a5dca])
     }, _0x159de4.name.toUpperCase()));
     return createElement("div", {
       id: "footer"
@@ -6254,21 +6538,32 @@ interface Function { __: any; contextType: any; }
     setLanguage,
     api,
     skin
+  }: {
+    nickName: string;
+    setNickName: Dispatch<string>;
+    playable: boolean;
+    preparing: boolean;
+    start: () => void;
+    route: Dispatch<string>;
+    provider?: undefined;
+    setLanguage: Dispatch<Language | undefined>;
+    api: GameApi | null;
+    skin: string;
   }) => {
     const {
       lng
     } = callback88(_0x2124e9);
     const _0x7e5b2d = api && api.game && api.game.config;
     const _0x582227 = !!api;
-    const _0x3e6418 = (_0x474014?: any) => setNickName(_0x474014.target.value);
+    const _0x3e6418 = (_0x474014: Event) => setNickName((_0x474014.target as HTMLInputElement).value);
     const _0x56e19e = _0x582227;
-    const _0xe04ee3 = (event?: any) => {
+    const _0xe04ee3 = (event: Event) => {
       event.preventDefault();
       if (_0x56e19e) {
         start();
       }
     };
-    callback85((...args: any[]) => {
+    callback85(() => {
       if (window.ads && window.ads.showAds) {
         window.ads.showAds();
       }
@@ -6303,7 +6598,7 @@ interface Function { __: any; contextType: any; }
       id: "skins",
       name: "skins",
       class: "orange noPadding",
-      onClick: (...args: any[]) => route("skins")
+      onClick: () => route("skins")
     }, createElement("img", {
       width: "30",
       height: "30",
@@ -6324,9 +6619,19 @@ interface Function { __: any; contextType: any; }
     route,
     skin,
     lastPercent
+  }: {
+    nickName: string;
+    bestScore: number;
+    setBestScore: Dispatch<number>;
+    setResults: Dispatch<GameResults | null>;
+    setPreparing: Dispatch<boolean>;
+    api: GameApi | null;
+    route: Dispatch<string>;
+    skin: string;
+    lastPercent?: number;
   }) => {
-    callback85((...args: any[]) => {
-      const _0x545eda = (_0x3ee818?: any) => {
+    callback85(() => {
+      const _0x545eda = (_0x3ee818: GameResults) => {
         if (_0x3ee818.newBest) {
           setBestScore(_0x3ee818.score);
         }
@@ -6363,8 +6668,15 @@ interface Function { __: any; contextType: any; }
     route,
     provider,
     country = undefined
+  }: {
+    bestScore: number;
+    results: GameResults;
+    start: () => void;
+    route: Dispatch<string>;
+    provider?: undefined;
+    country?: undefined;
   }) => {
-    const _0xb87c1f = (...args: any[]) => route("menu");
+    const _0xb87c1f = () => route("menu");
     const {
       lng
     } = callback88(_0x2124e9);
@@ -6378,7 +6690,7 @@ interface Function { __: any; contextType: any; }
         productKey: "paper2IO"
       });
     }
-    callback85((...args: any[]) => {
+    callback85(() => {
       if (window.ads && window.ads.showAds) {
         window.ads.showAds();
       }
@@ -6431,6 +6743,8 @@ interface Function { __: any; contextType: any; }
   };
   const _0x16897a = ({
     name
+  }: {
+    name: string;
   }) => {
     return createElement("div", {
       class: "skin"
@@ -6445,13 +6759,18 @@ interface Function { __: any; contextType: any; }
     skin,
     menu,
     setSkin
+  }: {
+    skins: SkinSource[];
+    skin: string;
+    menu: () => void;
+    setSkin: Dispatch<string>;
   }) => {
     const {
       lng
     } = callback88(_0x2124e9);
-    const _0x38fb57 = skins.findIndex((_0x46e46c?: any) => _0x46e46c.name === skin);
+    const _0x38fb57 = skins.findIndex((_0x46e46c: SkinSource) => _0x46e46c.name === skin);
     const [_0x52fa22, callback95] = callback83(_0x38fb57 > 0 ? _0x38fb57 : 0);
-    const callback96 = (_0xfc8857?: any) => {
+    const callback96 = (_0xfc8857: number) => {
       if (_0xfc8857 >= 0 && _0xfc8857 < skins.length) {
         callback95(_0xfc8857);
         setSkin(skins[_0xfc8857].name);
@@ -6464,13 +6783,13 @@ interface Function { __: any; contextType: any; }
     }, createElement("button", {
       name: "left",
       class: "orange",
-      onClick: (...args: any[]) => callback96(_0x52fa22 - 1)
+      onClick: () => callback96(_0x52fa22 - 1)
     }, "<"), createElement(_0x16897a, {
       name: skins[_0x52fa22].name
     }), createElement("button", {
       name: "right",
       class: "orange",
-      onClick: (...args: any[]) => callback96(_0x52fa22 + 1)
+      onClick: () => callback96(_0x52fa22 + 1)
     }, ">")), createElement("div", {
       class: "nav"
     }, createElement("button", {
@@ -6483,9 +6802,14 @@ interface Function { __: any; contextType: any; }
     skin,
     route,
     setSkin
+  }: {
+    skins: SkinSource[];
+    skin: string;
+    route: Dispatch<string>;
+    setSkin: Dispatch<string>;
   }) => {
-    const _0x511672 = (...args: any[]) => route("menu");
-    callback85((...args: any[]) => {
+    const _0x511672 = () => route("menu");
+    callback85(() => {
       const element = document.getElementById("paperio-site_multisize");
       if (element) {
         element.style.display = "none";
@@ -6510,6 +6834,17 @@ interface Function { __: any; contextType: any; }
       id: "right_side"
     }));
   };
+  interface StoredGameData {
+    nickName?: string;
+    bestScore?: number;
+    skin?: string;
+  }
+  interface StorageApi {
+    getJSON: (key: string) => StoredGameData | null;
+    set: (key: string, value: StoredGameData, options: {
+      expires: number;
+    }) => void;
+  }
   const _0x1d032c = ({
     api,
     storage,
@@ -6517,13 +6852,20 @@ interface Function { __: any; contextType: any; }
     provider,
     skins,
     mode = "common"
+  }: {
+    api: GameApi | null;
+    storage: StorageApi;
+    ads?: undefined;
+    provider?: undefined;
+    skins: SkinSource[];
+    mode?: string;
   }) => {
-    const _0x2a1468 = callback86(null);
+    const _0x2a1468 = callback86<HTMLCanvasElement | null>(null);
     const [_0xae90a5, callback95] = callback83(false);
     const [_0x3c010f, callback96] = callback83("menu");
     const [_0x7671bd, callback97] = callback83(true);
     const [_0x293a25, _0x5c440b] = callback83(callback93());
-    const [_0x50dae7, _0x536f0c] = callback83(null);
+    const [_0x50dae7, _0x536f0c] = callback83<GameResults | null>(null);
     const _0x1cb8f8 = "paper.io.storage";
     const _0x16b845 = storage.getJSON(_0x1cb8f8) || {};
     const [_0x38110e, _0x495989] = callback83(_0x16b845.nickName || "");
@@ -6539,14 +6881,14 @@ interface Function { __: any; contextType: any; }
         skin: _0x4f80f0
       }, _0x48fc9f);
     }
-    callback85((...args: any[]) => {
+    callback85(() => {
       if (api) {
         api.create(_0x2a1468.current);
-        api.prepare((...args: any[]) => callback97(false));
+        api.prepare(() => callback97(false));
         callback95(true);
       }
     }, []);
-    api.startGame = (...args: any[]) => {
+    api.startGame = () => {
       const element = document.getElementById("overlay");
       if (element) {
         element.style.display = "none";
@@ -6556,7 +6898,7 @@ interface Function { __: any; contextType: any; }
       }
       callback96("game");
     };
-    const _0x28fd93 = (...args: any[]) => {
+    const _0x28fd93 = () => {
       const element = document.getElementById("overlay");
       if (element) {
         element.style.display = "block";
@@ -6664,17 +7006,24 @@ interface Function { __: any; contextType: any; }
     botAttackTrackLength: 1500,
     font: "PT Sans Caption"
   };
-  var _0x4b9315: any[] = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
+  var _0x4b9315: string[] = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
   var assign4 = Object.assign;
+  interface AssetContent {
+    colors?: SkinColors;
+    pattern?: PatternAsset;
+    display?: Avatar;
+    color?: string;
+    roundedFlag?: HTMLCanvasElement | HTMLImageElement;
+  }
   class Skin {
-    assets: any[];
-    colors: any;
-    config: any;
+    assets: Asset[];
+    colors: SkinColors;
+    config: Config | undefined;
     container: DisplayList;
-    name: any;
-    pattern: any;
-    user: any;
-    constructor(...args: any[]) {
+    name: string | undefined;
+    pattern: PatternAsset | null;
+    user: Unit | undefined;
+    constructor() {
       this.config = undefined;
       this.user = undefined;
       this.name = undefined;
@@ -6689,7 +7038,7 @@ interface Function { __: any; contextType: any; }
       this.pattern = null;
       this.container = new DisplayList();
     }
-    addAsset(_0x5aa709?: any) {
+    addAsset(_0x5aa709: Asset) {
       if (_0x5aa709.content.colors) {
         this.colors = _0x5aa709.content.colors;
       }
@@ -6703,42 +7052,44 @@ interface Function { __: any; contextType: any; }
     }
   }
   class Asset {
-    content: any;
+    content: AssetContent;
     loadingStarted: boolean;
-    name: any;
-    pool: any;
+    name: string;
+    pool: AssetSet;
     ready: boolean;
-    constructor(_0x4fe703?: any) {
+    constructor(_0x4fe703: string) {
       this.pool = undefined;
       this.loadingStarted = false;
       this.name = _0x4fe703;
       this.content = {};
       this.ready = false;
     }
-    load(...args: any[]) {}
+    load(): void {}
   }
   class SvgAsset extends Asset {
-    source: any;
-    constructor(_0xb63175?: any, _0x332715?: any, _0x2a70ba?: any) {
+    pool: ImageAssetSet;
+    source: SkinColors;
+    constructor(_0xb63175: ImageAssetSet, _0x332715: string, _0x2a70ba: SkinColors) {
       super(_0x332715);
       this.pool = _0xb63175;
       this.source = _0x2a70ba;
     }
   }
   class ImageAsset extends Asset {
-    source: any;
-    constructor(_0x4a0858?: any, _0xeae6e?: any, _0x2ae3f4?: any) {
+    pool: SvgAssetSet;
+    source: SkinSource;
+    constructor(_0x4a0858: SvgAssetSet, _0xeae6e: string, _0x2ae3f4: SkinSource) {
       super(_0xeae6e);
       this.pool = _0x4a0858;
       this.source = _0x2ae3f4;
     }
-    load(...args: any[]) {
+    load(): void {
       if (this.loadingStarted) {
         return;
       }
       this.loadingStarted = true;
-      const _0x173606 = (...args: any[]) => {
-        this.ready = this.content.display.ready && (this.content.pattern ? this.content.pattern.ready : true);
+      const _0x173606 = () => {
+        this.ready = !!this.content.display && this.content.display.ready && (this.content.pattern ? this.content.pattern.ready : true);
       };
       const {
         source
@@ -6761,17 +7112,17 @@ interface Function { __: any; contextType: any; }
     }
   }
   class AssetSet {
-    assets: any[];
-    config: any;
-    name: any;
-    constructor(_0x656842?: any) {
+    assets: Asset[];
+    config: Config | undefined;
+    name: string;
+    constructor(_0x656842: string) {
       this.config = undefined;
       this.name = _0x656842;
       this.assets = [];
     }
-    get(_0x58d069?: any, _0x5971db?: any) {
+    get(_0x58d069?: string, _0x5971db?: boolean): Asset | null {
       let _0x1058fe;
-      _0x1058fe = this.assets.find((_0x5e1caf?: any) => _0x5e1caf.name === _0x58d069 && (_0x5971db ? _0x5e1caf.ready === true : true));
+      _0x1058fe = this.assets.find((_0x5e1caf: Asset) => _0x5e1caf.name === _0x58d069 && (_0x5971db ? _0x5e1caf.ready === true : true));
       if (!_0x1058fe) {
         return null;
       }
@@ -6780,16 +7131,16 @@ interface Function { __: any; contextType: any; }
     }
   }
   class ImageAssetSet extends AssetSet {
-    constructor(_0x330904?: any) {
+    constructor(_0x330904: Config) {
       super("colors");
       this.config = _0x330904;
       this.add(_0x4b9315);
     }
-    add(_0x1f90aa?: any) {
+    add(_0x1f90aa: string[]) {
       const {
         config
       } = this;
-      this.assets.push(...(_0x1f90aa || []).map((_0x1af67d?: any) => {
+      this.assets.push(...(_0x1f90aa || []).map((_0x1af67d: string) => {
         const _0x1b3992 = callback34(_0x1af67d);
         const _0x89367 = callback35(_0x1b3992);
         const _0x468f36 = callback41(_0x89367, 0.75);
@@ -6824,14 +7175,14 @@ interface Function { __: any; contextType: any; }
         return svgAsset;
       }));
     }
-    loadAsset(_0x49b2f3?: any) {
+    loadAsset<T>(_0x49b2f3: T): T {
       return _0x49b2f3;
     }
   }
   class SvgAssetSet extends AssetSet {
-    path: any;
-    view: any;
-    constructor(_0x2fdfed?: any, _0x4c761d?: any, _0x3697eb?: any, _0x21aa5d?: any, _0x2e765a: any = false) {
+    path: string;
+    view: HTMLCanvasElement;
+    constructor(_0x2fdfed: Config, _0x4c761d: HTMLCanvasElement, _0x3697eb: string, _0x21aa5d: SkinSource[], _0x2e765a: boolean = false) {
       super("classic");
       this.config = _0x2fdfed;
       this.view = _0x4c761d;
@@ -6843,11 +7194,11 @@ interface Function { __: any; contextType: any; }
         }
       }
     }
-    add(_0x4f0d2d?: any) {
-      this.assets.push(...(_0x4f0d2d || []).map((_0x65e918?: any) => new ImageAsset(this, _0x65e918.name, _0x65e918)));
+    add(_0x4f0d2d: SkinSource[]) {
+      this.assets.push(...(_0x4f0d2d || []).map((_0x65e918: SkinSource) => new ImageAsset(this, _0x65e918.name, _0x65e918)));
     }
   }
-  function callback94(_0x42a686?: any, _0x46edb9?: any) {
+  function callback94(_0x42a686: string, _0x46edb9: string): HTMLCanvasElement {
     const element = document.createElement("canvas");
     element.width = 100;
     element.height = 100;
@@ -6858,50 +7209,61 @@ interface Function { __: any; contextType: any; }
     context.fillRect(10, 10, 80, 80);
     return element;
   }
+  interface SkinManagerAssetEntry {
+    asset: Asset;
+    tag: string;
+  }
+  interface SkinManagerAssetMap {
+    [name: string]: SkinManagerAssetEntry;
+  }
+  interface SkinManagerUsageMap {
+    [name: string]: Skin[];
+  }
   class SkinManager {
-    assets: any;
-    rng: any;
-    unusedAssets: any;
-    usedBy: any;
-    constructor(_0x303ba9?: any) {
+    assets: SkinManagerAssetMap;
+    game?: Game;
+    rng: (n?: number) => number;
+    unusedAssets: SkinManagerAssetMap;
+    usedBy: SkinManagerUsageMap;
+    constructor(_0x303ba9?: number) {
       this.usedBy = {};
       this.assets = {};
       this.unusedAssets = {};
       this.rng = callback39(_0x303ba9);
     }
-    registerAsset(_0xe4279d?: any, _0x41ecba?: any) {
+    registerAsset(_0xe4279d: Asset, _0x41ecba: string) {
       this.unusedAssets[_0xe4279d.name] = this.assets[_0xe4279d.name] = {
         asset: _0xe4279d,
         tag: _0x41ecba
       };
     }
-    registerAssets(_0x326294?: any, _0x1f77bd?: any) {
+    registerAssets(_0x326294: AssetSet, _0x1f77bd: string) {
       for (let _0x1ef8e7 of _0x326294.assets) {
         this.registerAsset(_0x1ef8e7, _0x1f77bd);
       }
     }
-    available(_0xedc88d?: any) {
+    available(_0xedc88d?: string): number {
       let list4 = Object.values(this.unusedAssets);
       if (_0xedc88d) {
-        return list4.filter((_0x53c6d7?: any) => _0x53c6d7.tag == _0xedc88d).length;
+        return list4.filter((_0x53c6d7: SkinManagerAssetEntry) => _0x53c6d7.tag == _0xedc88d).length;
       } else {
         return list4.length;
       }
     }
-    has(_0x3ee3b8?: any) {
+    has(_0x3ee3b8: string): boolean {
       return _0x3ee3b8 in this.unusedAssets;
     }
-    randomAssetName(_0x358092?: any, _0x34ea06: any = true) {
+    randomAssetName(_0x358092?: string, _0x34ea06: boolean = true): string {
       let _0x4e7371 = _0x34ea06 ? this.unusedAssets : this.assets;
       let list4 = Object.keys(_0x4e7371);
       if (_0x358092) {
-        list4 = list4.filter((_0x41a7d2?: any) => _0x4e7371[_0x41a7d2].tag == _0x358092);
+        list4 = list4.filter((_0x41a7d2: string) => _0x4e7371[_0x41a7d2].tag == _0x358092);
       }
       let _0xd5f9bb = this.rng(list4.length);
       let _0x2074b4 = list4[_0xd5f9bb];
       return _0x2074b4;
     }
-    get(_0x2e4e12?: any, _0x4f1e5b?: any) {
+    get(_0x2e4e12?: string, _0x4f1e5b?: string): Skin {
       if (!_0x2e4e12) {
         _0x2e4e12 = this.randomAssetName(_0x4f1e5b);
       }
@@ -6914,14 +7276,14 @@ interface Function { __: any; contextType: any; }
       this.usedBy[_0x2e4e12] = (this.usedBy[_0x2e4e12] || []).concat(skin);
       return skin;
     }
-    release(_0x17a073?: any) {
-      this.usedBy[_0x17a073.name] = this.usedBy[_0x17a073.name].filter((_0x3b65a5?: any) => _0x3b65a5 != _0x17a073);
+    release(_0x17a073: Skin) {
+      this.usedBy[_0x17a073.name] = this.usedBy[_0x17a073.name].filter((_0x3b65a5: Skin) => _0x3b65a5 != _0x17a073);
       if (this.usedBy[_0x17a073.name].length == 0) {
         delete this.usedBy[_0x17a073.name];
         this.unusedAssets[_0x17a073.name] = this.assets[_0x17a073.name];
       }
     }
-    reskin(_0x42dc05?: any) {
+    reskin(_0x42dc05: string) {
       let _0x18b3e0 = this.usedBy[_0x42dc05];
       if (_0x18b3e0) {
         for (let _0xd0288e of _0x18b3e0) {
@@ -6930,26 +7292,22 @@ interface Function { __: any; contextType: any; }
         delete this.usedBy[_0x42dc05];
       }
     }
-    getCitySkin(_0x5b0870?: any) {}
+    getCitySkin(_0x5b0870?: string): void {}
   }
   class GameSkinManager extends SkinManager {
-    get: any;
-    randomAssetName: any;
-    registerAssets: any;
-    reskin: any;
-    constructor(_0x12b771?: any, _0x326bab?: any, _0xf7287f?: any) {
+    constructor(_0x12b771: ImageAssetSet, _0x326bab: SvgAssetSet, _0xf7287f?: number) {
       super(_0xf7287f);
       this.registerAssets(_0x12b771, "colored");
       this.registerAssets(_0x326bab, "classic");
     }
-    getPlayerSkin(_0x3560bf?: any) {
+    getPlayerSkin(_0x3560bf?: string): Skin {
       if (!_0x3560bf) {
-        return this.get(null, "colored");
+        return this.get(undefined, "colored");
       }
       this.reskin(_0x3560bf);
       return this.get(_0x3560bf);
     }
-    getBotSkin(...args: any[]) {
+    getBotSkin(): Skin {
       let _0x1782a5 = this.rng() < 0.25 ? ["colored", "classic"] : ["classic", "colored"];
       let _0x44aa5f = this.randomAssetName(_0x1782a5[0], true) || this.randomAssetName(_0x1782a5[1]);
       return this.get(_0x44aa5f);
@@ -6964,11 +7322,11 @@ interface Function { __: any; contextType: any; }
     selfKillDelay: 1000,
     enemyKillDelay: 2000
   });
-  const _0x5d6a09 = fetch("assets/languages.json").then((_0x4c4ec9?: any) => _0x4c4ec9.json());
-  const _0x1632c3 = fetch("assets/skins/skins.json").then((_0xca965?: any) => _0xca965.json());
-  Promise.all([_0x5d6a09, _0x1632c3]).then(([_0x4083ad, _0x3a4592]) => {
+  const _0x5d6a09 = fetch("assets/languages.json").then((_0x4c4ec9: Response) => _0x4c4ec9.json());
+  const _0x1632c3 = fetch("assets/skins/skins.json").then((_0xca965: Response) => _0xca965.json());
+  Promise.all([_0x5d6a09, _0x1632c3]).then(([_0x4083ad, _0x3a4592]: [LanguagesData, SkinSource[]]) => {
     callback92(_0x4083ad);
-    const _0x57ada2 = (_0x4abeb0?: any, _0x3526d4?: any) => {
+    const _0x57ada2 = (_0x4abeb0: Config, _0x3526d4: HTMLCanvasElement) => {
       let imageAssetSet = new ImageAssetSet(_0x4abeb0);
       let svgAssetSet = new SvgAssetSet(_0x4abeb0, _0x3526d4, "assets/skins/", _0x3a4592);
       const gameSkinManager = new GameSkinManager(imageAssetSet, svgAssetSet, 1);
