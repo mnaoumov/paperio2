@@ -1,50 +1,9 @@
+import Cookies from 'js-cookie';
+import { Fragment, createContext, createElement, render } from 'preact';
+import { useContext, useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
 // --- ambient augmentations for dynamic globals the engine touches ---
-// (moved up from the Preact/js-cookie region below so the `CookiesApi`/
-// `StoredChallenges`/etc. shapes named here are in scope at this top level)
-type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-interface CookieAttributes {
-  domain?: string;
-  // Starts as the caller-supplied `number | Date`, then gets overwritten
-  // in-place with its formatted `string` for the `document.cookie` write —
-  // see the cast at the `toUTCString()` call, which runs before that happens.
-  expires?: string | number | Date;
-  path?: string;
-  [attribute: string]: string | number | boolean | Date | undefined;
-}
-
-interface CookieJar {
-  // Named explicitly (rather than folded into the index signature) so this
-  // one well-known key — the only one application code iterates/reassigns
-  // as an array — keeps a non-union-polluted `JsonValue[]` type instead of
-  // the full `string | JsonValue` index-signature value type.
-  achievements?: JsonValue[];
-  [name: string]: string | JsonValue | undefined;
-}
-
-interface CookieConverter {
-  // The default converter (an empty function) is called both as `.read` and
-  // as the whole-converter read fallback and relies on returning `undefined`
-  // so the caller's `|| decode(...)` branch kicks in — hence `| undefined`.
-  (value: string, name: string): string | undefined;
-  read?: (value: string, name: string) => string;
-  write?: (value: JsonValue, name: string) => string;
-}
-
-interface CookiesApi {
-  (): void;
-  defaults?: CookieAttributes;
-  get?: (name?: string) => string | JsonValue | CookieJar | undefined;
-  // Narrower than `callback99`'s own inferred return type — every call site
-  // in this file treats the parsed cookie as a plain object, never a bare
-  // JSON primitive, so the public surface reflects that.
-  getJSON?: <T = CookieJar>(name?: string) => T | undefined;
-  remove?: (name: string, options?: CookieAttributes) => void;
-  set?: <T = JsonValue>(name: string, value: T, options?: CookieAttributes) => string | undefined;
-  withConverter?: (converter: CookieConverter) => CookiesApi;
-  noConflict?: () => CookiesApi;
-}
-
+// (js-cookie's own types now come from `@types/js-cookie`; only the engine's
+// own payload/window shapes are declared here.)
 // Mirrors the achievements/challenges cookie payload (see `AchievementStore`
 // below) — named here (rather than only inside the engine IIFE) so the
 // `Window.paperio_challenges` augmentation below can reference it.
@@ -76,6 +35,7 @@ interface Paper2Results {
   scores?: Paper2ResultsScores;
 }
 
+declare global {
 interface Window {
   // The ad-network integration this offline copy strips out (see the
   // project's `index.html` shim) — every call site guards with `if
@@ -84,7 +44,6 @@ interface Window {
     showAds?: () => void;
     hideAds?: () => void;
   };
-  Cookies?: CookiesApi;
   dataLayer?: DataLayerEntry[];
   // Classic Google Analytics `ga()`; every call site in this file passes
   // exactly `("send", "event", category, action)`.
@@ -128,6 +87,7 @@ interface HTMLElement {
 // are none in this file — elsewhere.
 interface ObjectConstructor {
   entries(source: object): [string, string | number | boolean][];
+}
 }
 
 (function () {
@@ -423,932 +383,6 @@ interface ObjectConstructor {
     requestAnimationFrame?: (callback: () => void) => void;
   }
 
-  var preactOptions: PreactOptions;
-  var list: Component[];
-  var _0x406d2a: (callback: () => void) => void;
-  var _0x5406f9: ((callback: () => void) => void) | undefined;
-  var _0x4c3ef1: object;
-  var _0x43d241: number;
-  var _0x316685: object = {};
-  var _0x9d84c4: VNode[] = [];
-  var _0x322d6e = /acit|ex(?:s|g|n|p|$)|rph|grid|ows|mnc|ntw|ine[ch]|zoo|^ord|itera/i;
-  function callback(_0x3f91a4?: object, _0x3696bd?: object) {
-    for (var _0xb6f7ee in _0x3696bd) {
-      (_0x3f91a4 as VNodeProps)[_0xb6f7ee] = (_0x3696bd as VNodeProps)[_0xb6f7ee];
-    }
-    return _0x3f91a4;
-  }
-  function callback2(_0x53dc6d?: PreactElement) {
-    var parentNode = _0x53dc6d?.parentNode;
-    if (parentNode) {
-      parentNode.removeChild(_0x53dc6d as PreactElement);
-    }
-  }
-  function createElement(_0x7ee35d?: VNodeType, _0x20f1ba?: VNodeProps, list4?: PreactChildren, ...args: PreactChild[]) {
-    var _0xa6339d: string | number | undefined;
-    var _0x48c719: PreactRef | undefined;
-    var _0x4203c8: string | number;
-    var _0x3452c4 = arguments;
-    var _0x57b92b: VNodeProps = {};
-    for (_0x4203c8 in _0x20f1ba) {
-      if (_0x4203c8 == "key") {
-        _0xa6339d = _0x20f1ba[_0x4203c8] as string | number | undefined;
-      } else if (_0x4203c8 == "ref") {
-        _0x48c719 = _0x20f1ba[_0x4203c8] as PreactRef;
-      } else {
-        _0x57b92b[_0x4203c8] = _0x20f1ba[_0x4203c8];
-      }
-    }
-    if (arguments.length > 3) {
-      list4 = [list4];
-      _0x4203c8 = 3;
-      for (; _0x4203c8 < arguments.length; _0x4203c8++) {
-        list4.push(_0x3452c4[_0x4203c8]);
-      }
-    }
-    if (list4 != null) {
-      _0x57b92b.children = list4;
-    }
-    if (typeof _0x7ee35d == "function" && _0x7ee35d.defaultProps != null) {
-      for (_0x4203c8 in _0x7ee35d.defaultProps) {
-        if (_0x57b92b[_0x4203c8] === undefined) {
-          _0x57b92b[_0x4203c8] = _0x7ee35d.defaultProps[_0x4203c8];
-        }
-      }
-    }
-    return callback3(_0x7ee35d, _0x57b92b, _0xa6339d, _0x48c719, null);
-  }
-  function callback3(_0x311635: VNodeType, _0x2f960f: VNodeProps | string | number, _0x2804a1: string | number | null | undefined, _0x3fecb4: PreactRef, _0x235b98: VNode | string | number | null) {
-    var _0x326e2c: VNode = {
-      type: _0x311635,
-      props: _0x2f960f,
-      key: _0x2804a1,
-      ref: _0x3fecb4,
-      __k: null,
-      __: null,
-      __b: 0,
-      __e: null,
-      __d: undefined,
-      __c: null,
-      __h: null,
-      constructor: undefined,
-      __v: _0x235b98
-    };
-    if (_0x235b98 == null) {
-      _0x326e2c.__v = _0x326e2c;
-    }
-    if (preactOptions.vnode != null) {
-      preactOptions.vnode(_0x326e2c);
-    }
-    return _0x326e2c;
-  }
-  function _0x1a6367(_0x403bd4: VNodeProps): PreactChildren {
-    return _0x403bd4.children;
-  }
-  function _0x6579ff(this: Component, _0x1744cc: VNodeProps, _0x22eb36: PreactContextValue) {
-    this.props = _0x1744cc;
-    this.context = _0x22eb36;
-  }
-  function callback4(_0x53ae95: VNode, _0x28ea70?: number): PreactElement | null {
-    if (_0x28ea70 == null) {
-      if (_0x53ae95.__) {
-        return callback4(_0x53ae95.__, _0x53ae95.__.__k.indexOf(_0x53ae95) + 1);
-      } else {
-        return null;
-      }
-    }
-    var _0x3446aa;
-    for (; _0x28ea70 < _0x53ae95.__k.length; _0x28ea70++) {
-      if ((_0x3446aa = _0x53ae95.__k[_0x28ea70]) != null && _0x3446aa.__e != null) {
-        return _0x3446aa.__e;
-      }
-    }
-    if (typeof _0x53ae95.type == "function") {
-      return callback4(_0x53ae95);
-    } else {
-      return null;
-    }
-  }
-  function callback5(_0x212da1: VNode | null): void {
-    var _0x1e6c54: number;
-    var _0x4e7ab4: VNode | null;
-    if ((_0x212da1 = _0x212da1.__) != null && _0x212da1.__c != null) {
-      _0x212da1.__e = _0x212da1.__c.base = null;
-      _0x1e6c54 = 0;
-      for (; _0x1e6c54 < _0x212da1.__k.length; _0x1e6c54++) {
-        if ((_0x4e7ab4 = _0x212da1.__k[_0x1e6c54]) != null && _0x4e7ab4.__e != null) {
-          _0x212da1.__e = _0x212da1.__c.base = _0x4e7ab4.__e;
-          break;
-        }
-      }
-      return callback5(_0x212da1);
-    }
-  }
-  function callback6(_0x5b79a9: Component): void {
-    if (!_0x5b79a9.__d && (_0x5b79a9.__d = true) && list.push(_0x5b79a9) && !_0x154984.__r++ || _0x5406f9 !== preactOptions.debounceRendering) {
-      ((_0x5406f9 = preactOptions.debounceRendering) || _0x406d2a)(_0x154984);
-    }
-  }
-  // `_0x154984` carries an extra `__r` counter property (mirrors real Preact's
-  // `process._rerenderCount`). Namespace-merging a property onto a `function`
-  // statement only works at module/namespace top level, not inside this IIFE,
-  // so it's declared as a `const` cast to a call-signature-plus-property type
-  // instead — safe here since it's only ever invoked after the whole IIFE body
-  // (including the `.__r = 0` initializer below) has finished running once.
-  const _0x154984 = function (): void {
-    var _0xbcb4e6: Component[];
-    for (; _0x154984.__r = list.length;) {
-      _0xbcb4e6 = list.sort(function (_0x51146d: Component, _0x393279: Component) {
-        return (_0x51146d.__v as VNode).__b - (_0x393279.__v as VNode).__b;
-      });
-      list = [];
-      _0xbcb4e6.some(function (_0xca27c7: Component) {
-        var _0x43f181: Component;
-        var _0x5e70d3: Component[];
-        var _0x23fc47: VNode;
-        var _0x337ebf: PreactElement | null;
-        var _0x2c1c69: VNode;
-        var _0x480b70: PreactElement | null;
-        var _0x51eeb1: PreactElement | null;
-        if (_0xca27c7.__d) {
-          _0x480b70 = (_0x2c1c69 = (_0x43f181 = _0xca27c7).__v).__e;
-          if (_0x51eeb1 = _0x43f181.__P) {
-            _0x5e70d3 = [];
-            (_0x23fc47 = callback({}, _0x2c1c69) as VNode).__v = _0x23fc47;
-            _0x337ebf = callback13(_0x51eeb1, _0x2c1c69, _0x23fc47, _0x43f181.__n, _0x51eeb1.ownerSVGElement !== undefined, _0x2c1c69.__h != null ? [_0x480b70] : null, _0x5e70d3, _0x480b70 == null ? callback4(_0x2c1c69) : _0x480b70, _0x2c1c69.__h);
-            callback14(_0x5e70d3, _0x2c1c69);
-            if (_0x337ebf != _0x480b70) {
-              callback5(_0x2c1c69);
-            }
-          }
-        }
-      });
-    }
-  } as {
-    (): void;
-    __r: number;
-  };
-  function callback7(_0x2e8ca3: PreactElement, list4: PreactChild[], _0x403550: VNode, _0x1d255f: VNode | null, _0x37f344: ComponentContext, _0x2c2d9d: boolean, list5: PreactElement[] | null, _0x2f3096: Component[], _0x4909bd: PreactElement | object | null, _0x51ba47: HydrateFlag) {
-    var _0x5b04cd: number;
-    var _0x3a4948: number | PreactRef;
-    var _0x21032d: VNode | null;
-    var _0x22f42d: PreactChild;
-    var _0x2b46cc: PreactElement | null;
-    var _0x4deee9: PreactElement | null | undefined;
-    var list6: Array<PreactRef | Component | PreactElement | VNode | null> | undefined;
-    var list7 = _0x1d255f && _0x1d255f.__k || _0x9d84c4;
-    var length = list7.length;
-    if (_0x4909bd == _0x316685) {
-      _0x4909bd = list5 != null ? list5[0] : length ? callback4(_0x1d255f, 0) : null;
-    }
-    // `_0x4909bd` can only still be the `_0x316685` EMPTY_OBJ sentinel here if the
-    // check above didn't fire, but it always did (the branch above unconditionally
-    // replaces it) — re-assert the post-sentinel shape once for the rest of this scope.
-    _0x4909bd = _0x4909bd as PreactElement | null;
-    _0x403550.__k = [];
-    _0x5b04cd = 0;
-    for (; _0x5b04cd < list4.length; _0x5b04cd++) {
-      if ((_0x22f42d = _0x403550.__k[_0x5b04cd] = (_0x22f42d = list4[_0x5b04cd]) == null || typeof _0x22f42d == "boolean" ? null : typeof _0x22f42d == "string" || typeof _0x22f42d == "number" ? callback3(null, _0x22f42d, null, null, _0x22f42d) : Array.isArray(_0x22f42d) ? callback3(_0x1a6367, {
-        children: _0x22f42d
-      }, null, null, null) : _0x22f42d.__e != null || _0x22f42d.__c != null ? callback3(_0x22f42d.type, _0x22f42d.props, _0x22f42d.key, null, _0x22f42d.__v) : (_0x22f42d as VNode)) != null) {
-        _0x22f42d.__ = _0x403550;
-        _0x22f42d.__b = _0x403550.__b + 1;
-        if ((_0x21032d = list7[_0x5b04cd]) === null || _0x21032d && _0x22f42d.key == _0x21032d.key && _0x22f42d.type === _0x21032d.type) {
-          list7[_0x5b04cd] = undefined;
-        } else {
-          for (_0x3a4948 = 0; _0x3a4948 < length; _0x3a4948++) {
-            if ((_0x21032d = list7[_0x3a4948]) && _0x22f42d.key == _0x21032d.key && _0x22f42d.type === _0x21032d.type) {
-              list7[_0x3a4948] = undefined;
-              break;
-            }
-            _0x21032d = null;
-          }
-        }
-        _0x2b46cc = callback13(_0x2e8ca3, _0x22f42d as VNode, _0x21032d = (_0x21032d || _0x316685) as VNode, _0x37f344, _0x2c2d9d, list5, _0x2f3096, _0x4909bd as PreactElement | null, _0x51ba47);
-        if ((_0x3a4948 = _0x22f42d.ref) && _0x21032d.ref != _0x3a4948) {
-          list6 ||= [];
-          if (_0x21032d.ref) {
-            list6.push(_0x21032d.ref, null, _0x22f42d);
-          }
-          list6.push(_0x3a4948, _0x22f42d.__c || _0x2b46cc, _0x22f42d);
-        }
-        if (_0x2b46cc != null) {
-          if (_0x4deee9 == null) {
-            _0x4deee9 = _0x2b46cc;
-          }
-          _0x4909bd = callback8(_0x2e8ca3, _0x22f42d as VNode, _0x21032d, list7, list5, _0x2b46cc, _0x4909bd as PreactElement | null);
-          if (_0x51ba47 || _0x403550.type != "option") {
-            if (typeof _0x403550.type == "function") {
-              _0x403550.__d = _0x4909bd as PreactElement | null;
-            }
-          } else {
-            _0x2e8ca3.value = "";
-          }
-        } else if (_0x4909bd && _0x21032d.__e == _0x4909bd && (_0x4909bd as PreactElement).parentNode != _0x2e8ca3) {
-          _0x4909bd = callback4(_0x21032d);
-        }
-      }
-    }
-    _0x403550.__e = _0x4deee9;
-    if (list5 != null && typeof _0x403550.type != "function") {
-      for (_0x5b04cd = list5.length; _0x5b04cd--;) {
-        if (list5[_0x5b04cd] != null) {
-          callback2(list5[_0x5b04cd]);
-        }
-      }
-    }
-    for (_0x5b04cd = length; _0x5b04cd--;) {
-      if (list7[_0x5b04cd] != null) {
-        callback17(list7[_0x5b04cd], list7[_0x5b04cd]);
-      }
-    }
-    if (list6) {
-      for (_0x5b04cd = 0; _0x5b04cd < list6.length; _0x5b04cd++) {
-        callback16(list6[_0x5b04cd] as PreactRef, list6[++_0x5b04cd] as PreactElement | Component | null, list6[++_0x5b04cd] as VNode);
-      }
-    }
-  }
-  function callback8(element: PreactElement, _0x202a1b: VNode, _0x45dbcf: VNode | object | null | undefined, _0x51008e: VNode[] | null, _0x590606: PreactElement[] | null, _0x16b8ee: PreactElement | null, _0x45928d: PreactElement | null): PreactElement | null {
-    var _0x44321c: PreactElement | null | undefined;
-    var _0x2b771e: PreactElement | null | undefined;
-    var _0x371e16: number;
-    if (_0x202a1b.__d !== undefined) {
-      _0x44321c = _0x202a1b.__d;
-      _0x202a1b.__d = undefined;
-    } else if (_0x590606 == _0x45dbcf || _0x16b8ee != _0x45928d || _0x16b8ee.parentNode == null) {
-      _0x48ed47: if (_0x45928d == null || _0x45928d.parentNode !== element) {
-        element.appendChild(_0x16b8ee);
-        _0x44321c = null;
-      } else {
-        _0x2b771e = _0x45928d;
-        _0x371e16 = 0;
-        for (; (_0x2b771e = _0x2b771e.nextSibling) && _0x371e16 < _0x51008e.length; _0x371e16 += 2) {
-          if (_0x2b771e == _0x16b8ee) {
-            break _0x48ed47;
-          }
-        }
-        element.insertBefore(_0x16b8ee, _0x45928d);
-        _0x44321c = _0x45928d;
-      }
-    }
-    if (_0x44321c !== undefined) {
-      return _0x44321c;
-    } else {
-      return _0x16b8ee.nextSibling;
-    }
-  }
-  function callback9(_0x264e65: PreactElement, _0x1de6e4: VNodeProps, _0x48da97: VNodeProps, _0x3b8dff: boolean, _0x112eb7: HydrateFlag) {
-    var _0x1067d5: string;
-    for (_0x1067d5 in _0x48da97) {
-      if (_0x1067d5 !== "children" && _0x1067d5 !== "key" && !(_0x1067d5 in _0x1de6e4)) {
-        callback11(_0x264e65, _0x1067d5, null, _0x48da97[_0x1067d5], _0x3b8dff);
-      }
-    }
-    for (_0x1067d5 in _0x1de6e4) {
-      if ((!_0x112eb7 || typeof _0x1de6e4[_0x1067d5] == "function") && _0x1067d5 !== "children" && _0x1067d5 !== "key" && _0x1067d5 !== "value" && _0x1067d5 !== "checked" && _0x48da97[_0x1067d5] !== _0x1de6e4[_0x1067d5]) {
-        callback11(_0x264e65, _0x1067d5, _0x1de6e4[_0x1067d5], _0x48da97[_0x1067d5], _0x3b8dff);
-      }
-    }
-  }
-  function callback10(_0x8caad3: CSSStyleDeclaration, _0x1e8e8c: string, _0x46b665: VNodePropValue) {
-    if (_0x1e8e8c[0] === "-") {
-      _0x8caad3.setProperty(_0x1e8e8c, _0x46b665 as string);
-    } else {
-      _0x8caad3[_0x1e8e8c] = _0x46b665 == null ? "" : typeof _0x46b665 != "number" || _0x322d6e.test(_0x1e8e8c) ? _0x46b665 : _0x46b665 + "px";
-    }
-  }
-  function callback11(element: PreactElement, _0x407e62: string, _0x1f1db3: VNodePropValue, _0x554518: VNodePropValue, _0x50a1f8: boolean) {
-    var _0x4a9714: boolean;
-    var _0x4234e0: string;
-    var _0x34ecd5: PreactEventListener;
-    if (_0x50a1f8 && _0x407e62 == "className") {
-      _0x407e62 = "class";
-    }
-    if (_0x407e62 === "style") {
-      if (typeof _0x1f1db3 == "string") {
-        element.style.cssText = _0x1f1db3;
-      } else {
-        if (typeof _0x554518 == "string") {
-          element.style.cssText = _0x554518 = "";
-        }
-        if (_0x554518) {
-          for (_0x407e62 in _0x554518 as CssStyleProps) {
-            if (!_0x1f1db3 || !(_0x407e62 in (_0x1f1db3 as CssStyleProps))) {
-              callback10(element.style, _0x407e62, "");
-            }
-          }
-        }
-        if (_0x1f1db3) {
-          for (_0x407e62 in _0x1f1db3 as CssStyleProps) {
-            if (!_0x554518 || (_0x1f1db3 as CssStyleProps)[_0x407e62] !== (_0x554518 as CssStyleProps)[_0x407e62]) {
-              callback10(element.style, _0x407e62, (_0x1f1db3 as CssStyleProps)[_0x407e62]);
-            }
-          }
-        }
-      }
-    } else if (_0x407e62[0] === "o" && _0x407e62[1] === "n") {
-      _0x4a9714 = _0x407e62 !== (_0x407e62 = _0x407e62.replace(/Capture$/, ""));
-      if ((_0x4234e0 = _0x407e62.toLowerCase()) in element) {
-        _0x407e62 = _0x4234e0;
-      }
-      _0x407e62 = _0x407e62.slice(2);
-      element.l ||= {};
-      (element.l as PreactEventListenerMap)[_0x407e62 + _0x4a9714] = _0x1f1db3 as PreactEventListener;
-      _0x34ecd5 = _0x4a9714 ? _0x1f7f09 : _0x17209f;
-      if (_0x1f1db3) {
-        if (!_0x554518) {
-          element.addEventListener(_0x407e62, _0x34ecd5, _0x4a9714);
-        }
-      } else {
-        element.removeEventListener(_0x407e62, _0x34ecd5, _0x4a9714);
-      }
-    } else if (_0x407e62 !== "list" && _0x407e62 !== "tagName" && _0x407e62 !== "form" && _0x407e62 !== "type" && _0x407e62 !== "size" && _0x407e62 !== "download" && _0x407e62 !== "href" && !_0x50a1f8 && _0x407e62 in element) {
-      element[_0x407e62] = _0x1f1db3 == null ? "" : _0x1f1db3;
-    } else if (typeof _0x1f1db3 != "function" && _0x407e62 !== "dangerouslySetInnerHTML") {
-      if (_0x407e62 !== (_0x407e62 = _0x407e62.replace(/xlink:?/, ""))) {
-        if (_0x1f1db3 == null || _0x1f1db3 === false) {
-          element.removeAttributeNS("http://www.w3.org/1999/xlink", _0x407e62.toLowerCase());
-        } else {
-          element.setAttributeNS("http://www.w3.org/1999/xlink", _0x407e62.toLowerCase(), _0x1f1db3 as string);
-        }
-      } else if (_0x1f1db3 == null || _0x1f1db3 === false && !/^ar/.test(_0x407e62)) {
-        element.removeAttribute(_0x407e62);
-      } else {
-        element.setAttribute(_0x407e62, _0x1f1db3 as string);
-      }
-    }
-  }
-  function _0x17209f(this: PreactElement, _0x2f73ae: Event) {
-    (this.l as PreactEventListenerMap)[_0x2f73ae.type + false](preactOptions.event ? preactOptions.event(_0x2f73ae) : _0x2f73ae);
-  }
-  function _0x1f7f09(this: PreactElement, _0x39047b: Event) {
-    (this.l as PreactEventListenerMap)[_0x39047b.type + true](preactOptions.event ? preactOptions.event(_0x39047b) : _0x39047b);
-  }
-  function callback12(_0x2182cf: VNode, _0x110832: PreactElement | null, _0x38e496: PreactElement): void {
-    var _0x254dda: number;
-    var _0x1da704: VNode | null;
-    for (_0x254dda = 0; _0x254dda < _0x2182cf.__k.length; _0x254dda++) {
-      if (_0x1da704 = _0x2182cf.__k[_0x254dda]) {
-        _0x1da704.__ = _0x2182cf;
-        if (_0x1da704.__e) {
-          if (typeof _0x1da704.type == "function" && _0x1da704.__k.length > 1) {
-            callback12(_0x1da704, _0x110832, _0x38e496);
-          }
-          _0x110832 = callback8(_0x38e496, _0x1da704, _0x1da704, _0x2182cf.__k, null, _0x1da704.__e, _0x110832);
-          if (typeof _0x2182cf.type == "function") {
-            _0x2182cf.__d = _0x110832;
-          }
-        }
-      }
-    }
-  }
-  function callback13(_0x7a94f6: PreactElement, _0xcfc3de: VNode, _0x38d1c8: VNode, _0x57f96e: ComponentContext, _0x30c4e7: boolean, list4: PreactElement[] | null, list5: Component[], _0x2d334e: PreactElement | null, _0x302602: HydrateFlag): PreactElement | null {
-    // Reused scratch variable (mirrors real Preact's `diff()` `tmp`): holds an
-    // options hook, the resolved `contextType`, or the component's render
-    // result at different points, so its type is the union of all three.
-    var _0xaa662: ((vnode: VNode) => void) | PreactContext | PreactChildren;
-    var _0x57ab31: Component;
-    var _0xdc95d7: boolean | undefined;
-    var _0x490cde: VNodeProps;
-    var _0x4c08c1: ComponentState;
-    var _0x496f8f: PreactStateValue;
-    var _0x531bff: Component | null;
-    var _0x7c2e61: VNodeProps;
-    var _0x36dd0c: Component | undefined;
-    var _0x24bd6d: PreactContextValue;
-    var _0x27f629: PreactChildren;
-    var type = _0xcfc3de.type;
-    if (_0xcfc3de.constructor !== undefined) {
-      return null;
-    }
-    if (_0x38d1c8.__h != null) {
-      _0x302602 = _0x38d1c8.__h;
-      _0x2d334e = _0xcfc3de.__e = _0x38d1c8.__e;
-      _0xcfc3de.__h = null;
-      list4 = [_0x2d334e];
-    }
-    if (_0xaa662 = preactOptions.__b) {
-      _0xaa662(_0xcfc3de);
-    }
-    try {
-      _0x38b1fe: if (typeof type == "function") {
-        _0x7c2e61 = _0xcfc3de.props as VNodeProps;
-        _0x36dd0c = (_0xaa662 = type.contextType) && _0x57f96e[(_0xaa662 as PreactContext).__c];
-        _0x24bd6d = _0xaa662 ? _0x36dd0c ? _0x36dd0c.props.value : (_0xaa662 as PreactContext).__ : _0x57f96e;
-        if (_0x38d1c8.__c) {
-          _0x531bff = (_0x57ab31 = _0xcfc3de.__c = _0x38d1c8.__c).__ = _0x57ab31.__E;
-        } else {
-          if ("prototype" in type && type.prototype.render) {
-            // The `in` check proves this branch's `type` is a class component
-            // at runtime, but TS's `typeof type == "function"` narrowing above
-            // turned the union into `FunctionComponent & Function | ComponentClass
-            // & Function`, and `in` doesn't narrow away the non-constructable
-            // intersection member — hence the explicit cast.
-            _0xcfc3de.__c = _0x57ab31 = new (type as InvokableComponentClass)(_0x7c2e61, _0x24bd6d);
-          } else {
-            _0xcfc3de.__c = _0x57ab31 = new _0x6579ff(_0x7c2e61, _0x24bd6d);
-            _0x57ab31.constructor = type;
-            _0x57ab31.render = _0x6aab8d;
-          }
-          if (_0x36dd0c) {
-            _0x36dd0c.sub(_0x57ab31);
-          }
-          _0x57ab31.props = _0x7c2e61;
-          _0x57ab31.state ||= {};
-          _0x57ab31.context = _0x24bd6d;
-          _0x57ab31.__n = _0x57f96e;
-          _0xdc95d7 = _0x57ab31.__d = true;
-          _0x57ab31.__h = [];
-        }
-        if (_0x57ab31.__s == null) {
-          _0x57ab31.__s = _0x57ab31.state;
-        }
-        if (type.getDerivedStateFromProps != null) {
-          if (_0x57ab31.__s == _0x57ab31.state) {
-            _0x57ab31.__s = callback({}, _0x57ab31.__s) as ComponentState;
-          }
-          callback(_0x57ab31.__s, type.getDerivedStateFromProps(_0x7c2e61, _0x57ab31.__s));
-        }
-        _0x490cde = _0x57ab31.props;
-        _0x4c08c1 = _0x57ab31.state;
-        if (_0xdc95d7) {
-          if (type.getDerivedStateFromProps == null && _0x57ab31.componentWillMount != null) {
-            _0x57ab31.componentWillMount();
-          }
-          if (_0x57ab31.componentDidMount != null) {
-            _0x57ab31.__h.push(_0x57ab31.componentDidMount);
-          }
-        } else {
-          if (type.getDerivedStateFromProps == null && _0x7c2e61 !== _0x490cde && _0x57ab31.componentWillReceiveProps != null) {
-            _0x57ab31.componentWillReceiveProps(_0x7c2e61, _0x24bd6d);
-          }
-          if (!_0x57ab31.__e && _0x57ab31.shouldComponentUpdate != null && _0x57ab31.shouldComponentUpdate(_0x7c2e61, _0x57ab31.__s, _0x24bd6d) === false || _0xcfc3de.__v === _0x38d1c8.__v) {
-            _0x57ab31.props = _0x7c2e61;
-            _0x57ab31.state = _0x57ab31.__s;
-            if (_0xcfc3de.__v !== _0x38d1c8.__v) {
-              _0x57ab31.__d = false;
-            }
-            _0x57ab31.__v = _0xcfc3de;
-            _0xcfc3de.__e = _0x38d1c8.__e;
-            _0xcfc3de.__k = _0x38d1c8.__k;
-            if (_0x57ab31.__h.length) {
-              list5.push(_0x57ab31);
-            }
-            callback12(_0xcfc3de, _0x2d334e, _0x7a94f6);
-            break _0x38b1fe;
-          }
-          if (_0x57ab31.componentWillUpdate != null) {
-            _0x57ab31.componentWillUpdate(_0x7c2e61, _0x57ab31.__s, _0x24bd6d);
-          }
-          if (_0x57ab31.componentDidUpdate != null) {
-            _0x57ab31.__h.push(function () {
-              (_0x57ab31.componentDidUpdate as (previousProps: VNodeProps, previousState: ComponentState, snapshot: PreactStateValue) => void)(_0x490cde, _0x4c08c1, _0x496f8f);
-            });
-          }
-        }
-        _0x57ab31.context = _0x24bd6d;
-        _0x57ab31.props = _0x7c2e61;
-        _0x57ab31.state = _0x57ab31.__s;
-        if (_0xaa662 = preactOptions.__r) {
-          _0xaa662(_0xcfc3de);
-        }
-        _0x57ab31.__d = false;
-        _0x57ab31.__v = _0xcfc3de;
-        _0x57ab31.__P = _0x7a94f6;
-        _0xaa662 = _0x57ab31.render(_0x57ab31.props, _0x57ab31.state, _0x57ab31.context);
-        _0x57ab31.state = _0x57ab31.__s;
-        if (_0x57ab31.getChildContext != null) {
-          _0x57f96e = callback(callback({}, _0x57f96e), _0x57ab31.getChildContext()) as ComponentContext;
-        }
-        if (!_0xdc95d7 && _0x57ab31.getSnapshotBeforeUpdate != null) {
-          _0x496f8f = _0x57ab31.getSnapshotBeforeUpdate(_0x490cde, _0x4c08c1);
-        }
-        _0x27f629 = _0xaa662 != null && (_0xaa662 as VNode).type == _0x1a6367 && (_0xaa662 as VNode).key == null ? ((_0xaa662 as VNode).props as VNodeProps).children : _0xaa662;
-        callback7(_0x7a94f6, (Array.isArray(_0x27f629) ? _0x27f629 : [_0x27f629]) as PreactChild[], _0xcfc3de, _0x38d1c8, _0x57f96e, _0x30c4e7, list4, list5, _0x2d334e, _0x302602);
-        _0x57ab31.base = _0xcfc3de.__e;
-        _0xcfc3de.__h = null;
-        if (_0x57ab31.__h.length) {
-          list5.push(_0x57ab31);
-        }
-        if (_0x531bff) {
-          _0x57ab31.__E = _0x57ab31.__ = null;
-        }
-        _0x57ab31.__e = false;
-      } else if (list4 == null && _0xcfc3de.__v === _0x38d1c8.__v) {
-        _0xcfc3de.__k = _0x38d1c8.__k;
-        _0xcfc3de.__e = _0x38d1c8.__e;
-      } else {
-        _0xcfc3de.__e = callback15(_0x38d1c8.__e, _0xcfc3de, _0x38d1c8, _0x57f96e, _0x30c4e7, list4, list5, _0x302602);
-      }
-      if (_0xaa662 = preactOptions.diffed) {
-        _0xaa662(_0xcfc3de);
-      }
-    } catch (_0x4e08bd) {
-      _0xcfc3de.__v = null;
-      if (_0x302602 || list4 != null) {
-        _0xcfc3de.__e = _0x2d334e;
-        _0xcfc3de.__h = !!_0x302602;
-        list4[list4.indexOf(_0x2d334e)] = null;
-      }
-      preactOptions.__e(_0x4e08bd, _0xcfc3de, _0x38d1c8);
-    }
-    return _0xcfc3de.__e;
-  }
-  // `_0x1803c8` starts as the commit queue (Component[]) and is reassigned,
-  // per-component, to that component's render-callback queue (Array<(() => void) | HookSlot>
-  // — a plain callback in the common case, or a hook's pending-effect slot when
-  // the bundled preact/hooks addon is installed) — the same reuse pattern as
-  // `_0xaa662` above, so a couple of the roles need an explicit cast to pin
-  // down which shape is in play at that point.
-  function callback14(_0x1803c8: Component[] | Array<(() => void) | HookSlot>, _0x12b46b: VNode) {
-    if (preactOptions.__c) {
-      preactOptions.__c(_0x12b46b, _0x1803c8 as Component[]);
-    }
-    (_0x1803c8 as Component[]).some(function (_0x4ac934: Component) {
-      try {
-        _0x1803c8 = _0x4ac934.__h;
-        _0x4ac934.__h = [];
-        (_0x1803c8 as Array<() => void>).some(function (_0x2cb868: () => void) {
-          _0x2cb868.call(_0x4ac934);
-        });
-      } catch (_0x3c06b5) {
-        preactOptions.__e(_0x3c06b5, _0x4ac934.__v);
-      }
-    });
-  }
-  function callback15(element: PreactElement | null, _0x3459df: VNode, _0xafaf5a: VNode, _0x4e97d6: ComponentContext, _0xa64301: boolean, list4: PreactElement[] | null, _0x3f9ad6: Component[], _0x2a354f: HydrateFlag): PreactElement {
-    var _0x5e6fce: number | PreactChildren | string | boolean | undefined;
-    var _0x4b0e30: PreactElement | null;
-    var _0x435245: DangerouslySetInnerHtml | undefined;
-    var _0x588a70: DangerouslySetInnerHtml | undefined;
-    var _0x3a51e6: number;
-    var props = _0xafaf5a.props as VNodeProps;
-    var props2 = _0x3459df.props as VNodeProps;
-    _0xa64301 = _0x3459df.type === "svg" || _0xa64301;
-    if (list4 != null) {
-      for (_0x5e6fce = 0; _0x5e6fce < list4.length; _0x5e6fce++) {
-        if ((_0x4b0e30 = list4[_0x5e6fce]) != null && ((_0x3459df.type === null ? _0x4b0e30.nodeType === 3 : _0x4b0e30.localName === _0x3459df.type) || element == _0x4b0e30)) {
-          element = _0x4b0e30;
-          list4[_0x5e6fce] = null;
-          break;
-        }
-      }
-    }
-    if (element == null) {
-      if (_0x3459df.type === null) {
-        return document.createTextNode(_0x3459df.props as string);
-      }
-      element = _0xa64301 ? document.createElementNS("http://www.w3.org/2000/svg", _0x3459df.type as string) : document.createElement(_0x3459df.type as string, props2.is ? {
-        is: props2.is
-      } : undefined);
-      list4 = null;
-      _0x2a354f = false;
-    }
-    if (_0x3459df.type === null) {
-      if (_0xafaf5a.props !== _0x3459df.props && (!_0x2a354f || element.data !== (_0x3459df.props as string))) {
-        element.data = _0x3459df.props as string;
-      }
-    } else {
-      if (list4 != null) {
-        list4 = _0x9d84c4.slice.call(element.childNodes);
-      }
-      _0x435245 = (props = (_0xafaf5a.props as VNodeProps) || (_0x316685 as VNodeProps)).dangerouslySetInnerHTML;
-      _0x588a70 = props2.dangerouslySetInnerHTML;
-      if (!_0x2a354f) {
-        if (list4 != null) {
-          props = {};
-          _0x3a51e6 = 0;
-          for (; _0x3a51e6 < element.attributes.length; _0x3a51e6++) {
-            props[element.attributes[_0x3a51e6].name] = element.attributes[_0x3a51e6].value;
-          }
-        }
-        if (_0x588a70 || _0x435245) {
-          if (!_0x588a70 || (!_0x435245 || _0x588a70.__html != _0x435245.__html) && _0x588a70.__html !== element.innerHTML) {
-            element.innerHTML = _0x588a70 && _0x588a70.__html || "";
-          }
-        }
-      }
-      callback9(element, props2, props, _0xa64301, _0x2a354f);
-      if (_0x588a70) {
-        _0x3459df.__k = [];
-      } else {
-        _0x5e6fce = (_0x3459df.props as VNodeProps).children;
-        callback7(element, (Array.isArray(_0x5e6fce) ? _0x5e6fce : [_0x5e6fce]) as PreactChild[], _0x3459df, _0xafaf5a, _0x4e97d6, _0x3459df.type !== "foreignObject" && _0xa64301, list4, _0x3f9ad6, _0x316685 as PreactElement | object | null, _0x2a354f);
-      }
-      if (!_0x2a354f) {
-        if ("value" in props2 && (_0x5e6fce = props2.value) !== undefined && (_0x5e6fce !== element.value || _0x3459df.type === "progress" && !_0x5e6fce)) {
-          callback11(element, "value", _0x5e6fce, props.value, false);
-        }
-        if ("checked" in props2 && (_0x5e6fce = props2.checked) !== undefined && _0x5e6fce !== element.checked) {
-          callback11(element, "checked", _0x5e6fce, props.checked, false);
-        }
-      }
-    }
-    return element;
-  }
-  function callback16(_0x52f145: PreactRef, _0x3013b5: PreactElement | Component | null, _0x43abad: VNode) {
-    try {
-      if (typeof _0x52f145 == "function") {
-        _0x52f145(_0x3013b5);
-      } else {
-        _0x52f145.current = _0x3013b5;
-      }
-    } catch (_0x3f9d12) {
-      preactOptions.__e(_0x3f9d12, _0x43abad);
-    }
-  }
-  function callback17(_0x5bcf77: VNode, _0x46fddb: VNode, _0x274471?: boolean) {
-    var list4: PreactRef | Component | VNode[] | undefined;
-    var _0x3a1192: PreactElement | null | undefined;
-    var _0x463e59: number;
-    if (preactOptions.unmount) {
-      preactOptions.unmount(_0x5bcf77);
-    }
-    if (list4 = _0x5bcf77.ref) {
-      // A callback ref (function) has no `.current` — accessing it yields
-      // `undefined`, which is exactly the falsy value this check relies on,
-      // matching real Preact's behavior for that ref kind.
-      if (!(list4 as PreactRefObject).current || (list4 as PreactRefObject).current === _0x5bcf77.__e) {
-        callback16(list4 as PreactRef, null, _0x46fddb);
-      }
-    }
-    if (!_0x274471 && typeof _0x5bcf77.type != "function") {
-      _0x274471 = (_0x3a1192 = _0x5bcf77.__e) != null;
-    }
-    _0x5bcf77.__e = _0x5bcf77.__d = undefined;
-    if ((list4 = _0x5bcf77.__c) != null) {
-      if (list4.componentWillUnmount) {
-        try {
-          list4.componentWillUnmount();
-        } catch (_0x3ae80d) {
-          preactOptions.__e(_0x3ae80d, _0x46fddb);
-        }
-      }
-      list4.base = list4.__P = null;
-    }
-    if (list4 = _0x5bcf77.__k) {
-      for (_0x463e59 = 0; _0x463e59 < list4.length; _0x463e59++) {
-        if (list4[_0x463e59]) {
-          callback17(list4[_0x463e59], _0x46fddb, _0x274471);
-        }
-      }
-    }
-    if (_0x3a1192 != null) {
-      callback2(_0x3a1192);
-    }
-  }
-  function _0x6aab8d(this: Component, _0x2bb351: VNodeProps, _0x136766: ComponentState, _0x4dac4a: PreactContextValue): PreactChildren {
-    // Only ever installed as `render` for plain function components (see
-    // below), so `this.constructor` is always the original function — cast
-    // just to give TS a callable type; this stays a plain method-style call
-    // (`this.constructor(...)`, not `.call()`) so the implicit `this` binding
-    // JS gives a call of the form `obj.method(...)` is preserved unchanged.
-    return (this.constructor as InvokableFunctionComponent)(_0x2bb351, _0x4dac4a);
-  }
-  function callback18(_0xe1b337: PreactChildren, _0x4d1c6d: PreactElement, _0x21c44d?: PreactElement) {
-    var _0x2ebb7f: boolean;
-    var _0x34cd7a: VNode | null | undefined;
-    var _0x38dafe: Component[];
-    if (preactOptions.__) {
-      preactOptions.__(_0xe1b337, _0x4d1c6d);
-    }
-    _0x34cd7a = (_0x2ebb7f = _0x21c44d === _0x4c3ef1) ? null : _0x21c44d && _0x21c44d.__k || _0x4d1c6d.__k;
-    _0xe1b337 = createElement(_0x1a6367, null, [_0xe1b337]);
-    _0x38dafe = [];
-    callback13(_0x4d1c6d, (_0x2ebb7f ? _0x4d1c6d : _0x21c44d || _0x4d1c6d).__k = _0xe1b337 as VNode, (_0x34cd7a || _0x316685) as VNode, _0x316685 as ComponentContext, _0x4d1c6d.ownerSVGElement !== undefined, _0x21c44d && !_0x2ebb7f ? [_0x21c44d] : _0x34cd7a ? null : _0x4d1c6d.childNodes.length ? _0x9d84c4.slice.call(_0x4d1c6d.childNodes) : null, _0x38dafe, (_0x21c44d || _0x316685) as PreactElement | null, _0x2ebb7f);
-    callback14(_0x38dafe, _0xe1b337);
-  }
-  function callback19<T extends PreactContextValue = PreactContextValue>(_0x5beed0?: T, _0x33329b?: string): PreactContext<T> {
-    var _0x4e0e19: PreactContext<T> = {
-      __c: _0x33329b = "__cC" + _0x43d241++,
-      __: _0x5beed0,
-      Consumer: function (this: Component, _0x5c8130: VNodeProps, _0x11d62d: PreactContextValue) {
-        // `children` here is a Context.Consumer render-prop function, not
-        // renderable content — `PreactChildren` and a function type don't
-        // overlap for a single assertion, so bridge through `object` (both
-        // sides overlap it) rather than `unknown`.
-        return ((_0x5c8130.children as object) as (value: PreactContextValue) => PreactChildren)(_0x11d62d);
-      },
-      // `list4`/`_0x30fb1b` are only ever "parameters" in the minifier-golfed
-      // sense — Provider is always invoked with just `props`; they behave as
-      // ordinary locals initialized on the component's first render and then
-      // captured by the closures below, so they're typed optional to keep the
-      // call signature's arity compatible with `FunctionComponent`.
-      Provider: function (this: Component, _0xfc529f: VNodeProps, list4?: Component[], _0x30fb1b?: ComponentContext) {
-        if (!this.getChildContext) {
-          list4 = [];
-          (_0x30fb1b = {})[_0x33329b as string] = this;
-          this.getChildContext = function (this: Component): ComponentContext {
-            return _0x30fb1b as ComponentContext;
-          };
-          this.shouldComponentUpdate = function (this: Component, _0x4a0131: VNodeProps) {
-            if (this.props.value !== _0x4a0131.value) {
-              (list4 as Component[]).some(callback6);
-            }
-          };
-          this.sub = function (this: Component, _0x54bd38: Component) {
-            (list4 as Component[]).push(_0x54bd38);
-            var componentWillUnmount = _0x54bd38.componentWillUnmount;
-            _0x54bd38.componentWillUnmount = function (this: Component): void {
-              (list4 as Component[]).splice((list4 as Component[]).indexOf(_0x54bd38), 1);
-              if (componentWillUnmount) {
-                componentWillUnmount.call(_0x54bd38);
-              }
-            };
-          };
-        }
-        return _0xfc529f.children;
-      }
-    };
-    // `.__` is stamped onto the Provider function value so the diffing code
-    // can look it back up — see the `__` member added to `ComponentTypeStatics`.
-    return (_0x4e0e19.Provider.__ = _0x4e0e19.Consumer.contextType = _0x4e0e19);
-  }
-  preactOptions = {
-    __e: function (_0x56617d: Error, _0x4d6ef8: VNode) {
-      var _0x261b62: Component | null;
-      var _0x1c0b4c: ComponentType | undefined;
-      for (var _0x5c24e2: boolean | undefined, __h = _0x4d6ef8.__h; _0x4d6ef8 = _0x4d6ef8.__;) {
-        if ((_0x261b62 = _0x4d6ef8.__c) && !_0x261b62.__) {
-          try {
-            if ((_0x1c0b4c = _0x261b62.constructor) && _0x1c0b4c.getDerivedStateFromError != null) {
-              _0x261b62.setState(_0x1c0b4c.getDerivedStateFromError(_0x56617d));
-              _0x5c24e2 = _0x261b62.__d;
-            }
-            if (_0x261b62.componentDidCatch != null) {
-              _0x261b62.componentDidCatch(_0x56617d);
-              _0x5c24e2 = _0x261b62.__d;
-            }
-            if (_0x5c24e2) {
-              _0x4d6ef8.__h = __h;
-              return _0x261b62.__E = _0x261b62;
-            }
-          } catch (_0x1af785) {
-            _0x56617d = _0x1af785;
-          }
-        }
-      }
-      throw _0x56617d;
-    }
-  };
-  _0x6579ff.prototype.setState = function (this: Component, callback95: Partial<ComponentState> | ((state: ComponentState, props: VNodeProps) => Partial<ComponentState> | null) | null, _0x10f265?: () => void) {
-    var _0x31ea93: ComponentState;
-    _0x31ea93 = this.__s != null && this.__s !== this.state ? this.__s : this.__s = callback({}, this.state) as ComponentState;
-    if (typeof callback95 == "function") {
-      callback95 = callback95(callback({}, _0x31ea93) as ComponentState, this.props);
-    }
-    if (callback95) {
-      callback(_0x31ea93, callback95);
-    }
-    if (callback95 != null && this.__v) {
-      if (_0x10f265) {
-        this.__h.push(_0x10f265);
-      }
-      callback6(this);
-    }
-  };
-  _0x6579ff.prototype.forceUpdate = function (this: Component, _0x4c9788?: () => void) {
-    if (this.__v) {
-      this.__e = true;
-      if (_0x4c9788) {
-        this.__h.push(_0x4c9788);
-      }
-      callback6(this);
-    }
-  };
-  _0x6579ff.prototype.render = _0x1a6367;
-  list = [];
-  _0x406d2a = typeof Promise == "function" ? Promise.prototype.then.bind(Promise.resolve()) : setTimeout;
-  _0x154984.__r = 0;
-  _0x4c3ef1 = _0x316685;
-  _0x43d241 = 0;
-  function callback20(callback95: (module: { exports: CookiesApi }, exports: CookiesApi) => void, _0x56a002?: { exports: CookiesApi }) {
-    _0x56a002 = {
-      exports: {} as CookiesApi
-    };
-    callback95(_0x56a002, _0x56a002.exports);
-    return _0x56a002.exports;
-  }
-  var _0x480125 = callback20(function (_0x489395: { exports: CookiesApi }, _0x32ffe2: CookiesApi) {
-    (function (callback95: () => CookiesApi) {
-      var _0x38a1e2: boolean;
-      {
-        _0x489395.exports = callback95();
-        _0x38a1e2 = true;
-      }
-      if (!_0x38a1e2) {
-        var Cookies = window.Cookies;
-        var _0x5b9e40 = window.Cookies = callback95();
-        _0x5b9e40.noConflict = function (): CookiesApi {
-          window.Cookies = Cookies;
-          return _0x5b9e40;
-        };
-      }
-    })(function (): CookiesApi {
-      function callback95(...args: CookieAttributes[]): CookieAttributes {
-        var i2 = 0;
-        var _0x541af5: CookieAttributes = {};
-        for (; i2 < arguments.length; i2++) {
-          var _0x231da7 = arguments[i2];
-          for (var _0x37b533 in _0x231da7) {
-            _0x541af5[_0x37b533] = _0x231da7[_0x37b533];
-          }
-        }
-        return _0x541af5;
-      }
-      function callback96(_0x5776fd: string): string {
-        return _0x5776fd.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent);
-      }
-      function callback97(_0xa8c88: CookieConverter): CookiesApi {
-        function _0x316d13(): void {}
-        function callback98(_0x5b7742: string, _0x41d11e: JsonValue, _0x5ddbc3?: CookieAttributes) {
-          if (typeof document === "undefined") {
-            return;
-          }
-          _0x5ddbc3 = callback95({
-            path: "/"
-          }, (_0x316d13 as CookiesApi).defaults, _0x5ddbc3);
-          if (typeof _0x5ddbc3.expires === "number") {
-            _0x5ddbc3.expires = new Date(Number(new Date()) * 1 + _0x5ddbc3.expires * 86400000);
-          }
-          _0x5ddbc3.expires = _0x5ddbc3.expires ? (_0x5ddbc3.expires as Date).toUTCString() : "";
-          try {
-            var _0x3c25e5 = JSON.stringify(_0x41d11e);
-            if (/^[\{\[]/.test(_0x3c25e5)) {
-              _0x41d11e = _0x3c25e5;
-            }
-          } catch (_0x556778) {}
-          _0x41d11e = _0xa8c88.write ? _0xa8c88.write(_0x41d11e, _0x5b7742) : encodeURIComponent(String(_0x41d11e)).replace(/%(23|24|26|2B|3A|3C|3E|3D|2F|3F|40|5B|5D|5E|60|7B|7D|7C)/g, decodeURIComponent);
-          _0x5b7742 = encodeURIComponent(String(_0x5b7742)).replace(/%(23|24|26|2B|5E|60|7C)/g, decodeURIComponent).replace(/[\(\)]/g, escape);
-          var _0x32de11 = "";
-          for (var _0x3aa7f8 in _0x5ddbc3) {
-            if (!_0x5ddbc3[_0x3aa7f8]) {
-              continue;
-            }
-            _0x32de11 += "; " + _0x3aa7f8;
-            if (_0x5ddbc3[_0x3aa7f8] === true) {
-              continue;
-            }
-            _0x32de11 += "=" + (_0x5ddbc3[_0x3aa7f8] as string).split(";")[0];
-          }
-          return document.cookie = _0x5b7742 + "=" + _0x41d11e + _0x32de11;
-        }
-        function callback99(_0x5eafdb: string | undefined, _0x3b7cc9: boolean) {
-          if (typeof document === "undefined") {
-            return;
-          }
-          var _0x516511: CookieJar = {};
-          var list4 = document.cookie ? document.cookie.split("; ") : [];
-          var i2 = 0;
-          for (; i2 < list4.length; i2++) {
-            var _0x517955 = list4[i2].split("=");
-            var _0x482fd7 = _0x517955.slice(1).join("=");
-            if (!_0x3b7cc9 && _0x482fd7.charAt(0) === "\"") {
-              _0x482fd7 = _0x482fd7.slice(1, -1);
-            }
-            try {
-              var _0x1b7fb2 = callback96(_0x517955[0]);
-              _0x482fd7 = (_0xa8c88.read || _0xa8c88)(_0x482fd7, _0x1b7fb2) || callback96(_0x482fd7);
-              if (_0x3b7cc9) {
-                try {
-                  _0x482fd7 = JSON.parse(_0x482fd7);
-                } catch (_0x1ba30e) {}
-              }
-              _0x516511[_0x1b7fb2] = _0x482fd7;
-              if (_0x5eafdb === _0x1b7fb2) {
-                break;
-              }
-            } catch (_0x35f9bb) {}
-          }
-          if (_0x5eafdb) {
-            return _0x516511[_0x5eafdb];
-          } else {
-            return _0x516511;
-          }
-        }
-        (_0x316d13 as CookiesApi).set = function <T = JsonValue>(_0x5b7742: string, _0x41d11e: T, _0x5ddbc3?: CookieAttributes): string | undefined {
-          return callback98(_0x5b7742, _0x41d11e as JsonValue, _0x5ddbc3);
-        };
-        (_0x316d13 as CookiesApi).get = function (_0x42280a?: string) {
-          return callback99(_0x42280a, false);
-        };
-        (_0x316d13 as CookiesApi).getJSON = function <T = CookieJar>(_0x280463?: string): T | undefined {
-          return callback99(_0x280463, true) as T | undefined;
-        };
-        (_0x316d13 as CookiesApi).remove = function (_0x396dda: string, _0x3baebe?: CookieAttributes) {
-          callback98(_0x396dda, "", callback95(_0x3baebe as CookieAttributes, {
-            expires: -1
-          }));
-        };
-        (_0x316d13 as CookiesApi).defaults = {};
-        (_0x316d13 as CookiesApi).withConverter = callback97;
-        return _0x316d13;
-      }
-      return callback97(function (): string | undefined {
-        return undefined;
-      });
-    });
-  });
   const _0x68ae04 = Math.pow(2, -26);
   const callback21 = (_0x4232a1: number) => Math.abs(_0x4232a1) <= _0x68ae04;
   const callback22 = (_0x2bc84b: number, _0x422639: number) => Math.abs(_0x2bc84b - _0x422639) <= _0x68ae04;
@@ -3283,7 +2317,7 @@ interface ObjectConstructor {
       this.achievements = _0x192743.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
     }
     load(): void {
-      const _0x5ed92b: StoredChallenges = _0x480125.getJSON("paperio_challenges") || {};
+      const _0x5ed92b: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
       const callback95 = (_0x327d6e: string, _0x59e923: string) => {
         if (_0x5ed92b[_0x327d6e]) {
           const _0x418203 = this.achievements.find((_0x573bf0: Achievement) => _0x573bf0.name === _0x59e923);
@@ -3296,7 +2330,7 @@ interface ObjectConstructor {
       callback95("c22", "capAmerica");
       callback95("c22", "thanos");
       callback95("geraldquest1", "geralt");
-      const _0x3b1c17: StoredProfile = _0x480125.getJSON(this.storageName) || {};
+      const _0x3b1c17: StoredProfile = Cookies.getJSON(this.storageName) || {};
       if (_0x3b1c17.achievements) {
         _0x3b1c17.achievements.forEach((achievement: StoredAchievement) => {
           const achievement2 = this.achievements.find((_0x22b11a: Achievement) => _0x22b11a.name === achievement.name);
@@ -3313,13 +2347,13 @@ interface ObjectConstructor {
         best: achievement.best,
         earned: achievement.earned
       }));
-      const _0x5d7feb: StoredProfile = _0x480125.getJSON(this.storageName) || {};
+      const _0x5d7feb: StoredProfile = Cookies.getJSON(this.storageName) || {};
       _0x5d7feb.achievements = _0x103b7e;
       const _0x4abe97 = {
         expires: 365
       };
-      _0x480125.set(this.storageName, _0x5d7feb, _0x4abe97);
-      const _0x271fb8: StoredChallenges = _0x480125.getJSON("paperio_challenges") || {};
+      Cookies.set(this.storageName, _0x5d7feb, _0x4abe97);
+      const _0x271fb8: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
       const callback95 = (_0x146a69: string, _0x3ef66a: string) => {
         const _0x5a3728 = this.achievements.find((_0x5f3797: Achievement) => _0x5f3797.name === _0x3ef66a);
         if (_0x5a3728 && _0x5a3728.earned) {
@@ -3333,7 +2367,7 @@ interface ObjectConstructor {
       callback95("sanitizerquest", "sanitizer");
       callback95("doctorquest", "doctor");
       callback95("covidquest", "covid");
-      _0x480125.set("paperio_challenges", _0x271fb8, _0x4abe97);
+      Cookies.set("paperio_challenges", _0x271fb8, _0x4abe97);
       window.paperio_challenges = _0x271fb8;
       if (window.shop) {
         window.shop.autoCheckUnlock();
@@ -3706,7 +2740,7 @@ interface ObjectConstructor {
       this.pool.push(..._0x34977b);
     }
   }
-  var assign = Object.assign;
+  var objectAssign = Object.assign;
   const _0x42e000: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
   const _0x5b62ba: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
   {
@@ -4153,7 +3187,7 @@ interface ObjectConstructor {
           _0x485540[_0x1eb817.type]++;
         }
       });
-      this.bots = assign({}, _0x485540);
+      this.bots = objectAssign({}, _0x485540);
       const _0x546f25 = list4[Math.round(this.level * (list4.length - 1))];
       let _0x50cd16 = -1;
       while (_0x485540[_0x546f25[++_0x50cd16]] > 0) {
@@ -6809,200 +5843,6 @@ interface ObjectConstructor {
     __: HookSlot[];
     __h: HookSlot[];
   }
-  var _0x4214bf: number;
-  var _0x336185: Component | undefined;
-  var _0x5146fe: ((callback: () => void) => void) | undefined;
-  var _0x45ddd0 = 0;
-  var list2: Component[] = [];
-  var __r: ((vnode: VNode) => void) | undefined = preactOptions.__r;
-  var diffed: ((vnode: VNode) => void) | undefined = preactOptions.diffed;
-  var __c: ((vnode: VNode, commitQueue: Component[]) => void) | undefined = preactOptions.__c;
-  var unmount: ((vnode: VNode) => void) | undefined = preactOptions.unmount;
-  function callback82(_0x5bec12: number, _0x375caa: number): HookSlot {
-    if (preactOptions.__h) {
-      preactOptions.__h(_0x336185, _0x5bec12, _0x45ddd0 || _0x375caa);
-    }
-    _0x45ddd0 = 0;
-    var _0x5d4bf0 = _0x336185.__H ||= {
-      __: [],
-      __h: []
-    };
-    if (_0x5bec12 >= _0x5d4bf0.__.length) {
-      _0x5d4bf0.__.push({});
-    }
-    return _0x5d4bf0.__[_0x5bec12];
-  }
-  function callback83<T>(_0x179f26: T | (() => T)): [T, Dispatch<T>] {
-    _0x45ddd0 = 1;
-    return callback84(callback91, _0x179f26);
-  }
-  function callback84<TState, TAction = TState>(_0x268a16: (state: TState, action: TAction) => TState, _0x77450f: TState | (() => TState), callback95?: (initial: TState | (() => TState)) => TState): [TState, Dispatch<TAction>] {
-    var _0xa8da50 = callback82(_0x4214bf++, 2);
-    _0xa8da50.t = _0x268a16 as (state: object, action: object) => object;
-    if (!_0xa8da50.__c) {
-      const dispatch: Dispatch<TAction> = function (_0x4eeef0: TAction | ((prevState: TAction) => TAction)) {
-        const reducer = _0xa8da50.t as (state: TState, action: TAction | ((prevState: TAction) => TAction)) => TState;
-        const currentTuple = _0xa8da50.__ as [TState, Dispatch<TAction>];
-        var _0xfd25aa = reducer(currentTuple[0], _0x4eeef0);
-        if (currentTuple[0] !== _0xfd25aa) {
-          _0xa8da50.__ = [_0xfd25aa, currentTuple[1]];
-          const owner = _0xa8da50.__c;
-          if (owner && "setState" in owner) {
-            owner.setState({});
-          }
-        }
-      };
-      _0xa8da50.__ = [callback95 ? callback95(_0x77450f) : callback91(undefined, _0x77450f), dispatch];
-      _0xa8da50.__c = _0x336185;
-    }
-    return _0xa8da50.__ as [TState, Dispatch<TAction>];
-  }
-  function callback85(_0x525b68: () => void | (() => void), _0x28f13b?: object[]) {
-    var _0x301297 = callback82(_0x4214bf++, 3);
-    if (!preactOptions.__s && callback90(_0x301297.__H, _0x28f13b)) {
-      _0x301297.__ = _0x525b68;
-      _0x301297.__H = _0x28f13b;
-      _0x336185.__H.__h.push(_0x301297);
-    }
-  }
-  function callback86<T>(_0x31b960: T): {
-    current: T;
-  } {
-    _0x45ddd0 = 5;
-    return callback87(function () {
-      return {
-        current: _0x31b960
-      };
-    }, []);
-  }
-  function callback87<T>(callback95: () => T, _0x481e03?: object[]): T {
-    var _0xbe7f9a = callback82(_0x4214bf++, 7);
-    if (callback90(_0xbe7f9a.__H, _0x481e03)) {
-      _0xbe7f9a.__ = callback95() as object;
-      _0xbe7f9a.__H = _0x481e03;
-      _0xbe7f9a.__h = callback95 as () => object;
-    }
-    return _0xbe7f9a.__ as T;
-  }
-  function callback88<T>(_0x535df1: PreactContext<T>): T {
-    var _0x243c65 = (_0x336185.context as ComponentContext)[_0x535df1.__c];
-    var _0x2f0f35 = callback82(_0x4214bf++, 9);
-    _0x2f0f35.__c = _0x535df1 as PreactContext;
-    if (_0x243c65) {
-      if (_0x2f0f35.__ == null) {
-        _0x2f0f35.__ = true;
-        _0x243c65.sub(_0x336185);
-      }
-      return _0x243c65.props.value as T;
-    } else {
-      return _0x535df1.__;
-    }
-  }
-  function _0x3d47c1() {
-    list2.some(function (_0xe5fad4: Component) {
-      if (_0xe5fad4.__P) {
-        try {
-          _0xe5fad4.__H.__h.forEach(_0x4f712f);
-          _0xe5fad4.__H.__h.forEach(callback89);
-          _0xe5fad4.__H.__h = [];
-        } catch (_0x17c90f) {
-          _0xe5fad4.__H.__h = [];
-          preactOptions.__e(_0x17c90f, _0xe5fad4.__v);
-          return true;
-        }
-      }
-    });
-    list2 = [];
-  }
-  preactOptions.__r = function (_0x1baac8: VNode) {
-    if (__r) {
-      __r(_0x1baac8);
-    }
-    _0x4214bf = 0;
-    var __H = (_0x336185 = _0x1baac8.__c).__H;
-    if (__H) {
-      __H.__h.forEach(_0x4f712f);
-      __H.__h.forEach(callback89);
-      __H.__h = [];
-    }
-  };
-  preactOptions.diffed = function (_0x293972: VNode) {
-    if (diffed) {
-      diffed(_0x293972);
-    }
-    var __c2 = _0x293972.__c;
-    if (__c2 && __c2.__H && __c2.__H.__h.length) {
-      if (list2.push(__c2) === 1 || _0x5146fe !== preactOptions.requestAnimationFrame) {
-        ((_0x5146fe = preactOptions.requestAnimationFrame) || function (_0x1a6409: () => void) {
-          var _0x2ecb0f: number;
-          function _0x711e95() {
-            clearTimeout(_0xb55311);
-            if (_0x22bd21) {
-              cancelAnimationFrame(_0x2ecb0f);
-            }
-            setTimeout(_0x1a6409);
-          }
-          var _0xb55311 = setTimeout(_0x711e95, 100);
-          if (_0x22bd21) {
-            _0x2ecb0f = requestAnimationFrame(_0x711e95);
-          }
-        })(_0x3d47c1);
-      }
-    }
-  };
-  preactOptions.__c = function (_0x47bb76: VNode, _0x1ced3b: Component[]) {
-    _0x1ced3b.some(function (_0x33039f: Component) {
-      try {
-        _0x33039f.__h.forEach(_0x4f712f);
-        _0x33039f.__h = _0x33039f.__h.filter(function (_0x37019a: HookSlot) {
-          return !_0x37019a.__ || callback89(_0x37019a);
-        });
-      } catch (_0x1bd124) {
-        _0x1ced3b.some(function (_0x25d555: Component) {
-          _0x25d555.__h &&= [];
-        });
-        _0x1ced3b = [];
-        preactOptions.__e(_0x1bd124, _0x33039f.__v);
-      }
-    });
-    if (__c) {
-      __c(_0x47bb76, _0x1ced3b);
-    }
-  };
-  preactOptions.unmount = function (_0x24219e: VNode) {
-    if (unmount) {
-      unmount(_0x24219e);
-    }
-    var __c2 = _0x24219e.__c;
-    if (__c2 && __c2.__H) {
-      try {
-        __c2.__H.__.forEach(_0x4f712f);
-      } catch (_0x15236f) {
-        preactOptions.__e(_0x15236f, __c2.__v);
-      }
-    }
-  };
-  var _0x22bd21 = typeof requestAnimationFrame == "function";
-  function _0x4f712f(_0x4727c2: HookSlot) {
-    if (typeof _0x4727c2.u == "function") {
-      _0x4727c2.u();
-    }
-  }
-  function callback89(_0x411e83: HookSlot) {
-    _0x411e83.u = (_0x411e83.__ as () => void | (() => void))();
-  }
-  function callback90(list4: object[] | undefined, _0x66baa3?: object[]): boolean {
-    return !list4 || !_0x66baa3 || list4.length !== _0x66baa3.length || _0x66baa3.some(function (_0x2b70d2: object, _0x489d28: number) {
-      return _0x2b70d2 !== list4[_0x489d28];
-    });
-  }
-  function callback91<T>(_0x3b7587: T | undefined, callback95: T | ((prevState: T | undefined) => T)): T {
-    if (typeof callback95 == "function") {
-      return (callback95 as (prevState: T | undefined) => T)(_0x3b7587);
-    } else {
-      return callback95;
-    }
-  }
   interface LanguagesData {
     [languageCode: string]: Partial<LanguageStrings>;
   }
@@ -7037,14 +5877,14 @@ interface ObjectConstructor {
     pattern?: PatternSource;
     avatar?: AvatarDescriptor;
   }
-  const _0x2124e9 = callback19<Language | undefined>();
+  const _0x2124e9 = createContext<Language | undefined>();
   const _0x313732 = ({
     messages
   }: {
     messages: string[];
   }) => {
-    const [_0x2eef6d, callback95] = callback83(0);
-    callback85(() => {
+    const [_0x2eef6d, callback95] = useState(0);
+    useEffect(() => {
       const _0x88d3da = setInterval(() => callback95((_0x39ba1e: number) => (_0x39ba1e + 1) % messages.length), 3000);
       return () => clearInterval(_0x88d3da);
     }, []);
@@ -7126,7 +5966,7 @@ interface ObjectConstructor {
   }: {
     setLanguage: Dispatch<Language | undefined>;
   }) => {
-    const _0x3ae834 = callback88(_0x2124e9);
+    const _0x3ae834 = useContext(_0x2124e9);
     const _0x1df60f = list3.map((_0x159de4: Language, _0x1a5dca: number) => createElement("li", {
       class: _0x159de4 === _0x3ae834 ? "active" : "",
       onClick: () => setLanguage(list3[_0x1a5dca])
@@ -7162,7 +6002,7 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = callback88(_0x2124e9);
+    } = useContext(_0x2124e9);
     const _0x7e5b2d = api && api.game && api.game.config;
     const _0x582227 = !!api;
     const _0x3e6418 = (_0x474014: Event) => setNickName((_0x474014.target as HTMLInputElement).value);
@@ -7173,12 +6013,12 @@ interface ObjectConstructor {
         start();
       }
     };
-    callback85(() => {
+    useEffect(() => {
       if (window.ads && window.ads.showAds) {
         window.ads.showAds();
       }
     }, []);
-    return createElement(_0x1a6367, null, createElement("div", {
+    return createElement(Fragment, null, createElement("div", {
       id: "left_side"
     }), createElement("div", {
       class: "uibox"
@@ -7240,7 +6080,7 @@ interface ObjectConstructor {
     skin: string;
     lastPercent?: number;
   }) => {
-    callback85(() => {
+    useEffect(() => {
       const _0x545eda = (_0x3ee818: GameResults) => {
         if (_0x3ee818.newBest) {
           setBestScore(_0x3ee818.score);
@@ -7251,7 +6091,7 @@ interface ObjectConstructor {
       if (window.ads && window.ads.hideAds) {
         window.ads.hideAds();
       }
-      api.game.language = callback88(_0x2124e9).lng;
+      api.game.language = useContext(_0x2124e9).lng;
       let skin2 = skin;
       if (skin2 === "default" || skin2 === "No skin") {
         skin2 = "";
@@ -7289,7 +6129,7 @@ interface ObjectConstructor {
     const _0xb87c1f = () => route("menu");
     const {
       lng
-    } = callback88(_0x2124e9);
+    } = useContext(_0x2124e9);
     const {
       dataLayer
     } = window;
@@ -7300,12 +6140,12 @@ interface ObjectConstructor {
         productKey: "paper2IO"
       });
     }
-    callback85(() => {
+    useEffect(() => {
       if (window.ads && window.ads.showAds) {
         window.ads.showAds();
       }
     }, []);
-    return createElement(_0x1a6367, null, createElement("div", {
+    return createElement(Fragment, null, createElement("div", {
       id: "left_side"
     }), createElement("div", {
       class: "uibox"
@@ -7377,9 +6217,9 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = callback88(_0x2124e9);
+    } = useContext(_0x2124e9);
     const _0x38fb57 = skins.findIndex((_0x46e46c: SkinSource) => _0x46e46c.name === skin);
-    const [_0x52fa22, callback95] = callback83(_0x38fb57 > 0 ? _0x38fb57 : 0);
+    const [_0x52fa22, callback95] = useState(_0x38fb57 > 0 ? _0x38fb57 : 0);
     const callback96 = (_0xfc8857: number) => {
       if (_0xfc8857 >= 0 && _0xfc8857 < skins.length) {
         callback95(_0xfc8857);
@@ -7419,13 +6259,13 @@ interface ObjectConstructor {
     setSkin: Dispatch<string>;
   }) => {
     const _0x511672 = () => route("menu");
-    callback85(() => {
+    useEffect(() => {
       const element = document.getElementById("paperio-site_multisize");
       if (element) {
         element.style.display = "none";
       }
     }, []);
-    return createElement(_0x1a6367, null, createElement("div", {
+    return createElement(Fragment, null, createElement("div", {
       id: "left_side"
     }), createElement("div", {
       class: "uibox"
@@ -7470,17 +6310,17 @@ interface ObjectConstructor {
     skins: SkinSource[];
     mode?: string;
   }) => {
-    const _0x2a1468 = callback86<HTMLCanvasElement | null>(null);
-    const [_0xae90a5, callback95] = callback83(false);
-    const [_0x3c010f, callback96] = callback83("menu");
-    const [_0x7671bd, callback97] = callback83(true);
-    const [_0x293a25, _0x5c440b] = callback83(callback93());
-    const [_0x50dae7, _0x536f0c] = callback83<GameResults | null>(null);
+    const _0x2a1468 = useRef<HTMLCanvasElement | null>(null);
+    const [_0xae90a5, callback95] = useState(false);
+    const [_0x3c010f, callback96] = useState("menu");
+    const [_0x7671bd, callback97] = useState(true);
+    const [_0x293a25, _0x5c440b] = useState(callback93());
+    const [_0x50dae7, _0x536f0c] = useState<GameResults | null>(null);
     const _0x1cb8f8 = "paper.io.storage";
     const _0x16b845 = storage.getJSON(_0x1cb8f8) || {};
-    const [_0x38110e, _0x495989] = callback83(_0x16b845.nickName || "");
-    const [_0x43a473, _0x421708] = callback83(_0x16b845.bestScore || 0);
-    const [_0x4f80f0, _0x33ebdc] = callback83(_0x16b845.skin || "");
+    const [_0x38110e, _0x495989] = useState(_0x16b845.nickName || "");
+    const [_0x43a473, _0x421708] = useState(_0x16b845.bestScore || 0);
+    const [_0x4f80f0, _0x33ebdc] = useState(_0x16b845.skin || "");
     const _0x48fc9f = {
       expires: 365
     };
@@ -7491,7 +6331,7 @@ interface ObjectConstructor {
         skin: _0x4f80f0
       }, _0x48fc9f);
     }
-    callback85(() => {
+    useEffect(() => {
       if (api) {
         api.create(_0x2a1468.current);
         api.prepare(() => callback97(false));
@@ -7519,7 +6359,7 @@ interface ObjectConstructor {
       }
       window.ShowPreroll();
     };
-    return createElement(_0x1a6367, null, createElement("canvas", {
+    return createElement(Fragment, null, createElement("canvas", {
       class: _0x3c010f === "game" || _0x7671bd ? "" : "fadein",
       id: "view",
       ref: _0x2a1468
@@ -7965,9 +6805,9 @@ interface ObjectConstructor {
     achievementStore.load();
     const _0x117e4e = callback81(_0x2ed33d, callback93(), _0x57ada2, new NamePool(_0x113767, Math.random()), schemeCycler, achievementStore);
     window.paperio2api = _0x117e4e;
-    callback18(createElement(_0x1d032c, {
+    render(createElement(_0x1d032c, {
       api: _0x117e4e,
-      storage: _0x480125,
+      storage: Cookies,
       skins: _0x3a4592
     }), document.getElementById("game"));
   });

@@ -1,0 +1,24 @@
+{
+  "name": "paperio2-deobfuscated",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Readable, typed reconstruction of the Paper.io 2 engine (app2.js), built from real preact + js-cookie dependencies.",
+  "homepage": "https://github.com/mnaoumov/paperio2#readme",
+  "bugs": "https://github.com/mnaoumov/paperio2/issues",
+  "repository": "git+https://github.com/mnaoumov/paperio2.git",
+  "type": "module",
+  "main": "src/app2.ts",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "js-cookie": "2.2.1",
+    "preact": "10.5.4"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "^2.2.7",
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3"
+  }
+}

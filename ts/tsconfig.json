@@ -8,7 +8,7 @@
     "noImplicitAny": false,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowJs": true
+    "types": ["js-cookie"]
   },
-  "files": ["app2.deobfuscated.ts"]
+  "include": ["src"]
 }

@@ -16,7 +16,7 @@ npx serve .
 npx http-server -p 8777
 ```
 
-Then open the printed URL. There is no build step, no test suite, no linter, and no package manifest — it is static files served as-is.
+Then open the printed URL. The shipped game itself has no build step, no test suite, and no linter — it is static files served as-is. (A separate `ts/` project builds a readable, typed reconstruction of the engine from real npm dependencies — see **Editing guidance**.)
 
 ## Architecture
 
@@ -58,26 +58,25 @@ death and during the pre-game "prepare" phase.
 ## Editing guidance
 
 - Real changes belong in `index.html` (the shim) or the CSS/assets — **not** in `app2.js`.
-- A readable, runnable **deobfuscated copy** of `app2.js` is committed at the repo root as
-  `app2.deobfuscated.js` — obfuscation removed and identifiers renamed to meaningful names
-  where inferable (classes/functions/globals + a heuristic + targeted local-variable pass;
-  deep locals stay `_0x…`). The regeneration toolchain and notes live in the git-ignored
-  `research/deob/` — see `research/deob/NOTES.md` for the pipeline (custom Babel
-  string-inliner → `webcrack` under Node 22/24 → strip → scope-aware renames) and a
-  subsystem map. Off-the-shelf deobfuscators alone can't inline this file's rotated
-  string array. It's a study aid; the game still runs off the original `app2.js`.
-- A **typed TypeScript copy** `app2.deobfuscated.ts` is also committed: the same code, now
-  **fully typed** — class fields, method params, returns, and locals all carry real inferred
-  types (interfaces for the shared structural shapes: `Vector`/`Segment`/`Polygon` geometry,
-  `Unit`/`Bot` and their `Config`/`Label`/`Intersection`/etc. bags, the preact `VNode`/
-  `Component`/`PreactOptions` internals, js-cookie/storage shapes, …). It has **zero
-  `any`/`unknown`/`never`** (explicit *and* implicit — verified with `--noImplicitAny`) and
-  compiles with 0 errors under the repo-root `tsconfig.json` (lenient: `strict:false`;
-  typecheck with `npx tsc -p tsconfig.json`). A handful of concrete `as <Type>` assertions
-  remain in the preact reconciler/hooks internals, where preact's minified polymorphic
-  mangled fields (`__k`/`__c`/`__`/…) are genuinely un-inferable without them — none are
-  `as any`/`as unknown`. Types were inferred from the call-tree, so they're only as sound as
-  the lenient config allows (`strictNullChecks` is off). Only `app2.deobfuscated.js` is
-  loaded/run; the `.ts` isn't wired in — it's a shape/readability aid.
+- A readable, typed **reconstruction** of the engine lives in the **`ts/` project**
+  (`ts/src/app2.ts`). It is the single maintained deobfuscated source (the older root-level
+  `app2.deobfuscated.js`/`.ts` copies have been removed). The engine was originally shipped
+  with **preact** (10.4.2–10.5.4; treated as **10.5.4**) and **js-cookie** (2.2.x) inlined
+  into the same bundle; those two libraries have been **extracted to real npm dependencies**
+  (`ts/package.json` pins `preact@10.5.4` + `js-cookie@2.2.1`) and are now `import`ed instead
+  of inlined. `ts/src/app2.ts` therefore contains only the game engine.
+  - Build: `cd ts && npm install && npm run build` → esbuild bundles `src/app2.ts` + the two
+    deps into `ts/dist/app2.js` (a self-contained browser IIFE, **behaviorally equivalent to
+    `app2.js`** — verified: game boots, 16 units, 0 console errors). Typecheck: `npm run
+    typecheck` (`tsc --noEmit`, 0 errors; lenient config, `strict:false`).
+  - Identifier state: the extracted preact/js-cookie internals carried their real upstream
+    names before extraction. The game engine's own identifiers — classes, functions, and
+    many locals — are named; deep, genuinely-ambiguous pass-through locals may still read as
+    `_0x…` (left rather than given an invented, possibly-misleading name).
+  - The one-time deobfuscation toolchain (custom Babel string-inliner → `webcrack` under
+    Node 22/24 → strip → scope-aware renames) lives in the git-ignored `research/deob/` —
+    see `research/deob/NOTES.md`. Off-the-shelf deobfuscators alone can't inline this file's
+    rotated string array. The `ts/` build is a study aid; the shipped game still runs off the
+    original `app2.js`.
 - Changes already made from the original (documented in README.md): removed ad/analytics scripts, dropped cache-busting version query strings (`app2.js?v7`, `style3.css?v50`), and localized the font instead of loading from Google Fonts.
 - `app2.js`, `style3.css`, `manifest.json`, and assets are the site's original copyrighted content, kept for local/offline personal use.
