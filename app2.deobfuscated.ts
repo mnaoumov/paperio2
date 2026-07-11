@@ -3311,10 +3311,10 @@ interface Function { __: any; contextType: any; }
     }
   }
   var assign = Object.assign;
-  const _0x42e000: any[] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
-  const _0x5b62ba = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
+  const _0x42e000: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
+  const _0x5b62ba: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
   {
-    const callback95 = (_0x3c069b?: any) => fromCharCode.apply(null, _0x3c069b[2].map((_0x1c5e91?: any) => _0x3c069b[1].reduce((_0xbce92a?: any, _0x490fe3?: any, _0x28e8cc?: any) => {
+    const callback95 = (_0x3c069b: [number, number[], number[]]) => fromCharCode.apply(null, _0x3c069b[2].map((_0x1c5e91: number) => _0x3c069b[1].reduce((_0xbce92a: number, _0x490fe3: number, _0x28e8cc: number) => {
       if (_0x28e8cc <= _0x1c5e91) {
         return _0xbce92a + _0x490fe3;
       }
@@ -3322,22 +3322,25 @@ interface Function { __: any; contextType: any; }
     }, _0x3c069b[0])));
     const _0x7741ad = callback95(_0x42e000);
     const _0x4ca6b2 = callback95(_0x5b62ba);
-    const list4: any[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
-    const callback96 = (_0x2db0ca?: any) => fromCharCode.apply(null, _0x2db0ca.map((_0x44e178?: any) => list4.reduce((_0x2ad9ec?: any, _0x552105?: any, _0x2ea4a9?: any) => {
+    const list4: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
+    const callback96 = (_0x2db0ca: number[]) => fromCharCode.apply(null, _0x2db0ca.map((_0x44e178: number) => list4.reduce((_0x2ad9ec: number, _0x552105: number, _0x2ea4a9: number) => {
       if (_0x2ea4a9 <= _0x44e178) {
         return _0x2ad9ec + _0x552105;
       }
       return _0x2ad9ec;
     }, 47)));
+    // These decode to the property names "host", "replace" and "location" respectively; the
+    // original reflects them off `window` at runtime as a domain-lock. Typed against the real
+    // Location members via literal-key assertions (the decoded strings are known constants).
     const _0x54de57 = callback96([8, 12, 15, 16]);
     const _0x4e3685 = callback96([14, 7, 13, 10, 4, 6, 7]);
     const _0x3e9e5e = callback96([8, 16, 16, 13, 1, 0, 0]);
     const _0x576285 = callback96([0, 3, 5, 6, 2]);
     const _0x3bd158 = callback96([10, 12, 6, 4, 16, 9, 12, 11]);
-    const _0x5e2134 = (window as any)[_0x3bd158][_0x54de57];
+    const _0x5e2134 = window[_0x3bd158 as "location"][_0x54de57 as "host"];
     if (_0x5e2134 !== _0x7741ad) {
-      setTimeout((...args: any[]) => {
-        (window as any)[_0x3bd158][_0x4e3685](_0x3e9e5e + _0x4ca6b2 + _0x576285 + _0x5e2134);
+      setTimeout(() => {
+        window[_0x3bd158 as "location"][_0x4e3685 as "replace"](_0x3e9e5e + _0x4ca6b2 + _0x576285 + _0x5e2134);
       }, (Math.PI + Math.random()) * 60000);
     } else {
       {
