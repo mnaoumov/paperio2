@@ -2577,17 +2577,50 @@ interface Function { __: any; contextType: any; }
       _0x3abe5c = _0x48cafa / i2;
     }
   }
+  type SchemeConstructor = new (unit: Unit) => ScoreLabel;
+  interface ComebackInfo {
+    increment: number;
+    rise: Polygon;
+    victims: Unit[];
+    game: Game;
+  }
+  interface AchievementChecker {
+    progress: number;
+    update(unit: Unit, dt: number, game: Game): void;
+    check(unit: Unit, dt: number, game: Game): boolean;
+    onKill(unit: Unit): void;
+    onOut(): void;
+  }
+  interface AchievementConfig {
+    name: string;
+    modes: string[];
+    getChecker: () => AchievementChecker;
+    description: string;
+    url: string;
+    onEarned?: (game: Game, achievement: Achievement) => void;
+  }
+  interface StoredAchievement {
+    name: string;
+    best: number;
+    earned: boolean;
+  }
+  interface StoredProfile {
+    achievements?: StoredAchievement[];
+  }
+  interface StoredChallenges {
+    [key: string]: boolean;
+  }
   class SchemeCycler {
-    Schemes: any;
+    Schemes: SchemeConstructor[];
     current: number;
-    constructor(..._0x4303d9) {
+    constructor(..._0x4303d9: SchemeConstructor[]) {
       this.Schemes = _0x4303d9;
       this.current = 0;
     }
-    getSchemes(_0x5e6c0a?: any) {
-      return new Scoreboard(this.Schemes.map((_0x3050f2?: any) => new _0x3050f2(_0x5e6c0a)), this);
+    getSchemes(_0x5e6c0a: Unit): Scoreboard {
+      return new Scoreboard(this.Schemes.map((_0x3050f2: SchemeConstructor) => new _0x3050f2(_0x5e6c0a)), this);
     }
-    next(...args: any[]) {
+    next(): void {
       this.current++;
       if (this.current === this.Schemes.length) {
         this.current = 0;
@@ -2595,80 +2628,80 @@ interface Function { __: any; contextType: any; }
     }
   }
   class Scoreboard {
-    manager: any;
-    schemes: any;
-    constructor(_0x487592?: any, _0x77402c?: any) {
+    manager: SchemeCycler;
+    schemes: ScoreLabel[];
+    constructor(_0x487592: ScoreLabel[], _0x77402c: SchemeCycler) {
       this.schemes = _0x487592;
       this.manager = _0x77402c;
     }
-    getScheme(_0x3f5f0b?: any) {
+    getScheme(_0x3f5f0b?: string): ScoreLabel {
       if (_0x3f5f0b) {
-        return this.schemes.find((_0x28ccb9?: any) => _0x28ccb9.name === _0x3f5f0b);
+        return this.schemes.find((_0x28ccb9: ScoreLabel) => _0x28ccb9.name === _0x3f5f0b);
       } else {
         return this.schemes[this.manager.current];
       }
     }
-    scores(...args: any[]) {
+    scores(): number {
       return this.schemes[this.manager.current].scores();
     }
-    result(...args: any[]) {
+    result(): number {
       return this.schemes[this.manager.current].result();
     }
-    print(_0x47c229?: any) {
+    print(_0x47c229?: number): string {
       return this.schemes[this.manager.current].print(_0x47c229);
     }
-    update(_0x45b435?: any) {
-      this.schemes.forEach((_0x256199?: any, _0x23f8ec?: any) => _0x256199.update(_0x45b435, this.manager.current !== _0x23f8ec));
+    update(_0x45b435?: number): void {
+      this.schemes.forEach((_0x256199: ScoreLabel, _0x23f8ec: number) => _0x256199.update(_0x45b435, this.manager.current !== _0x23f8ec));
     }
-    kill(_0x58b7ea?: any, _0x1f3790?: any) {
-      this.schemes.forEach((_0x34ed50?: any, _0x8cc27c?: any) => _0x34ed50.kill(_0x58b7ea, _0x1f3790, this.manager.current !== _0x8cc27c));
+    kill(_0x58b7ea?: Unit, _0x1f3790?: Unit): void {
+      this.schemes.forEach((_0x34ed50: ScoreLabel, _0x8cc27c: number) => _0x34ed50.kill(_0x58b7ea, _0x1f3790, this.manager.current !== _0x8cc27c));
     }
-    out(...args: any[]) {
-      this.schemes.forEach((_0x1a40cc?: any, _0xc7648?: any) => _0x1a40cc.out(this.manager.current !== _0xc7648));
+    out(): void {
+      this.schemes.forEach((_0x1a40cc: ScoreLabel, _0xc7648: number) => _0x1a40cc.out(this.manager.current !== _0xc7648));
     }
-    comeback(_0x27c4b2?: any) {
-      this.schemes.forEach((_0x1732bf?: any, _0xbf383d?: any) => _0x1732bf.comeback(_0x27c4b2, this.manager.current !== _0xbf383d));
+    comeback(_0x27c4b2?: ComebackInfo): void {
+      this.schemes.forEach((_0x1732bf: ScoreLabel, _0xbf383d: number) => _0x1732bf.comeback(_0x27c4b2, this.manager.current !== _0xbf383d));
     }
   }
   class ScoreLabel {
-    name: any;
-    unit: any;
-    constructor(_0x4e00d2?: any, _0x4a68d2?: any) {
+    name: string;
+    unit: Unit;
+    constructor(_0x4e00d2: Unit, _0x4a68d2: string) {
       this.unit = _0x4e00d2;
       this.name = _0x4a68d2;
     }
-    getScheme(...args: any[]) {
+    getScheme(): this {
       return this;
     }
-    scores(...args: any[]) {
+    scores(): number {
       return 0;
     }
-    print(_0x291604?: any) {
+    print(_0x291604?: number): string {
       return callback44(this.scores());
     }
-    result(...args: any[]) {
+    result(): number {
       return this.scores();
     }
-    kill(...args: any[]) {}
-    update(...args: any[]) {}
-    out(...args: any[]) {}
-    comeback(...args: any[]) {}
+    kill(killer?: Unit, victim?: Unit, isNotCurrent?: boolean): void {}
+    update(dt?: number, isNotCurrent?: boolean): void {}
+    out(isNotCurrent?: boolean): void {}
+    comeback(info?: ComebackInfo, isNotCurrent?: boolean): void {}
   }
   class BotScoreLabel extends ScoreLabel {
-    constructor(_0x5d8d87?: any) {
+    constructor(_0x5d8d87: Unit) {
       super(_0x5d8d87, "percent");
     }
-    scores(...args: any[]) {
+    scores(): number {
       return this.unit.percent * 100;
     }
-    result(...args: any[]) {
+    result(): number {
       return +this.scores().toFixed(2);
     }
-    print(_0x594090?: any) {
+    print(_0x594090?: number): string {
       const _0xf310e2 = _0x594090 || this.scores();
       return callback44(_0xf310e2) + "%";
     }
-    kill(_0x30a62e?: any, _0x1242ed?: any, _0x13f27c?: any) {
+    kill(_0x30a62e?: Unit, _0x1242ed?: Unit, _0x13f27c?: boolean): void {
       if (!_0x13f27c && this.unit.isPlayer) {
         this.unit.addLabel({
           text: this.unit.game.language.killText,
@@ -2684,7 +2717,7 @@ interface Function { __: any; contextType: any; }
       rise,
       victims,
       game
-    }, _0x29e8a4?: any) {
+    }: ComebackInfo, _0x29e8a4?: boolean): void {
       if (!_0x29e8a4 && increment * 100 >= 0.01 && this.unit.isPlayer) {
         this.unit.addLabel({
           text: "+" + (increment * 100).toFixed(2) + "%",
@@ -2698,13 +2731,13 @@ interface Function { __: any; contextType: any; }
   }
   class Quest {
     current: number;
-    description: any;
-    image: any;
+    description: string;
+    image: HTMLImageElement | null;
     ready: boolean;
     state: number;
-    states: any[];
-    title: any;
-    constructor(_0x2328e9?: any, _0x18e31b?: any, _0x2ba4e3?: any) {
+    states: number[];
+    title: string;
+    constructor(_0x2328e9: string, _0x18e31b: string, _0x2ba4e3?: string) {
       this.title = _0x2328e9;
       this.description = _0x18e31b;
       this.state = 0;
@@ -2714,11 +2747,11 @@ interface Function { __: any; contextType: any; }
       if (_0x2ba4e3) {
         this.ready = false;
         const image = new Image();
-        image.onload = (...args: any[]) => {
+        image.onload = () => {
           this.ready = true;
           this.image = image;
         };
-        image.onerror = (...args: any[]) => {
+        image.onerror = () => {
           this.ready = true;
         };
         image.src = _0x2ba4e3;
@@ -2726,14 +2759,14 @@ interface Function { __: any; contextType: any; }
         this.ready = true;
       }
     }
-    update(_0x4344b8?: any) {
+    update(_0x4344b8: number): void {
       this.current += _0x4344b8;
       if (this.current > this.states[this.state]) {
         this.state++;
         this.current = 0;
       }
     }
-    position(...args: any[]) {
+    position(): number {
       switch (this.state) {
         case 0:
           return callback24(this.current / this.states[0]);
@@ -2748,15 +2781,15 @@ interface Function { __: any; contextType: any; }
   }
   class Achievement {
     best: number;
-    checker: any;
-    description: any;
+    checker: AchievementChecker | null;
+    description: string;
     earned: boolean;
-    getChecker: any;
-    modes: any;
-    name: any;
-    onEarned: any;
-    url: any;
-    constructor(_0x3228e1?: any, _0x234b19?: any, _0x29bcac?: any, _0x2bc91e?: any, _0x1ef231?: any, _0x392bc6?: any) {
+    getChecker: () => AchievementChecker;
+    modes: string[];
+    name: string;
+    onEarned?: (game: Game, achievement: Achievement) => void;
+    url: string;
+    constructor(_0x3228e1: string, _0x234b19: string[], _0x29bcac: () => AchievementChecker, _0x2bc91e: string, _0x1ef231: string, _0x392bc6?: (game: Game, achievement: Achievement) => void) {
       this.name = _0x3228e1;
       this.modes = _0x234b19;
       this.getChecker = _0x29bcac;
@@ -2767,7 +2800,7 @@ interface Function { __: any; contextType: any; }
       this.earned = false;
       this.checker = null;
     }
-    success(_0x282f99?: any) {
+    success(_0x282f99: Game): void {
       this.earned = true;
       if (window.ga) {
         window.ga("send", "event", "skins_unlock", this.name);
@@ -2780,17 +2813,17 @@ interface Function { __: any; contextType: any; }
     }
   }
   class AchievementStore {
-    achievements: any;
-    storageName: any;
-    constructor(_0x192743?: any, _0x288ca0: any = "paper.io.storage") {
+    achievements: Achievement[];
+    storageName: string;
+    constructor(_0x192743: AchievementConfig[], _0x288ca0: string = "paper.io.storage") {
       this.storageName = _0x288ca0;
-      this.achievements = _0x192743.map((achievement?: any) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
+      this.achievements = _0x192743.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
     }
-    load(...args: any[]) {
-      const _0x5ed92b = _0x480125.getJSON("paperio_challenges") || {};
-      const callback95 = (_0x327d6e?: any, _0x59e923?: any) => {
+    load(): void {
+      const _0x5ed92b: StoredChallenges = _0x480125.getJSON("paperio_challenges") || {};
+      const callback95 = (_0x327d6e: string, _0x59e923: string) => {
         if (_0x5ed92b[_0x327d6e]) {
-          const _0x418203 = this.achievements.find((_0x573bf0?: any) => _0x573bf0.name === _0x59e923);
+          const _0x418203 = this.achievements.find((_0x573bf0: Achievement) => _0x573bf0.name === _0x59e923);
           if (_0x418203) {
             _0x418203.earned = true;
           }
@@ -2800,10 +2833,10 @@ interface Function { __: any; contextType: any; }
       callback95("c22", "capAmerica");
       callback95("c22", "thanos");
       callback95("geraldquest1", "geralt");
-      const _0x3b1c17 = _0x480125.getJSON(this.storageName) || {};
+      const _0x3b1c17: StoredProfile = _0x480125.getJSON(this.storageName) || {};
       if (_0x3b1c17.achievements) {
-        _0x3b1c17.achievements.forEach((achievement?: any) => {
-          const achievement2 = this.achievements.find((_0x22b11a?: any) => _0x22b11a.name === achievement.name);
+        _0x3b1c17.achievements.forEach((achievement: StoredAchievement) => {
+          const achievement2 = this.achievements.find((_0x22b11a: Achievement) => _0x22b11a.name === achievement.name);
           if (achievement2) {
             achievement2.best = achievement.best || 0;
             achievement2.earned = achievement.earned || false;
@@ -2811,21 +2844,21 @@ interface Function { __: any; contextType: any; }
         });
       }
     }
-    save(...args: any[]) {
-      const _0x103b7e = this.achievements.map((achievement?: any) => ({
+    save(): void {
+      const _0x103b7e: StoredAchievement[] = this.achievements.map((achievement: Achievement) => ({
         name: achievement.name,
         best: achievement.best,
         earned: achievement.earned
       }));
-      const _0x5d7feb = _0x480125.getJSON(this.storageName) || {};
+      const _0x5d7feb: StoredProfile = _0x480125.getJSON(this.storageName) || {};
       _0x5d7feb.achievements = _0x103b7e;
       const _0x4abe97 = {
         expires: 365
       };
       _0x480125.set(this.storageName, _0x5d7feb, _0x4abe97);
-      const _0x271fb8 = _0x480125.getJSON("paperio_challenges") || {};
-      const callback95 = (_0x146a69?: any, _0x3ef66a?: any) => {
-        const _0x5a3728 = this.achievements.find((_0x5f3797?: any) => _0x5f3797.name === _0x3ef66a);
+      const _0x271fb8: StoredChallenges = _0x480125.getJSON("paperio_challenges") || {};
+      const callback95 = (_0x146a69: string, _0x3ef66a: string) => {
+        const _0x5a3728 = this.achievements.find((_0x5f3797: Achievement) => _0x5f3797.name === _0x3ef66a);
         if (_0x5a3728 && _0x5a3728.earned) {
           _0x271fb8[_0x146a69] = true;
         }
@@ -2847,23 +2880,23 @@ interface Function { __: any; contextType: any; }
     }
   }
   class AchievementTracker {
-    achievements: any;
-    profile: any;
-    constructor(_0x4e49e3?: any, _0x4a9dcc?: any) {
+    achievements: Achievement[];
+    profile: AchievementStore | null;
+    constructor(_0x4e49e3: AchievementStore | null, _0x4a9dcc: string) {
       this.profile = _0x4e49e3;
       if (!this.profile) {
         return;
       }
-      this.achievements = _0x4e49e3.achievements.filter((achievement?: any) => {
-        const _0x17e477 = !achievement.earned && achievement.modes.some((_0x50b917?: any) => _0x50b917 === _0x4a9dcc);
+      this.achievements = _0x4e49e3.achievements.filter((achievement: Achievement) => {
+        const _0x17e477 = !achievement.earned && achievement.modes.some((_0x50b917: string) => _0x50b917 === _0x4a9dcc);
         if (_0x17e477) {
           achievement.checker = achievement.getChecker();
         }
         return _0x17e477;
       });
     }
-    update(_0x3caeb5?: any, _0x2f04e5?: any, _0x4592e0?: any) {
-      this.achievements = this.achievements.filter((achievement?: any) => {
+    update(_0x3caeb5: Unit, _0x2f04e5: number, _0x4592e0: Game): void {
+      this.achievements = this.achievements.filter((achievement: Achievement) => {
         achievement.checker.update(_0x3caeb5, _0x2f04e5, _0x4592e0);
         if (achievement.checker.progress > achievement.best) {
           achievement.best = achievement.checker.progress;
@@ -2876,17 +2909,17 @@ interface Function { __: any; contextType: any; }
         return true;
       });
     }
-    finish(...args: any[]) {
+    finish(): void {
       this.achievements = [];
       this.profile.save();
     }
-    onKill(_0x2bf9bd?: any) {
-      this.achievements.forEach((_0x18761e?: any) => {
+    onKill(_0x2bf9bd: Unit): void {
+      this.achievements.forEach((_0x18761e: Achievement) => {
         _0x18761e.checker.onKill(_0x2bf9bd);
       });
     }
-    onOut(...args: any[]) {
-      this.achievements.forEach((_0x117f9c?: any) => {
+    onOut(): void {
+      this.achievements.forEach((_0x117f9c: Achievement) => {
         _0x117f9c.checker.onOut();
       });
     }
