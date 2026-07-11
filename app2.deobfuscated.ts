@@ -1,8 +1,119 @@
 // --- ambient augmentations for dynamic globals the engine touches ---
-interface Window { ads: any; Cookies: any; dataLayer: any; ga: any; paper2_results: any; paperio_challenges: any; paperio2api: any; playerId: any; shop: any; ShowPreroll: any; }
-interface Navigator { userLanguage: any; browserLanguage: any; }
-interface HTMLElement { value: any; }
-interface Function { __: any; contextType: any; }
+// (moved up from the Preact/js-cookie region below so the `CookiesApi`/
+// `StoredChallenges`/etc. shapes named here are in scope at this top level)
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
+interface CookieAttributes {
+  domain?: string;
+  // Starts as the caller-supplied `number | Date`, then gets overwritten
+  // in-place with its formatted `string` for the `document.cookie` write —
+  // see the cast at the `toUTCString()` call, which runs before that happens.
+  expires?: string | number | Date;
+  path?: string;
+  [attribute: string]: string | number | boolean | Date | undefined;
+}
+
+interface CookieJar {
+  // Named explicitly (rather than folded into the index signature) so this
+  // one well-known key — the only one application code iterates/reassigns
+  // as an array — keeps a non-union-polluted `JsonValue[]` type instead of
+  // the full `string | JsonValue` index-signature value type.
+  achievements?: JsonValue[];
+  [name: string]: string | JsonValue | undefined;
+}
+
+interface CookieConverter {
+  // The default converter (an empty function) is called both as `.read` and
+  // as the whole-converter read fallback and relies on returning `undefined`
+  // so the caller's `|| decode(...)` branch kicks in — hence `| undefined`.
+  (value: string, name: string): string | undefined;
+  read?: (value: string, name: string) => string;
+  write?: (value: JsonValue, name: string) => string;
+}
+
+interface CookiesApi {
+  (): void;
+  defaults?: CookieAttributes;
+  get?: (name?: string) => string | JsonValue | CookieJar | undefined;
+  // Narrower than `callback99`'s own inferred return type — every call site
+  // in this file treats the parsed cookie as a plain object, never a bare
+  // JSON primitive, so the public surface reflects that.
+  getJSON?: <T = CookieJar>(name?: string) => T | undefined;
+  remove?: (name: string, options?: CookieAttributes) => void;
+  set?: <T = JsonValue>(name: string, value: T, options?: CookieAttributes) => string | undefined;
+  withConverter?: (converter: CookieConverter) => CookiesApi;
+  noConflict?: () => CookiesApi;
+}
+
+// Mirrors the achievements/challenges cookie payload (see `AchievementStore`
+// below) — named here (rather than only inside the engine IIFE) so the
+// `Window.paperio_challenges` augmentation below can reference it.
+interface StoredChallenges {
+  [key: string]: boolean;
+}
+
+// The `gtag`/GTM-style event queue some ad/analytics integrations install.
+interface DataLayerEntry {
+  event: string;
+  publisher: string;
+  productKey: string;
+}
+
+// The scores payload some other page-level script may leave on `window`
+// after posting game results — read-only from this file's perspective.
+interface Paper2ResultsScores {
+  accumulator?: number;
+  kills?: number;
+}
+interface Paper2Results {
+  build?: number;
+  top?: number;
+  score: number;
+  bestPercent?: number;
+  time: number;
+  kills: number;
+  reason?: number;
+  scores?: Paper2ResultsScores;
+}
+
+interface Window {
+  // The ad-network integration this offline copy strips out (see the
+  // project's `index.html` shim) — every call site guards with `if
+  // (window.ads && window.ads.showAds)`, so both members stay optional.
+  ads?: {
+    showAds?: () => void;
+    hideAds?: () => void;
+  };
+  Cookies?: CookiesApi;
+  dataLayer?: DataLayerEntry[];
+  // Classic Google Analytics `ga()`; every call site in this file passes
+  // exactly `("send", "event", category, action)`.
+  ga?: (command: string, hitType: string, eventCategory: string, eventAction: string) => void;
+  paper2_results: Paper2Results;
+  paperio_challenges?: StoredChallenges;
+  // `GameApi`'s own shape lives inside the engine IIFE below (it reaches
+  // deep into `Game` and friends) — bridged through `object` here rather
+  // than duplicating that whole type graph at this top level, since nothing
+  // in this file reads `window.paperio2api` back (only the offline shim in
+  // `index.html`, outside this compilation, calls into it at runtime).
+  paperio2api?: object;
+  playerId?: number;
+  // The shop/skins-unlock integration this offline copy strips out.
+  shop?: {
+    autoCheckUnlock: () => void;
+  };
+  ShowPreroll?: () => void;
+}
+interface Navigator {
+  userLanguage?: string;
+  browserLanguage?: string;
+}
+// Real `HTMLElement` (unlike its `HTMLInputElement`/`HTMLSelectElement`
+// subclasses) has no `.value` in `lib.dom` — needed for the one config-form
+// callsite that reads it off a plain `document.getElementById()` result.
+interface HTMLElement {
+  value: string;
+}
 
 // `Object.entries(x)` called with an `x: any` argument (as application code
 // well past this file's Preact region does, on untyped destructured props)
@@ -180,8 +291,8 @@ interface ObjectConstructor {
   // specific value extracted for its `contextType`.
   type PreactContextValue = ComponentContext | PreactStateValue;
 
-  interface PreactContext {
-    __: PreactContextValue;
+  interface PreactContext<T = PreactContextValue> {
+    __: T;
     __c: string;
     Consumer: ComponentType;
     Provider: ComponentType;
@@ -198,6 +309,10 @@ interface ObjectConstructor {
   // (rather than one requiring both signatures) so `"prototype" in type`
   // narrows the union the same way the reconciler's runtime check does.
   interface ComponentTypeStatics {
+    // Stamped onto the `createContext()` Provider function value (see
+    // `callback19`) so the diffing code can look up the owning context from
+    // either the Provider or its Consumer via `contextType`.
+    __?: PreactContext;
     contextType?: PreactContext;
     defaultProps?: VNodeProps;
     displayName?: string;
@@ -205,20 +320,22 @@ interface ObjectConstructor {
     getDerivedStateFromProps?: (props: VNodeProps, state: ComponentState) => Partial<ComponentState> | null;
   }
 
-  // The `(...args: never[])` signatures (rather than `(props: VNodeProps, ...)`)
-  // are deliberate: `never[]` is assignable from *any* real parameter list, so
-  // these accept every application component in this file regardless of its
-  // own specific (and often narrower/differently-shaped) destructured props
-  // type — mirrors what the untyped original does at runtime (it never checks
-  // a component's declared prop shape against what callers pass). The
-  // reconciler's own call sites that actually INVOKE a `type` value use the
-  // `Invokable*` variants below (with real `VNodeProps` parameters) via a cast.
+  // The `(...args: object[])` signatures (rather than `(props: VNodeProps, ...)`)
+  // are deliberate: with `strictFunctionTypes` off (this project's tsconfig),
+  // interface call/construct signature parameters compare bivariantly, so any
+  // real component's specific (and often narrower/differently-shaped)
+  // destructured props *object* type is accepted here purely because it's
+  // assignable to `object` in the reverse direction — mirrors what the
+  // untyped original does at runtime (it never checks a component's declared
+  // prop shape against what callers pass). The reconciler's own call sites
+  // that actually INVOKE a `type` value use the `Invokable*` variants below
+  // (with real `VNodeProps` parameters) via a cast.
   interface FunctionComponent extends ComponentTypeStatics {
-    (this: Component, ...args: never[]): PreactChildren;
+    (this: Component, ...args: object[]): PreactChildren;
   }
 
   interface ComponentClass extends ComponentTypeStatics {
-    new (...args: never[]): Component;
+    new (...args: object[]): Component;
     prototype: ComponentPrototype;
   }
 
@@ -266,7 +383,7 @@ interface ObjectConstructor {
     __n: ComponentContext;
     __E: Component | null;
     __: Component | null;
-    __h: Array<() => void>;
+    __h: Array<(() => void) | HookSlot>;
     base: PreactElement | null;
     constructor: ComponentType;
     render: (props: VNodeProps, state: ComponentState, context: PreactContextValue) => PreactChildren;
@@ -286,51 +403,6 @@ interface ObjectConstructor {
     getSnapshotBeforeUpdate?: (previousProps: VNodeProps, previousState: ComponentState) => PreactStateValue;
     setState: (update: Partial<ComponentState> | ((state: ComponentState, props: VNodeProps) => Partial<ComponentState> | null) | null, callback?: () => void) => void;
     forceUpdate: (callback?: () => void) => void;
-  }
-
-  // --- bundled js-cookie types (unrelated to Preact, but inside the same region) ---
-  type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
-
-  interface CookieAttributes {
-    domain?: string;
-    // Starts as the caller-supplied `number | Date`, then gets overwritten
-    // in-place with its formatted `string` for the `document.cookie` write —
-    // see the cast at the `toUTCString()` call, which runs before that happens.
-    expires?: string | number | Date;
-    path?: string;
-    [attribute: string]: string | number | boolean | Date | undefined;
-  }
-
-  interface CookieJar {
-    // Named explicitly (rather than folded into the index signature) so this
-    // one well-known key — the only one application code iterates/reassigns
-    // as an array — keeps a non-union-polluted `JsonValue[]` type instead of
-    // the full `string | JsonValue` index-signature value type.
-    achievements?: JsonValue[];
-    [name: string]: string | JsonValue | undefined;
-  }
-
-  interface CookieConverter {
-    // The default converter (an empty function) is called both as `.read` and
-    // as the whole-converter read fallback and relies on returning `undefined`
-    // so the caller's `|| decode(...)` branch kicks in — hence `| undefined`.
-    (value: string, name: string): string | undefined;
-    read?: (value: string, name: string) => string;
-    write?: (value: JsonValue, name: string) => string;
-  }
-
-  interface CookiesApi {
-    (): void;
-    defaults?: CookieAttributes;
-    get?: (name?: string) => string | JsonValue | CookieJar | undefined;
-    // Narrower than `callback99`'s own inferred return type — every call site
-    // in this file treats the parsed cookie as a plain object, never a bare
-    // JSON primitive, so the public surface reflects that.
-    getJSON?: (name?: string) => CookieJar | undefined;
-    remove?: (name: string, options?: CookieAttributes) => void;
-    set?: (name: string, value: JsonValue, options?: CookieAttributes) => string | undefined;
-    withConverter?: (converter: CookieConverter) => CookiesApi;
-    noConflict?: () => CookiesApi;
   }
 
   interface PreactOptions {
@@ -883,10 +955,12 @@ interface ObjectConstructor {
     return _0xcfc3de.__e;
   }
   // `_0x1803c8` starts as the commit queue (Component[]) and is reassigned,
-  // per-component, to that component's render-callback queue (Array<() => void>)
-  // — the same reuse pattern as `_0xaa662` above, so a couple of the roles need
-  // an explicit cast to pin down which shape is in play at that point.
-  function callback14(_0x1803c8: Component[] | Array<() => void>, _0x12b46b: VNode) {
+  // per-component, to that component's render-callback queue (Array<(() => void) | HookSlot>
+  // — a plain callback in the common case, or a hook's pending-effect slot when
+  // the bundled preact/hooks addon is installed) — the same reuse pattern as
+  // `_0xaa662` above, so a couple of the roles need an explicit cast to pin
+  // down which shape is in play at that point.
+  function callback14(_0x1803c8: Component[] | Array<(() => void) | HookSlot>, _0x12b46b: VNode) {
     if (preactOptions.__c) {
       preactOptions.__c(_0x12b46b, _0x1803c8 as Component[]);
     }
@@ -1044,8 +1118,8 @@ interface ObjectConstructor {
     callback13(_0x4d1c6d, (_0x2ebb7f ? _0x4d1c6d : _0x21c44d || _0x4d1c6d).__k = _0xe1b337 as VNode, (_0x34cd7a || _0x316685) as VNode, _0x316685 as ComponentContext, _0x4d1c6d.ownerSVGElement !== undefined, _0x21c44d && !_0x2ebb7f ? [_0x21c44d] : _0x34cd7a ? null : _0x4d1c6d.childNodes.length ? _0x9d84c4.slice.call(_0x4d1c6d.childNodes) : null, _0x38dafe, (_0x21c44d || _0x316685) as PreactElement | null, _0x2ebb7f);
     callback14(_0x38dafe, _0xe1b337);
   }
-  function callback19(_0x5beed0?: PreactContextValue, _0x33329b?: string): PreactContext {
-    var _0x4e0e19: PreactContext = {
+  function callback19<T extends PreactContextValue = PreactContextValue>(_0x5beed0?: T, _0x33329b?: string): PreactContext<T> {
+    var _0x4e0e19: PreactContext<T> = {
       __c: _0x33329b = "__cC" + _0x43d241++,
       __: _0x5beed0,
       Consumer: function (this: Component, _0x5c8130: VNodeProps, _0x11d62d: PreactContextValue) {
@@ -1086,10 +1160,9 @@ interface ObjectConstructor {
         return _0xfc529f.children;
       }
     };
-    // `.__` isn't part of `ComponentTypeStatics` — it's stamped onto the
-    // Provider function value via the ambient `Function.__` augmentation
-    // (see the untouched interface at the top of the file).
-    return (_0x4e0e19.Provider as Function).__ = _0x4e0e19.Consumer.contextType = _0x4e0e19;
+    // `.__` is stamped onto the Provider function value so the diffing code
+    // can look it back up — see the `__` member added to `ComponentTypeStatics`.
+    return (_0x4e0e19.Provider.__ = _0x4e0e19.Consumer.contextType = _0x4e0e19);
   }
   preactOptions = {
     __e: function (_0x56617d: Error, _0x4d6ef8: VNode) {
@@ -1253,12 +1326,14 @@ interface ObjectConstructor {
             return _0x516511;
           }
         }
-        (_0x316d13 as CookiesApi).set = callback98;
+        (_0x316d13 as CookiesApi).set = function <T = JsonValue>(_0x5b7742: string, _0x41d11e: T, _0x5ddbc3?: CookieAttributes): string | undefined {
+          return callback98(_0x5b7742, _0x41d11e as JsonValue, _0x5ddbc3);
+        };
         (_0x316d13 as CookiesApi).get = function (_0x42280a?: string) {
           return callback99(_0x42280a, false);
         };
-        (_0x316d13 as CookiesApi).getJSON = function (_0x280463?: string) {
-          return callback99(_0x280463, true) as CookieJar | undefined;
+        (_0x316d13 as CookiesApi).getJSON = function <T = CookieJar>(_0x280463?: string): T | undefined {
+          return callback99(_0x280463, true) as T | undefined;
         };
         (_0x316d13 as CookiesApi).remove = function (_0x396dda: string, _0x3baebe?: CookieAttributes) {
           callback98(_0x396dda, "", callback95(_0x3baebe as CookieAttributes, {
@@ -2997,9 +3072,6 @@ interface ObjectConstructor {
   interface StoredProfile {
     achievements?: StoredAchievement[];
   }
-  interface StoredChallenges {
-    [key: string]: boolean;
-  }
   class SchemeCycler {
     Schemes: SchemeConstructor[];
     current: number;
@@ -3676,7 +3748,7 @@ interface ObjectConstructor {
   const _0x1b92c1 = Math.cos(0);
   const _0x55d618 = Math.sin(0);
   const _0xd09b08 = 240;
-  const callback49 = (_0x38ddf8?: any) => {
+  const callback49 = (_0x38ddf8?: number) => {
     const _0x1748fa = Math.cos(_0x38ddf8);
     const _0x40ea58 = Math.sin(_0x38ddf8);
     const _0x5f0eff = _0x1b92c1 * _0x1748fa - _0x55d618 * _0x40ea58;
@@ -4035,12 +4107,12 @@ interface ObjectConstructor {
         if (unit.base.polygon.inside(vector)) {
           return;
         }
-        if (unit.base.polygon.simplify.some(function (_0x3aa98d?: any) {
+        if (unit.base.polygon.simplify.some(function (_0x3aa98d: Vector) {
           return vector.distance2(_0x3aa98d) < _0x513981;
         })) {
           return;
         }
-        if (unit.track.simplyline.some(function (_0x165f35?: any) {
+        if (unit.track.simplyline.some(function (_0x165f35: Vector) {
           return vector.distance2(_0x165f35) < _0x2b6b9f;
         })) {
           return;
@@ -6717,31 +6789,18 @@ interface ObjectConstructor {
     }
   };
   type Dispatch<T> = (action: T | ((prevState: T) => T)) => void;
-  interface PreactContextProvider {
-    sub: (component: PreactComponent) => void;
-    props: {
-      value: object;
-    };
-  }
-  interface PreactContextMap {
-    [contextId: string]: PreactContextProvider | undefined;
-  }
-  interface PreactComponent {
+  // Declaration-merged onto the core `Component` (rather than kept as a
+  // parallel `PreactComponent` type): the bundled preact/hooks addon patches
+  // the shared `preactOptions` object and touches the same live
+  // component/vnode instances the core reconciler already types, so both
+  // sides need to agree on one shape.
+  interface Component {
     __H?: HooksContainer;
-    __h?: HookSlot[];
-    __P?: object;
-    __v?: object;
-    context: PreactContextMap;
-    setState: (state: object) => void;
-  }
-  interface PreactContext<T = object> {
-    __c: string;
-    __: T;
   }
   interface HookSlot {
     t?: (state: object, action: object) => object;
     __?: object | boolean;
-    __c?: PreactComponent | PreactContext;
+    __c?: Component | PreactContext;
     __H?: object[];
     __h?: () => object;
     u?: void | (() => void);
@@ -6750,20 +6809,15 @@ interface ObjectConstructor {
     __: HookSlot[];
     __h: HookSlot[];
   }
-  interface PreactVNode {
-    __c: PreactComponent;
-    __v?: object;
-    __P?: object;
-  }
   var _0x4214bf: number;
-  var _0x336185: PreactComponent | undefined;
+  var _0x336185: Component | undefined;
   var _0x5146fe: ((callback: () => void) => void) | undefined;
   var _0x45ddd0 = 0;
-  var list2: PreactComponent[] = [];
-  var __r: ((vnode: PreactVNode) => void) | undefined = preactOptions.__r;
-  var diffed: ((vnode: PreactVNode) => void) | undefined = preactOptions.diffed;
-  var __c: ((vnode: PreactVNode, commitQueue: PreactComponent[]) => void) | undefined = preactOptions.__c;
-  var unmount: ((vnode: PreactVNode) => void) | undefined = preactOptions.unmount;
+  var list2: Component[] = [];
+  var __r: ((vnode: VNode) => void) | undefined = preactOptions.__r;
+  var diffed: ((vnode: VNode) => void) | undefined = preactOptions.diffed;
+  var __c: ((vnode: VNode, commitQueue: Component[]) => void) | undefined = preactOptions.__c;
+  var unmount: ((vnode: VNode) => void) | undefined = preactOptions.unmount;
   function callback82(_0x5bec12: number, _0x375caa: number): HookSlot {
     if (preactOptions.__h) {
       preactOptions.__h(_0x336185, _0x5bec12, _0x45ddd0 || _0x375caa);
@@ -6831,7 +6885,7 @@ interface ObjectConstructor {
     return _0xbe7f9a.__ as T;
   }
   function callback88<T>(_0x535df1: PreactContext<T>): T {
-    var _0x243c65 = _0x336185.context[_0x535df1.__c];
+    var _0x243c65 = (_0x336185.context as ComponentContext)[_0x535df1.__c];
     var _0x2f0f35 = callback82(_0x4214bf++, 9);
     _0x2f0f35.__c = _0x535df1 as PreactContext;
     if (_0x243c65) {
@@ -6845,7 +6899,7 @@ interface ObjectConstructor {
     }
   }
   function _0x3d47c1() {
-    list2.some(function (_0xe5fad4: PreactComponent) {
+    list2.some(function (_0xe5fad4: Component) {
       if (_0xe5fad4.__P) {
         try {
           _0xe5fad4.__H.__h.forEach(_0x4f712f);
@@ -6860,7 +6914,7 @@ interface ObjectConstructor {
     });
     list2 = [];
   }
-  preactOptions.__r = function (_0x1baac8: PreactVNode) {
+  preactOptions.__r = function (_0x1baac8: VNode) {
     if (__r) {
       __r(_0x1baac8);
     }
@@ -6872,7 +6926,7 @@ interface ObjectConstructor {
       __H.__h = [];
     }
   };
-  preactOptions.diffed = function (_0x293972: PreactVNode) {
+  preactOptions.diffed = function (_0x293972: VNode) {
     if (diffed) {
       diffed(_0x293972);
     }
@@ -6896,15 +6950,15 @@ interface ObjectConstructor {
       }
     }
   };
-  preactOptions.__c = function (_0x47bb76: PreactVNode, _0x1ced3b: PreactComponent[]) {
-    _0x1ced3b.some(function (_0x33039f: PreactComponent) {
+  preactOptions.__c = function (_0x47bb76: VNode, _0x1ced3b: Component[]) {
+    _0x1ced3b.some(function (_0x33039f: Component) {
       try {
         _0x33039f.__h.forEach(_0x4f712f);
         _0x33039f.__h = _0x33039f.__h.filter(function (_0x37019a: HookSlot) {
           return !_0x37019a.__ || callback89(_0x37019a);
         });
       } catch (_0x1bd124) {
-        _0x1ced3b.some(function (_0x25d555: PreactComponent) {
+        _0x1ced3b.some(function (_0x25d555: Component) {
           _0x25d555.__h &&= [];
         });
         _0x1ced3b = [];
@@ -6915,7 +6969,7 @@ interface ObjectConstructor {
       __c(_0x47bb76, _0x1ced3b);
     }
   };
-  preactOptions.unmount = function (_0x24219e: PreactVNode) {
+  preactOptions.unmount = function (_0x24219e: VNode) {
     if (unmount) {
       unmount(_0x24219e);
     }
@@ -6983,7 +7037,7 @@ interface ObjectConstructor {
     pattern?: PatternSource;
     avatar?: AvatarDescriptor;
   }
-  const _0x2124e9 = callback19();
+  const _0x2124e9 = callback19<Language | undefined>();
   const _0x313732 = ({
     messages
   }: {
@@ -7472,8 +7526,15 @@ interface ObjectConstructor {
     }), _0x3c010f !== "game" && createElement("div", {
       id: "ui_overlay"
     }), createElement(_0x2124e9.Provider, {
+      // `Context.Provider`'s `value` prop carries the arbitrary context value
+      // (here `Language | undefined`), not a DOM input's `value` attribute —
+      // `VNodeProps.value` is intentionally narrowed to `string | number |
+      // boolean` for the latter, so this one Provider callsite needs a cast.
+      // Bridged through `object` (rather than `unknown`) like the similar
+      // cast in `callback19`'s `Consumer`, since the two object shapes don't
+      // otherwise overlap enough for TS to allow a direct assertion.
       value: _0x293a25
-    }, createElement("div", {
+    } as object as VNodeProps, createElement("div", {
       id: "ui",
       class: _0x3c010f === "game" ? "hide" : ""
     }, _0x3c010f === "menu" && createElement(_0x2b87a7, {
