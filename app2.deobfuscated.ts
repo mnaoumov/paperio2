@@ -2730,6 +2730,7 @@ interface Function { __: any; contextType: any; }
     }
   }
   class ScoreLabel {
+    accumulator: number;
     name: string;
     unit: Unit;
     constructor(_0x4e00d2: Unit, _0x4a68d2: string) {
