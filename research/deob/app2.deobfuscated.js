@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var _0x4c28c2;
+  var preactOptions;
   var _0x425b06;
   var _0x406d2a;
   var _0x5406f9;
@@ -22,7 +22,7 @@
       _0x142899.removeChild(_0x53dc6d);
     }
   }
-  function _0x4ec2d4(_0x7ee35d, _0x20f1ba, _0x530b5b) {
+  function createElement(_0x7ee35d, _0x20f1ba, _0x530b5b) {
     var _0xa6339d;
     var _0x48c719;
     var _0x4203c8;
@@ -75,8 +75,8 @@
     if (_0x235b98 == null) {
       _0x326e2c.__v = _0x326e2c;
     }
-    if (_0x4c28c2.vnode != null) {
-      _0x4c28c2.vnode(_0x326e2c);
+    if (preactOptions.vnode != null) {
+      preactOptions.vnode(_0x326e2c);
     }
     return _0x326e2c;
   }
@@ -123,8 +123,8 @@
     }
   }
   function _0x457993(_0x5b79a9) {
-    if (!_0x5b79a9.__d && (_0x5b79a9.__d = true) && _0x425b06.push(_0x5b79a9) && !_0x154984.__r++ || _0x5406f9 !== _0x4c28c2.debounceRendering) {
-      ((_0x5406f9 = _0x4c28c2.debounceRendering) || _0x406d2a)(_0x154984);
+    if (!_0x5b79a9.__d && (_0x5b79a9.__d = true) && _0x425b06.push(_0x5b79a9) && !_0x154984.__r++ || _0x5406f9 !== preactOptions.debounceRendering) {
+      ((_0x5406f9 = preactOptions.debounceRendering) || _0x406d2a)(_0x154984);
     }
   }
   function _0x154984() {
@@ -344,10 +344,10 @@
     }
   }
   function _0x17209f(_0x2f73ae) {
-    this.l[_0x2f73ae.type + false](_0x4c28c2.event ? _0x4c28c2.event(_0x2f73ae) : _0x2f73ae);
+    this.l[_0x2f73ae.type + false](preactOptions.event ? preactOptions.event(_0x2f73ae) : _0x2f73ae);
   }
   function _0x1f7f09(_0x39047b) {
-    this.l[_0x39047b.type + true](_0x4c28c2.event ? _0x4c28c2.event(_0x39047b) : _0x39047b);
+    this.l[_0x39047b.type + true](preactOptions.event ? preactOptions.event(_0x39047b) : _0x39047b);
   }
   function _0x133c3b(_0x2182cf, _0x110832, _0x38e496) {
     var _0x254dda;
@@ -389,7 +389,7 @@
       _0xcfc3de.__h = null;
       _0x5d4155 = [_0x2d334e];
     }
-    if (_0xaa662 = _0x4c28c2.__b) {
+    if (_0xaa662 = preactOptions.__b) {
       _0xaa662(_0xcfc3de);
     }
     try {
@@ -466,7 +466,7 @@
         _0x57ab31.context = _0x24bd6d;
         _0x57ab31.props = _0x7c2e61;
         _0x57ab31.state = _0x57ab31.__s;
-        if (_0xaa662 = _0x4c28c2.__r) {
+        if (_0xaa662 = preactOptions.__r) {
           _0xaa662(_0xcfc3de);
         }
         _0x57ab31.__d = false;
@@ -497,7 +497,7 @@
       } else {
         _0xcfc3de.__e = _0x522c69(_0x38d1c8.__e, _0xcfc3de, _0x38d1c8, _0x57f96e, _0x30c4e7, _0x5d4155, _0x39b36c, _0x302602);
       }
-      if (_0xaa662 = _0x4c28c2.diffed) {
+      if (_0xaa662 = preactOptions.diffed) {
         _0xaa662(_0xcfc3de);
       }
     } catch (_0x4e08bd) {
@@ -507,13 +507,13 @@
         _0xcfc3de.__h = !!_0x302602;
         _0x5d4155[_0x5d4155.indexOf(_0x2d334e)] = null;
       }
-      _0x4c28c2.__e(_0x4e08bd, _0xcfc3de, _0x38d1c8);
+      preactOptions.__e(_0x4e08bd, _0xcfc3de, _0x38d1c8);
     }
     return _0xcfc3de.__e;
   }
   function _0x250e35(_0x1803c8, _0x12b46b) {
-    if (_0x4c28c2.__c) {
-      _0x4c28c2.__c(_0x12b46b, _0x1803c8);
+    if (preactOptions.__c) {
+      preactOptions.__c(_0x12b46b, _0x1803c8);
     }
     _0x1803c8.some(function (_0x4ac934) {
       try {
@@ -523,7 +523,7 @@
           _0x2cb868.call(_0x4ac934);
         });
       } catch (_0x3c06b5) {
-        _0x4c28c2.__e(_0x3c06b5, _0x4ac934.__v);
+        preactOptions.__e(_0x3c06b5, _0x4ac934.__v);
       }
     });
   }
@@ -605,15 +605,15 @@
         _0x52f145.current = _0x3013b5;
       }
     } catch (_0x3f9d12) {
-      _0x4c28c2.__e(_0x3f9d12, _0x43abad);
+      preactOptions.__e(_0x3f9d12, _0x43abad);
     }
   }
   function _0x566630(_0x5bcf77, _0x46fddb, _0x274471) {
     var _0x49487f;
     var _0x3a1192;
     var _0x463e59;
-    if (_0x4c28c2.unmount) {
-      _0x4c28c2.unmount(_0x5bcf77);
+    if (preactOptions.unmount) {
+      preactOptions.unmount(_0x5bcf77);
     }
     if (_0x49487f = _0x5bcf77.ref) {
       if (!_0x49487f.current || _0x49487f.current === _0x5bcf77.__e) {
@@ -629,7 +629,7 @@
         try {
           _0x49487f.componentWillUnmount();
         } catch (_0x3ae80d) {
-          _0x4c28c2.__e(_0x3ae80d, _0x46fddb);
+          preactOptions.__e(_0x3ae80d, _0x46fddb);
         }
       }
       _0x49487f.base = _0x49487f.__P = null;
@@ -652,11 +652,11 @@
     var _0x2ebb7f;
     var _0x34cd7a;
     var _0x38dafe;
-    if (_0x4c28c2.__) {
-      _0x4c28c2.__(_0xe1b337, _0x4d1c6d);
+    if (preactOptions.__) {
+      preactOptions.__(_0xe1b337, _0x4d1c6d);
     }
     _0x34cd7a = (_0x2ebb7f = _0x21c44d === _0x4c3ef1) ? null : _0x21c44d && _0x21c44d.__k || _0x4d1c6d.__k;
-    _0xe1b337 = _0x4ec2d4(_0x1a6367, null, [_0xe1b337]);
+    _0xe1b337 = createElement(_0x1a6367, null, [_0xe1b337]);
     _0x38dafe = [];
     _0xee3c4b(_0x4d1c6d, (_0x2ebb7f ? _0x4d1c6d : _0x21c44d || _0x4d1c6d).__k = _0xe1b337, _0x34cd7a || _0x316685, _0x316685, _0x4d1c6d.ownerSVGElement !== undefined, _0x21c44d && !_0x2ebb7f ? [_0x21c44d] : _0x34cd7a ? null : _0x4d1c6d.childNodes.length ? _0x9d84c4.slice.call(_0x4d1c6d.childNodes) : null, _0x38dafe, _0x21c44d || _0x316685, _0x2ebb7f);
     _0x250e35(_0x38dafe, _0xe1b337);
@@ -696,7 +696,7 @@
     };
     return _0x4e0e19.Provider.__ = _0x4e0e19.Consumer.contextType = _0x4e0e19;
   }
-  _0x4c28c2 = {
+  preactOptions = {
     __e: function (_0x56617d, _0x4d6ef8) {
       var _0x261b62;
       var _0x1c0b4c;
@@ -935,7 +935,7 @@
   }
   let _0x5e2101 = 1;
   const _0x27b3a7 = () => _0x5e2101++;
-  class _0x55b7fb {
+  class Segment {
     constructor(_0x54e05d, _0x117225) {
       this.vector = undefined;
       this.a = undefined;
@@ -967,7 +967,7 @@
       this.c = -(_0x7a555a * start.x + _0x4cbc86 * start.y);
     }
     clone() {
-      return new _0x55b7fb(this.start, this.end);
+      return new Segment(this.start, this.end);
     }
     reverse() {
       const _0x5e86c6 = this.start;
@@ -1016,7 +1016,7 @@
       if (!_0x8dca1d(_0x45a39a)) {
         const _0x204622 = -_0x39a5a2(_0xc899ef, _0x4248a3, c, b) / _0x45a39a;
         const _0x47639a = -_0x39a5a2(_0x5bae0e, _0xc899ef, a, c) / _0x45a39a;
-        const _0x2a78ce = _0x1accb9(_0x4ef68a.x, _0x1b79ce.x, _0x204622) && _0x1accb9(_0x4ef68a.y, _0x1b79ce.y, _0x47639a) && _0x1accb9(start.x, end.x, _0x204622) && _0x1accb9(start.y, end.y, _0x47639a) && new _0x57ebac(_0x204622, _0x47639a);
+        const _0x2a78ce = _0x1accb9(_0x4ef68a.x, _0x1b79ce.x, _0x204622) && _0x1accb9(_0x4ef68a.y, _0x1b79ce.y, _0x47639a) && _0x1accb9(start.x, end.x, _0x204622) && _0x1accb9(start.y, end.y, _0x47639a) && new Vector(_0x204622, _0x47639a);
         if (!_0x2a78ce) {
           return null;
         }
@@ -1062,7 +1062,7 @@
     }
   }
   const _0x49b883 = 1;
-  class _0x273643 {
+  class ContourPoints {
     constructor(_0xc98fbf, _0x89e3d1) {
       this.points = [];
       this.x = _0xc98fbf;
@@ -1083,21 +1083,21 @@
       }
     }
   }
-  class _0x1d7dd9 {
+  class SpatialGrid {
     constructor(_0x340a9c, _0x15a11b, _0x369cbe) {
       this.width = _0x340a9c;
       this.height = _0x15a11b;
-      this.center = new _0x57ebac(_0x340a9c / 2, _0x15a11b / 2);
+      this.center = new Vector(_0x340a9c / 2, _0x15a11b / 2);
       this.size = _0x369cbe;
       this.w = Math.ceil(_0x340a9c / _0x369cbe);
       this.h = Math.ceil(_0x15a11b / _0x369cbe);
       this.cells = [];
       for (let _0x34097a = 0; _0x34097a < this.h; _0x34097a++) {
         for (let _0x2f027b = 0; _0x2f027b < this.w; _0x2f027b++) {
-          this.cells.push(new _0x273643(_0x2f027b, _0x34097a));
+          this.cells.push(new ContourPoints(_0x2f027b, _0x34097a));
         }
       }
-      _0x57ebac.space = this;
+      Vector.space = this;
     }
     count() {
       let _0x1b83e4 = 0;
@@ -1164,7 +1164,7 @@
     length: _0x159f84
   });
   let _0x331fd0 = 0;
-  class _0x57ebac {
+  class Vector {
     constructor(_0x333689, _0x2c2873) {
       this.x = undefined;
       this.y = undefined;
@@ -1182,7 +1182,7 @@
         this.segments.push(_0x49b35c);
       }
       if (!this.cell) {
-        const _0x19525f = _0x57ebac.space.cell(this);
+        const _0x19525f = Vector.space.cell(this);
         _0x19525f.commit(this);
       }
     }
@@ -1194,7 +1194,7 @@
       }
     }
     release() {
-      _0x57ebac.release(this);
+      Vector.release(this);
     }
     add(_0x12cdef) {
       this.x += _0x12cdef.x;
@@ -1270,17 +1270,17 @@
       return _0xb7ae0c(this.x, _0x3a7f4e.x) && _0xb7ae0c(this.y, _0x3a7f4e.y);
     }
     clone() {
-      return new _0x57ebac(this.x, this.y);
+      return new Vector(this.x, this.y);
     }
     static alloc(_0x4aaf81, _0x4b47ee) {
       if (_0x331fd0) {
         let _0x49e91f = _0x112dd5[--_0x331fd0].set(_0x4aaf81, _0x4b47ee);
         return _0x49e91f;
       }
-      return new _0x57ebac(_0x4aaf81, _0x4b47ee);
+      return new Vector(_0x4aaf81, _0x4b47ee);
     }
     static clone(_0x111456) {
-      return _0x57ebac.alloc(_0x111456.x, _0x111456.y);
+      return Vector.alloc(_0x111456.x, _0x111456.y);
     }
     static poolLength() {
       return _0x331fd0;
@@ -1296,7 +1296,7 @@
       }
     }
   }
-  _0x57ebac.space = undefined;
+  Vector.space = undefined;
   const _0x3e57df = 25;
   const _0x2069c7 = _0x3e57df * _0x3e57df;
   const _0x1f3950 = 0;
@@ -1309,7 +1309,7 @@
   const _0x3bad23 = 7;
   const _0x4eb235 = 1000 / 60;
   const _0xbeedd5 = 1000 / 60 * 2;
-  class _0x220205 {
+  class Polyline {
     constructor(_0x3d26c8) {
       this.owner = _0x3d26c8 || null;
       this.start = null;
@@ -1337,7 +1337,7 @@
       return this;
     }
     clone() {
-      const _0x38736e = new _0x220205();
+      const _0x38736e = new Polyline();
       _0x38736e.segments = this.segments.map(_0x24ec13 => _0x24ec13.clone());
       _0x38736e.start = this.start;
       _0x38736e.end = this.end;
@@ -1364,14 +1364,14 @@
         y
       } = _0x45500e;
       if (this.end) {
-        this.segments.push(new _0x55b7fb(this.end, _0x45500e).commit(this));
+        this.segments.push(new Segment(this.end, _0x45500e).commit(this));
         this.end = _0x45500e;
         this.updateBounds(_0x45500e);
         this.path.lineTo(x, y);
         return true;
       }
       if (this.start) {
-        this.segments.push(new _0x55b7fb(this.start, _0x45500e).commit(this));
+        this.segments.push(new Segment(this.start, _0x45500e).commit(this));
         this.end = _0x45500e;
         this.updateBounds(_0x45500e);
         this.path.lineTo(x, y);
@@ -1417,7 +1417,7 @@
     }
     return 1;
   };
-  class _0x59ba56 {
+  class Polygon {
     constructor(_0x255831) {
       this.segments = [];
       this.simplify = [];
@@ -1427,7 +1427,7 @@
         length
       } = _0x255831;
       for (let _0x58281d = 0; _0x58281d < length;) {
-        this.segments.push(new _0x55b7fb(_0x255831[_0x58281d++], _0x255831[_0x58281d < length ? _0x58281d : 0]));
+        this.segments.push(new Segment(_0x255831[_0x58281d++], _0x255831[_0x58281d < length ? _0x58281d : 0]));
       }
       this.updateBounds();
     }
@@ -1448,8 +1448,8 @@
     insert(_0x52a481, _0xfd2d76) {
       if (!_0x52a481.has(_0xfd2d76)) {
         const _0x4460e0 = this.segments.findIndex(_0x468389 => _0x468389 === _0x52a481);
-        const _0x55e498 = new _0x55b7fb(_0x52a481.start, _0xfd2d76).commit(this);
-        const _0x121664 = new _0x55b7fb(_0xfd2d76, _0x52a481.end).commit(this);
+        const _0x55e498 = new Segment(_0x52a481.start, _0xfd2d76).commit(this);
+        const _0x121664 = new Segment(_0xfd2d76, _0x52a481.end).commit(this);
         _0x52a481.remove();
         this.segments.splice(_0x4460e0, 1, _0x55e498, _0x121664);
       }
@@ -1475,7 +1475,7 @@
     left(_0x18ee0d, _0x2a2bca, _0x48f39f) {
       const _0x18a162 = [];
       for (let _0x240204 = 0; _0x240204 < _0x18ee0d.length - 1; _0x240204++) {
-        _0x18a162.push(new _0x55b7fb(_0x18ee0d[_0x240204], _0x18ee0d[_0x240204 + 1]));
+        _0x18a162.push(new Segment(_0x18ee0d[_0x240204], _0x18ee0d[_0x240204 + 1]));
       }
       const _0x3b3153 = this.segments.splice(_0x2a2bca, _0x48f39f - _0x2a2bca, ..._0x18a162);
       _0x18a162.forEach(_0x35a035 => _0x35a035.commit(this));
@@ -1484,7 +1484,7 @@
     right(_0x28289b, _0x4ab91c, _0x458307) {
       const _0x9feb94 = [];
       for (let _0xe63906 = 0; _0xe63906 < _0x28289b.length - 1; _0xe63906++) {
-        _0x9feb94.push(new _0x55b7fb(_0x28289b[_0xe63906], _0x28289b[_0xe63906 + 1]));
+        _0x9feb94.push(new Segment(_0x28289b[_0xe63906], _0x28289b[_0xe63906 + 1]));
       }
       const _0x2f1ab5 = this.segments.splice(_0x4ab91c, _0x458307 - _0x4ab91c);
       this.remove();
@@ -1625,7 +1625,7 @@
     }
   }
   const _0x98c0a2 = typeof performance !== "undefined" ? performance : Date;
-  const _0xa106df = _0x98c0a2.now.bind(_0x98c0a2);
+  const now = _0x98c0a2.now.bind(_0x98c0a2);
   const _0x4723f6 = (_0x161a53, _0x48b647, _0x58ad92) => {
     if (typeof _0x161a53.x !== "number") {
       throw Error("circle");
@@ -1634,7 +1634,7 @@
     const _0x2d7adf = _0x25a8fb / _0x48b647;
     const _0x3e49f0 = [];
     for (let _0x2c4aaf = 0; _0x2c4aaf < _0x25a8fb - _0x68ae04; _0x2c4aaf += _0x2d7adf) {
-      _0x3e49f0.push(new _0x57ebac(_0x161a53.x + Math.cos(_0x2c4aaf) * _0x58ad92, _0x161a53.y + Math.sin(_0x2c4aaf) * _0x58ad92));
+      _0x3e49f0.push(new Vector(_0x161a53.x + Math.cos(_0x2c4aaf) * _0x58ad92, _0x161a53.y + Math.sin(_0x2c4aaf) * _0x58ad92));
     }
     return _0x3e49f0;
   };
@@ -1846,15 +1846,15 @@
   function _0xce11b3(_0x2134de) {
     return _0x2134de.toFixed(2);
   }
-  class _0x573c94 {
+  class Border {
     constructor(_0x47fbad, _0x1797db, _0x11ec0c) {
-      if (!(_0x47fbad instanceof _0x59ba56)) {}
+      if (!(_0x47fbad instanceof Polygon)) {}
       this.polygon = _0x47fbad;
       this.radius = _0x11ec0c;
       this.center = _0x1797db;
     }
     static circular(_0x2a3b43, _0x453954, _0x3949f1) {
-      return new _0x573c94(new _0x59ba56(_0x4723f6(_0x2a3b43, _0x453954, _0x3949f1)), _0x2a3b43, _0x3949f1);
+      return new Border(new Polygon(_0x4723f6(_0x2a3b43, _0x453954, _0x3949f1)), _0x2a3b43, _0x3949f1);
     }
     intersections(_0x3985d5) {
       {
@@ -1865,13 +1865,13 @@
       return this.polygon.intersections(_0x3985d5).filter(_0x15d63f => !_0x15d63f.overlay);
     }
   }
-  class _0x2c51f6 {
+  class Territory {
     constructor(_0x5b9270, _0x3ab68b) {
       this.unit = undefined;
       this.isTrack = undefined;
       this.unit = _0x5b9270;
       this.merges = [];
-      this.polygon = new _0x59ba56(_0x3ab68b);
+      this.polygon = new Polygon(_0x3ab68b);
       this.polygon.commit(this);
       this.calcSquare();
       this.polygon.calcPath();
@@ -1987,9 +1987,9 @@
       }
     }
   }
-  class _0x3bf2d1 {
+  class Trail {
     constructor(_0x245895) {
-      this.polyline = new _0x220205(this);
+      this.polyline = new Polyline(this);
       this.simplyline = [];
       this.unit = _0x245895;
       this.length = 0;
@@ -2042,7 +2042,7 @@
     }
     remove() {
       this.polyline.remove();
-      this.polyline = new _0x220205(this);
+      this.polyline = new Polyline(this);
       this.length = 0;
       this.simplyline = [];
       this.intersections = [];
@@ -2060,7 +2060,7 @@
       }
     }
   }
-  class _0x413c0a {
+  class StateMachine {
     constructor(_0xd415fd, _0x36b757, _0x208008) {
       this.states = _0xd415fd;
       this.state = "";
@@ -2142,7 +2142,7 @@
       enter: function (_0x542728) {
         const _0x388d9b = _0x542728.position.clone().sub(_0x542728.game.space.center);
         const _0x4b04b0 = _0x388d9b.magnitude();
-        const _0x5b890d = new _0x55b7fb(_0x542728.position, _0x388d9b.normalize().mulScalar(_0x542728.game.border.radius + 10).add(_0x542728.game.space.center));
+        const _0x5b890d = new Segment(_0x542728.position, _0x388d9b.normalize().mulScalar(_0x542728.game.border.radius + 10).add(_0x542728.game.space.center));
         const _0x382bab = _0x542728.base.polygon.intersections(_0x5b890d);
         const _0x1ad216 = {};
         if (!_0x382bab.length) {
@@ -2391,7 +2391,7 @@
     return _0x3b318a;
   };
   const _0x158cbc = _0x1d96bc();
-  class _0x4678b1 {
+  class Particle {
     constructor(_0x5bb711, _0x434c5e, _0x3903b4, _0x3ba3e3, _0x1f1a94, _0x5c0d11, _0x1854e9, _0x5cadc6, _0x3e565f, _0x529480) {
       this.target = _0x5bb711;
       this.color = _0x434c5e;
@@ -2463,7 +2463,7 @@
         particles
       } = _0x38c097.in.unit.skin.colors;
       const _0x3f59c3 = 0.75 + Math.random() * 0.5;
-      const _0x1441c6 = new _0x4678b1(null, particles[~~(Math.random() * particles.length)], _0x33e9bd.start.clone().add(_0x4054ee).add(_0x32752a).add(new _0x57ebac(0, -baseHeight)), _0x26ad61, _0x57d35b, Math.PI + Math.random() * Math.PI, _0x3f59c3, _0x3f59c3 * -2, 300);
+      const _0x1441c6 = new Particle(null, particles[~~(Math.random() * particles.length)], _0x33e9bd.start.clone().add(_0x4054ee).add(_0x32752a).add(new Vector(0, -baseHeight)), _0x26ad61, _0x57d35b, Math.PI + Math.random() * Math.PI, _0x3f59c3, _0x3f59c3 * -2, 300);
       return _0x1441c6;
     }
   }
@@ -2485,7 +2485,7 @@
           const _0x59405c = (_0x5cc3d8 ? 3 : 1) * (1 + Math.random() * 0.5);
           const _0x48264b = 500 + Math.random() * 500;
           const _0x4ccbe0 = -_0x59405c * 0.7 * (1000 / _0x48264b);
-          const _0x42ada6 = new _0x4678b1(null, _0x9b8eda.skin.colors.particles[~~(Math.random() * _0x9b8eda.skin.colors.particles.length)], _0x3d5220.start.clone(), _0x4feda2, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), _0x59405c, _0x4ccbe0, _0x48264b, _0x553fdc => {
+          const _0x42ada6 = new Particle(null, _0x9b8eda.skin.colors.particles[~~(Math.random() * _0x9b8eda.skin.colors.particles.length)], _0x3d5220.start.clone(), _0x4feda2, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), _0x59405c, _0x4ccbe0, _0x48264b, _0x553fdc => {
             if (_0x46b899) {
               _0x553fdc.target = _0x46b899;
               _0x553fdc.time = 1;
@@ -2507,13 +2507,13 @@
       _0x3abe5c = _0x48cafa / _0x66ee8c;
     }
   }
-  class _0x55fdda {
+  class SchemeCycler {
     constructor(..._0x4303d9) {
       this.Schemes = _0x4303d9;
       this.current = 0;
     }
     getSchemes(_0x5e6c0a) {
-      return new _0x59c04d(this.Schemes.map(_0x3050f2 => new _0x3050f2(_0x5e6c0a)), this);
+      return new Scoreboard(this.Schemes.map(_0x3050f2 => new _0x3050f2(_0x5e6c0a)), this);
     }
     next() {
       this.current++;
@@ -2522,7 +2522,7 @@
       }
     }
   }
-  class _0x59c04d {
+  class Scoreboard {
     constructor(_0x487592, _0x77402c) {
       this.schemes = _0x487592;
       this.manager = _0x77402c;
@@ -2556,7 +2556,7 @@
       this.schemes.forEach((_0x1732bf, _0xbf383d) => _0x1732bf.comeback(_0x27c4b2, this.manager.current !== _0xbf383d));
     }
   }
-  class _0x37f671 {
+  class ScoreLabel {
     constructor(_0x4e00d2, _0x4a68d2) {
       this.unit = _0x4e00d2;
       this.name = _0x4a68d2;
@@ -2578,7 +2578,7 @@
     out() {}
     comeback() {}
   }
-  class _0x666d9a extends _0x37f671 {
+  class BotScoreLabel extends ScoreLabel {
     constructor(_0x5d8d87) {
       super(_0x5d8d87, "percent");
     }
@@ -2620,7 +2620,7 @@
       }
     }
   }
-  class _0x279c29 {
+  class Quest {
     constructor(_0x2328e9, _0x18e31b, _0x2ba4e3) {
       this.title = _0x2328e9;
       this.description = _0x18e31b;
@@ -2663,7 +2663,7 @@
       }
     }
   }
-  class _0x1610ab {
+  class Achievement {
     constructor(_0x3228e1, _0x234b19, _0x29bcac, _0x2bc91e, _0x1ef231, _0x392bc6) {
       this.name = _0x3228e1;
       this.modes = _0x234b19;
@@ -2684,13 +2684,13 @@
       if (this.onEarned) {
         this.onEarned(_0x282f99, this);
       }
-      _0x282f99.notifications.push(new _0x279c29("New skin unlocked!", this.description, this.url));
+      _0x282f99.notifications.push(new Quest("New skin unlocked!", this.description, this.url));
     }
   }
-  class _0x180abc {
+  class AchievementStore {
     constructor(_0x192743, _0x288ca0 = "paper.io.storage") {
       this.storageName = _0x288ca0;
-      this.achievements = _0x192743.map(_0xe19cef => new _0x1610ab(_0xe19cef.name, _0xe19cef.modes, _0xe19cef.getChecker, _0xe19cef.description, _0xe19cef.url, _0xe19cef.onEarned));
+      this.achievements = _0x192743.map(_0xe19cef => new Achievement(_0xe19cef.name, _0xe19cef.modes, _0xe19cef.getChecker, _0xe19cef.description, _0xe19cef.url, _0xe19cef.onEarned));
     }
     load() {
       const _0x5ed92b = _0x480125.getJSON("paperio_challenges") || {};
@@ -2752,7 +2752,7 @@
       }
     }
   }
-  class _0x5ef101 {
+  class AchievementTracker {
     constructor(_0x4e49e3, _0x4a9dcc) {
       this.profile = _0x4e49e3;
       if (!this.profile) {
@@ -2795,7 +2795,7 @@
       });
     }
   }
-  class _0x516e3b {
+  class City {
     constructor(_0x3b00cb, _0x52653c, _0x5a9889, _0x3dd75a) {
       this.name = _0x3b00cb;
       this.capital = _0x52653c;
@@ -2818,7 +2818,7 @@
       return _0x4a1e05;
     }
   }
-  class _0x55c57a {
+  class Unit {
     constructor(_0xa99a22, _0x1f1f01, _0x53ea97, _0x14b97c, _0xefbf81, _0x4d0860) {
       this.killer = undefined;
       this.achievements = undefined;
@@ -2831,8 +2831,8 @@
       this.game = _0xa99a22;
       this.name = _0x1f1f01;
       this.position = _0x53ea97;
-      this.base = new _0x2c51f6(this, _0x14b97c);
-      this.track = new _0x3bf2d1(this);
+      this.base = new Territory(this, _0x14b97c);
+      this.track = new Trail(this);
       this.lastSquare = this.base.square;
       this.in = this.base;
       this.target = null;
@@ -2841,7 +2841,7 @@
         kills: 0
       };
       this.log = [];
-      this.bornTime = _0xa106df();
+      this.bornTime = now();
       this.cities = [];
       this.labels = [];
       this.percent = 0;
@@ -2914,7 +2914,7 @@
       this.labels.push(_0x265f51);
     }
   }
-  class _0x4c9af3 extends _0x55c57a {
+  class Player extends Unit {
     get isPlayer() {
       return true;
     }
@@ -2925,11 +2925,11 @@
     update(_0x46f3c4) {
       super.update(_0x46f3c4);
       if (!this.respawn) {
-        this.target = new _0x57ebac(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
+        this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
       }
     }
   }
-  class _0x29a0a0 extends _0x55c57a {
+  class Bot extends Unit {
     constructor(_0x5b5541, _0x703bb9, _0x45ba3a, _0x18e952, _0xfbe93a, _0x523f62, _0x2259e2) {
       super(_0x5b5541, _0x45ba3a, _0x18e952, _0xfbe93a, _0x523f62, _0x2259e2);
       this.aggro = 0;
@@ -2942,7 +2942,7 @@
       this.smoothness = 1;
       this.maxDanger = 0;
       this.unitDanger = null;
-      this.fsm = new _0x413c0a(_0x3d8162, "idle", this);
+      this.fsm = new StateMachine(_0x3d8162, "idle", this);
     }
     update(_0x227a04) {
       super.update(_0x227a04);
@@ -2989,8 +2989,8 @@
       this.fsm.update();
     }
   }
-  class _0x797aae {
-    constructor(_0x194e13, _0x3cd013, _0x201bcc, _0x385f39 = new _0x57ebac(0, 0), _0x3627f3 = new _0x57ebac(0, -50), _0x35a176 = 2000, _0x40eab2 = true) {
+  class TextParticle {
+    constructor(_0x194e13, _0x3cd013, _0x201bcc, _0x385f39 = new Vector(0, 0), _0x3627f3 = new Vector(0, -50), _0x35a176 = 2000, _0x40eab2 = true) {
       this.text = _0x194e13;
       this.color = _0x3cd013 || "#000000";
       this.unit = _0x201bcc;
@@ -3029,7 +3029,7 @@
     }
   }
   var _0x5026e2 = String.fromCharCode;
-  class _0x26dff6 {
+  class NamePool {
     constructor(_0x5e803d, _0x5a4f07) {
       this.pool = _0x5e803d;
       this.rng = _0x1fc93f(_0x5a4f07);
@@ -3078,7 +3078,7 @@
       }, (Math.PI + Math.random()) * 60000);
     } else {
       {
-        _0x4c9af3.prototype.moveTo = true;
+        Player.prototype.moveTo = true;
       }
     }
   }
@@ -3091,9 +3091,9 @@
     const _0x40ea58 = Math.sin(_0x38ddf8);
     const _0x5f0eff = _0x1b92c1 * _0x1748fa - _0x55d618 * _0x40ea58;
     const _0x5d8d48 = _0x1b92c1 * _0x40ea58 + _0x55d618 * _0x1748fa;
-    return _0x57ebac.alloc(_0x5f0eff, _0x5d8d48);
+    return Vector.alloc(_0x5f0eff, _0x5d8d48);
   };
-  class _0x4314b9 {
+  class Game {
     constructor(_0x43201e, _0x44b6a3, _0x22ed41, _0x3b6f5f, _0x197641, _0x5f2749, _0x2dd2b5, _0x2bb7ad, _0x36c731, _0xddccc9, _0x4246c8, _0x2e733a) {
       this.best = undefined;
       this.isTest = undefined;
@@ -3116,8 +3116,8 @@
       this.border = _0x3b6f5f;
       this.player = null;
       this.units = [];
-      this.mouse = new _0x57ebac();
-      this.direction = new _0x57ebac(1, 0);
+      this.mouse = new Vector();
+      this.direction = new Vector(1, 0);
       this.recording;
       this.replaying;
       this.cycle = 0;
@@ -3196,7 +3196,7 @@
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
-        _0x2fe413.achievements = new _0x5ef101(this.achievementsProfile, "classic");
+        _0x2fe413.achievements = new AchievementTracker(this.achievementsProfile, "classic");
       }
       this.addUnit(_0x2fe413);
       this.player = _0x2fe413;
@@ -3247,7 +3247,7 @@
           _0x14213f = _0x3c4389(0, Math.max(0, radius - (_0x49ad20 + baseRadius)), Math.random());
           break;
       }
-      var _0x78d0cb = _0x57ebac.alloc(0, _0x14213f).rotate(Math.random() * Math.PI * 2);
+      var _0x78d0cb = Vector.alloc(0, _0x14213f).rotate(Math.random() * Math.PI * 2);
       var _0x3008b0 = _0x19dc83.clone().add(_0x78d0cb);
       _0x78d0cb.release();
       if (_0x3008b0.distance(center) > radius - (_0x49ad20 + baseRadius)) {
@@ -3312,7 +3312,7 @@
       }
       const _0x5df7a6 = _0x546f25[_0x50cd16];
       const _0x32e5b7 = this.nameManager.get();
-      const _0x143b56 = new _0x29a0a0(this, _0x5df7a6, _0x32e5b7, _0x30c5d0, _0x4723f6(_0x30c5d0, baseCount, baseRadius), undefined, this.schemesManager);
+      const _0x143b56 = new Bot(this, _0x5df7a6, _0x32e5b7, _0x30c5d0, _0x4723f6(_0x30c5d0, baseCount, baseRadius), undefined, this.schemesManager);
       const _0x11cfe8 = this.skinManager.get();
       _0x143b56.setSkin(_0x11cfe8);
       this.addUnit(_0x143b56);
@@ -3344,12 +3344,12 @@
         }
         _0x292ad3 = this.getSpawnPosition("random", _0x102fd1);
       }
-      const _0x4ff8c5 = new _0x4c9af3(this, _0x282e61 || this.language.defaultPlayerName, _0x292ad3, _0x4723f6(_0x292ad3, baseCount, _0x102fd1), undefined, this.schemesManager);
+      const _0x4ff8c5 = new Player(this, _0x282e61 || this.language.defaultPlayerName, _0x292ad3, _0x4723f6(_0x292ad3, baseCount, _0x102fd1), undefined, this.schemesManager);
       const _0x27ad09 = this.skinManager.getPlayerSkin(_0x4ef914);
       _0x4ff8c5.setSkin(_0x27ad09);
       this.addPlayer(_0x4ff8c5);
       this.scale = maxScale - ~~(_0x4ff8c5.base.square / this.square * 20) / 20 * (maxScale - minScale);
-      this.startTime = _0xa106df();
+      this.startTime = now();
     }
     gameOver(_0x392068) {
       const {
@@ -3373,7 +3373,7 @@
         const _0x542aa7 = _0x218cef - _0x1de4c2;
         const _0x1e1e9c = _0x38b4b3 - _0x4d5b5f;
         const _0x3cd457 = Math.max(_0x542aa7, _0x1e1e9c);
-        const _0x238b48 = new _0x57ebac(_0x1de4c2 + _0x542aa7 / 2, _0x4d5b5f + _0x1e1e9c / 2);
+        const _0x238b48 = new Vector(_0x1de4c2 + _0x542aa7 / 2, _0x4d5b5f + _0x1e1e9c / 2);
         const _0x5a7d03 = 500;
         const _0x28bf89 = _0x5a7d03 * 0.95 / _0x3cd457;
         const _0x4be932 = _0x5a7d03 / 100;
@@ -3403,7 +3403,7 @@
           top: player.top,
           best: this.best,
           bestPercent: player.bestPercent,
-          time: _0xa106df() - this.startTime,
+          time: now() - this.startTime,
           kills: player.statistics.kills,
           image: _0x149dc6,
           reason: _0x392068
@@ -3508,7 +3508,7 @@
       }
       _0x38589f.direction += _0x3fd66e;
       const _0x3b2cd3 = _0xa92ac9(_0x38589f.direction).mulScalar(unitSpeed * _0x5cb90e / 1000);
-      let _0x2454da = new _0x55b7fb(_0x38589f.position, _0x38589f.position.clone().add(_0x3b2cd3));
+      let _0x2454da = new Segment(_0x38589f.position, _0x38589f.position.clone().add(_0x3b2cd3));
       _0x3b2cd3.release();
       let _0x2e9db3 = this.border.intersections(_0x2454da);
       while (_0x2e9db3.length) {
@@ -3531,13 +3531,13 @@
           break;
         }
         if (!_0x8dca1d(_0x5efed0.distance)) {
-          const _0x3442fe = new _0x55b7fb(_0x2454da.start, _0x4c719e);
+          const _0x3442fe = new Segment(_0x2454da.start, _0x4c719e);
           _0x50b09b.push(_0x3442fe);
         }
-        _0x2454da = new _0x55b7fb(_0x4c719e, _0x2454da.end);
+        _0x2454da = new Segment(_0x4c719e, _0x2454da.end);
         const _0x2fee92 = _0x2454da.vector;
-        const _0x25c070 = _0x57ebac.clone(_0x184988).normalize().mulScalar(_0x2fee92.dot(_0x184988) / _0x184988.magnitude());
-        _0x2454da = new _0x55b7fb(_0x4c719e, _0x4c719e.clone().add(_0x25c070));
+        const _0x25c070 = Vector.clone(_0x184988).normalize().mulScalar(_0x2fee92.dot(_0x184988) / _0x184988.magnitude());
+        _0x2454da = new Segment(_0x4c719e, _0x4c719e.clone().add(_0x25c070));
         _0x25c070.release();
         _0x2e9db3 = this.border.intersections(_0x2454da);
       }
@@ -3563,18 +3563,18 @@
             this.direction.rotate(_0x19aa5b * _0x1c56e4);
           }
         } else {
-          const _0x1bd926 = new _0x57ebac();
+          const _0x1bd926 = new Vector();
           if (this.controller.up) {
-            _0x1bd926.add(new _0x57ebac(0, -1));
+            _0x1bd926.add(new Vector(0, -1));
           }
           if (this.controller.down) {
-            _0x1bd926.add(new _0x57ebac(0, 1));
+            _0x1bd926.add(new Vector(0, 1));
           }
           if (this.controller.left) {
-            _0x1bd926.add(new _0x57ebac(-1, 0));
+            _0x1bd926.add(new Vector(-1, 0));
           }
           if (this.controller.right) {
-            _0x1bd926.add(new _0x57ebac(1, 0));
+            _0x1bd926.add(new Vector(1, 0));
           }
           if (_0x1bd926.magnitude()) {
             let _0x2a2ce2 = Math.atan2(this.direction.x * _0x1bd926.y - _0x1bd926.x * this.direction.y, this.direction.x * _0x1bd926.x + this.direction.y * _0x1bd926.y);
@@ -3587,10 +3587,10 @@
       } else if (this.controller.mouse) {
         if (!this.keyboard || this.keyboard.x !== this.controller.mouse.x && this.keyboard.y !== this.controller.mouse.y) {
           this.keyboard = null;
-          this.direction = new _0x57ebac(this.controller.mouse.x, this.controller.mouse.y).sub(new _0x57ebac(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+          this.direction = new Vector(this.controller.mouse.x, this.controller.mouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
         }
       } else if (!this.keyboard && this.controller.lastMouse) {
-        this.direction = new _0x57ebac(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new _0x57ebac(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+        this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
       }
     }
     prepareAndUpdate(_0x4275d6) {
@@ -3651,7 +3651,7 @@
       if (this.stopped) {
         return false;
       }
-      _0x57ebac.space = this.space;
+      Vector.space = this.space;
       if (_0x5b3085 == null) {
         _0x5b3085 = 1000 / 60;
       }
@@ -3676,9 +3676,9 @@
       const {
         player
       } = this;
-      this.timings.aiStartTime = _0xa106df();
+      this.timings.aiStartTime = now();
       this.units.forEach(_0x3314bd => _0x3314bd.update(_0x5b3085));
-      this.timings.aiEndTime = _0xa106df();
+      this.timings.aiEndTime = now();
       this.handleUnitMovements(_0x5b3085);
       this.units.forEach(_0x1d3df6 => {
         _0x1d3df6.lastSquare = _0x1d3df6.base.square;
@@ -3693,11 +3693,11 @@
           _0x5710b6.schemes.update(_0x5b3085);
         }
         if (_0x5710b6.labels.length) {
-          let _0x3f1ae5 = new _0x57ebac(0, -35);
-          const _0x18e3ed = new _0x57ebac(0, -10);
-          const _0xbde3b5 = new _0x57ebac(0, -10);
+          let _0x3f1ae5 = new Vector(0, -35);
+          const _0x18e3ed = new Vector(0, -10);
+          const _0xbde3b5 = new Vector(0, -10);
           _0x5710b6.labels.forEach(_0x25cccd => {
-            this.labels.push(new _0x797aae(_0x25cccd.text, _0x25cccd.color, _0x25cccd.unit, _0x3f1ae5, _0x18e3ed, _0x25cccd.time, _0x25cccd.fading));
+            this.labels.push(new TextParticle(_0x25cccd.text, _0x25cccd.color, _0x25cccd.unit, _0x3f1ae5, _0x18e3ed, _0x25cccd.time, _0x25cccd.fading));
             _0x3f1ae5 = _0x3f1ae5.clone().add(_0xbde3b5);
           });
           _0x5710b6.labels = [];
@@ -3730,7 +3730,7 @@
         this.level = this.config.botLevel;
       }
       this.units.forEach(_0x22059b => {
-        if (_0x22059b instanceof _0x29a0a0) {
+        if (_0x22059b instanceof Bot) {
           const _0x5594f3 = Math.min(1, Math.max(0, this.level + _0x22059b.jitter));
           let {
             botAggroMin,
@@ -3777,7 +3777,7 @@
         let _0x3bbba2 = null;
         let _0x10ec9a = Infinity;
         this.units.forEach(_0x378265 => {
-          if (_0x378265 instanceof _0x29a0a0) {
+          if (_0x378265 instanceof Bot) {
             let _0x560484 = Infinity;
             player.track.simplyline.forEach(_0x139db9 => {
               const _0x448082 = _0x139db9.distance2(_0x378265.position);
@@ -3803,13 +3803,13 @@
         player.percent = 1;
         this.gameOver(_0x1f3950);
       }
-      this.timings.spawnStartTime = _0xa106df();
+      this.timings.spawnStartTime = now();
       for (let _0x4538b9 = 0; _0x4538b9 < this.config.nearPlayerBotSpawnCount; _0x4538b9++) {
         this.spawnBot("player");
       }
       this.spawnBot("center");
       this.spawnBot(this.rng() > 0.3 ? "bounds" : "random");
-      this.timings.spawnEndTime = _0xa106df();
+      this.timings.spawnEndTime = now();
       this.cycle++;
       return true;
     }
@@ -4052,7 +4052,7 @@
     }
     addCity(_0x242f2b) {
       const _0x399fdd = _0x242f2b.skin.assets.find(_0x143298 => _0x143298.pool.name === "flags").name;
-      const _0xb8eaad = new _0x516e3b(this.citiesManager.get(_0x399fdd), false, _0x242f2b.position.clone(), _0x242f2b);
+      const _0xb8eaad = new City(this.citiesManager.get(_0x399fdd), false, _0x242f2b.position.clone(), _0x242f2b);
       if (this.skinManager.isFlagSkinManager) {
         const _0x5ceed0 = this.skinManager.getCitySkin(_0x399fdd);
         _0xb8eaad.skin = _0x5ceed0;
@@ -4091,10 +4091,10 @@
       _0x248fa1.pop();
       _0x248fa1.reverse();
       _0x248fa1.push(..._0x5a7e19);
-      const _0x1f1a04 = new _0x59ba56(_0x248fa1);
+      const _0x1f1a04 = new Polygon(_0x248fa1);
       let _0x1b07c0;
       if (_0x1f1a04.rawSquare() < 0) {
-        _0x1b07c0 = new _0x59ba56(_0x1051b1.reverse());
+        _0x1b07c0 = new Polygon(_0x1051b1.reverse());
         _0x59fced.polygon.unsplice(_0x53ad12, _0x4ffa2b, _0x490c91);
       } else {
         _0x1b07c0 = _0x1f1a04;
@@ -4182,8 +4182,8 @@
                 _0x326e43.shift();
                 _0x326e43.pop();
                 _0x326e43.push(..._0x5455c7.slice().reverse());
-                const _0x17003f = new _0x59ba56(_0x326e43);
-                const _0x21caa4 = new _0x59ba56(_0x379466);
+                const _0x17003f = new Polygon(_0x326e43);
+                const _0x21caa4 = new Polygon(_0x379466);
                 let _0xae7444;
                 if (owner.unit.in === owner.unit.base && _0x17003f.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && _0x17003f.inside(owner.unit.track.polyline.start)) {
                   owner.polygon.right(_0x5455c7, _0x53cd50, _0x517d46);
@@ -4204,7 +4204,7 @@
                   }
                 });
               };
-              if (!(_0x12a6a7.owner instanceof _0x2c51f6)) {
+              if (!(_0x12a6a7.owner instanceof Territory)) {
                 throw new Error("Это не база");
               }
               _0x1a293a({
@@ -4360,7 +4360,7 @@
           }
           _0x51cd0b.position = end;
           if (this.visible && !_0x11c14a.length && _0x51cd0b.in && _0x51cd0b.in !== _0x51cd0b.base) {
-            let _0x1d0ff0 = _0x4678b1.nom(_0x51cd0b, _0x568c14, this.config.trackWidth);
+            let _0x1d0ff0 = Particle.nom(_0x51cd0b, _0x568c14, this.config.trackWidth);
             this.particles.push(_0x1d0ff0);
           }
         }
@@ -4370,10 +4370,10 @@
       return _0x5b5dbb === this.player;
     }
     alert(_0x4754e6, _0x29a9fa) {
-      this.labels.push(new _0x797aae(_0x4754e6, _0x29a9fa || "#000000", this.player));
+      this.labels.push(new TextParticle(_0x4754e6, _0x29a9fa || "#000000", this.player));
     }
     loop() {
-      let _0x1b907b = _0xa106df();
+      let _0x1b907b = now();
       if (this.stopped) {
         return;
       }
@@ -4390,7 +4390,7 @@
         if (_0x176147 > 10000) {
           _0x176147 = 10000;
         }
-        this.timings.updateStartTime = _0xa106df();
+        this.timings.updateStartTime = now();
         if (this.replaying || this.recording) {
           if (this.cycle < this.config.prepareCounter + 120 && _0x176147 > 100) {
             _0x176147 = 100;
@@ -4427,18 +4427,18 @@
         } else {
           this.prepareAndUpdate(_0x176147);
         }
-        this.timings.updateEndTime = _0xa106df();
+        this.timings.updateEndTime = now();
       }
-      this.timings.renderStartTime = _0xa106df();
+      this.timings.renderStartTime = now();
       if (this.visible) {
         this.render();
       }
-      this.timings.renderEndTime = _0xa106df();
+      this.timings.renderEndTime = now();
       this.last = _0x1b907b;
       requestAnimationFrame(_0x56970d => this.loop());
     }
   }
-  class _0x58fad4 {
+  class KeyboardModeSwitch {
     constructor() {
       this.mode2 = false;
     }
@@ -4447,7 +4447,7 @@
     }
     switch() {}
   }
-  class _0x2cad5a {
+  class Controller {
     constructor(_0x41fddf, _0x59dd4f) {
       this.up = false;
       this.down = false;
@@ -4631,7 +4631,7 @@
     }
   }
   var _0x577878 = Object.assign;
-  class _0x5bb36f {
+  class SkinLayer {
     constructor(_0x46ac87, _0x3a27c4, _0x5c0a2e) {
       this.level = 0;
       this.scale = 1;
@@ -4683,7 +4683,7 @@
     }
   }
   let _0x486b34;
-  class _0x2a78e7 {
+  class PatternAsset {
     constructor(_0x28e464, _0x5c10e1, _0x4c8ad3, _0x591234 = {}, _0x2317d8) {
       this.url = _0x4c8ad3 + _0x591234.url;
       this.scale = _0x591234.scale || 1;
@@ -4725,7 +4725,7 @@
       });
     }
   }
-  class _0x20fed4 {
+  class Avatar {
     constructor(_0x527bba, _0x31671a, _0x3b76ff, _0x5942cc) {
       this.layers = [];
       this.scale = 1;
@@ -4743,14 +4743,14 @@
           }
         }
       };
-      this.layers = (this.layers || []).map(_0x1c9aca => new _0x5bb36f(_0x527bba, _0x577878(_0x577878({}, _0x1c9aca), {
+      this.layers = (this.layers || []).map(_0x1c9aca => new SkinLayer(_0x527bba, _0x577878(_0x577878({}, _0x1c9aca), {
         url: _0x1c9aca.url && "" + _0x31671a + _0x1c9aca.url
       }), _0x41860f));
       this.frontLayers = this.layers.filter(_0x3c6c45 => _0x3c6c45.level >= 1).sort((_0x378c80, _0x1e8d58) => _0x378c80.level - _0x1e8d58.level);
       this.backLayers = this.layers.filter(_0x402036 => _0x402036.level < 1).sort((_0x559f43, _0x398898) => _0x398898.level - _0x559f43.level);
     }
   }
-  class _0x2ae0b8 {
+  class DisplayList {
     constructor() {
       this.displays = [];
       this.frontLayers = [];
@@ -4931,7 +4931,7 @@
       _0x308c06.translate((_0x408e0c.x + _0x35bba1.x) * trackWidth, (_0x408e0c.y + _0x35bba1.y) * trackWidth);
       let _0x26b1dd = 0;
       if (_0x35bba1.direction === "target") {
-        const _0x4c6401 = (_0x62a4b.target || new _0x57ebac(0, 0)).clone().sub(_0x62a4b.position);
+        const _0x4c6401 = (_0x62a4b.target || new Vector(0, 0)).clone().sub(_0x62a4b.position);
         const _0x34502f = Math.atan2(_0x4c6401.y, _0x4c6401.x);
         _0x26b1dd += _0x34502f - _0x62a4b.direction;
       }
@@ -5596,24 +5596,24 @@
     }
   };
   const _0x1c04b3 = (_0x25e808, _0x51cd14, _0x4e068e, _0x41c953, _0x2475cf, _0x253662) => {
-    let _0x81b052 = {};
+    let gameApi = {};
     if (Path2D) {
-      _0x81b052.create = _0x2702b4 => {
+      gameApi.create = _0x2702b4 => {
         const {
           arenaSize,
           quadSize,
           borderPoints
         } = _0x25e808;
-        const _0x3785cc = new _0x1d7dd9(arenaSize, arenaSize, quadSize);
-        _0x57ebac.space = _0x3785cc;
-        const _0x3d6896 = new _0x57ebac(arenaSize / 2, arenaSize / 2);
+        const _0x3785cc = new SpatialGrid(arenaSize, arenaSize, quadSize);
+        Vector.space = _0x3785cc;
+        const _0x3d6896 = new Vector(arenaSize / 2, arenaSize / 2);
         const _0x36f65f = Math.min(_0x3d6896.x, _0x3d6896.y) * 0.95;
-        const _0x53260d = _0x573c94.circular(_0x3d6896, borderPoints, _0x36f65f);
+        const _0x53260d = Border.circular(_0x3d6896, borderPoints, _0x36f65f);
         const _0x412f0f = _0x4e068e(_0x25e808, _0x2702b4);
-        const _0x5631ac = new _0x4314b9(_0x25e808, _0x2702b4, _0x3785cc, _0x53260d, _0x412f0f, null, _0x41c953, new _0x2cad5a(_0x2702b4, new _0x58fad4()), _0x51cd14.lng, _0x2475cf, _0x253662, Math.random());
+        const _0x5631ac = new Game(_0x25e808, _0x2702b4, _0x3785cc, _0x53260d, _0x412f0f, null, _0x41c953, new Controller(_0x2702b4, new KeyboardModeSwitch()), _0x51cd14.lng, _0x2475cf, _0x253662, Math.random());
         _0x412f0f.game = _0x5631ac;
         _0x5631ac.renderer = _0x594216;
-        _0x81b052.game = _0x5631ac;
+        gameApi.game = _0x5631ac;
         _0x5631ac.controller.addSet([16, 18, 81, 66, 77], () => {
           _0x5631ac.debug = !_0x5631ac.debug;
         });
@@ -5621,7 +5621,7 @@
           _0x5631ac.debugGraph = !_0x5631ac.debugGraph;
         });
       };
-      _0x81b052.preparing = true;
+      gameApi.preparing = true;
       let _0x3ad283 = 0;
       let _0x1e248a;
       const _0x3b8a97 = () => {
@@ -5632,20 +5632,20 @@
           prepareBatchCount
         } = _0x25e808;
         while (prepareBatchCount--) {
-          _0x81b052.game.update(1000 / 60 * prepareMult + Math.random());
+          gameApi.game.update(1000 / 60 * prepareMult + Math.random());
           _0x3ad283++;
         }
       };
-      _0x81b052.prepare = _0x53bf70 => {
+      gameApi.prepare = _0x53bf70 => {
         const {
           game: _0x24d4d5
-        } = _0x81b052;
+        } = gameApi;
         _0x1e248a = setInterval(() => {
           if (_0x41c953.aviable()) {
             _0x3b8a97();
             if (_0x3ad283 > _0x25e808.prepareCounter) {
               clearInterval(_0x1e248a);
-              _0x81b052.preparing = false;
+              gameApi.preparing = false;
               _0x24d4d5.visible = true;
               if (!_0x24d4d5.looped) {
                 _0x24d4d5.loop();
@@ -5657,14 +5657,14 @@
           }
         }, 0);
       };
-      _0x81b052.start = (_0x726413, _0xca7aa0, _0x441c23, _0x190f9e, _0x3e0e26) => {
-        const _0x27aec3 = _0x81b052.game;
-        if (_0x81b052.preparing) {
+      gameApi.start = (_0x726413, _0xca7aa0, _0x441c23, _0x190f9e, _0x3e0e26) => {
+        const _0x27aec3 = gameApi.game;
+        if (gameApi.preparing) {
           clearInterval(_0x1e248a);
-          const _0x4a84f3 = _0xa106df();
+          const _0x4a84f3 = now();
           while (_0x3ad283 < _0x25e808.prepareCounter) {
             _0x3b8a97();
-            if (_0xa106df() - _0x4a84f3 > _0x25e808.maxPreparingTime) {
+            if (now() - _0x4a84f3 > _0x25e808.maxPreparingTime) {
               break;
             }
           }
@@ -5681,7 +5681,7 @@
         if (_0x190f9e) {
           _0x27aec3.gameOverCallback = _0x190f9e;
         }
-        _0x81b052.preparing = false;
+        gameApi.preparing = false;
         _0x27aec3.visible = true;
         if (!_0x27aec3.looped) {
           _0x27aec3.loop();
@@ -5689,22 +5689,22 @@
         window.focus();
       };
     } else {
-      _0x81b052 = null;
+      gameApi = null;
     }
-    return _0x81b052;
+    return gameApi;
   };
   var _0x4214bf;
   var _0x336185;
   var _0x5146fe;
   var _0x45ddd0 = 0;
   var _0x3811d2 = [];
-  var _0x120ae0 = _0x4c28c2.__r;
-  var _0x2bb42e = _0x4c28c2.diffed;
-  var _0xa02686 = _0x4c28c2.__c;
-  var _0x3ae5b4 = _0x4c28c2.unmount;
+  var _0x120ae0 = preactOptions.__r;
+  var _0x2bb42e = preactOptions.diffed;
+  var _0xa02686 = preactOptions.__c;
+  var _0x3ae5b4 = preactOptions.unmount;
   function _0x888db7(_0x5bec12, _0x375caa) {
-    if (_0x4c28c2.__h) {
-      _0x4c28c2.__h(_0x336185, _0x5bec12, _0x45ddd0 || _0x375caa);
+    if (preactOptions.__h) {
+      preactOptions.__h(_0x336185, _0x5bec12, _0x45ddd0 || _0x375caa);
     }
     _0x45ddd0 = 0;
     var _0x5d4bf0 = _0x336185.__H ||= {
@@ -5737,7 +5737,7 @@
   }
   function _0x4799a1(_0x525b68, _0x28f13b) {
     var _0x301297 = _0x888db7(_0x4214bf++, 3);
-    if (!_0x4c28c2.__s && _0xccaa6c(_0x301297.__H, _0x28f13b)) {
+    if (!preactOptions.__s && _0xccaa6c(_0x301297.__H, _0x28f13b)) {
       _0x301297.__ = _0x525b68;
       _0x301297.__H = _0x28f13b;
       _0x336185.__H.__h.push(_0x301297);
@@ -5783,14 +5783,14 @@
           _0xe5fad4.__H.__h = [];
         } catch (_0x17c90f) {
           _0xe5fad4.__H.__h = [];
-          _0x4c28c2.__e(_0x17c90f, _0xe5fad4.__v);
+          preactOptions.__e(_0x17c90f, _0xe5fad4.__v);
           return true;
         }
       }
     });
     _0x3811d2 = [];
   }
-  _0x4c28c2.__r = function (_0x1baac8) {
+  preactOptions.__r = function (_0x1baac8) {
     if (_0x120ae0) {
       _0x120ae0(_0x1baac8);
     }
@@ -5802,14 +5802,14 @@
       _0x1ef8d1.__h = [];
     }
   };
-  _0x4c28c2.diffed = function (_0x293972) {
+  preactOptions.diffed = function (_0x293972) {
     if (_0x2bb42e) {
       _0x2bb42e(_0x293972);
     }
     var _0x43e16d = _0x293972.__c;
     if (_0x43e16d && _0x43e16d.__H && _0x43e16d.__H.__h.length) {
-      if (_0x3811d2.push(_0x43e16d) === 1 || _0x5146fe !== _0x4c28c2.requestAnimationFrame) {
-        ((_0x5146fe = _0x4c28c2.requestAnimationFrame) || function (_0x1a6409) {
+      if (_0x3811d2.push(_0x43e16d) === 1 || _0x5146fe !== preactOptions.requestAnimationFrame) {
+        ((_0x5146fe = preactOptions.requestAnimationFrame) || function (_0x1a6409) {
           var _0x2ecb0f;
           function _0x711e95() {
             clearTimeout(_0xb55311);
@@ -5826,7 +5826,7 @@
       }
     }
   };
-  _0x4c28c2.__c = function (_0x47bb76, _0x1ced3b) {
+  preactOptions.__c = function (_0x47bb76, _0x1ced3b) {
     _0x1ced3b.some(function (_0x33039f) {
       try {
         _0x33039f.__h.forEach(_0x4f712f);
@@ -5838,14 +5838,14 @@
           _0x25d555.__h &&= [];
         });
         _0x1ced3b = [];
-        _0x4c28c2.__e(_0x1bd124, _0x33039f.__v);
+        preactOptions.__e(_0x1bd124, _0x33039f.__v);
       }
     });
     if (_0xa02686) {
       _0xa02686(_0x47bb76, _0x1ced3b);
     }
   };
-  _0x4c28c2.unmount = function (_0x24219e) {
+  preactOptions.unmount = function (_0x24219e) {
     if (_0x3ae5b4) {
       _0x3ae5b4(_0x24219e);
     }
@@ -5854,7 +5854,7 @@
       try {
         _0x28e86f.__H.__.forEach(_0x4f712f);
       } catch (_0x15236f) {
-        _0x4c28c2.__e(_0x15236f, _0x28e86f.__v);
+        preactOptions.__e(_0x15236f, _0x28e86f.__v);
       }
     }
   };
@@ -5903,9 +5903,9 @@
       const _0x88d3da = setInterval(() => _0x3e00f1(_0x39ba1e => (_0x39ba1e + 1) % messages.length), 3000);
       return () => clearInterval(_0x88d3da);
     }, []);
-    return _0x4ec2d4("div", {
+    return createElement("div", {
       class: "tips"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "tip",
       key: _0x2eef6d
     }, messages[_0x2eef6d]));
@@ -5917,19 +5917,19 @@
     if (!config) {
       return null;
     }
-    return _0x4ec2d4("form", {
+    return createElement("form", {
       class: "config",
       onSubmit: apply
-    }, Object.entries(config).map(([_0x14b1f7, _0x22ff59]) => _0x4ec2d4("label", {
+    }, Object.entries(config).map(([_0x14b1f7, _0x22ff59]) => createElement("label", {
       style: "color: white;"
-    }, _0x14b1f7, "\xA0", _0x4ec2d4("input", {
+    }, _0x14b1f7, "\xA0", createElement("input", {
       type: "text",
       id: _0x14b1f7,
       name: _0x14b1f7,
       value: _0x22ff59,
       autocomplete: "off",
       maxlength: "10"
-    }))), _0x4ec2d4("button", {
+    }))), createElement("button", {
       id: "apply",
       name: "apply",
       class: "yellow"
@@ -5957,13 +5957,13 @@
       api.prepare(() => setPreparing(false));
       setState("menu");
     };
-    return _0x4ec2d4("div", {
+    return createElement("div", {
       class: "uibox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "logo"
-    }, _0x4ec2d4("img", {
+    }, createElement("img", {
       src: "assets/images/logo.png"
-    })), _0x4ec2d4(_0x449096, {
+    })), createElement(_0x449096, {
       config: _0x4dd059,
       apply: _0x307f95
     }));
@@ -5972,13 +5972,13 @@
     setLanguage
   }) => {
     const _0x3ae834 = _0x31adbe(_0x2124e9);
-    const _0x1df60f = _0x5e349a.map((_0x159de4, _0x1a5dca) => _0x4ec2d4("li", {
+    const _0x1df60f = _0x5e349a.map((_0x159de4, _0x1a5dca) => createElement("li", {
       class: _0x159de4 === _0x3ae834 ? "active" : "",
       onClick: () => setLanguage(_0x5e349a[_0x1a5dca])
     }, _0x159de4.name.toUpperCase()));
-    return _0x4ec2d4("div", {
+    return createElement("div", {
       id: "footer"
-    }, _0x4ec2d4("ul", {
+    }, createElement("ul", {
       id: "lng"
     }, _0x1df60f));
   };
@@ -6012,19 +6012,19 @@
         window.ads.showAds();
       }
     }, []);
-    return _0x4ec2d4(_0x1a6367, null, _0x4ec2d4("div", {
+    return createElement(_0x1a6367, null, createElement("div", {
       id: "left_side"
-    }), _0x4ec2d4("div", {
+    }), createElement("div", {
       class: "uibox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "logo"
-    }, _0x4ec2d4("img", {
+    }, createElement("img", {
       src: "assets/images/logo.png"
-    })), _0x4ec2d4(_0x313732, {
+    })), createElement(_0x313732, {
       messages: lng.messages
-    }), _0x4ec2d4("div", {
+    }), createElement("div", {
       class: "play"
-    }, _0x4ec2d4("input", {
+    }, createElement("input", {
       type: "text",
       id: "nick",
       name: "nick",
@@ -6033,23 +6033,23 @@
       placeholder: lng.placeholderText,
       maxlength: "12",
       oninput: _0x3e6418
-    }), _0x4ec2d4("button", {
+    }), createElement("button", {
       id: "play",
       name: "play",
       class: "yellow" + (_0x56e19e ? "" : " disabled"),
       onClick: _0xe04ee3
-    }, lng.btnPlay), _0x4ec2d4("button", {
+    }, lng.btnPlay), createElement("button", {
       id: "skins",
       name: "skins",
       class: "orange noPadding",
       onClick: () => route("skins")
-    }, _0x4ec2d4("img", {
+    }, createElement("img", {
       width: "30",
       height: "30",
       src: "assets/skins/select/" + (skin || "noskin").toLowerCase().replace(/\s+/g, "") + ".png"
-    }))), !_0x582227 && _0x4ec2d4("p", {
+    }))), !_0x582227 && createElement("p", {
       class: "notsupported"
-    }, lng.nosupport)), _0x4ec2d4("div", {
+    }, lng.nosupport)), createElement("div", {
       id: "right_side"
     }));
   };
@@ -6122,60 +6122,60 @@
         window.ads.showAds();
       }
     }, []);
-    return _0x4ec2d4(_0x1a6367, null, _0x4ec2d4("div", {
+    return createElement(_0x1a6367, null, createElement("div", {
       id: "left_side"
-    }), _0x4ec2d4("div", {
+    }), createElement("div", {
       class: "uibox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "logo"
-    }, _0x4ec2d4("img", {
+    }, createElement("img", {
       src: "assets/images/logo.png"
-    })), _0x4ec2d4("div", {
+    })), createElement("div", {
       class: "nav"
-    }, _0x4ec2d4("button", {
+    }, createElement("button", {
       class: "yellow slider-5",
       id: "menu",
       onClick: _0xb87c1f
-    }, lng.btnContinue)), _0x4ec2d4("div", {
+    }, lng.btnContinue)), createElement("div", {
       class: "resultbox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "results"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "left"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "slider-1"
-    }, lng.yourScore, ":"), _0x4ec2d4("div", {
+    }, lng.yourScore, ":"), createElement("div", {
       class: "slider-2"
-    }, results.newBest && _0x4ec2d4("span", {
+    }, results.newBest && createElement("span", {
       class: "newScore"
-    }, lng.newText, " "), lng.bestScore, ":"), _0x4ec2d4("div", {
+    }, lng.newText, " "), lng.bestScore, ":"), createElement("div", {
       class: "slider-3"
-    }, lng.timePlayed, ":"), _0x4ec2d4("div", {
+    }, lng.timePlayed, ":"), createElement("div", {
       class: "slider-4"
-    }, lng.playersKilled, ":")), _0x4ec2d4("div", {
+    }, lng.playersKilled, ":")), createElement("div", {
       class: "right"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "slider-1"
-    }, results.score.toFixed(2) + "%"), _0x4ec2d4("div", {
+    }, results.score.toFixed(2) + "%"), createElement("div", {
       class: "slider-2"
-    }, bestScore.toFixed(2) + "%"), _0x4ec2d4("div", {
+    }, bestScore.toFixed(2) + "%"), createElement("div", {
       class: "slider-3"
-    }, new Date(results.time).toISOString().slice(14, -5)), _0x4ec2d4("div", {
+    }, new Date(results.time).toISOString().slice(14, -5)), createElement("div", {
       class: "slider-4"
-    }, results.kills)))), _0x4ec2d4("div", {
+    }, results.kills)))), createElement("div", {
       id: "yandex_rtb"
-    })), _0x4ec2d4("div", {
+    })), createElement("div", {
       id: "right_side"
     }));
   };
   const _0x16897a = ({
     name
   }) => {
-    return _0x4ec2d4("div", {
+    return createElement("div", {
       class: "skin"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "skin-view"
-    }, _0x4ec2d4("h3", null, name), _0x4ec2d4("img", {
+    }, createElement("h3", null, name), createElement("img", {
       src: "assets/skins/select/" + name.toLowerCase().replace(/\s+/g, "") + ".png"
     })));
   };
@@ -6196,23 +6196,23 @@
         setSkin(skins[_0xfc8857].name);
       }
     };
-    return _0x4ec2d4("div", {
+    return createElement("div", {
       class: "skinbox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "skins-container"
-    }, _0x4ec2d4("button", {
+    }, createElement("button", {
       name: "left",
       class: "orange",
       onClick: () => _0xd186be(_0x52fa22 - 1)
-    }, "<"), _0x4ec2d4(_0x16897a, {
+    }, "<"), createElement(_0x16897a, {
       name: skins[_0x52fa22].name
-    }), _0x4ec2d4("button", {
+    }), createElement("button", {
       name: "right",
       class: "orange",
       onClick: () => _0xd186be(_0x52fa22 + 1)
-    }, ">")), _0x4ec2d4("div", {
+    }, ">")), createElement("div", {
       class: "nav"
-    }, _0x4ec2d4("button", {
+    }, createElement("button", {
       class: "green",
       onClick: menu
     }, lng.btnSelect)));
@@ -6230,22 +6230,22 @@
         _0x2bcc24.style.display = "none";
       }
     }, []);
-    return _0x4ec2d4(_0x1a6367, null, _0x4ec2d4("div", {
+    return createElement(_0x1a6367, null, createElement("div", {
       id: "left_side"
-    }), _0x4ec2d4("div", {
+    }), createElement("div", {
       class: "uibox"
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       class: "logo"
-    }, _0x4ec2d4("img", {
+    }, createElement("img", {
       src: "assets/images/logo.png"
-    })), _0x4ec2d4(_0x226e7e, {
+    })), createElement(_0x226e7e, {
       skins: [{
         name: "No skin"
       }].concat(skins),
       menu: _0x511672,
       setSkin: setSkin,
       skin: skin
-    })), _0x4ec2d4("div", {
+    })), createElement("div", {
       id: "right_side"
     }));
   };
@@ -6306,18 +6306,18 @@
       }
       window.ShowPreroll();
     };
-    return _0x4ec2d4(_0x1a6367, null, _0x4ec2d4("canvas", {
+    return createElement(_0x1a6367, null, createElement("canvas", {
       class: _0x3c010f === "game" || _0x7671bd ? "" : "fadein",
       id: "view",
       ref: _0x2a1468
-    }), _0x3c010f !== "game" && _0x4ec2d4("div", {
+    }), _0x3c010f !== "game" && createElement("div", {
       id: "ui_overlay"
-    }), _0x4ec2d4(_0x2124e9.Provider, {
+    }), createElement(_0x2124e9.Provider, {
       value: _0x293a25
-    }, _0x4ec2d4("div", {
+    }, createElement("div", {
       id: "ui",
       class: _0x3c010f === "game" ? "hide" : ""
-    }, _0x3c010f === "menu" && _0x4ec2d4(_0x2b87a7, {
+    }, _0x3c010f === "menu" && createElement(_0x2b87a7, {
       nickName: _0x38110e,
       setNickName: _0x495989,
       playable: _0xae90a5,
@@ -6330,7 +6330,7 @@
       setState: _0x4213e6,
       skins: skins,
       skin: _0x4f80f0
-    }), _0x3c010f === "game" && _0x4ec2d4(_0x5389c6, {
+    }), _0x3c010f === "game" && createElement(_0x5389c6, {
       nickName: _0x38110e,
       bestScore: _0x43a473,
       setBestScore: _0x421708,
@@ -6339,25 +6339,25 @@
       api: api,
       route: _0x4213e6,
       skin: _0x4f80f0
-    }), _0x3c010f === "results" && _0x4ec2d4(_0x665b7b, {
+    }), _0x3c010f === "results" && createElement(_0x665b7b, {
       bestScore: _0x43a473,
       results: _0x50dae7,
       start: _0x28fd93,
       route: _0x4213e6,
       provider: provider
-    }), _0x3c010f === "config" && _0x4ec2d4(_0x613dc8, {
+    }), _0x3c010f === "config" && createElement(_0x613dc8, {
       api: api,
       view: _0x2a1468,
       setPreparing: _0x4023ac,
       setState: _0x4213e6
-    }), _0x3c010f === "skins" && _0x4ec2d4(_0x33ae25, {
+    }), _0x3c010f === "skins" && createElement(_0x33ae25, {
       skins: skins,
       skin: _0x4f80f0,
       route: _0x4213e6,
       setSkin: _0x33ebdc
-    })), _0x3c010f !== "game" && _0x4ec2d4(_0x11635f, {
+    })), _0x3c010f !== "game" && createElement(_0x11635f, {
       setLanguage: _0x5c440b
-    })), _0x4ec2d4("div", {
+    })), createElement("div", {
       id: "overlay"
     }));
   };
@@ -6405,7 +6405,7 @@
   };
   var _0x4b9315 = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
   var _0x3028d1 = Object.assign;
-  class _0xe72ac7 {
+  class Skin {
     constructor() {
       this.config = undefined;
       this.user = undefined;
@@ -6419,7 +6419,7 @@
         particles: ["black"]
       };
       this.pattern = null;
-      this.container = new _0x2ae0b8();
+      this.container = new DisplayList();
     }
     addAsset(_0x5aa709) {
       if (_0x5aa709.content.colors) {
@@ -6434,7 +6434,7 @@
       this.assets.push(_0x5aa709);
     }
   }
-  class _0x48502f {
+  class Asset {
     constructor(_0x4fe703) {
       this.pool = undefined;
       this.loadingStarted = false;
@@ -6444,14 +6444,14 @@
     }
     load() {}
   }
-  class _0x2ce35d extends _0x48502f {
+  class SvgAsset extends Asset {
     constructor(_0xb63175, _0x332715, _0x2a70ba) {
       super(_0x332715);
       this.pool = _0xb63175;
       this.source = _0x2a70ba;
     }
   }
-  class _0x36c5ae extends _0x48502f {
+  class ImageAsset extends Asset {
     constructor(_0x4a0858, _0xeae6e, _0x2ae3f4) {
       super(_0xeae6e);
       this.pool = _0x4a0858;
@@ -6478,14 +6478,14 @@
         }, source.colors);
       }
       if (source.pattern) {
-        this.content.pattern = new _0x2a78e7(this.pool.config, this.pool.view, this.pool.path, source.pattern, _0x173606);
+        this.content.pattern = new PatternAsset(this.pool.config, this.pool.view, this.pool.path, source.pattern, _0x173606);
       }
       if (source.avatar) {
-        this.content.display = new _0x20fed4(this.pool.config, this.pool.path, source.avatar, _0x173606);
+        this.content.display = new Avatar(this.pool.config, this.pool.path, source.avatar, _0x173606);
       }
     }
   }
-  class _0x587494 {
+  class AssetSet {
     constructor(_0x656842) {
       this.config = undefined;
       this.name = _0x656842;
@@ -6501,7 +6501,7 @@
       return _0x1058fe;
     }
   }
-  class _0x5687e4 extends _0x587494 {
+  class ImageAssetSet extends AssetSet {
     constructor(_0x330904) {
       super("colors");
       this.config = _0x330904;
@@ -6529,10 +6529,10 @@
           plate: _0x89367.v > 50 ? _0x5d6eb5 : _0x545b5f,
           particles: [_0x1f8093(_0x409cb5(_0x89367, 100)), _0x1f8093(_0x409cb5(_0x89367, 90)), _0x1f8093(_0x409cb5(_0x89367, 80)), _0x1f8093(_0x409cb5(_0x89367, 70)), _0x1f8093(_0x409cb5(_0x89367, 60)), _0x1f8093(_0x409cb5(_0x89367, 50)), _0x1f8093(_0x409cb5(_0x89367, 40)), _0x1f8093(_0x409cb5(_0x89367, 30)), _0x1f8093(_0x409cb5(_0x89367, 20))]
         };
-        const _0x15039e = new _0x2ce35d(this, _0x1af67d, _0x11e5b6);
+        const _0x15039e = new SvgAsset(this, _0x1af67d, _0x11e5b6);
         _0x15039e.content.colors = _0x11e5b6;
         if (config) {
-          _0x15039e.content.display = new _0x20fed4(config, "", {
+          _0x15039e.content.display = new Avatar(config, "", {
             layers: [{
               src: _0x542e67(_0x11e5b6.nick, _0x11e5b6.nick)
             }, {
@@ -6550,7 +6550,7 @@
       return _0x49b2f3;
     }
   }
-  class _0x50459b extends _0x587494 {
+  class SvgAssetSet extends AssetSet {
     constructor(_0x2fdfed, _0x4c761d, _0x3697eb, _0x21aa5d, _0x2e765a = false) {
       super("classic");
       this.config = _0x2fdfed;
@@ -6564,7 +6564,7 @@
       }
     }
     add(_0x4f0d2d) {
-      this.assets.push(...(_0x4f0d2d || []).map(_0x65e918 => new _0x36c5ae(this, _0x65e918.name, _0x65e918)));
+      this.assets.push(...(_0x4f0d2d || []).map(_0x65e918 => new ImageAsset(this, _0x65e918.name, _0x65e918)));
     }
   }
   function _0x542e67(_0x42a686, _0x46edb9) {
@@ -6578,7 +6578,7 @@
     _0x36a810.fillRect(10, 10, 80, 80);
     return _0x46d8b4;
   }
-  class _0x410a0e {
+  class SkinManager {
     constructor(_0x303ba9) {
       this.usedBy = {};
       this.assets = {};
@@ -6624,7 +6624,7 @@
       let _0x5d0930 = this.assets[_0x2e4e12].asset;
       delete this.unusedAssets[_0x2e4e12];
       _0x5d0930.load();
-      const _0x2bdf8b = new _0xe72ac7();
+      const _0x2bdf8b = new Skin();
       _0x2bdf8b.addAsset(_0x5d0930);
       _0x2bdf8b.name = _0x2e4e12;
       this.usedBy[_0x2e4e12] = (this.usedBy[_0x2e4e12] || []).concat(_0x2bdf8b);
@@ -6648,7 +6648,7 @@
     }
     getCitySkin(_0x5b0870) {}
   }
-  class _0x56042c extends _0x410a0e {
+  class GameSkinManager extends SkinManager {
     constructor(_0x12b771, _0x326bab, _0xf7287f) {
       super(_0xf7287f);
       this.registerAssets(_0x12b771, "colored");
@@ -6681,17 +6681,17 @@
   Promise.all([_0x5d6a09, _0x1632c3]).then(([_0x4083ad, _0x3a4592]) => {
     _0x180a8c(_0x4083ad);
     const _0x57ada2 = (_0x4abeb0, _0x3526d4) => {
-      let _0x5d22b5 = new _0x5687e4(_0x4abeb0);
-      let _0x1d3ddd = new _0x50459b(_0x4abeb0, _0x3526d4, "assets/skins/", _0x3a4592);
-      const _0x34b9e1 = new _0x56042c(_0x5d22b5, _0x1d3ddd, 1);
+      let _0x5d22b5 = new ImageAssetSet(_0x4abeb0);
+      let _0x1d3ddd = new SvgAssetSet(_0x4abeb0, _0x3526d4, "assets/skins/", _0x3a4592);
+      const _0x34b9e1 = new GameSkinManager(_0x5d22b5, _0x1d3ddd, 1);
       return _0x34b9e1;
     };
-    const _0x3f4dc6 = new _0x55fdda(_0x666d9a);
-    const _0x19f62f = new _0x180abc([]);
+    const _0x3f4dc6 = new SchemeCycler(BotScoreLabel);
+    const _0x19f62f = new AchievementStore([]);
     _0x19f62f.load();
-    const _0x117e4e = _0x1c04b3(_0x2ed33d, _0x433da0(), _0x57ada2, new _0x26dff6(_0x113767, Math.random()), _0x3f4dc6, _0x19f62f);
+    const _0x117e4e = _0x1c04b3(_0x2ed33d, _0x433da0(), _0x57ada2, new NamePool(_0x113767, Math.random()), _0x3f4dc6, _0x19f62f);
     window.paperio2api = _0x117e4e;
-    _0x20c799(_0x4ec2d4(_0x1d032c, {
+    _0x20c799(createElement(_0x1d032c, {
       api: _0x117e4e,
       storage: _0x480125,
       skins: _0x3a4592
