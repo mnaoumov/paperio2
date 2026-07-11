@@ -66,10 +66,18 @@ death and during the pre-game "prepare" phase.
   string-inliner → `webcrack` under Node 22/24 → strip → scope-aware renames) and a
   subsystem map. Off-the-shelf deobfuscators alone can't inline this file's rotated
   string array. It's a study aid; the game still runs off the original `app2.js`.
-- A **typed TypeScript copy** `app2.deobfuscated.ts` is also committed: the same code with
-  class-field type declarations (documenting each class's shape) plus `any`-typed params.
-  It compiles with 0 errors under the repo-root `tsconfig.json` (lenient; typecheck with
-  `npx tsc -p tsconfig.json`). Params/deep locals are `any` — it's a shape/readability aid,
-  not a strict port. Only `app2.deobfuscated.js` is loaded/run; the `.ts` isn't wired in.
+- A **typed TypeScript copy** `app2.deobfuscated.ts` is also committed: the same code, now
+  **fully typed** — class fields, method params, returns, and locals all carry real inferred
+  types (interfaces for the shared structural shapes: `Vector`/`Segment`/`Polygon` geometry,
+  `Unit`/`Bot` and their `Config`/`Label`/`Intersection`/etc. bags, the preact `VNode`/
+  `Component`/`PreactOptions` internals, js-cookie/storage shapes, …). It has **zero
+  `any`/`unknown`/`never`** (explicit *and* implicit — verified with `--noImplicitAny`) and
+  compiles with 0 errors under the repo-root `tsconfig.json` (lenient: `strict:false`;
+  typecheck with `npx tsc -p tsconfig.json`). A handful of concrete `as <Type>` assertions
+  remain in the preact reconciler/hooks internals, where preact's minified polymorphic
+  mangled fields (`__k`/`__c`/`__`/…) are genuinely un-inferable without them — none are
+  `as any`/`as unknown`. Types were inferred from the call-tree, so they're only as sound as
+  the lenient config allows (`strictNullChecks` is off). Only `app2.deobfuscated.js` is
+  loaded/run; the `.ts` isn't wired in — it's a shape/readability aid.
 - Changes already made from the original (documented in README.md): removed ad/analytics scripts, dropped cache-busting version query strings (`app2.js?v7`, `style3.css?v50`), and localized the font instead of loading from Google Fonts.
 - `app2.js`, `style3.css`, `manifest.json`, and assets are the site's original copyrighted content, kept for local/offline personal use.
