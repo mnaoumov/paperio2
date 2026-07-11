@@ -7,6 +7,32 @@ interface Function { __: any; contextType: any; }
 (function () {
   "use strict";
 
+  // --- shared structural types inferred from usage across the engine ---
+  interface Bounds {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }
+  interface Intersection {
+    point: Vector;
+    segment: Segment;
+    distance: number;
+    overlay: boolean;
+    zn: number;
+  }
+  type ShapeOwner = Territory | Trail;
+  interface Rgb {
+    r: number;
+    g: number;
+    b: number;
+  }
+  interface Hsv {
+    h: number;
+    s: number;
+    v: number;
+  }
+
   var preactOptions;
   var list;
   var _0x406d2a;
@@ -942,19 +968,16 @@ interface Function { __: any; contextType: any; }
   let _0x5e2101 = 1;
   const callback31 = (...args: any[]) => _0x5e2101++;
   class Segment {
-    a: any;
-    b: any;
-    c: any;
-    end: any;
+    a: number;
+    b: number;
+    c: number;
+    end: Vector;
     mark: number;
-    shape: any;
-    start: any;
-    vector: any;
-    constructor(_0x54e05d?: any, _0x117225?: any) {
-      this.vector = undefined;
-      this.a = undefined;
-      this.b = undefined;
-      this.c = undefined;
+    shape: Polygon | Polyline | null;
+    start: Vector;
+    vector: Vector;
+    id?: number;
+    constructor(_0x54e05d: Vector, _0x117225: Vector) {
       if (_0x54e05d.equal(_0x117225)) {}
       this.mark = 0;
       this.shape = null;
@@ -962,10 +985,10 @@ interface Function { __: any; contextType: any; }
       this.end = _0x117225;
       this.calc();
     }
-    get owner() {
+    get owner(): Polygon | Polyline | null {
       return null;
     }
-    calc(...args: any[]) {
+    calc() {
       const {
         start,
         end
@@ -980,31 +1003,31 @@ interface Function { __: any; contextType: any; }
       this.b = _0x4cbc86;
       this.c = -(_0x7a555a * start.x + _0x4cbc86 * start.y);
     }
-    clone(...args: any[]) {
+    clone() {
       return new Segment(this.start, this.end);
     }
-    reverse(...args: any[]) {
+    reverse() {
       const start = this.start;
       this.start = this.end;
       this.end = start;
       this.calc();
       return this;
     }
-    commit(_0x5c2d73?: any) {
+    commit(_0x5c2d73: Polygon | Polyline) {
       this.shape = _0x5c2d73;
       this.start.commit(this);
       this.end.commit(this);
       return this;
     }
-    remove(...args: any[]) {
+    remove() {
       this.shape = null;
       this.start.remove(this);
       this.end.remove(this);
     }
-    length(...args: any[]) {
+    length() {
       return this.vector.magnitude();
     }
-    zn(segment?: any) {
+    zn(segment: Segment) {
       const a2 = segment.a;
       const b2 = segment.b;
       const {
@@ -1013,7 +1036,7 @@ interface Function { __: any; contextType: any; }
       } = this;
       return callback26(a2, b2, a, b);
     }
-    intersect(segment?: any) {
+    intersect(segment: Segment): Intersection | null {
       const a2 = segment.a;
       const b2 = segment.b;
       const c2 = segment.c;
@@ -1071,25 +1094,25 @@ interface Function { __: any; contextType: any; }
       }
       return null;
     }
-    has(_0x1924dc?: any) {
+    has(_0x1924dc: Vector) {
       return this.start === _0x1924dc || this.end === _0x1924dc;
     }
   }
   const _0x49b883 = 1;
   class ContourPoints {
-    points: any[];
-    x: any;
-    y: any;
-    constructor(_0xc98fbf?: any, _0x89e3d1?: any) {
+    points: Vector[];
+    x: number;
+    y: number;
+    constructor(_0xc98fbf: number, _0x89e3d1: number) {
       this.points = [];
       this.x = _0xc98fbf;
       this.y = _0x89e3d1;
     }
-    commit(_0x2450aa?: any) {
+    commit(_0x2450aa: Vector) {
       this.points.push(_0x2450aa);
       _0x2450aa.cell = this;
     }
-    remove(_0x113f3c?: any) {
+    remove(_0x113f3c: Vector) {
       const {
         points
       } = this;
@@ -1101,14 +1124,14 @@ interface Function { __: any; contextType: any; }
     }
   }
   class SpatialGrid {
-    cells: any[];
+    cells: ContourPoints[];
     center: Vector;
     h: number;
-    height: any;
-    size: any;
+    height: number;
+    size: number;
     w: number;
-    width: any;
-    constructor(_0x340a9c?: any, _0x15a11b?: any, _0x369cbe?: any) {
+    width: number;
+    constructor(_0x340a9c: number, _0x15a11b: number, _0x369cbe: number) {
       this.width = _0x340a9c;
       this.height = _0x15a11b;
       this.center = new Vector(_0x340a9c / 2, _0x15a11b / 2);
@@ -1123,37 +1146,37 @@ interface Function { __: any; contextType: any; }
       }
       Vector.space = this;
     }
-    count(...args: any[]) {
+    count() {
       let _0x1b83e4 = 0;
-      this.cells.forEach((_0x335c43?: any) => {
+      this.cells.forEach((_0x335c43: ContourPoints) => {
         _0x1b83e4 += _0x335c43.points.length;
       });
       return _0x1b83e4;
     }
-    cell(point?: any) {
+    cell(point: Vector) {
       return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
     }
-    getCell(_0x2c5062?: any, _0x2cc9d6?: any) {
+    getCell(_0x2c5062: number, _0x2cc9d6: number) {
       let _0x3725fd = this.cells[_0x2c5062 + _0x2cc9d6 * this.w];
       if (!_0x3725fd) {}
       return _0x3725fd;
     }
-    checkPoint(_0x2b141d?: any) {
+    checkPoint(_0x2b141d: Vector) {
       const _0x5e04d1 = this.cell(_0x2b141d);
-      return _0x5e04d1.points.find((_0x5066b3?: any) => _0x5066b3.equal(_0x2b141d)) || _0x2b141d;
+      return _0x5e04d1.points.find((_0x5066b3: Vector) => _0x5066b3.equal(_0x2b141d)) || _0x2b141d;
     }
-    segmentsCount(...args: any[]) {
-      const _0x343c03: any = {};
+    segmentsCount(): { [id: number]: Segment } {
+      const _0x343c03: { [id: number]: Segment } = {};
       for (let i2 = 0; i2 < this.h; i2++) {
         for (let i3 = 0; i3 < this.w; i3++) {
-          this.getCell(i3, i2).points.forEach((_0xeb68e9?: any) => {
-            _0xeb68e9.segments.forEach((_0x27b7e0?: any) => _0x343c03[_0x27b7e0.id] = _0x27b7e0);
+          this.getCell(i3, i2).points.forEach((_0xeb68e9: Vector) => {
+            _0xeb68e9.segments.forEach((_0x27b7e0: Segment) => _0x343c03[_0x27b7e0.id ?? 0] = _0x27b7e0);
           });
         }
       }
       return _0x343c03;
     }
-    intersections(segment?: any) {
+    intersections(segment: Segment): Intersection[] {
       const point = this.cell(segment.start);
       const point2 = this.cell(segment.end);
       const _0x25009c = Math.max(0, Math.min(point.x, point2.x) - _0x49b883);
@@ -1161,11 +1184,11 @@ interface Function { __: any; contextType: any; }
       const _0x511ed8 = Math.max(0, Math.min(point.y, point2.y) - _0x49b883);
       const _0x149c88 = Math.min(this.h - 1, Math.max(point.y, point2.y) + _0x49b883);
       const _0x4cb258 = callback31();
-      const list4: any[] = [];
+      const list4: Intersection[] = [];
       for (let _0x5e0248 = _0x511ed8; _0x5e0248 <= _0x149c88; _0x5e0248++) {
         for (let _0x1d1ea0 = _0x25009c; _0x1d1ea0 <= _0x3daed4; _0x1d1ea0++) {
-          this.getCell(_0x1d1ea0, _0x5e0248).points.forEach((_0x59cdb7?: any) => {
-            _0x59cdb7.segments.forEach((segment2?: any) => {
+          this.getCell(_0x1d1ea0, _0x5e0248).points.forEach((_0x59cdb7: Vector) => {
+            _0x59cdb7.segments.forEach((segment2: Segment) => {
               if (segment2.mark !== _0x4cb258) {
                 const _0x302e7a = segment2.intersect(segment);
                 if (_0x302e7a) {
@@ -1179,34 +1202,32 @@ interface Function { __: any; contextType: any; }
       }
       return list4;
     }
-    clear(...args: any[]) {
+    clear() {
       this.cells = [];
     }
   }
   const _0x159f84 = 30000;
-  const _0x112dd5: any[] = Array.from({
+  const _0x112dd5: Vector[] = Array.from({
     length: _0x159f84
   });
   let i = 0;
   class Vector {
-    cell: any;
-    segments: any[];
-    x: any;
-    y: any;
-    static space: any;
-    constructor(_0x333689?: any, _0x2c2873?: any) {
-      this.x = undefined;
-      this.y = undefined;
+    cell: ContourPoints | null;
+    segments: Segment[];
+    x: number;
+    y: number;
+    static space: SpatialGrid;
+    constructor(_0x333689?: number, _0x2c2873?: number) {
       this.cell = null;
       this.segments = [];
       this.set(_0x333689, _0x2c2873);
     }
-    set(_0x24ed4b?: any, _0x4cbd32?: any) {
+    set(_0x24ed4b?: number, _0x4cbd32?: number) {
       this.x = _0x24ed4b || 0;
       this.y = _0x4cbd32 || (_0x4cbd32 === 0 ? 0 : this.x);
       return this;
     }
-    commit(_0x49b35c?: any) {
+    commit(_0x49b35c: Segment) {
       if (this.segments.indexOf(_0x49b35c) === -1) {
         this.segments.push(_0x49b35c);
       }
@@ -1215,70 +1236,70 @@ interface Function { __: any; contextType: any; }
         _0x19525f.commit(this);
       }
     }
-    remove(_0x5b5121?: any) {
+    remove(_0x5b5121: Segment) {
       const _0x34a58e = this.segments.indexOf(_0x5b5121);
       this.segments.splice(_0x34a58e, 1);
       if (this.cell && !this.segments.length) {
         this.cell.remove(this);
       }
     }
-    release(...args: any[]) {
+    release() {
       Vector.release(this);
     }
-    add(point?: any) {
+    add(point: Vector) {
       this.x += point.x;
       this.y += point.y;
       return this;
     }
-    sub(point?: any) {
+    sub(point: Vector) {
       this.x -= point.x;
       this.y -= point.y;
       return this;
     }
-    mul(point?: any) {
+    mul(point: Vector) {
       this.x *= point.x;
       this.y *= point.y;
       return this;
     }
-    mulScalar(_0x4bb0bb?: any) {
+    mulScalar(_0x4bb0bb: number) {
       this.x *= _0x4bb0bb;
       this.y *= _0x4bb0bb;
       return this;
     }
-    magnitude(...args: any[]) {
+    magnitude() {
       const {
         x,
         y
       } = this;
       return Math.sqrt(x * x + y * y);
     }
-    normalize(...args: any[]) {
+    normalize() {
       const _0x4b7ce1 = this.magnitude();
       if (_0x4b7ce1) {
         this.mulScalar(1 / _0x4b7ce1);
       }
       return this;
     }
-    copy(point?: any) {
+    copy(point: Vector) {
       this.x = point.x;
       this.y = point.y;
       return this;
     }
-    distance(_0x1dace5?: any) {
+    distance(_0x1dace5: Vector) {
       return Math.sqrt(this.distance2(_0x1dace5));
     }
-    distance2(point?: any) {
+    distance2(point: Vector) {
       const _0x599dbc = this.x - point.x;
       const _0x30891c = this.y - point.y;
       return _0x599dbc * _0x599dbc + _0x30891c * _0x30891c;
     }
-    cross(point?: any) {
+    cross(point: Vector) {
       return this.x * point.y - this.y * point.x;
     }
-    dot(point?: any) {
+    dot(point: Vector) {
       return this.x * point.x + this.y * point.y;
     }
-    rotate(_0x55cbe9?: any) {
+    rotate(_0x55cbe9: number) {
       const {
         x,
         y
@@ -1289,35 +1310,35 @@ interface Function { __: any; contextType: any; }
       this.y = x * _0x3daad6 + y * _0x32b915;
       return this;
     }
-    angle(_0x23b00d?: any) {
+    angle(_0x23b00d: Vector) {
       return Math.atan2(this.cross(_0x23b00d), this.dot(_0x23b00d));
     }
-    invert(...args: any[]) {
+    invert() {
       return this.mulScalar(-1);
     }
-    equal(point?: any) {
+    equal(point: Vector) {
       return callback22(this.x, point.x) && callback22(this.y, point.y);
     }
-    clone(...args: any[]) {
+    clone() {
       return new Vector(this.x, this.y);
     }
-    static alloc(_0x4aaf81?: any, _0x4b47ee?: any) {
+    static alloc(_0x4aaf81?: number, _0x4b47ee?: number) {
       if (i) {
         let _0x49e91f = _0x112dd5[--i].set(_0x4aaf81, _0x4b47ee);
         return _0x49e91f;
       }
       return new Vector(_0x4aaf81, _0x4b47ee);
     }
-    static clone(point?: any) {
+    static clone(point: Vector) {
       return Vector.alloc(point.x, point.y);
     }
-    static poolLength(...args: any[]) {
+    static poolLength() {
       return i;
     }
-    toString(...args: any[]) {
+    toString() {
       return "[" + this.x.toFixed(4) + "," + this.y.toFixed(4) + "]";
     }
-    static release(vector?: any) {
+    static release(vector: Vector) {
       if (i < _0x159f84) {
         vector.set();
         if (vector.cell || vector.segments.length) {}
@@ -1339,13 +1360,13 @@ interface Function { __: any; contextType: any; }
   const _0x4eb235 = 1000 / 60;
   const _0xbeedd5 = 1000 / 60 * 2;
   class Polyline {
-    bounds: any;
-    end: any;
-    owner: any;
-    path: any;
-    segments: any[];
-    start: any;
-    constructor(_0x3d26c8?: any) {
+    bounds: Bounds;
+    end: Vector | null;
+    owner: Trail | null;
+    path: Path2D;
+    segments: Segment[];
+    start: Vector | null;
+    constructor(_0x3d26c8?: Trail) {
       this.owner = _0x3d26c8 || null;
       this.start = null;
       this.end = null;
@@ -1358,28 +1379,28 @@ interface Function { __: any; contextType: any; }
       };
       this.path = new Path2D();
     }
-    commit(_0x3f07dd?: any) {
-      this.segments.forEach((_0x58a112?: any) => _0x58a112.commit(_0x3f07dd));
+    commit(_0x3f07dd: Polygon) {
+      this.segments.forEach((_0x58a112: Segment) => _0x58a112.commit(_0x3f07dd));
     }
-    remove(...args: any[]) {
-      this.segments.forEach((_0x110556?: any) => _0x110556.remove());
+    remove() {
+      this.segments.forEach((_0x110556: Segment) => _0x110556.remove());
     }
-    reverse(...args: any[]) {
-      this.segments.reverse().forEach((_0x2603ff?: any) => _0x2603ff.reverse());
+    reverse() {
+      this.segments.reverse().forEach((_0x2603ff: Segment) => _0x2603ff.reverse());
       if (this.end) {
         [this.start, this.end] = [this.end, this.start];
       }
       return this;
     }
-    clone(...args: any[]) {
+    clone() {
       const polyline = new Polyline();
-      polyline.segments = this.segments.map((_0x24ec13?: any) => _0x24ec13.clone());
+      polyline.segments = this.segments.map((_0x24ec13: Segment) => _0x24ec13.clone());
       polyline.start = this.start;
       polyline.end = this.end;
       Object.assign(polyline.bounds, this.bounds);
       return polyline;
     }
-    updateBounds(_0x1f0631?: any) {
+    updateBounds(_0x1f0631: Vector) {
       const {
         x,
         y
@@ -1389,7 +1410,7 @@ interface Function { __: any; contextType: any; }
       this.bounds.top = Math.min(this.bounds.top, y);
       this.bounds.bottom = Math.max(this.bounds.bottom, y);
     }
-    add2(_0x45500e?: any) {
+    add2(_0x45500e: Vector) {
       const _0x2b66d7 = this.end || this.start;
       if (_0x2b66d7 && _0x2b66d7.equal(_0x45500e)) {
         return false;
@@ -1417,18 +1438,18 @@ interface Function { __: any; contextType: any; }
       this.path.moveTo(x, y);
       return true;
     }
-    points(...args: any[]) {
-      const list4 = this.segments.map((_0x16d5ec?: any) => _0x16d5ec.start);
+    points() {
+      const list4 = this.segments.map((_0x16d5ec: Segment) => _0x16d5ec.start);
       if (this.end) {
         list4.push(this.end);
       }
       return list4;
     }
-    toString(...args: any[]) {
-      return this.segments.map((_0x2d5a82?: any) => _0x2d5a82.start.toString()).join("");
+    toString() {
+      return this.segments.map((_0x2d5a82: Segment) => _0x2d5a82.start.toString()).join("");
     }
   }
-  const callback32 = (point?: any, point2?: any, point3?: any) => {
+  const callback32 = (point: Vector, point2: Vector, point3: Vector) => {
     const _0x359fb7 = point.x - point3.x;
     const _0x427823 = point.y - point3.y;
     const _0x2d8056 = point2.x - point3.x;
@@ -1453,12 +1474,12 @@ interface Function { __: any; contextType: any; }
     return 1;
   };
   class Polygon {
-    bounds: any;
-    owner: any;
-    path: any;
-    segments: any[];
-    simplify: any[];
-    constructor(_0x255831?: any) {
+    bounds: Bounds | null;
+    owner: ShapeOwner | null;
+    path: Path2D;
+    segments: Segment[];
+    simplify: Vector[];
+    constructor(_0x255831: Vector[]) {
       this.segments = [];
       this.simplify = [];
       this.owner = null;
@@ -1471,73 +1492,73 @@ interface Function { __: any; contextType: any; }
       }
       this.updateBounds();
     }
-    commit(_0x3a2c90?: any) {
+    commit(_0x3a2c90?: ShapeOwner) {
       if (_0x3a2c90) {
         this.owner = _0x3a2c90;
       }
-      this.segments.forEach((_0x4636cc?: any) => _0x4636cc.commit(this));
+      this.segments.forEach((_0x4636cc: Segment) => _0x4636cc.commit(this));
     }
-    remove(...args: any[]) {
-      this.segments.forEach((_0x37e88a?: any) => _0x37e88a.remove());
+    remove() {
+      this.segments.forEach((_0x37e88a: Segment) => _0x37e88a.remove());
     }
-    reverse(...args: any[]) {
+    reverse() {
       this.segments.reverse();
-      this.segments.forEach((_0x3c3a50?: any) => _0x3c3a50.reverse());
+      this.segments.forEach((_0x3c3a50: Segment) => _0x3c3a50.reverse());
       return this;
     }
-    insert(segment?: any, _0xfd2d76?: any) {
+    insert(segment: Segment, _0xfd2d76: Vector) {
       if (!segment.has(_0xfd2d76)) {
-        const _0x4460e0 = this.segments.findIndex((_0x468389?: any) => _0x468389 === segment);
+        const _0x4460e0 = this.segments.findIndex((_0x468389: Segment) => _0x468389 === segment);
         const _0x55e498 = new Segment(segment.start, _0xfd2d76).commit(this);
         const _0x121664 = new Segment(_0xfd2d76, segment.end).commit(this);
         segment.remove();
         this.segments.splice(_0x4460e0, 1, _0x55e498, _0x121664);
       }
     }
-    hasPoint(_0x451bf0?: any) {
-      return this.segments.some((_0x562047?: any) => _0x562047.has(_0x451bf0));
+    hasPoint(_0x451bf0: Vector) {
+      return this.segments.some((_0x562047: Segment) => _0x562047.has(_0x451bf0));
     }
-    findSegment(_0x596d0c?: any) {
-      const _0x892d49 = this.segments.findIndex((_0xf1b1f2?: any) => _0xf1b1f2.start === _0x596d0c);
+    findSegment(_0x596d0c: Vector) {
+      const _0x892d49 = this.segments.findIndex((_0xf1b1f2: Segment) => _0xf1b1f2.start === _0x596d0c);
       return _0x892d49;
     }
-    splice(_0x4ff73a?: any, _0x2e9f8f?: any, _0x198893?: any) {
+    splice(_0x4ff73a: Polyline, _0x2e9f8f: number, _0x198893: number) {
       const list4 = this.segments.splice(_0x2e9f8f, _0x198893 - _0x2e9f8f, ..._0x4ff73a.segments);
-      list4.forEach((_0x2e3d66?: any) => _0x2e3d66.remove());
+      list4.forEach((_0x2e3d66: Segment) => _0x2e3d66.remove());
       _0x4ff73a.commit(this);
     }
-    unsplice(_0x310c71?: any, _0x35431a?: any, _0x11653f?: any) {
+    unsplice(_0x310c71: Polyline, _0x35431a: number, _0x11653f: number) {
       const _0x10df9f = this.segments.splice(_0x35431a, _0x11653f - _0x35431a);
       this.remove();
       this.segments = _0x10df9f.concat(_0x310c71.reverse().segments);
       _0x310c71.commit(this);
     }
-    left(list4?: any, _0x2a2bca?: any, _0x48f39f?: any) {
-      const list5: any[] = [];
+    left(list4: Vector[], _0x2a2bca: number, _0x48f39f: number) {
+      const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(list4[i2], list4[i2 + 1]));
       }
       const list6 = this.segments.splice(_0x2a2bca, _0x48f39f - _0x2a2bca, ...list5);
-      list5.forEach((_0x35a035?: any) => _0x35a035.commit(this));
-      list6.forEach((_0x2b5a2a?: any) => _0x2b5a2a.remove());
+      list5.forEach((_0x35a035: Segment) => _0x35a035.commit(this));
+      list6.forEach((_0x2b5a2a: Segment) => _0x2b5a2a.remove());
     }
-    right(list4?: any, _0x4ab91c?: any, _0x458307?: any) {
-      const list5: any[] = [];
+    right(list4: Vector[], _0x4ab91c: number, _0x458307: number) {
+      const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(list4[i2], list4[i2 + 1]));
       }
       const _0x2f1ab5 = this.segments.splice(_0x4ab91c, _0x458307 - _0x4ab91c);
       this.remove();
-      list5.reverse().forEach((_0x103f4f?: any) => _0x103f4f.reverse().commit(this));
+      list5.reverse().forEach((_0x103f4f: Segment) => _0x103f4f.reverse().commit(this));
       this.segments = _0x2f1ab5.concat(list5);
     }
-    points(...args: any[]) {
-      return this.segments.map((_0x38c25d?: any) => _0x38c25d.start);
+    points() {
+      return this.segments.map((_0x38c25d: Segment) => _0x38c25d.start);
     }
-    intersections(_0x5d6a44?: any) {
-      let list4: any[] = [];
+    intersections(_0x5d6a44: Segment) {
+      let list4: Intersection[] = [];
       if (this.segments.length > 1) {
-        this.segments.forEach((_0x2a1d8e?: any) => {
+        this.segments.forEach((_0x2a1d8e: Segment) => {
           const _0x3c561e = _0x2a1d8e.intersect(_0x5d6a44);
           if (_0x3c561e) {
             list4.push(_0x3c561e);
@@ -1545,14 +1566,14 @@ interface Function { __: any; contextType: any; }
         });
       }
       if (list4.length > 1) {
-        list4.sort((_0x322e6b?: any, _0x297678?: any) => _0x322e6b.distance - _0x297678.distance);
-        list4 = list4.filter(function (_0x891589?: any, _0x3eacac?: any) {
-          return list4.findIndex((_0x423edb?: any) => _0x423edb.point === _0x891589.point) == _0x3eacac;
+        list4.sort((_0x322e6b: Intersection, _0x297678: Intersection) => _0x322e6b.distance - _0x297678.distance);
+        list4 = list4.filter(function (_0x891589: Intersection, _0x3eacac: number) {
+          return list4.findIndex((_0x423edb: Intersection) => _0x423edb.point === _0x891589.point) == _0x3eacac;
         });
       }
       return list4;
     }
-    inside(_0x1c5c04?: any) {
+    inside(_0x1c5c04: Vector) {
       const {
         length
       } = this.segments;
@@ -1570,12 +1591,12 @@ interface Function { __: any; contextType: any; }
       }
       return _0x50b175 !== 1;
     }
-    insideNew(point?: any) {
-      return !!callback29(this.segments.map((_0x5e990e?: any) => [_0x5e990e.start.x, _0x5e990e.start.y]), point.x, point.y);
+    insideNew(point: Vector) {
+      return !!callback29(this.segments.map((_0x5e990e: Segment) => [_0x5e990e.start.x, _0x5e990e.start.y]), point.x, point.y);
     }
-    rawSquare(...args: any[]) {
+    rawSquare() {
       let _0x3e0443 = 0;
-      this.segments.forEach((_0x3e7aee?: any) => {
+      this.segments.forEach((_0x3e7aee: Segment) => {
         const {
           start,
           end
@@ -1584,7 +1605,7 @@ interface Function { __: any; contextType: any; }
       });
       return _0x3e0443 / 2;
     }
-    square(...args: any[]) {
+    square() {
       let _0xa51275 = this.rawSquare();
       if (_0xa51275 < 0) {
         {
@@ -1593,7 +1614,7 @@ interface Function { __: any; contextType: any; }
       }
       return _0xa51275;
     }
-    calcPath(...args: any[]) {
+    calcPath() {
       const path2D = new Path2D();
       const {
         segments
@@ -1615,10 +1636,10 @@ interface Function { __: any; contextType: any; }
       this.path = path2D;
       this.updateBounds();
     }
-    calcSimplify(...args: any[]) {
+    calcSimplify() {
       this.simplify = [];
       let i2 = 0;
-      this.segments.forEach((_0x43c7c4?: any) => {
+      this.segments.forEach((_0x43c7c4: Segment) => {
         const {
           start
         } = _0x43c7c4;
@@ -1636,13 +1657,13 @@ interface Function { __: any; contextType: any; }
         }
       });
     }
-    updateBounds(...args: any[]) {
+    updateBounds() {
       this.calcSimplify();
       let _0x303bc7 = Infinity;
       let _0x4fff1c = -Infinity;
       let _0x225d78 = Infinity;
       let _0x4bf61d = -Infinity;
-      this.simplify.forEach((_0x2a224d?: any) => {
+      this.simplify.forEach((_0x2a224d: Vector) => {
         const {
           x,
           y
@@ -1666,19 +1687,19 @@ interface Function { __: any; contextType: any; }
   }
   const _0x98c0a2 = typeof performance !== "undefined" ? performance : Date;
   const now = _0x98c0a2.now.bind(_0x98c0a2);
-  const callback33 = (point?: any, _0x48b647?: any, _0x58ad92?: any) => {
+  const callback33 = (point: Vector, _0x48b647: number, _0x58ad92: number) => {
     if (typeof point.x !== "number") {
       throw Error("circle");
     }
     const _0x25a8fb = Math.PI * 2;
     const _0x2d7adf = _0x25a8fb / _0x48b647;
-    const list4: any[] = [];
+    const list4: Vector[] = [];
     for (let _0x2c4aaf = 0; _0x2c4aaf < _0x25a8fb - _0x68ae04; _0x2c4aaf += _0x2d7adf) {
       list4.push(new Vector(point.x + Math.cos(_0x2c4aaf) * _0x58ad92, point.y + Math.sin(_0x2c4aaf) * _0x58ad92));
     }
     return list4;
   };
-  const callback34 = (_0x13fdc1?: any) => {
+  const callback34 = (_0x13fdc1: string): Rgb => {
     const _0xb42ed3 = parseInt(_0x13fdc1.substring(1, 3), 16);
     const _0x4c451e = parseInt(_0x13fdc1.substring(3, 5), 16);
     const _0x900965 = parseInt(_0x13fdc1.substring(5, 7), 16);
@@ -1692,7 +1713,7 @@ interface Function { __: any; contextType: any; }
     r,
     g,
     b
-  }) => {
+  }: Rgb): Hsv => {
     let _0x41c2d1;
     let _0x3e79c6;
     let _0x1e228e;
@@ -1710,8 +1731,8 @@ interface Function { __: any; contextType: any; }
     _0x1e228e = b / 255;
     _0x42049b = Math.max(_0x41c2d1, _0x3e79c6, _0x1e228e);
     _0x1c52d9 = _0x42049b - Math.min(_0x41c2d1, _0x3e79c6, _0x1e228e);
-    callback95 = (_0x1e65f9?: any) => (_0x42049b - _0x1e65f9) / 6 / _0x1c52d9 + 1 / 2;
-    callback96 = (_0x2ed2f4?: any) => Math.round(_0x2ed2f4 * 100) / 100;
+    callback95 = (_0x1e65f9: number) => (_0x42049b - _0x1e65f9) / 6 / _0x1c52d9 + 1 / 2;
+    callback96 = (_0x2ed2f4: number) => Math.round(_0x2ed2f4 * 100) / 100;
     if (_0x1c52d9 == 0) {
       _0x2b6087 = _0x51507f = 0;
     } else {
@@ -1742,8 +1763,8 @@ interface Function { __: any; contextType: any; }
     r,
     g,
     b
-  }) => {
-    const callback95 = (_0x42cf50?: any) => {
+  }: Rgb): string => {
+    const callback95 = (_0x42cf50: number) => {
       const _0xb78e78 = _0x42cf50.toString(16);
       if (_0xb78e78.length < 2) {
         return "0" + _0xb78e78;
@@ -1757,7 +1778,7 @@ interface Function { __: any; contextType: any; }
     h,
     s,
     v
-  }) => {
+  }: Hsv): Rgb => {
     var _0x18605b;
     var _0x1af8eb;
     var _0xd7fdbe;
