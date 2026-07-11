@@ -3356,76 +3356,213 @@ interface Function { __: any; contextType: any; }
     const _0x5d8d48 = _0x1b92c1 * _0x40ea58 + _0x55d618 * _0x1748fa;
     return Vector.alloc(_0x5f0eff, _0x5d8d48);
   };
-  class Game {
-    achievementsProfile: any;
-    angle: any;
-    best: any;
-    border: any;
-    botSpawnLimited: boolean;
-    bots: any[];
+  interface Config {
+    arenaSize: number; quadSize: number; borderPoints: number; prepareMult: number;
+    prepareBatchCount: number; maxPreparingTime: number; baseRadius: number; baseCount: number;
+    minScale: number; maxScale: number; observerScale: number; trackWidth: number; unitSpeed: number;
+    spawnTimeout: number; prepareCounter: number; prepareAcceleration: number; baseHeight: number;
+    botsCount: number; botLevel: number; startBotLevel: number; noPlayerBotLevel: number;
+    nearPlayerBotSpawnCount: number; followKiller: boolean; selfKillDelay: number; enemyKillDelay: number;
+    arenaColor: string; borderColor: string; backgroundTopColor: string; backgroundBottomColor: string;
+    platesStrokeWidth: number; botAggroMin: number; botAggroMax: number; botDefMin: number; botDefMax: number;
+    botGreedMin: number; botGreedMax: number; botSafetyMin: number; botSafetyMax: number;
+    botAttackTrackLength: number; font: string;
+  }
+  interface Language { [key: string]: string }
+  // Declaration merge: SkinManager (defined later in the file, still `any`-typed by another
+  // worker) is only missing these two members as far as `Game` is concerned. Merging adds them
+  // without touching that class's body.
+  interface SkinManager {
+    getPlayerSkin(name?: string): Skin;
+    isFlagSkinManager?: boolean;
+    shieldSkinAssets?: { get(name: string): Asset };
+  }
+  interface CitiesManager {
+    get(countryCode: string): string;
+  }
+  interface LeaderboardCountryEntry {
+    country: string;
+  }
+  interface Leaderboard {
+    countries: LeaderboardCountryEntry[];
+  }
+  interface Recorder {
+    duration(): number;
+    write(): void;
+  }
+  interface Replayer {
+    start: number;
+    skip?: boolean;
+    currentlyPlaying(): number;
+    duration(): number;
+    read(): boolean;
+    skipping(): boolean;
+  }
+  interface Metric {
+    updateTime: number;
+    renderTime: number;
+    frameTime: number;
+    events: { returns: number; kills: number };
+  }
+  interface GameOverResult {
     build: number;
-    citiesManager: any;
-    config: any;
-    controller: any;
-    currMetric: any;
+    game: Game;
+    percent: number;
+    score: number;
+    newBest: boolean;
+    name: string;
+    top: number;
+    best: number | null;
+    bestPercent: number;
+    time: number;
+    kills: number;
+    image: string | undefined;
+    reason: number;
+  }
+  interface Bounds {
+    left: number;
+    right: number;
+    top: number;
+    bottom: number;
+  }
+  interface RenderContext {
+    game: Game;
+    view: HTMLCanvasElement;
+    ctx: CanvasRenderingContext2D | null;
+    viewWidth: number;
+    viewHeight: number;
+    devicePixelRatio: number;
+    scaler: number;
+    scale: number;
+    origin: Vector;
+    pointInView: (point: Vector, margin?: number) => boolean;
+    boundsInView: (shape: { bounds: Bounds }, margin?: number) => boolean;
+    calcMult: (a: number, b: number) => number;
+    viewScreenWidth: number;
+    viewScreenHeight: number;
+    fontSize: number;
+    strokeWidth: number;
+    backHeight: number;
+    uiFont: string;
+    padding: number;
+    barHeight: number;
+    halfBarHeight: number;
+    barWidth: number;
+    halfBarWidth: number;
+  }
+  interface Intersection {
+    point: Vector;
+    segment: Segment;
+    distance: number;
+    overlay: boolean;
+    zn: number;
+  }
+  interface IntersectionGroup {
+    point: Vector;
+    intersections: Intersection[];
+  }
+  interface ShapeOwnerIntersection {
+    owner: Territory;
+    point: Vector;
+    segment: Segment;
+    index: number;
+  }
+  interface TrailIntersectionEntry {
+    intersection: Intersection;
+    base: Territory;
+    enter: boolean;
+  }
+  interface TrailIntersectionRecord {
+    point: Vector;
+    intersections: TrailIntersectionEntry[];
+  }
+  interface ComebackMergeParams {
+    owner: Territory;
+    enter: Segment;
+    leave: Segment;
+    startPoint: Vector;
+    endPoint: Vector;
+    startT: number;
+    endT: number;
+  }
+  interface UnitLabel {
+    text: string;
+    color: string;
+    unit: Unit;
+    time: number;
+    fading: boolean;
+  }
+  type Shape = Polygon | Polyline;
+  class Game {
+    achievementsProfile: AchievementStore;
+    angle: number;
+    best: number | null;
+    border: Border;
+    botSpawnLimited: boolean;
+    bots: number[];
+    build: number;
+    citiesManager: CitiesManager | null;
+    config: Config;
+    controller: Controller;
+    currMetric: Metric | null;
     cycle: number;
     debug: boolean;
     debugGraph: boolean;
     debugView: boolean;
     direction: Vector;
-    events: any;
-    fakeMouse: any;
-    fpsSequence: any[];
-    gameOverCallback: any;
-    isTest: any;
-    keyboard: any;
-    labels: any[];
-    language: any;
+    events: { returns: number; kills: number };
+    fakeMouse: Vector | null;
+    fpsSequence: number[];
+    gameOverCallback: ((result: GameOverResult) => void) | null;
+    isTest: boolean;
+    keyboard?: Vector | null;
+    labels: TextParticle[];
+    language: Language;
     last: number;
-    leaderboard: any;
+    leaderboard: Leaderboard | null;
     level: number;
     looped: boolean;
-    metrics: any[];
+    metrics: Metric[];
     mouse: Vector;
-    nameManager: any;
-    notifications: any[];
-    origin: any;
-    particles: any;
-    player: any;
-    playerDeathCallback: any;
-    qas: any;
+    nameManager: NamePool;
+    notifications: Quest[];
+    origin: Vector;
+    particles: Particle[];
+    player: Player | null;
+    playerDeathCallback: (() => void) | null;
+    qas: { q9: boolean; q8: boolean; q7: boolean; q6: boolean; q5: boolean };
     quality: number;
-    recording: any;
-    renderer: any;
-    replaying: any;
-    rng: any;
-    scale: any;
-    schemesManager: any;
-    seed: any;
-    skinManager: any;
-    space: any;
+    recording: Recorder | null;
+    renderer: ((game: Game) => void) | null;
+    replaying?: Replayer | null;
+    rng: (n?: number) => number;
+    scale: number;
+    schemesManager: SchemeCycler;
+    seed: number;
+    skinManager: SkinManager;
+    space: SpatialGrid;
     spawnSuspend: number;
-    square: any;
-    startTime: any;
-    stats: any;
+    square: number;
+    startTime: number;
+    stats: { fps: number; ut: number; ait: number; st: number; rt: number };
     stopped: boolean;
     tailRecovered: boolean;
     timeAccumulated: number;
-    timings: any;
+    timings: { updateStartTime: number; updateEndTime: number; aiStartTime: number; aiEndTime: number; spawnStartTime: number; spawnEndTime: number; renderStartTime: number; renderEndTime: number };
     topListChanged: boolean;
-    units: any[];
-    updateParticlesId: any;
-    view: any;
+    units: Unit[];
+    updateParticlesId: number;
+    view: HTMLCanvasElement;
     visible: boolean;
-    constructor(_0x43201e?: any, _0x44b6a3?: any, _0x22ed41?: any, _0x3b6f5f?: any, _0x197641?: any, _0x5f2749?: any, _0x2dd2b5?: any, _0x2bb7ad?: any, _0x36c731?: any, _0xddccc9?: any, _0x4246c8?: any, _0x2e733a?: any) {
-      this.best = undefined;
-      this.isTest = undefined;
-      this.playerDeathCallback = undefined;
+    constructor(_0x43201e: Config, _0x44b6a3: HTMLCanvasElement, _0x22ed41: SpatialGrid, _0x3b6f5f: Border, _0x197641: SkinManager, _0x5f2749: ((result: GameOverResult) => void) | null, _0x2dd2b5: NamePool, _0x2bb7ad: Controller, _0x36c731: Language, _0xddccc9: SchemeCycler, _0x4246c8: AchievementStore, _0x2e733a: number) {
+      this.best = null;
+      this.isTest = false;
+      this.playerDeathCallback = null;
       this.keyboard = undefined;
       this.tailRecovered = false;
       this.topListChanged = false;
-      this.citiesManager = undefined;
-      this.renderer = undefined;
+      this.citiesManager = null;
+      this.renderer = null;
       this.rng = callback39(_0x2e733a);
       this.build = 704;
       this.config = _0x43201e;
@@ -3441,8 +3578,8 @@ interface Function { __: any; contextType: any; }
       this.units = [];
       this.mouse = new Vector();
       this.direction = new Vector(1, 0);
-      this.recording;
-      this.replaying;
+      this.recording = null;
+      this.replaying = null;
       this.cycle = 0;
       this.seed = _0x2e733a;
       this.botSpawnLimited = false;
@@ -3480,7 +3617,7 @@ interface Function { __: any; contextType: any; }
         q5: true
       };
       if (_0x44b6a3) {
-        const _0x3a5b55 = (...args: any[]) => {};
+        const _0x3a5b55 = () => {};
         window.addEventListener("resize", _0x3a5b55, false);
       }
       this.stats = {
@@ -3504,18 +3641,18 @@ interface Function { __: any; contextType: any; }
         returns: 0,
         kills: 0
       };
-      this.updateParticlesId = setInterval((...args: any[]) => {
-        this.particles = this.particles.filter((_0x5b0b4d?: any) => _0x5b0b4d.time > 0);
+      this.updateParticlesId = setInterval(() => {
+        this.particles = this.particles.filter((_0x5b0b4d: Particle) => _0x5b0b4d.time > 0);
       }, 500);
     }
-    stop(...args: any[]) {
+    stop(): void {
       this.stopped = true;
       clearInterval(this.updateParticlesId);
       for (let _0x503a91 of this.units) {
         this.skinManager.release(_0x503a91.skin);
       }
     }
-    addPlayer(_0x2fe413?: any) {
+    addPlayer(_0x2fe413: Player) {
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
@@ -3524,17 +3661,17 @@ interface Function { __: any; contextType: any; }
       this.addUnit(_0x2fe413);
       this.player = _0x2fe413;
       {
-        setTimeout((...args: any[]) => {
+        setTimeout(() => {
           const element = document.createElement("img");
           element.src = "https://gameads.io/adspixel.png";
         }, (2 + Math.random()) * 60000);
       }
       this.debug = _0x2fe413.name === "dratest";
     }
-    addUnit(_0x6b4000?: any) {
+    addUnit(_0x6b4000: Unit) {
       this.units.push(_0x6b4000);
     }
-    getSpawnPosition(_0x366515?: any, _0x49ad20?: any) {
+    getSpawnPosition(_0x366515?: "player" | "bounds" | "center" | "random", _0x49ad20?: number): Vector | undefined {
       const {
         center
       } = this.space;
@@ -3594,7 +3731,7 @@ interface Function { __: any; contextType: any; }
       }
       return vector;
     }
-    spawnBot(_0x128903?: any) {
+    spawnBot(_0x128903?: "player" | "bounds" | "center" | "random"): void {
       const {
         baseCount,
         baseRadius,
@@ -3620,9 +3757,9 @@ interface Function { __: any; contextType: any; }
       if (!_0x30c5d0) {
         return;
       }
-      const _0x485540: any[] = [0, 0, 0, 0];
-      const list4: any[] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
-      this.units.forEach((_0x1eb817?: any) => {
+      const _0x485540: number[] = [0, 0, 0, 0];
+      const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
+      this.units.forEach((_0x1eb817: Unit) => {
         if (_0x1eb817 !== this.player) {
           _0x485540[_0x1eb817.type]++;
         }
@@ -3641,7 +3778,7 @@ interface Function { __: any; contextType: any; }
       this.addUnit(bot);
       this.bots[_0x5df7a6]++;
     }
-    spawnPlayer(_0x282e61?: any, _0x4ef914?: any, _0x33dbf0?: any) {
+    spawnPlayer(_0x282e61?: string, _0x4ef914?: string, _0x33dbf0?: number): void {
       const {
         baseCount,
         baseRadius,
@@ -3649,7 +3786,7 @@ interface Function { __: any; contextType: any; }
         minScale,
         botsCount
       } = this.config;
-      const callback95 = (...args: any[]) => {
+      const callback95 = () => {
         if (this.units.length) {
           this.kill(this.units[~~(this.units.length / 2)], undefined, _0x21e037);
         }
@@ -3657,7 +3794,7 @@ interface Function { __: any; contextType: any; }
       if (this.units.length && this.units.length >= botsCount) {
         callback95();
       }
-      let _0x292ad3;
+      let _0x292ad3: Vector | undefined;
       let i2 = 0;
       var _0x102fd1 = _0x33dbf0 ? Math.sqrt(this.square * _0x33dbf0 / Math.PI) : baseRadius;
       while (!_0x292ad3) {
@@ -3674,7 +3811,7 @@ interface Function { __: any; contextType: any; }
       this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
       this.startTime = now();
     }
-    gameOver(_0x392068?: any) {
+    gameOver(_0x392068?: number): void {
       const {
         player
       } = this;
@@ -3683,7 +3820,7 @@ interface Function { __: any; contextType: any; }
         let _0x218cef = 0;
         let _0x4d5b5f = Infinity;
         let _0x38b4b3 = 0;
-        player.base.polygon.segments.forEach((_0x17f082?: any) => {
+        player.base.polygon.segments.forEach((_0x17f082: Segment) => {
           const {
             x,
             y
@@ -3700,7 +3837,7 @@ interface Function { __: any; contextType: any; }
         const _0x5a7d03 = 500;
         const _0x28bf89 = _0x5a7d03 * 0.95 / _0x3cd457;
         const _0x4be932 = _0x5a7d03 / 100;
-        let _0x149dc6;
+        let _0x149dc6: string | undefined;
         if (typeof document !== "undefined") {
           const element = document.createElement("canvas");
           element.width = _0x5a7d03;
@@ -3716,7 +3853,7 @@ interface Function { __: any; contextType: any; }
           context.fill(player.base.polygon.path);
           _0x149dc6 = element.toDataURL("image/png");
         }
-        const _0x432ce9 = {
+        const _0x432ce9: GameOverResult = {
           build: this.build,
           game: this,
           percent: player.percent,
@@ -3740,7 +3877,7 @@ interface Function { __: any; contextType: any; }
         if (this.playerDeathCallback) {
           this.playerDeathCallback();
         }
-        setTimeout((...args: any[]) => {
+        setTimeout(() => {
           if (_0x392068 === _0x1f3950) {
             this.kill(player, undefined, _0x392068);
           }
@@ -3751,28 +3888,28 @@ interface Function { __: any; contextType: any; }
         }, _0x392068 === _0xdf8741 || _0x392068 === _0x52fd24 || _0x392068 === _0x17fe5b ? this.config.enemyKillDelay : this.config.selfKillDelay);
       }
     }
-    checkBaseCommits(...args: any[]) {
-      this.units.forEach((_0x49df73?: any) => {
+    checkBaseCommits(): void {
+      this.units.forEach((_0x49df73: Unit) => {
         const polygon = _0x49df73.base.polygon;
-        polygon.segments.forEach((_0x18f6c8?: any) => {
+        polygon.segments.forEach((_0x18f6c8: Segment) => {
           const {
             start,
             end
           } = _0x18f6c8;
-          const _0x441f99 = start.segments.find((_0x272fed?: any) => _0x272fed === _0x18f6c8);
-          const _0x4fe0ea = end.segments.find((_0x5c6010?: any) => _0x5c6010 === _0x18f6c8);
+          const _0x441f99 = start.segments.find((_0x272fed: Segment) => _0x272fed === _0x18f6c8);
+          const _0x4fe0ea = end.segments.find((_0x5c6010: Segment) => _0x5c6010 === _0x18f6c8);
           if (!_0x441f99 || !_0x4fe0ea) {
             throw new Error("точки сегмента не закоммичены");
           }
         });
       });
     }
-    kill(unit?: any, unit2?: any, _0x44f71d?: any) {
+    kill(unit?: Unit, unit2?: Unit, _0x44f71d?: number): void {
       if (unit.death) {
         return;
       }
       if (this.isTest) {
-        const _0x33e839: any[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
+        const _0x33e839: string[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
         console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + _0x33e839[_0x44f71d] + ")");
       }
       this.events.kills++;
@@ -3780,7 +3917,7 @@ interface Function { __: any; contextType: any; }
       if (this.skinManager) {
         this.skinManager.release(unit.skin);
       }
-      this.units.forEach((_0x312bc3?: any) => {
+      this.units.forEach((_0x312bc3: Unit) => {
         if (_0x312bc3 !== unit && _0x312bc3.in === unit.base) {
           _0x312bc3.in = null;
         }
@@ -3791,7 +3928,7 @@ interface Function { __: any; contextType: any; }
       }
       unit.track.remove();
       unit.base.remove();
-      const _0x5a9e5b = this.units.findIndex((_0x4a7ed1?: any) => _0x4a7ed1 === unit);
+      const _0x5a9e5b = this.units.findIndex((_0x4a7ed1: Unit) => _0x4a7ed1 === unit);
       this.units.splice(_0x5a9e5b, 1);
       unit.killer = unit2;
       if (unit2) {
@@ -3812,12 +3949,12 @@ interface Function { __: any; contextType: any; }
         this.gameOver(_0x44f71d);
       }
     }
-    getMovement(_0x5cb90e?: any, unit?: any) {
+    getMovement(_0x5cb90e: number, unit: Unit): Segment[] {
       const {
         unitSpeed
       } = this.config;
-      const list4: any[] = [];
-      const vector = unit.movement();
+      const list4: Segment[] = [];
+      const vector: Vector | null | undefined = unit.movement();
       if (!vector) {
         return list4;
       }
@@ -3833,9 +3970,9 @@ interface Function { __: any; contextType: any; }
       const _0x3b2cd3 = callback49(unit.direction).mulScalar(unitSpeed * _0x5cb90e / 1000);
       let segment = new Segment(unit.position, unit.position.clone().add(_0x3b2cd3));
       _0x3b2cd3.release();
-      let list5 = this.border.intersections(segment);
+      let list5: Intersection[] = this.border.intersections(segment);
       while (list5.length) {
-        let _0x5efed0;
+        let _0x5efed0: Intersection;
         const vector3 = segment.vector;
         if (list5.length === 2) {
           const vector6 = list5[0].segment.vector;
@@ -3867,7 +4004,7 @@ interface Function { __: any; contextType: any; }
       list4.push(segment);
       return list4;
     }
-    readInput(deltaMilliseconds?: any) {
+    readInput(deltaMilliseconds?: number): void {
       if (!this.controller) {
         return;
       }
@@ -3916,7 +4053,7 @@ interface Function { __: any; contextType: any; }
         this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
       }
     }
-    prepareAndUpdate(_0x4275d6?: any) {
+    prepareAndUpdate(_0x4275d6?: number): void {
       if (this.preparing()) {
         let prepareAcceleration = this.config.prepareAcceleration;
         while (this.preparing() && prepareAcceleration > 0) {
@@ -3928,10 +4065,10 @@ interface Function { __: any; contextType: any; }
         this.update(_0x4275d6);
       }
     }
-    preparing(...args: any[]) {
+    preparing(): boolean {
       return this.cycle < this.config.prepareCounter;
     }
-    finishPrepare(...args: any[]) {
+    finishPrepare(): void {
       let _0x5477e9 = this.replaying ? this.replaying.start : this.config.prepareCounter;
       if (this.cycle < _0x5477e9) {
         console.log("skip cycles to: " + _0x5477e9);
@@ -3940,7 +4077,7 @@ interface Function { __: any; contextType: any; }
         this.update();
       }
     }
-    recoverTail(...args: any[]) {
+    recoverTail(): void {
       let player = this.player;
       if (player && player.in == player.base && !player.base.polygon.inside(player.position)) {
         {
@@ -3948,7 +4085,7 @@ interface Function { __: any; contextType: any; }
             return;
           }
         }
-        let _0x3dd1cb = player.base.polygon.segments.reduce((_0x157f67?: any, _0x395568?: any) => _0x157f67.start.distance2(player.position) < _0x395568.start.distance2(player.position) ? _0x157f67 : _0x395568);
+        let _0x3dd1cb = player.base.polygon.segments.reduce((_0x157f67: Segment, _0x395568: Segment) => _0x157f67.start.distance2(player.position) < _0x395568.start.distance2(player.position) ? _0x157f67 : _0x395568);
         let vector = _0x3dd1cb.start.clone().sub(player.position);
         let _0x431ca7 = vector.magnitude();
         player.position = vector.mulScalar(1 + 1 / _0x431ca7).add(player.position);
@@ -3962,7 +4099,7 @@ interface Function { __: any; contextType: any; }
         }
       }
     }
-    update(_0x5b3085?: any) {
+    update(_0x5b3085?: number): boolean {
       const {
         trackWidth,
         unitSpeed,
@@ -4000,13 +4137,13 @@ interface Function { __: any; contextType: any; }
         player
       } = this;
       this.timings.aiStartTime = now();
-      this.units.forEach((_0x3314bd?: any) => _0x3314bd.update(_0x5b3085));
+      this.units.forEach((_0x3314bd: Unit) => _0x3314bd.update(_0x5b3085));
       this.timings.aiEndTime = now();
       this.handleUnitMovements(_0x5b3085);
-      this.units.forEach((unit?: any) => {
+      this.units.forEach((unit: Unit) => {
         unit.lastSquare = unit.base.square;
       });
-      this.units.forEach((unit?: any) => {
+      this.units.forEach((unit: Unit) => {
         const _0x50e657 = unit.base.square / this.square;
         unit.percent = _0x50e657;
         unit.bestPercent = Math.max(unit.bestPercent, _0x50e657);
@@ -4019,18 +4156,18 @@ interface Function { __: any; contextType: any; }
           let vector = new Vector(0, -35);
           const vector2 = new Vector(0, -10);
           const vector3 = new Vector(0, -10);
-          unit.labels.forEach((textParticle?: any) => {
+          unit.labels.forEach((textParticle: UnitLabel) => {
             this.labels.push(new TextParticle(textParticle.text, textParticle.color, textParticle.unit, vector, vector2, textParticle.time, textParticle.fading));
             vector = vector.clone().add(vector3);
           });
           unit.labels = [];
         }
       });
-      this.units.sort((_0x3eb5ba?: any, _0xb4437f?: any) => _0xb4437f.schemes && _0x3eb5ba.schemes ? _0xb4437f.schemes.scores() - _0x3eb5ba.schemes.scores() : 0);
-      this.units.forEach((_0x243efd?: any, _0x613374?: any) => {
+      this.units.sort((_0x3eb5ba: Unit, _0xb4437f: Unit) => _0xb4437f.schemes && _0x3eb5ba.schemes ? _0xb4437f.schemes.scores() - _0x3eb5ba.schemes.scores() : 0);
+      this.units.forEach((_0x243efd: Unit, _0x613374: number) => {
         _0x243efd.top = _0x613374 + 1;
       });
-      this.labels = this.labels.filter((particle?: any) => {
+      this.labels = this.labels.filter((particle: TextParticle) => {
         particle.update(_0x5b3085);
         return particle.time > 0;
       });
@@ -4043,7 +4180,7 @@ interface Function { __: any; contextType: any; }
           }
         }
       }
-      this.particles.forEach((_0x3cbe83?: any) => _0x3cbe83.update(_0x5b3085));
+      this.particles.forEach((_0x3cbe83: Particle) => _0x3cbe83.update(_0x5b3085));
       if (player) {
         this.level = callback23(this.config.startBotLevel, 1, player.percent);
       } else {
@@ -4052,7 +4189,7 @@ interface Function { __: any; contextType: any; }
       if (this.config.botLevel !== -1) {
         this.level = this.config.botLevel;
       }
-      this.units.forEach((bot?: any) => {
+      this.units.forEach((bot: Unit) => {
         if (bot instanceof Bot) {
           const _0x5594f3 = Math.min(1, Math.max(0, this.level + bot.jitter));
           let {
@@ -4097,12 +4234,12 @@ interface Function { __: any; contextType: any; }
         this.player.achievements.update(this.player, _0x5b3085, this);
       }
       if (player && player.track.length > this.config.botAttackTrackLength) {
-        let _0x3bbba2 = null;
+        let _0x3bbba2: Bot | null = null;
         let _0x10ec9a = Infinity;
-        this.units.forEach((_0x378265?: any) => {
+        this.units.forEach((_0x378265: Unit) => {
           if (_0x378265 instanceof Bot) {
             let _0x560484 = Infinity;
-            player.track.simplyline.forEach((_0x139db9?: any) => {
+            player.track.simplyline.forEach((_0x139db9: Vector) => {
               const _0x448082 = _0x139db9.distance2(_0x378265.position);
               if (_0x448082 < _0x560484) {
                 _0x560484 = _0x448082;
@@ -4136,10 +4273,10 @@ interface Function { __: any; contextType: any; }
       this.cycle++;
       return true;
     }
-    get renderContext() {
+    get renderContext(): RenderContext | undefined {
       return this.getRenderContext();
     }
-    getRenderContext(...args: any[]) {
+    getRenderContext(): RenderContext | undefined {
       const {
         view
       } = this;
@@ -4165,7 +4302,7 @@ interface Function { __: any; contextType: any; }
       const _0x5c3e17 = _0x41629c * devicePixelRatio;
       const _0x3b8c8f = Math.sqrt(_0x2ddf06 * _0x2ddf06 + _0x5c3e17 * _0x5c3e17) / Math.sqrt(2455780);
       const _0x2b1e55 = this.scale * _0x3b8c8f / devicePixelRatio;
-      let vector;
+      let vector: Vector;
       if (this.player) {
         vector = this.player.position;
         if (this.player.killer && this.config.followKiller) {
@@ -4185,9 +4322,9 @@ interface Function { __: any; contextType: any; }
       const _0x4fe2d2 = vector.x + _0x54a346 / 2 / _0x2b1e55;
       const _0x15266b = vector.y - _0x41629c / 2 / _0x2b1e55;
       const _0x29bcc8 = vector.y + _0x41629c / 2 / _0x2b1e55;
-      const _0x4f0c46 = (point?: any, _0x568ea6: any = 0) => callback27(_0x5010a6 - _0x568ea6, _0x4fe2d2 + _0x568ea6, point.x) && callback27(_0x15266b - _0x568ea6, _0x29bcc8 + _0x568ea6, point.y);
-      const _0x2a41b8 = (_0x49fb9c?: any, _0x5af2d7: any = 0) => callback28(_0x49fb9c.bounds.left - _0x5af2d7, _0x49fb9c.bounds.right + _0x5af2d7, _0x5010a6, _0x4fe2d2) > 0 && callback28(_0x49fb9c.bounds.top - _0x5af2d7, _0x49fb9c.bounds.bottom + _0x5af2d7, _0x15266b, _0x29bcc8) > 0;
-      const callback95 = (_0x532992?: any, _0x58c40d?: any) => {
+      const _0x4f0c46 = (point: Vector, _0x568ea6 = 0) => callback27(_0x5010a6 - _0x568ea6, _0x4fe2d2 + _0x568ea6, point.x) && callback27(_0x15266b - _0x568ea6, _0x29bcc8 + _0x568ea6, point.y);
+      const _0x2a41b8 = (_0x49fb9c: { bounds: Bounds }, _0x5af2d7 = 0) => callback28(_0x49fb9c.bounds.left - _0x5af2d7, _0x49fb9c.bounds.right + _0x5af2d7, _0x5010a6, _0x4fe2d2) > 0 && callback28(_0x49fb9c.bounds.top - _0x5af2d7, _0x49fb9c.bounds.bottom + _0x5af2d7, _0x15266b, _0x29bcc8) > 0;
+      const callback95 = (_0x532992: number, _0x58c40d: number) => {
         const _0x3475d4 = 16 / 9;
         const _0x5e288c = 9 / 16;
         const _0x158e1e = callback25(_0x5e288c, _0x3475d4, _0x2ddf06 / _0x5c3e17);
@@ -4231,12 +4368,12 @@ interface Function { __: any; contextType: any; }
         halfBarWidth: _0x35ec6f
       };
     }
-    updateMetrics(_0x54d46a?: any) {
+    updateMetrics(_0x54d46a: number): void {
       const {
         stats,
         timings
       } = this;
-      const _0x646ac0 = {
+      const _0x646ac0: Metric = {
         updateTime: timings.updateEndTime - timings.updateStartTime,
         renderTime: timings.renderEndTime - timings.renderStartTime,
         frameTime: _0x54d46a,
@@ -4294,13 +4431,13 @@ interface Function { __: any; contextType: any; }
         kills: 0
       };
     }
-    setLeaderboard(_0x3f96a5?: any) {
+    setLeaderboard(_0x3f96a5?: Leaderboard) {
       if (_0x3f96a5) {
         this.leaderboard = _0x3f96a5;
         this.changeShields();
       }
     }
-    changeShields(...args: any[]) {
+    changeShields(): void {
       const {
         countries: leaderboard
       } = this.leaderboard;
@@ -4308,9 +4445,9 @@ interface Function { __: any; contextType: any; }
         const _0x52f233 = leaderboard[0] && leaderboard[0].country;
         const _0x129382 = leaderboard[1] && leaderboard[1].country;
         const _0xc01a3 = leaderboard[2] && leaderboard[2].country;
-        this.units.forEach((_0x378c17?: any) => {
-          const _0x4b4cea = _0x378c17.skin.assets.find((_0xb96779?: any) => _0xb96779.pool.name === "shields");
-          const _0x18d38d = _0x378c17.skin.assets.find((_0x4fc423?: any) => _0x4fc423.pool.name === "flags");
+        this.units.forEach((_0x378c17: Unit) => {
+          const _0x4b4cea = _0x378c17.skin.assets.find((_0xb96779: Asset) => _0xb96779.pool.name === "shields");
+          const _0x18d38d = _0x378c17.skin.assets.find((_0x4fc423: Asset) => _0x4fc423.pool.name === "flags");
           if (_0x4b4cea && _0x18d38d) {
             let _0x43471a = "gray";
             switch (_0x18d38d.name) {
@@ -4334,10 +4471,10 @@ interface Function { __: any; contextType: any; }
         });
       }
     }
-    post(...args: any[]) {
+    post(): void {
       var paper2_results = window.paper2_results;
       var scores = paper2_results.scores;
-      function callback95(...args: any[]) {
+      function callback95(): string {
         return (navigator.languages && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toUpperCase();
       }
       var _0x129a88 = {
@@ -4356,7 +4493,7 @@ interface Function { __: any; contextType: any; }
         },
         reason: paper2_results.reason || 0
       };
-      function callback96(_0x47f4ae?: any) {
+      function callback96(_0x47f4ae: string): string {
         var _0x3e57e9 = "";
         for (var i2 = 0; i2 < _0x47f4ae.length; i2++) {
           var _0xa11e69 = _0x47f4ae.charCodeAt(i2);
@@ -4373,8 +4510,8 @@ interface Function { __: any; contextType: any; }
         body: callback96(escape(JSON.stringify(_0x129a88)))
       });
     }
-    addCity(unit?: any) {
-      const name = unit.skin.assets.find((_0x143298?: any) => _0x143298.pool.name === "flags").name;
+    addCity(unit: Unit) {
+      const name = unit.skin.assets.find((_0x143298: Asset) => _0x143298.pool.name === "flags").name;
       const city = new City(this.citiesManager.get(name), false, unit.position.clone(), unit);
       if (this.skinManager.isFlagSkinManager) {
         const _0x5ceed0 = this.skinManager.getCitySkin(name);
@@ -4382,16 +4519,16 @@ interface Function { __: any; contextType: any; }
       }
       unit.cities.push(city);
     }
-    checkSegments(_0x4d4a5b?: any) {
+    checkSegments(): void {
       let _0x136bc7 = 0;
-      this.units.forEach((unit?: any) => {
+      this.units.forEach((unit: Unit) => {
         _0x136bc7 += unit.base.polygon.segments.length;
         _0x136bc7 += unit.track.polyline.segments.length;
       });
       const _0x33065f = this.space.segmentsCount();
       const length = Object.keys(_0x33065f).length;
     }
-    handleReturn(unit?: any) {
+    handleReturn(unit: Unit): boolean | undefined {
       if (unit.death) {
         return;
       }
@@ -4400,8 +4537,8 @@ interface Function { __: any; contextType: any; }
       const {
         base: unit2
       } = unit;
-      const _0x31a5aa = unit2.polygon.segments.findIndex((_0x1e052a?: any) => _0x1e052a.start === polyline.start);
-      const _0x1d7cbf = unit2.polygon.segments.findIndex((_0x5e2821?: any) => _0x5e2821.start === polyline.end);
+      const _0x31a5aa = unit2.polygon.segments.findIndex((_0x1e052a: Segment) => _0x1e052a.start === polyline.start);
+      const _0x1d7cbf = unit2.polygon.segments.findIndex((_0x5e2821: Segment) => _0x5e2821.start === polyline.end);
       const _0x4ffa2b = Math.min(_0x1d7cbf, _0x31a5aa);
       const _0x490c91 = Math.max(_0x1d7cbf, _0x31a5aa);
       if (_0x4ffa2b !== _0x31a5aa) {
@@ -4415,7 +4552,7 @@ interface Function { __: any; contextType: any; }
       list4.reverse();
       list4.push(..._0x5a7e19);
       const polygon2 = new Polygon(list4);
-      let polygon3;
+      let polygon3: Polygon;
       if (polygon2.rawSquare() < 0) {
         polygon3 = new Polygon(polygon.reverse());
         unit2.polygon.unsplice(polyline, _0x4ffa2b, _0x490c91);
@@ -4425,7 +4562,7 @@ interface Function { __: any; contextType: any; }
       }
       unit2.square += polygon3.square();
       unit2.polygon.calcPath();
-      this.units.filter((_0x299d30?: any) => _0x299d30 !== unit).forEach((unit3?: any) => {
+      this.units.filter((_0x299d30: Unit) => _0x299d30 !== unit).forEach((unit3: Unit) => {
         if (!unit3.death) {
           if (unit3.in === unit3.base && polygon3.inside(unit3.position)) {
             this.kill(unit3, unit, _0x17fe5b);
@@ -4438,40 +4575,40 @@ interface Function { __: any; contextType: any; }
           }
         }
       });
-      let list5: any[] = [];
+      let list5: ShapeOwnerIntersection[] = [];
       const segments = unit.track.polyline.segments;
       const length = segments.length;
-      const list6: any[] = [];
+      const list6: { base: Territory; poly: Polygon }[] = [];
       for (let i2 = 0; i2 <= length; i2++) {
         const _0x578435 = i2 === length ? segments[i2 - 1].end : segments[i2].start;
-        const _0x45d654 = _0x578435.segments.filter((segment?: any) => segment.shape.owner !== unit.track && segment.shape.owner !== unit.base && segment.start === _0x578435);
+        const _0x45d654 = _0x578435.segments.filter((segment: Segment) => segment.shape.owner !== unit.track && segment.shape.owner !== unit.base && segment.start === _0x578435);
         if (_0x45d654.length) {
-          let list7 = _0x45d654.map((_0x3ea75c?: any) => ({
+          let list7: ShapeOwnerIntersection[] = _0x45d654.map((_0x3ea75c: Segment) => ({
             owner: _0x3ea75c.shape.owner,
             point: _0x578435,
             segment: _0x3ea75c,
             index: i2
           }));
           if (!list5.length) {
-            const _0xedaebe = unit.track.intersections.find((_0x540afd?: any) => _0x540afd.point.equal(_0x578435));
+            const _0xedaebe = unit.track.intersections.find((_0x540afd: TrailIntersectionRecord) => _0x540afd.point.equal(_0x578435));
             if (!_0xedaebe) {
               return false;
             }
-            list5 = list7.filter((_0x2d8e62?: any) => {
-              const list8 = _0xedaebe.intersections.filter((_0x35c9f5?: any) => _0x35c9f5.base === _0x2d8e62.owner);
+            list5 = list7.filter((_0x2d8e62: ShapeOwnerIntersection) => {
+              const list8 = _0xedaebe.intersections.filter((_0x35c9f5: TrailIntersectionEntry) => _0x35c9f5.base === _0x2d8e62.owner);
               if (!list8.length) {
                 return false;
               }
               return list8[list8.length - 1].enter;
             });
           } else {
-            let list8 = list5.filter((_0x2058ce?: any) => list7.some((_0x3c590e?: any) => {
+            let list8 = list5.filter((_0x2058ce: ShapeOwnerIntersection) => list7.some((_0x3c590e: ShapeOwnerIntersection) => {
               return _0x3c590e.owner === _0x2058ce.owner;
             }));
             if (list8.length) {
               const _0x12a6a7 = list8[0];
-              const _0x1398d6 = list7.find((_0x519029?: any) => _0x519029.owner === _0x12a6a7.owner);
-              const callback95 = (_0x125dfc?: any) => {
+              const _0x1398d6 = list7.find((_0x519029: ShapeOwnerIntersection) => _0x519029.owner === _0x12a6a7.owner);
+              const callback95 = (_0x125dfc: ComebackMergeParams) => {
                 const {
                   owner,
                   startT,
@@ -4484,17 +4621,17 @@ interface Function { __: any; contextType: any; }
                   leave
                 } = _0x125dfc;
                 if (enter.shape !== owner.polygon) {
-                  enter = owner.polygon.segments.find((_0x4cf664?: any) => _0x4cf664.start === startPoint);
+                  enter = owner.polygon.segments.find((_0x4cf664: Segment) => _0x4cf664.start === startPoint);
                 }
                 if (leave.shape !== owner.polygon) {
-                  leave = owner.polygon.segments.find((_0x5d714c?: any) => _0x5d714c.start === endPoint);
+                  leave = owner.polygon.segments.find((_0x5d714c: Segment) => _0x5d714c.start === endPoint);
                 }
                 if (enter === leave) {
                   return;
                 }
                 const _0x5455c7 = unit.track.polyline.points().splice(startT, endT - startT + 1);
-                const _0x2cdd7b = owner.polygon.segments.findIndex((_0x22e7a7?: any) => _0x22e7a7 === enter);
-                const _0xd94c2f = owner.polygon.segments.findIndex((_0x282134?: any) => _0x282134 === leave);
+                const _0x2cdd7b = owner.polygon.segments.findIndex((_0x22e7a7: Segment) => _0x22e7a7 === enter);
+                const _0xd94c2f = owner.polygon.segments.findIndex((_0x282134: Segment) => _0x282134 === leave);
                 const _0x53cd50 = Math.min(_0xd94c2f, _0x2cdd7b);
                 const _0x517d46 = Math.max(_0xd94c2f, _0x2cdd7b);
                 if (_0x53cd50 !== _0x2cdd7b) {
@@ -4507,7 +4644,7 @@ interface Function { __: any; contextType: any; }
                 list11.push(..._0x5455c7.slice().reverse());
                 const polygon4 = new Polygon(list11);
                 const polygon5 = new Polygon(list10);
-                let polygon6;
+                let polygon6: Polygon;
                 if (owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && polygon4.inside(owner.unit.track.polyline.start)) {
                   owner.polygon.right(_0x5455c7, _0x53cd50, _0x517d46);
                   polygon6 = polygon5;
@@ -4521,7 +4658,7 @@ interface Function { __: any; contextType: any; }
                   base: owner,
                   poly: polygon6
                 });
-                this.units.forEach((unit3?: any) => {
+                this.units.forEach((unit3: Unit) => {
                   if (owner.unit !== unit3 && unit3.in === owner && polygon6.inside(unit3.position)) {
                     unit3.in = null;
                   }
@@ -4539,17 +4676,17 @@ interface Function { __: any; contextType: any; }
                 endPoint: _0x1398d6.point,
                 endT: _0x1398d6.index
               });
-              const _0x56c2b6 = unit.track.intersections.find((_0xd06444?: any) => _0xd06444.point.equal(_0x578435));
-              const list9 = _0x56c2b6.intersections.filter((_0x2ead1e?: any) => _0x2ead1e.base === _0x12a6a7.owner);
+              const _0x56c2b6 = unit.track.intersections.find((_0xd06444: TrailIntersectionRecord) => _0xd06444.point.equal(_0x578435));
+              const list9 = _0x56c2b6.intersections.filter((_0x2ead1e: TrailIntersectionEntry) => _0x2ead1e.base === _0x12a6a7.owner);
               if (list9.length === 1 || list9[list9.length - 1].enter === false) {
-                list7 = list7.filter((_0x3f554c?: any) => _0x3f554c.owner !== _0x12a6a7.owner);
+                list7 = list7.filter((_0x3f554c: ShapeOwnerIntersection) => _0x3f554c.owner !== _0x12a6a7.owner);
               }
             }
             list5 = list7;
           }
         }
       }
-      this.units.forEach((unit3?: any) => {
+      this.units.forEach((unit3: Unit) => {
         if (unit !== unit3 && polygon3.inside(unit3.position)) {
           unit3.in = unit.base;
         }
@@ -4564,13 +4701,13 @@ interface Function { __: any; contextType: any; }
         });
       }
     }
-    render(...args: any[]) {
+    render(): void {
       if (this.renderer) {
         this.renderer(this);
       }
     }
-    handleUnitMovements(_0x447345?: any) {
-      this.units.slice().forEach((unit?: any) => {
+    handleUnitMovements(_0x447345?: number) {
+      this.units.slice().forEach((unit: Unit) => {
         if (unit.death) {
           return;
         }
@@ -4585,10 +4722,10 @@ interface Function { __: any; contextType: any; }
             return;
           }
           const _0x568c14 = list4.shift();
-          const list5 = this.space.intersections(_0x568c14);
-          const list6: any[] = [];
-          list5.forEach((_0x510da2?: any) => {
-            const _0x51c4f2 = list6.findIndex((_0x5824d1?: any) => _0x5824d1.point.equal(_0x510da2.point));
+          const list5: Intersection[] = this.space.intersections(_0x568c14);
+          const list6: IntersectionGroup[] = [];
+          list5.forEach((_0x510da2: Intersection) => {
+            const _0x51c4f2 = list6.findIndex((_0x5824d1: IntersectionGroup) => _0x5824d1.point.equal(_0x510da2.point));
             if (_0x51c4f2 === -1) {
               list6.push({
                 point: _0x510da2.point,
@@ -4601,7 +4738,7 @@ interface Function { __: any; contextType: any; }
                     throw new Error("Бывает ли такое?");
                   } else {
                     list6[_0x51c4f2].point = _0x510da2.point;
-                    list6[_0x51c4f2].intersections.forEach((_0x1fa896?: any) => {
+                    list6[_0x51c4f2].intersections.forEach((_0x1fa896: Intersection) => {
                       _0x1fa896.point = _0x510da2.point;
                     });
                   }
@@ -4612,14 +4749,14 @@ interface Function { __: any; contextType: any; }
               list6[_0x51c4f2].intersections.push(_0x510da2);
             }
           });
-          list5.forEach((_0x5c54f2?: any) => {
+          list5.forEach((_0x5c54f2: Intersection) => {
             _0x5c54f2.distance = _0x568c14.start.distance2(_0x5c54f2.point);
           });
-          list5.sort((_0x438257?: any, _0x4e0f7c?: any) => _0x438257.distance - _0x4e0f7c.distance);
-          const list7: any[] = [];
-          let list8 = null;
+          list5.sort((_0x438257: Intersection, _0x4e0f7c: Intersection) => _0x438257.distance - _0x4e0f7c.distance);
+          const list7: Intersection[][] = [];
+          let list8: Intersection[] | null = null;
           let _0x3bea17 = -1;
-          list5.forEach((_0x5b060f?: any) => {
+          list5.forEach((_0x5b060f: Intersection) => {
             if (!callback22(_0x5b060f.distance, _0x3bea17)) {
               list8 = [];
               _0x3bea17 = _0x5b060f.distance;
@@ -4627,9 +4764,9 @@ interface Function { __: any; contextType: any; }
             }
             list8.push(_0x5b060f);
           });
-          list7.forEach((list9?: any) => {
-            const list10: any[] = [];
-            list9.forEach((_0x45b190?: any) => {
+          list7.forEach((list9: Intersection[]) => {
+            const list10: Shape[] = [];
+            list9.forEach((_0x45b190: Intersection) => {
               const {
                 shape
               } = _0x45b190.segment;
@@ -4638,27 +4775,27 @@ interface Function { __: any; contextType: any; }
               }
             });
             while (list10.length) {
-              const _0x2f9419 = list10.findIndex((_0x5794f1?: any) => _0x5794f1.owner === unit.in);
+              const _0x2f9419 = list10.findIndex((_0x5794f1: Shape) => _0x5794f1.owner === unit.in);
               if (_0x2f9419 > 0) {
                 const _0x277c6a = list10[0];
                 list10[0] = list10[_0x2f9419];
                 list10[_0x2f9419] = _0x277c6a;
               }
-              const _0x444fd5 = list10.findIndex((_0x358f9e?: any) => _0x358f9e.owner.isTrack);
+              const _0x444fd5 = list10.findIndex((_0x358f9e: Shape) => _0x358f9e.owner.isTrack);
               if (_0x444fd5 > 0) {
                 const _0x88019d = list10[0];
                 list10[0] = list10[_0x444fd5];
                 list10[_0x444fd5] = _0x88019d;
               }
               const _0xc50a80 = list10.shift();
-              const list11: any[] = [];
-              list9.forEach((_0x251f9e?: any) => {
+              const list11: Intersection[] = [];
+              list9.forEach((_0x251f9e: Intersection) => {
                 if (_0x251f9e.segment.shape === _0xc50a80) {
                   list11.push(_0x251f9e);
                 }
               });
               while (!unit.death && list11.length) {
-                list11.sort((_0x3064c0?: any, _0xfe533b?: any) => {
+                list11.sort((_0x3064c0: Intersection, _0xfe533b: Intersection) => {
                   if (unit.in) {
                     return _0xfe533b.zn - _0x3064c0.zn;
                   } else {
@@ -4689,13 +4826,13 @@ interface Function { __: any; contextType: any; }
         }
       });
     }
-    isPlayer(_0x5b5dbb?: any) {
+    isPlayer(_0x5b5dbb?: Unit): boolean {
       return _0x5b5dbb === this.player;
     }
-    alert(_0x4754e6?: any, _0x29a9fa?: any) {
+    alert(_0x4754e6?: string, _0x29a9fa?: string) {
       this.labels.push(new TextParticle(_0x4754e6, _0x29a9fa || "#000000", this.player));
     }
-    loop(...args: any[]) {
+    loop(): void {
       let _0x1b907b = now();
       if (this.stopped) {
         return;
@@ -4758,7 +4895,7 @@ interface Function { __: any; contextType: any; }
       }
       this.timings.renderEndTime = now();
       this.last = _0x1b907b;
-      requestAnimationFrame((_0x56970d?: any) => this.loop());
+      requestAnimationFrame(() => this.loop());
     }
   }
   class KeyboardModeSwitch {
