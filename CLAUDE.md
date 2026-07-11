@@ -38,8 +38,33 @@ Determined by decoding `app2.js` (`readInput()` and the input listeners). Useful
 - If no key is held, the engine falls back to pointer aiming: `direction = normalize(touch/mouse position − screen center)` (absolute, analog). The keyboard branch takes priority, so the joystick cleanly overrides the native touch aiming whenever a key is held.
 - Decoding tip: the string array `a0_0xf543` is **rotated at load** by a self-defending IIFE called with `(a0_0xf543, 0x133)`. To resolve an index correctly, eval the array declaration + the `a0_0x2b1e` decoder + that rotation IIFE together, then call `a0_0x2b1e('0x…')` — static array indexing gives wrong strings.
 
+## Pausing & game-loop control
+
+The engine has **no user-facing pause** (no button/key, and no `visibilitychange`/`blur`
+handler — it doesn't even auto-pause when the tab is hidden). But the game object carries
+a `stopped` boolean that its main loop checks first and early-returns on, *before*
+rescheduling `requestAnimationFrame(() => this.loop())`. So there is an internal pause
+lever reachable from the console or the shim:
+
+- **Pause:** `paperio2api.game.stopped = true` (next frame returns early, rAF chain dies).
+- **Resume:** `paperio2api.game.stopped = false; paperio2api.game.loop();` (must re-kick the
+  loop, since it stopped rescheduling). The loop clamps its time delta to 10s, so resuming
+  after a long pause won't blow up the physics.
+
+`paperio2api.game` is the live game object (subsystems: `rng`, `controller`, `nameManager`,
+`bots`, `units`, `player`, …). `stopped` is the same flag the engine flips internally on
+death and during the pre-game "prepare" phase.
+
 ## Editing guidance
 
 - Real changes belong in `index.html` (the shim) or the CSS/assets — **not** in `app2.js`.
+- A readable, runnable **deobfuscated copy** of `app2.js` is committed at the repo root as
+  `app2.deobfuscated.js` — obfuscation removed and identifiers renamed to meaningful names
+  where inferable (classes/functions/globals + a heuristic + targeted local-variable pass;
+  deep locals stay `_0x…`). The regeneration toolchain and notes live in the git-ignored
+  `research/deob/` — see `research/deob/NOTES.md` for the pipeline (custom Babel
+  string-inliner → `webcrack` under Node 22/24 → strip → scope-aware renames) and a
+  subsystem map. Off-the-shelf deobfuscators alone can't inline this file's rotated
+  string array. It's a study aid; the game still runs off the original `app2.js`.
 - Changes already made from the original (documented in README.md): removed ad/analytics scripts, dropped cache-busting version query strings (`app2.js?v7`, `style3.css?v50`), and localized the font instead of loading from Google Fonts.
 - `app2.js`, `style3.css`, `manifest.json`, and assets are the site's original copyrighted content, kept for local/offline personal use.
