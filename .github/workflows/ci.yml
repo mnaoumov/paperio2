@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ts/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'ts/**'
+      - '.github/workflows/ci.yml'
+
+defaults:
+  run:
+    working-directory: ts
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ts/.nvmrc
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Spellcheck
+        run: npm run spellcheck
+
+      - name: Markdown lint
+        run: npm run lint:md
+
+      - name: Test
+        run: npm run test
