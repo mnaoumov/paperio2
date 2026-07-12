@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Current Task — apply the strict TypeScript project setup (R3) to `ts/`
+
+**Strict conversion: DONE.** `ts/tsconfig.json` now extends `@tsconfig/strictest`, adapted for this browser esbuild bundle: `module: ESNext` / `moduleResolution: bundler`, `lib: [DOM, ES2024]`, `types: [@total-typescript/ts-reset, js-cookie]` (no `node`), plus a `paths` mapping `preact`/`preact/hooks` to their shipped `.d.ts` (preact 10.5.4's `exports` has no `types` condition, so under `bundler` resolution TS otherwise types preact as `any`). The full strict conversion of `src/app2.ts` is complete — **555 → 0 `tsc` errors**, with **no `!` / `any` / `as` / `@ts-ignore`**: null-safety uses a local `src/type-guards.ts` (`ensureNonNullable` / `assertNonNullable`, mirroring `obsidian-dev-utils`), uninitialized fields get real defaults, and `Unit.skin` became a getter over a private `_skin` backing field. Verified: `tsc` clean + esbuild bundle boots (16 units, 0 console errors).
+
+**Remaining (R3 tooling):** the fuller tooling suite is NOT yet applied — ESLint flat config, dprint, commitlint, cspell, markdownlint, husky, and TS scripts via jiti (per the `F:\dev\projects\typescript-template` reference). Add these next; remove this section once R3 is fully applied.
+
 ## What this is
 
 A local, self-contained offline copy of the browser game Paper.io 2 (originally from https://paperio.site/). It runs entirely client-side (JavaScript + Canvas) with AI bots — there is **no server-side game logic**, so it works fully offline. This repo is a preservation/offline-play copy, not an active development project; most files are the original site's unmodified content.
@@ -68,7 +74,7 @@ death and during the pre-game "prepare" phase.
   - Build: `cd ts && npm install && npm run build` → esbuild bundles `src/app2.ts` + the two
     deps into `ts/dist/app2.js` (a self-contained browser IIFE, **behaviorally equivalent to
     `app2.js`** — verified: game boots, 16 units, 0 console errors). Typecheck: `npm run
-    typecheck` (`tsc --noEmit`, 0 errors; lenient config, `strict:false`).
+    typecheck` (`tsc --noEmit`, 0 errors under `@tsconfig/strictest`).
   - Identifier state: **fully de-obfuscated — zero `_0x…` / `callbackN` identifiers remain.**
     The extracted preact/js-cookie internals carried their real upstream names; the game
     engine's own classes, functions, methods, parameters, and locals were recovered to

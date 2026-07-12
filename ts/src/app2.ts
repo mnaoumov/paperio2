@@ -1,6 +1,7 @@
 import Cookies from 'js-cookie';
 import { Fragment, createContext, createElement, render } from 'preact';
-import { useContext, useEffect, useMemo, useReducer, useRef, useState } from 'preact/hooks';
+import { useContext, useEffect, useRef, useState } from 'preact/hooks';
+import { assertNonNullable, ensureNonNullable } from './type-guards';
 // --- ambient augmentations for dynamic globals the engine touches ---
 // (js-cookie's own types now come from `@types/js-cookie`; only the engine's
 // own payload/window shapes are declared here.)
@@ -72,6 +73,13 @@ interface Navigator {
 // callsite that reads it off a plain `document.getElementById()` result.
 interface HTMLElement {
   value: string;
+}
+// `better-typescript-lib` narrows `getElementById` to `Element | null`, which
+// drops the `.style`/`.value` members every call site in this file relies on
+// (each id maps to a real `HTMLElement`). Restore lib.dom's `HTMLElement`
+// return so those accesses type without a cast.
+interface Document {
+  getElementById(elementId: string): HTMLElement | null;
 }
 
 // `Object.entries(x)` on an `any`/untyped argument resolves TypeScript's
@@ -183,10 +191,12 @@ interface ObjectConstructor {
     let isInside = false;
     let length = list4.length;
     for (let i2 = 0, previousIndex = length - 1; i2 < length; previousIndex = i2++) {
-      let currentX = list4[i2][0];
-      let currentY = list4[i2][1];
-      let previousX = list4[previousIndex][0];
-      let previousY = list4[previousIndex][1];
+      const currentPoint = ensureNonNullable(list4[i2]);
+      const previousPoint = ensureNonNullable(list4[previousIndex]);
+      let currentX = ensureNonNullable(currentPoint[0]);
+      let currentY = ensureNonNullable(currentPoint[1]);
+      let previousX = ensureNonNullable(previousPoint[0]);
+      let previousY = ensureNonNullable(previousPoint[1]);
       if (isPointOnSegment(x, y, currentX, currentY, previousX, previousY)) {
         return 1;
       }
@@ -213,14 +223,14 @@ interface ObjectConstructor {
   let nextId = 1;
   const generateId = () => nextId++;
   class Segment {
-    a: number;
-    b: number;
-    c: number;
+    a = 0;
+    b = 0;
+    c = 0;
     end: Vector;
     mark: number;
     shape: Polygon | Polyline | null;
     start: Vector;
-    vector: Vector;
+    vector: Vector | null = null;
     id?: number;
     constructor(start: Vector, end: Vector) {
       if (start.equal(end)) {}
@@ -270,7 +280,7 @@ interface ObjectConstructor {
       this.end.remove(this);
     }
     length() {
-      return this.vector.magnitude();
+      return ensureNonNullable(this.vector).magnitude();
     }
     zn(segment: Segment) {
       const a2 = segment.a;
@@ -402,9 +412,7 @@ interface ObjectConstructor {
       return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
     }
     getCell(col: number, row: number) {
-      let cell = this.cells[col + row * this.w];
-      if (!cell) {}
-      return cell;
+      return ensureNonNullable(this.cells[col + row * this.w]);
     }
     checkPoint(point: Vector) {
       const cell = this.cell(point);
@@ -459,9 +467,9 @@ interface ObjectConstructor {
   class Vector {
     cell: ContourPoints | null;
     segments: Segment[];
-    x: number;
-    y: number;
-    static space: SpatialGrid;
+    x = 0;
+    y = 0;
+    static space: SpatialGrid | null;
     constructor(x?: number, y?: number) {
       this.cell = null;
       this.segments = [];
@@ -477,7 +485,7 @@ interface ObjectConstructor {
         this.segments.push(segment);
       }
       if (!this.cell) {
-        const cell = Vector.space.cell(this);
+        const cell = ensureNonNullable(Vector.space).cell(this);
         cell.commit(this);
       }
     }
@@ -569,7 +577,7 @@ interface ObjectConstructor {
     }
     static alloc(x?: number, y?: number) {
       if (i) {
-        let vector = vectorPool[--i].set(x, y);
+        let vector = ensureNonNullable(vectorPool[--i]).set(x, y);
         return vector;
       }
       return new Vector(x, y);
@@ -591,7 +599,7 @@ interface ObjectConstructor {
       }
     }
   }
-  Vector.space = undefined;
+  Vector.space = null;
   const MIN_POINT_DISTANCE = 25;
   const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
   const KILL_REASON_WIN = 0;
@@ -723,7 +731,7 @@ interface ObjectConstructor {
   class Polygon {
     bounds: Bounds | null;
     owner: ShapeOwner | null;
-    path: Path2D;
+    path = new Path2D();
     segments: Segment[];
     simplify: Vector[];
     constructor(points: Vector[]) {
@@ -735,7 +743,7 @@ interface ObjectConstructor {
         length
       } = points;
       for (let i2 = 0; i2 < length;) {
-        this.segments.push(new Segment(points[i2++], points[i2 < length ? i2 : 0]));
+        this.segments.push(new Segment(ensureNonNullable(points[i2++]), ensureNonNullable(points[i2 < length ? i2 : 0])));
       }
       this.updateBounds();
     }
@@ -783,7 +791,7 @@ interface ObjectConstructor {
     left(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
-        list5.push(new Segment(list4[i2], list4[i2 + 1]));
+        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
       }
       const list6 = this.segments.splice(startIndex, endIndex - startIndex, ...list5);
       list5.forEach((segment: Segment) => segment.commit(this));
@@ -792,7 +800,7 @@ interface ObjectConstructor {
     right(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
-        list5.push(new Segment(list4[i2], list4[i2 + 1]));
+        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
       }
       const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
       this.remove();
@@ -802,7 +810,7 @@ interface ObjectConstructor {
     points() {
       return this.segments.map((segment: Segment) => segment.start);
     }
-    intersections(segment: Segment) {
+    intersections(_segment: Segment) {
       let list4: Intersection[] = [];
       if (this.segments.length > 1) {
         this.segments.forEach((segment: Segment) => {
@@ -829,7 +837,7 @@ interface ObjectConstructor {
         const {
           start,
           end
-        } = this.segments[i2];
+        } = ensureNonNullable(this.segments[i2]);
         const crossing = computeCrossing(start, end, point);
         if (crossing === 0) {
           return true;
@@ -871,12 +879,12 @@ interface ObjectConstructor {
       } = segments;
       const {
         start
-      } = segments[0];
+      } = ensureNonNullable(segments[0]);
       path2D.moveTo(start.x, start.y);
       for (let i = 1; i < length; i++) {
         const {
           start: point
-        } = segments[i];
+        } = ensureNonNullable(segments[i]);
         path2D.lineTo(point.x, point.y);
       }
       path2D.closePath();
@@ -894,7 +902,7 @@ interface ObjectConstructor {
           this.simplify.push(start);
           i2++;
         } else {
-          const previousPoint = this.simplify[i2 - 2];
+          const previousPoint = ensureNonNullable(this.simplify[i2 - 2]);
           if (start.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             this.simplify[i2 - 1] = start;
           } else {
@@ -967,7 +975,7 @@ interface ObjectConstructor {
     let redHueComponent;
     let greenHueComponent;
     let blueHueComponent;
-    let hue;
+    let hue = 0;
     let saturation;
     let max;
     let delta;
@@ -1177,12 +1185,12 @@ interface ObjectConstructor {
     }
   }
   class Territory {
-    isTrack: boolean;
+    isTrack = false;
     // Never populated by any observed code path; element type is not inferable from usage.
     merges: Polygon[];
-    path: Path2D;
+    path = new Path2D();
     polygon: Polygon;
-    square: number;
+    square = 0;
     unit: Unit;
     constructor(unit: Unit, points: Vector[]) {
       this.unit = unit;
@@ -1202,12 +1210,12 @@ interface ObjectConstructor {
       } = segments;
       const {
         start
-      } = segments[0];
+      } = ensureNonNullable(segments[0]);
       this.path.moveTo(start.x, start.y);
       for (let i = 1; i < length; i++) {
         const {
           start: point
-        } = segments[i];
+        } = ensureNonNullable(segments[i]);
         this.path.lineTo(point.x, point.y);
       }
       this.path.closePath();
@@ -1322,7 +1330,7 @@ interface ObjectConstructor {
       if (this.polyline.add2(point)) {
         const length2 = this.polyline.segments.length;
         if (length2 > 0) {
-          const segment = this.polyline.segments[length2 - 1];
+          const segment = ensureNonNullable(this.polyline.segments[length2 - 1]);
           this.length += segment.start.distance(segment.end);
         }
         const {
@@ -1332,7 +1340,7 @@ interface ObjectConstructor {
           length
         } = simplyline;
         if (length > 2) {
-          const previousPoint = simplyline[length - 2];
+          const previousPoint = ensureNonNullable(simplyline[length - 2]);
           if (point.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             simplyline[length - 1] = point;
           } else {
@@ -1369,10 +1377,10 @@ interface ObjectConstructor {
       this.simplyline = [];
       this.intersections = [];
     }
-    handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment) {
       let game = unit.game;
       if (unit === this.unit) {
-        if (intersection.overlay === true || intersection.point !== this.polyline.segments[this.polyline.segments.length - 1].end) {
+        if (intersection.overlay === true || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
           this.unit.position = intersection.point;
           const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_WALL : KILL_REASON_SELF_INTERSECTION;
           game.kill(this.unit, undefined, killReason);
@@ -1425,11 +1433,12 @@ interface ObjectConstructor {
         simplyline
       } = player.track;
       for (let i2 = 0, length = simplyline.length; i2 < length; i2++) {
-        if (unit.position.distance2(simplyline[i2]) < aggroRange * aggroRange) {
+        if (unit.position.distance2(ensureNonNullable(simplyline[i2])) < aggroRange * aggroRange) {
           return true;
         }
       }
     }
+    return;
   };
   const isBotInDanger = (unit: Bot) => {
     if (unit.in === unit.base) {
@@ -1442,7 +1451,7 @@ interface ObjectConstructor {
       enter: function () {
         return {};
       },
-      update: function (unit, context) {
+      update: function (unit, _context) {
         if (unit.in === unit.base) {
           if (unit.game.rng() < 0.25) {
             return "cut";
@@ -1459,15 +1468,13 @@ interface ObjectConstructor {
         if (unit.in !== unit.base) {
           return "capture";
         }
-        const distanceToCenter = unit.position.distance(unit.game.space.center);
-        const distanceToBorder = unit.game.border.radius - distanceToCenter;
-        unit.target = context.point;
+        unit.target = context.point ?? null;
+        return;
       }
     },
     cut: {
       enter: function (unit) {
         const vector = unit.position.clone().sub(unit.game.space.center);
-        const magnitude = vector.magnitude();
         const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
         const list4 = unit.base.polygon.intersections(segment);
         const context: BotStateContext = {};
@@ -1476,7 +1483,10 @@ interface ObjectConstructor {
           console.log("intersections", list4);
         }
         list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
-        context.exitPoint = list4[0] && list4[0].point;
+        const first = list4[0];
+        if (first) {
+          context.exitPoint = first.point;
+        }
         return context;
       },
       update: function (unit, context) {
@@ -1489,6 +1499,7 @@ interface ObjectConstructor {
           return "idle";
         }
         unit.target = context.exitPoint;
+        return;
       }
     },
     exit: {
@@ -1504,7 +1515,7 @@ interface ObjectConstructor {
         while (bestIndex === undefined) {
           for (let i2 = 0; i2 < 1; i2++) {
             const segmentIndex = ~~(unit.game.rng() * length);
-            const start = unit.base.polygon.segments[segmentIndex].start;
+            const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
             const distance = start.distance(unit.position);
             if (distance < nearestDistance && distance > unitSpeed) {
               nearestDistance = distance;
@@ -1513,7 +1524,7 @@ interface ObjectConstructor {
           }
           unitSpeed *= 0.75;
         }
-        context.exitPoint = unit.base.polygon.segments[bestIndex].start;
+        context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
         return context;
       },
       update: function (unit, context) {
@@ -1527,28 +1538,27 @@ interface ObjectConstructor {
         const {
           length
         } = unit.base.polygon.segments;
-        const {
-          minDistance
-        } = context;
+        const minDistance = ensureNonNullable(context.minDistance);
         const segmentIndex = ~~(unit.game.rng() * length);
-        const start = unit.base.polygon.segments[segmentIndex].start;
+        const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
         const distance = start.distance(unit.position);
-        let exitPointDistance = context.exitPoint.distance(unit.position);
+        let exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
         if (distance > minDistance && distance < exitPointDistance) {
           context.exitPoint = start;
         } else {
-          if (!Object.values(context.exitPoint.segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
+          if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
             context.exitPoint = start;
           }
           if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
             context.exitPoint = start;
           }
         }
-        unit.target = context.exitPoint;
+        unit.target = context.exitPoint ?? null;
+        return;
       }
     },
     capture: {
-      update: function (unit, context) {
+      update: function (unit, _context) {
         if (unit.in === unit.base) {
           return "idle";
         }
@@ -1572,20 +1582,20 @@ interface ObjectConstructor {
         const stepDistance = 25;
         const halfStep = stepDistance / 2;
         const halfStepSquared = halfStep * halfStep;
-        if (unit.position.distance2(unit.target) < halfStepSquared && distanceToBorder > stepDistance) {
+        if (unit.position.distance2(ensureNonNullable(unit.target)) < halfStepSquared && distanceToBorder > stepDistance) {
           return;
         }
         let signedArea = 0;
         for (let i = 1, length = unit.track.simplyline.length; i < length; i++) {
-          const point2 = unit.track.simplyline[i - 1];
-          const point3 = unit.track.simplyline[i];
+          const point2 = ensureNonNullable(unit.track.simplyline[i - 1]);
+          const point3 = ensureNonNullable(unit.track.simplyline[i]);
           signedArea += (point2.x + point3.x) * (point3.y - point2.y);
         }
-        let point = unit.track.simplyline[unit.track.simplyline.length - 1];
-        let baseNearestPoint = unit.baseNearestPoint;
+        let point = ensureNonNullable(unit.track.simplyline[unit.track.simplyline.length - 1]);
+        let baseNearestPoint = ensureNonNullable(unit.baseNearestPoint);
         signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
-        point = unit.baseNearestPoint;
-        baseNearestPoint = unit.track.simplyline[0];
+        point = ensureNonNullable(unit.baseNearestPoint);
+        baseNearestPoint = ensureNonNullable(unit.track.simplyline[0]);
         signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
         const windingSign = Math.sign(signedArea);
         signedArea = Math.abs(signedArea / 2);
@@ -1600,7 +1610,7 @@ interface ObjectConstructor {
         const areaThreshold = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
         const areaRatio = unit.capSquare / areaThreshold;
         const safeDistance = unit.vrange * lerp(3, 0.7, safety);
-        const startDistanceRatio = unit.position.distance(unit.track.polyline.start) / safeDistance;
+        const startDistanceRatio = unit.position.distance(ensureNonNullable(unit.track.polyline.start)) / safeDistance;
         const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * 0.8 * def;
         const baseDistanceRatio = unit.baseDistance / minTrackDistance;
         const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
@@ -1608,14 +1618,13 @@ interface ObjectConstructor {
           return "back";
         }
         const greedDistance = unit.vrange * greed;
-        const dangerDistance = unit.distanceDanger * 0.6 * def;
         const approachDistance = greedDistance;
         const retreatDistance = approachDistance * 0.8;
-        const toTarget = unit.target.clone().sub(unit.position);
+        const toTarget = ensureNonNullable(unit.target).clone().sub(unit.position);
         let steerVector;
         if (unit.baseDistance > approachDistance || maxRatio > 0.75) {
           unit.aspect = "приближение";
-          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate((Math.PI / 2 + Math.PI / 4) * windingSign);
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 + Math.PI / 4) * windingSign);
         } else if (unit.baseDistance < retreatDistance) {
           unit.aspect = "отдаление";
           let angle = Math.PI / 4;
@@ -1624,10 +1633,10 @@ interface ObjectConstructor {
             unit.aspect = "отстрел";
             angle = lerp(Math.PI / 2 * greed, 0, trackRatio);
           }
-          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate((Math.PI / 2 - angle) * windingSign);
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 - angle) * windingSign);
         } else {
           unit.aspect = "проход";
-          steerVector = unit.baseNearestPointNormal.clone().mulScalar(stepDistance).rotate(Math.PI / 2 * windingSign);
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(Math.PI / 2 * windingSign);
           unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 3;
         }
         unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 1;
@@ -1659,11 +1668,12 @@ interface ObjectConstructor {
           steerVector = centerDirection.clone().rotate(Math.PI / 2 * targetAngle2).rotate(Math.PI / 8 * -targetAngle2).mulScalar(chordHalfLength);
           unit.target = projectionPoint.clone().add(steerVector);
         } else if (unit.target.distance(center) > radius && unit.target.distance(center) < radius + stepDistance * 0.5) {}
+        return;
       }
     },
     back: {
-      enter: function (unit, context) {},
-      update: function (unit, context) {
+      enter: function (_unit, _context) {},
+      update: function (unit, _context) {
         if (unit.in === unit.base) {
           return "idle";
         }
@@ -1673,11 +1683,12 @@ interface ObjectConstructor {
           unit.smoothness = 1;
         }
         unit.target = unit.baseNearestPoint;
+        return;
       }
     },
     attack: {
       enter: () => ({}),
-      update: function (unit, context) {
+      update: function (unit, _context) {
         const {
           player
         } = unit.game;
@@ -1702,7 +1713,8 @@ interface ObjectConstructor {
             nearestIndex = index;
           }
         });
-        unit.target = simplyline[nearestIndex];
+        unit.target = simplyline[nearestIndex] ?? null;
+        return;
       }
     }
   };
@@ -1797,37 +1809,37 @@ interface ObjectConstructor {
         unitSpeed,
         baseHeight
       } = unit.game.config;
-      const velocity = segment.vector.clone().normalize().rotate(randomSign * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
-      const perpendicularOffset = segment.vector.clone().rotate(Math.PI / 2).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / 2);
-      const forwardOffset = segment.vector.clone().normalize().mulScalar(scaledMaxScale / 2);
-      const acceleration = segment.vector.clone().normalize().mulScalar(unitSpeed * -6).rotate(randomSign * Math.random() * (Math.PI / 10));
+      const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(randomSign * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
+      const perpendicularOffset = ensureNonNullable(segment.vector).clone().rotate(Math.PI / 2).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / 2);
+      const forwardOffset = ensureNonNullable(segment.vector).clone().normalize().mulScalar(scaledMaxScale / 2);
+      const acceleration = ensureNonNullable(segment.vector).clone().normalize().mulScalar(unitSpeed * -6).rotate(randomSign * Math.random() * (Math.PI / 10));
       const {
         particles
-      } = unit.in.unit.skin.colors;
+      } = ensureNonNullable(unit.in).unit.skin.colors;
       const scale2 = 0.75 + Math.random() * 0.5;
-      const particle = new Particle(null, particles[~~(Math.random() * particles.length)], segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * -2, 300);
+      const particle = new Particle(null, ensureNonNullable(particles[~~(Math.random() * particles.length)]), segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * -2, 300);
       return particle;
     }
   }
   function spawnScoreParticles(unit: Unit, scoreCollector: Unit | null, list4: Segment[], shouldTransferScore?: boolean) {
     let game = unit.game;
     if (game.visible) {
-      const totalScores = unit.schemes.scores();
+      const totalScores = ensureNonNullable(unit.schemes).scores();
       let i2 = 0;
       let accumulatedDistance = 0;
       let scorePerParticle = 0;
       list4.forEach((segment: Segment) => {
-        accumulatedDistance += segment.vector.magnitude();
+        accumulatedDistance += ensureNonNullable(segment.vector).magnitude();
         if (accumulatedDistance > 5) {
           accumulatedDistance = 0;
-          const velocity = segment.vector.clone().normalize().rotate(Math.sign(Math.random() - 0.5) * Math.PI / 2).mulScalar(25 + Math.random() * 100);
+          const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(Math.sign(Math.random() - 0.5) * Math.PI / 2).mulScalar(25 + Math.random() * 100);
           if (Math.random() > 0.25) {
             velocity.mulScalar(0.1);
           }
           const rotationSpeed = (shouldTransferScore ? 3 : 1) * (1 + Math.random() * 0.5);
           const time = 500 + Math.random() * 500;
           const vscale = -rotationSpeed * 0.7 * (1000 / time);
-          const particle = new Particle(null, unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)], segment.start.clone(), velocity, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), rotationSpeed, vscale, time, (particle2: Particle) => {
+          const particle = new Particle(null, ensureNonNullable(unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)]), segment.start.clone(), velocity, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), rotationSpeed, vscale, time, (particle2: Particle) => {
             if (scoreCollector) {
               particle2.target = scoreCollector;
               particle2.time = 1;
@@ -1835,7 +1847,7 @@ interface ObjectConstructor {
               particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
               particle2.fn = () => {
                 if (shouldTransferScore) {
-                  scoreCollector.schemes.getScheme().accumulator += scorePerParticle;
+                  ensureNonNullable(scoreCollector.schemes).getScheme().accumulator += scorePerParticle;
                 }
               };
               particle2.vscale = 0;
@@ -1905,19 +1917,19 @@ interface ObjectConstructor {
     }
     getScheme(name?: string): ScoreLabel {
       if (name) {
-        return this.schemes.find((scheme: ScoreLabel) => scheme.name === name);
+        return ensureNonNullable(this.schemes.find((scheme: ScoreLabel) => scheme.name === name));
       } else {
-        return this.schemes[this.manager.current];
+        return ensureNonNullable(this.schemes[this.manager.current]);
       }
     }
     scores(): number {
-      return this.schemes[this.manager.current].scores();
+      return ensureNonNullable(this.schemes[this.manager.current]).scores();
     }
     result(): number {
-      return this.schemes[this.manager.current].result();
+      return ensureNonNullable(this.schemes[this.manager.current]).result();
     }
     print(score?: number): string {
-      return this.schemes[this.manager.current].print(score);
+      return ensureNonNullable(this.schemes[this.manager.current]).print(score);
     }
     update(dt?: number): void {
       this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.update(dt, this.manager.current !== index));
@@ -1933,7 +1945,7 @@ interface ObjectConstructor {
     }
   }
   class ScoreLabel {
-    accumulator: number;
+    accumulator = 0;
     name: string;
     unit: Unit;
     constructor(unit: Unit, name: string) {
@@ -1946,47 +1958,44 @@ interface ObjectConstructor {
     scores(): number {
       return 0;
     }
-    print(score?: number): string {
+    print(_score?: number): string {
       return formatFixed2(this.scores());
     }
     result(): number {
       return this.scores();
     }
-    kill(killer?: Unit, cause?: number, isNotCurrent?: boolean): void {}
-    update(dt?: number, isNotCurrent?: boolean): void {}
-    out(isNotCurrent?: boolean): void {}
-    comeback(info?: ComebackInfo, isNotCurrent?: boolean): void {}
+    kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
+    update(_dt?: number, _isNotCurrent?: boolean): void {}
+    out(_isNotCurrent?: boolean): void {}
+    comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
   }
   class BotScoreLabel extends ScoreLabel {
     constructor(unit: Unit) {
       super(unit, "percent");
     }
-    scores(): number {
+    override scores(): number {
       return this.unit.percent * 100;
     }
-    result(): number {
+    override result(): number {
       return +this.scores().toFixed(2);
     }
-    print(scoreOverride?: number): string {
+    override print(scoreOverride?: number): string {
       const score = scoreOverride || this.scores();
       return formatFixed2(score) + "%";
     }
-    kill(killer?: Unit, cause?: number, isNotCurrent?: boolean): void {
+    override kill(killer?: Unit, _cause?: number, isNotCurrent?: boolean): void {
       if (!isNotCurrent && this.unit.isPlayer) {
         this.unit.addLabel({
           text: this.unit.game.language.killText,
-          color: killer.skin.colors.main,
+          color: ensureNonNullable(killer).skin.colors.main,
           unit: this.unit,
           time: 1000,
           fading: true
         });
       }
     }
-    comeback({
-      increment,
-      rise,
-      victims,
-      game
+    override comeback({
+      increment
     }: ComebackInfo, isNotCurrent?: boolean): void {
       if (!isNotCurrent && increment * 100 >= 0.01 && this.unit.isPlayer) {
         this.unit.addLabel({
@@ -2031,7 +2040,7 @@ interface ObjectConstructor {
     }
     update(amount: number): void {
       this.current += amount;
-      if (this.current > this.states[this.state]) {
+      if (this.current > ensureNonNullable(this.states[this.state])) {
         this.state++;
         this.current = 0;
       }
@@ -2039,11 +2048,11 @@ interface ObjectConstructor {
     position(): number {
       switch (this.state) {
         case 0:
-          return easeOutCubic(this.current / this.states[0]);
+          return easeOutCubic(this.current / ensureNonNullable(this.states[0]));
         case 1:
           return 1;
         case 2:
-          return 1 - easeOutCubic(this.current / this.states[2]);
+          return 1 - easeOutCubic(this.current / ensureNonNullable(this.states[2]));
         default:
           return 0;
       }
@@ -2065,7 +2074,9 @@ interface ObjectConstructor {
       this.getChecker = getChecker;
       this.description = description;
       this.url = url;
-      this.onEarned = onEarned;
+      if (onEarned) {
+        this.onEarned = onEarned;
+      }
       this.best = 0;
       this.earned = false;
       this.checker = null;
@@ -2150,14 +2161,14 @@ interface ObjectConstructor {
     }
   }
   class AchievementTracker {
-    achievements: Achievement[];
+    achievements: Achievement[] = [];
     profile: AchievementStore | null;
     constructor(profile: AchievementStore | null, mode: string) {
       this.profile = profile;
       if (!this.profile) {
         return;
       }
-      this.achievements = profile.achievements.filter((achievement: Achievement) => {
+      this.achievements = ensureNonNullable(profile).achievements.filter((achievement: Achievement) => {
         const shouldTrack = !achievement.earned && achievement.modes.some((candidateMode: string) => candidateMode === mode);
         if (shouldTrack) {
           achievement.checker = achievement.getChecker();
@@ -2167,13 +2178,13 @@ interface ObjectConstructor {
     }
     update(unit: Unit, value: number, game: Game): void {
       this.achievements = this.achievements.filter((achievement: Achievement) => {
-        achievement.checker.update(unit, value, game);
-        if (achievement.checker.progress > achievement.best) {
-          achievement.best = achievement.checker.progress;
+        ensureNonNullable(achievement.checker).update(unit, value, game);
+        if (ensureNonNullable(achievement.checker).progress > achievement.best) {
+          achievement.best = ensureNonNullable(achievement.checker).progress;
         }
-        if (achievement.checker.check(unit, value, game)) {
+        if (ensureNonNullable(achievement.checker).check(unit, value, game)) {
           achievement.success(game);
-          this.profile.save();
+          ensureNonNullable(this.profile).save();
           return false;
         }
         return true;
@@ -2181,16 +2192,16 @@ interface ObjectConstructor {
     }
     finish(): void {
       this.achievements = [];
-      this.profile.save();
+      ensureNonNullable(this.profile).save();
     }
     onKill(unit: Unit): void {
       this.achievements.forEach((achievement: Achievement) => {
-        achievement.checker.onKill(unit);
+        ensureNonNullable(achievement.checker).onKill(unit);
       });
     }
     onOut(): void {
       this.achievements.forEach((achievement: Achievement) => {
-        achievement.checker.onOut();
+        ensureNonNullable(achievement.checker).onOut();
       });
     }
   }
@@ -2209,12 +2220,12 @@ interface ObjectConstructor {
       this.position = position;
       this.unit = unit;
       this.labels = [];
-      this.country = unit && unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
+      this.country = ensureNonNullable(ensureNonNullable(unit).skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
       this.scores = 0;
       this.skin = null;
     }
     add(amount: number) {
-      const name = this.unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
+      const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
       let scoreGain = 0;
       if (name === this.country) {
         scoreGain = amount * (this.capital ? 1 : 0.5);
@@ -2252,7 +2263,7 @@ interface ObjectConstructor {
     scale: number;
     schemes: Scoreboard | null;
     scores: UnitScores;
-    skin: Skin;
+    private _skin: Skin | null = null;
     smoothness: number;
     statistics: UnitStatistics;
     target: Vector | null;
@@ -2261,14 +2272,13 @@ interface ObjectConstructor {
     type: number;
     vrange: number;
     constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
-      this.killer = undefined;
-      this.achievements = undefined;
-      this.skin = undefined;
-      this.death = undefined;
-      this.jitter = undefined;
-      this.smoothness = undefined;
-      this.type = undefined;
-      this.fsm = undefined;
+      this.killer = null;
+      this.achievements = null;
+      this.death = false;
+      this.jitter = 0;
+      this.smoothness = 0;
+      this.type = 0;
+      this.fsm = null;
       this.game = game;
       this.name = name;
       this.position = position;
@@ -2295,7 +2305,7 @@ interface ObjectConstructor {
         accumulator: 0,
         kills: 0
       };
-      this.schemes = schemeCycler && schemeCycler.getSchemes(this);
+      this.schemes = (schemeCycler && schemeCycler.getSchemes(this)) ?? null;
       this.baseDistance = 0;
       this.baseNearestPoint = null;
       this.baseNearestPointTangent = null;
@@ -2303,6 +2313,12 @@ interface ObjectConstructor {
     }
     get isPlayer() {
       return false;
+    }
+    get skin(): Skin {
+      return ensureNonNullable(this._skin);
+    }
+    set skin(value: Skin) {
+      this._skin = value;
     }
     setSkin(skin: Skin) {
       this.skin = skin;
@@ -2337,7 +2353,7 @@ interface ObjectConstructor {
         });
         const previousPoint = simplify[nearestIndex > 0 ? nearestIndex - 1 : simplify.length - 1];
         const nextPoint = simplify[nearestIndex < simplify.length - 1 ? nearestIndex + 1 : 0];
-        tangent = nextPoint.clone().sub(previousPoint).normalize();
+        tangent = ensureNonNullable(nextPoint).clone().sub(ensureNonNullable(previousPoint)).normalize();
       }
       nearestDistanceSquared = Math.sqrt(nearestDistanceSquared);
       this.baseDistance = nearestDistanceSquared;
@@ -2356,16 +2372,16 @@ interface ObjectConstructor {
     }
   }
   class Player extends Unit {
-    moveTo: boolean;
+    moveTo?: boolean;
     win: boolean;
-    get isPlayer() {
+    override get isPlayer() {
       return true;
     }
     constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
       this.win = false;
     }
-    update(deltaMilliseconds: number) {
+    override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       if (!this.respawn) {
         this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
@@ -2374,17 +2390,17 @@ interface ObjectConstructor {
   }
   class Bot extends Unit {
     aggro: number;
-    aspect: string;
-    capSquare: number;
+    aspect?: string;
+    capSquare = 0;
     def: number;
-    distanceDanger: number;
+    distanceDanger = 0;
     greed: number;
     maxDanger: number;
     safety: number;
     // Assigned an empty array in the constructor and never populated by any observed code path.
     targets: Unit[];
     unitDanger: Unit | null;
-    unitToTrackDistances: UnitTrackDistance[];
+    unitToTrackDistances: UnitTrackDistance[] = [];
     constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
       this.aggro = 0;
@@ -2399,7 +2415,7 @@ interface ObjectConstructor {
       this.unitDanger = null;
       this.fsm = new StateMachine(botStates, "idle", this);
     }
-    update(deltaMilliseconds: number) {
+    override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       this.unitToTrackDistances = [];
       let maxDanger = 0;
@@ -2441,7 +2457,7 @@ interface ObjectConstructor {
       this.distanceDanger = dangerDistance;
       this.maxDanger = maxDanger;
       this.smoothness = 1;
-      this.fsm.update();
+      ensureNonNullable(this.fsm).update();
     }
   }
   class TextParticle {
@@ -2555,7 +2571,7 @@ interface ObjectConstructor {
   const baseCos = Math.cos(0);
   const baseSin = Math.sin(0);
   const MAX_METRICS_SAMPLES = 240;
-  const angleToVector = (angle?: number) => {
+  const angleToVector = (angle: number) => {
     const cosAngle = Math.cos(angle);
     const sinAngle = Math.sin(angle);
     const x = baseCos * cosAngle - baseSin * sinAngle;
@@ -2681,17 +2697,10 @@ interface ObjectConstructor {
     startT: number;
     endT: number;
   }
-  interface UnitLabel {
-    text: string;
-    color: string;
-    unit: Unit;
-    time: number;
-    fading: boolean;
-  }
   type Shape = Polygon | Polyline;
   class Game {
     achievementsProfile: AchievementStore;
-    angle: number;
+    angle = 0;
     best: number | null;
     border: Border;
     botSpawnLimited: boolean;
@@ -2711,7 +2720,7 @@ interface ObjectConstructor {
     fpsSequence: number[];
     gameOverCallback: ((result: GameOverResult) => void) | null;
     isTest: boolean;
-    keyboard?: PointerState | null;
+    keyboard?: Partial<PointerState> | null;
     labels: TextParticle[];
     language: LanguageStrings;
     last: number;
@@ -2722,11 +2731,11 @@ interface ObjectConstructor {
     mouse: Vector;
     nameManager: NamePool;
     notifications: Quest[];
-    origin: Vector;
+    origin: Vector | null = null;
     particles: Particle[];
     player: Player | null;
     playerDeathCallback: (() => void) | null;
-    qas: { q9: boolean; q8: boolean; q7: boolean; q6: boolean; q5: boolean };
+    qas: { [qualityKey: string]: boolean };
     quality: number;
     recording: Recorder | null;
     renderer: ((game: Game) => void) | null;
@@ -2739,7 +2748,7 @@ interface ObjectConstructor {
     space: SpatialGrid;
     spawnSuspend: number;
     square: number;
-    startTime: number;
+    startTime = 0;
     stats: { fps: number; ut: number; ait: number; st: number; rt: number };
     stopped: boolean;
     tailRecovered: boolean;
@@ -2754,7 +2763,6 @@ interface ObjectConstructor {
       this.best = null;
       this.isTest = false;
       this.playerDeathCallback = null;
-      this.keyboard = undefined;
       this.tailRecovered = false;
       this.topListChanged = false;
       this.citiesManager = null;
@@ -2891,7 +2899,7 @@ interface ObjectConstructor {
       switch (spawnMode) {
         case "player":
           spawnDistance = lerp(baseRadius * 12, baseRadius * 16, Math.random());
-          center2 = this.player.position;
+          center2 = ensureNonNullable(this.player).position;
           break;
         case "bounds":
           spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * 10)), Math.max(0, radius - (unitRadius + baseRadius * 4)), Math.random());
@@ -2910,7 +2918,7 @@ interface ObjectConstructor {
         return;
       }
       for (var i2 = 0; i2 < this.units.length; i2++) {
-        var unit = this.units[i2];
+        var unit = ensureNonNullable(this.units[i2]);
         if (unit.base.polygon.inside(vector)) {
           return;
         }
@@ -2957,22 +2965,23 @@ interface ObjectConstructor {
       const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
       this.units.forEach((unit: Unit) => {
         if (unit !== this.player) {
-          botTypeCounts[unit.type]++;
+          botTypeCounts[unit.type] = ensureNonNullable(botTypeCounts[unit.type]) + 1;
         }
       });
       this.bots = objectAssign({}, botTypeCounts);
-      const typeDistribution = list4[Math.round(this.level * (list4.length - 1))];
+      const typeDistribution = ensureNonNullable(list4[Math.round(this.level * (list4.length - 1))]);
       let distributionIndex = -1;
-      while (botTypeCounts[typeDistribution[++distributionIndex]] > 0) {
-        botTypeCounts[typeDistribution[distributionIndex]]--;
+      while (ensureNonNullable(botTypeCounts[ensureNonNullable(typeDistribution[++distributionIndex])]) > 0) {
+        const decrementType = ensureNonNullable(typeDistribution[distributionIndex]);
+        botTypeCounts[decrementType] = ensureNonNullable(botTypeCounts[decrementType]) - 1;
       }
-      const botType = typeDistribution[distributionIndex];
-      const botName = this.nameManager.get();
+      const botType = ensureNonNullable(typeDistribution[distributionIndex]);
+      const botName = ensureNonNullable(this.nameManager.get());
       const bot = new Bot(this, botType, botName, spawnPosition, createCirclePoints(spawnPosition, baseCount, baseRadius), undefined, this.schemesManager);
       const botSkin = this.skinManager.get();
       bot.setSkin(botSkin);
       this.addUnit(bot);
-      this.bots[botType]++;
+      this.bots[botType] = ensureNonNullable(this.bots[botType]) + 1;
     }
     spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
       const {
@@ -3008,9 +3017,7 @@ interface ObjectConstructor {
       this.startTime = now();
     }
     gameOver(reason?: number): void {
-      const {
-        player
-      } = this;
+      const player = ensureNonNullable(this.player);
       if (!player.win) {
         let minX = Infinity;
         let maxX = 0;
@@ -3038,7 +3045,7 @@ interface ObjectConstructor {
           const element = document.createElement("canvas");
           element.width = canvasSize;
           element.height = canvasSize;
-          const context = element.getContext("2d");
+          const context = ensureNonNullable(element.getContext("2d"));
           context.scale(scale, scale);
           context.translate(canvasSize / 2 / scale - vector.x, canvasSize / 2 / scale - vector.y);
           context.translate(0, sizeUnit / scale);
@@ -3053,8 +3060,8 @@ interface ObjectConstructor {
           build: this.build,
           game: this,
           percent: player.percent,
-          score: player.schemes && player.schemes.result(),
-          newBest: player.schemes && player.schemes.result() > this.best,
+          score: ensureNonNullable(player.schemes).result(),
+          newBest: ensureNonNullable(player.schemes).result() > (this.best ?? 0),
           name: player.name,
           top: player.top,
           best: this.best,
@@ -3062,7 +3069,7 @@ interface ObjectConstructor {
           time: now() - this.startTime,
           kills: player.statistics.kills,
           image: dataUrl,
-          reason: reason
+          reason: ensureNonNullable(reason)
         };
         if (reason === KILL_REASON_WIN) {
           player.win = true;
@@ -3101,12 +3108,13 @@ interface ObjectConstructor {
       });
     }
     kill(unit?: Unit, unit2?: Unit, reason?: number): void {
+      assertNonNullable(unit);
       if (unit.death) {
         return;
       }
       if (this.isTest) {
         const deathReasons: string[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
-        console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + deathReasons[reason] + ")");
+        console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + deathReasons[ensureNonNullable(reason)] + ")");
       }
       this.events.kills++;
       unit.death = true;
@@ -3126,7 +3134,7 @@ interface ObjectConstructor {
       unit.base.remove();
       const index = this.units.findIndex((candidate: Unit) => candidate === unit);
       this.units.splice(index, 1);
-      unit.killer = unit2;
+      unit.killer = unit2 ?? null;
       if (unit2) {
         unit2.scores.kills = unit.scores.kills + unit.scores.accumulator;
         if (unit2.schemes) {
@@ -3169,19 +3177,19 @@ interface ObjectConstructor {
       let list5: Intersection[] = this.border.intersections(segment);
       while (list5.length) {
         let intersection: Intersection;
-        const vector3 = segment.vector;
+        const vector3 = ensureNonNullable(segment.vector);
         if (list5.length === 2) {
-          const vector6 = list5[0].segment.vector;
+          const vector6 = ensureNonNullable(ensureNonNullable(list5[0]).segment.vector);
           let angle = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
-          intersection = angle > 0 ? list5[0] : list5[1];
+          intersection = angle > 0 ? ensureNonNullable(list5[0]) : ensureNonNullable(list5[1]);
         } else {
-          intersection = list5[0];
+          intersection = ensureNonNullable(list5[0]);
         }
         const {
           segment: borderSegment,
           point: intersectionPoint
         } = intersection;
-        const vector4 = borderSegment.vector;
+        const vector4 = ensureNonNullable(borderSegment.vector);
         let angle2 = Math.atan2(vector3.x * vector4.y - vector4.x * vector3.y, vector3.dot(vector4));
         if (angle2 < 0) {
           break;
@@ -3191,7 +3199,7 @@ interface ObjectConstructor {
           list4.push(segment2);
         }
         segment = new Segment(intersectionPoint, segment.end);
-        const vector5 = segment.vector;
+        const vector5 = ensureNonNullable(segment.vector);
         const slideVector = Vector.clone(vector4).normalize().mulScalar(vector5.dot(vector4) / vector4.magnitude());
         segment = new Segment(intersectionPoint, intersectionPoint.clone().add(slideVector));
         slideVector.release();
@@ -3206,8 +3214,8 @@ interface ObjectConstructor {
       }
       if (this.controller.pressed()) {
         this.keyboard = Object.assign({}, this.controller.mouse);
-        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * deltaMilliseconds / 1000;
-        if (this.controller.keyboardModeSwitch.mode2) {
+        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * ensureNonNullable(deltaMilliseconds) / 1000;
+        if (ensureNonNullable(this.controller.keyboardModeSwitch).mode2) {
           let horizontalInput = 0;
           if (this.controller.left) {
             horizontalInput = -1;
@@ -3297,9 +3305,6 @@ interface ObjectConstructor {
     }
     update(deltaMilliseconds?: number): boolean {
       const {
-        trackWidth,
-        unitSpeed,
-        baseHeight,
         maxScale,
         minScale,
         observerScale
@@ -3352,8 +3357,8 @@ interface ObjectConstructor {
           let vector = new Vector(0, -35);
           const vector2 = new Vector(0, -10);
           const vector3 = new Vector(0, -10);
-          unit.labels.forEach((textParticle: UnitLabel) => {
-            this.labels.push(new TextParticle(textParticle.text, textParticle.color, textParticle.unit, vector, vector2, textParticle.time, textParticle.fading));
+          unit.labels.forEach((textParticle: Label) => {
+            this.labels.push(new TextParticle(textParticle.text, textParticle.color, ensureNonNullable(textParticle.unit), vector, vector2, textParticle.time, textParticle.fading));
             vector = vector.clone().add(vector3);
           });
           unit.labels = [];
@@ -3368,7 +3373,7 @@ interface ObjectConstructor {
         return particle.time > 0;
       });
       if (this.notifications.length) {
-        const quest = this.notifications[0];
+        const quest = ensureNonNullable(this.notifications[0]);
         if (quest.ready) {
           quest.update(deltaMilliseconds);
           if (quest.state > 3) {
@@ -3432,7 +3437,7 @@ interface ObjectConstructor {
       if (player && player.track.length > this.config.botAttackTrackLength) {
         let closestBot: Bot | null = null;
         let closestDistance = Infinity;
-        this.units.forEach((unit: Unit) => {
+        for (const unit of this.units) {
           if (unit instanceof Bot) {
             let minDistance = Infinity;
             player.track.simplyline.forEach((trackPoint: Vector) => {
@@ -3447,9 +3452,9 @@ interface ObjectConstructor {
               closestDistance = minDistance;
             }
           }
-        });
+        }
         if (closestBot) {
-          closestBot.fsm.change("attack");
+          ensureNonNullable(closestBot.fsm).change("attack");
         }
       }
       const targetScale = player ? player.scale : observerScale;
@@ -3593,7 +3598,7 @@ interface ObjectConstructor {
       const minQuality = 0.5;
       if (this.fpsSequence.length > fpsSampleSize) {
         this.fpsSequence.sort();
-        const medianFps = this.fpsSequence[~~(fpsSampleSize / 2)];
+        const medianFps = ensureNonNullable(this.fpsSequence[~~(fpsSampleSize / 2)]);
         if (medianFps < lowFpsThreshold) {
           this.quality -= 0.1;
         }
@@ -3636,7 +3641,7 @@ interface ObjectConstructor {
     changeShields(): void {
       const {
         countries: leaderboard
-      } = this.leaderboard;
+      } = ensureNonNullable(this.leaderboard);
       if (leaderboard) {
         const goldCountry = leaderboard[0] && leaderboard[0].country;
         const silverCountry = leaderboard[1] && leaderboard[1].country;
@@ -3677,7 +3682,7 @@ interface ObjectConstructor {
         build: paper2_results.build || 0,
         player: window.playerId || 0,
         lng: getLanguageCode(),
-        name: this.player.name,
+        name: ensureNonNullable(this.player).name,
         top: paper2_results.top || 0,
         persent: Math.round(paper2_results.score * 100),
         best: paper2_results.bestPercent && Math.round(paper2_results.bestPercent * 10000) || 0,
@@ -3707,11 +3712,11 @@ interface ObjectConstructor {
       });
     }
     addCity(unit: Unit) {
-      const name = unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags").name;
-      const city = new City(this.citiesManager.get(name), false, unit.position.clone(), unit);
+      const name = ensureNonNullable(unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
+      const city = new City(ensureNonNullable(this.citiesManager).get(name), false, unit.position.clone(), unit);
       if (this.skinManager.isFlagSkinManager) {
         const citySkin = this.skinManager.getCitySkin(name);
-        city.skin = citySkin;
+        city.skin = citySkin ?? null;
       }
       unit.cities.push(city);
     }
@@ -3721,8 +3726,7 @@ interface ObjectConstructor {
         totalSegmentCount += unit.base.polygon.segments.length;
         totalSegmentCount += unit.track.polyline.segments.length;
       });
-      const segmentCounts = this.space.segmentsCount();
-      const length = Object.keys(segmentCounts).length;
+      this.space.segmentsCount();
     }
     handleReturn(unit: Unit): boolean | undefined {
       if (unit.death) {
@@ -3776,11 +3780,11 @@ interface ObjectConstructor {
       const length = segments.length;
       const list6: { base: Territory; poly: Polygon }[] = [];
       for (let i2 = 0; i2 <= length; i2++) {
-        const point = i2 === length ? segments[i2 - 1].end : segments[i2].start;
-        const crossingSegments = point.segments.filter((segment: Segment) => segment.shape.owner !== unit.track && segment.shape.owner !== unit.base && segment.start === point);
+        const point = i2 === length ? ensureNonNullable(segments[i2 - 1]).end : ensureNonNullable(segments[i2]).start;
+        const crossingSegments = point.segments.filter((segment: Segment) => ensureNonNullable(segment.shape).owner !== unit.track && ensureNonNullable(segment.shape).owner !== unit.base && segment.start === point);
         if (crossingSegments.length) {
           let list7: ShapeOwnerIntersection[] = crossingSegments.map((segment: Segment) => ({
-            owner: segment.shape.owner,
+            owner: ensureNonNullable(ensureNonNullable(segment.shape).owner),
             point: point,
             segment: segment,
             index: i2
@@ -3795,15 +3799,15 @@ interface ObjectConstructor {
               if (!list8.length) {
                 return false;
               }
-              return list8[list8.length - 1].enter;
+              return ensureNonNullable(list8[list8.length - 1]).enter;
             });
           } else {
             let list8 = list5.filter((intersection: ShapeOwnerIntersection) => list7.some((otherIntersection: ShapeOwnerIntersection) => {
               return otherIntersection.owner === intersection.owner;
             }));
             if (list8.length) {
-              const enterIntersection = list8[0];
-              const leaveIntersection = list7.find((intersection: ShapeOwnerIntersection) => intersection.owner === enterIntersection.owner);
+              const enterIntersection = ensureNonNullable(list8[0]);
+              const leaveIntersection = ensureNonNullable(list7.find((intersection: ShapeOwnerIntersection) => intersection.owner === enterIntersection.owner));
               const mergeComeback = (params: ComebackMergeParams) => {
                 const {
                   owner,
@@ -3817,10 +3821,10 @@ interface ObjectConstructor {
                   leave
                 } = params;
                 if (enter.shape !== owner.polygon) {
-                  enter = owner.polygon.segments.find((segment: Segment) => segment.start === startPoint);
+                  enter = ensureNonNullable(owner.polygon.segments.find((segment: Segment) => segment.start === startPoint));
                 }
                 if (leave.shape !== owner.polygon) {
-                  leave = owner.polygon.segments.find((segment: Segment) => segment.start === endPoint);
+                  leave = ensureNonNullable(owner.polygon.segments.find((segment: Segment) => segment.start === endPoint));
                 }
                 if (enter === leave) {
                   return;
@@ -3841,7 +3845,7 @@ interface ObjectConstructor {
                 const polygon4 = new Polygon(list11);
                 const polygon5 = new Polygon(list10);
                 let polygon6: Polygon;
-                if (owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && polygon4.inside(owner.unit.track.polyline.start)) {
+                if (owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && polygon4.inside(ensureNonNullable(owner.unit.track.polyline.start))) {
                   owner.polygon.right(points, startIndex, endIndex);
                   polygon6 = polygon5;
                 } else {
@@ -3872,9 +3876,9 @@ interface ObjectConstructor {
                 endPoint: leaveIntersection.point,
                 endT: leaveIntersection.index
               });
-              const intersectionRecord2 = unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point));
+              const intersectionRecord2 = ensureNonNullable(unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point)));
               const list9 = intersectionRecord2.intersections.filter((crossing: TrailCrossing) => crossing.base === enterIntersection.owner);
-              if (list9.length === 1 || list9[list9.length - 1].enter === false) {
+              if (list9.length === 1 || ensureNonNullable(list9[list9.length - 1]).enter === false) {
                 list7 = list7.filter((intersection: ShapeOwnerIntersection) => intersection.owner !== enterIntersection.owner);
               }
             }
@@ -3896,6 +3900,7 @@ interface ObjectConstructor {
           game: this
         });
       }
+      return;
     }
     render(): void {
       if (this.renderer) {
@@ -3907,7 +3912,7 @@ interface ObjectConstructor {
         if (unit.death) {
           return;
         }
-        let list4 = this.getMovement(deltaMilliseconds, unit);
+        let list4 = this.getMovement(ensureNonNullable(deltaMilliseconds), unit);
         {
           if (unit === this.player && !this.player.moveTo && unit.in === null && Math.random() < 0.0005) {
             unit.in = unit.base;
@@ -3917,7 +3922,7 @@ interface ObjectConstructor {
           if (unit.death) {
             return;
           }
-          const segment = list4.shift();
+          const segment = ensureNonNullable(list4.shift());
           const list5: Intersection[] = this.space.intersections(segment);
           const list6: IntersectionGroup[] = [];
           list5.forEach((intersection: Intersection) => {
@@ -3928,21 +3933,22 @@ interface ObjectConstructor {
                 intersections: [intersection]
               });
             } else {
-              if (intersection.point !== list6[groupIndex].point) {
+              const group = ensureNonNullable(list6[groupIndex]);
+              if (intersection.point !== group.point) {
                 if (intersection.point.cell) {
-                  if (list6[groupIndex].point.cell) {
+                  if (group.point.cell) {
                     throw new Error("Бывает ли такое?");
                   } else {
-                    list6[groupIndex].point = intersection.point;
-                    list6[groupIndex].intersections.forEach((intersection: Intersection) => {
+                    group.point = intersection.point;
+                    group.intersections.forEach((intersection: Intersection) => {
                       intersection.point = intersection.point;
                     });
                   }
                 } else {
-                  intersection.point = list6[groupIndex].point;
+                  intersection.point = group.point;
                 }
               }
-              list6[groupIndex].intersections.push(intersection);
+              group.intersections.push(intersection);
             }
           });
           list5.forEach((intersection: Intersection) => {
@@ -3958,7 +3964,7 @@ interface ObjectConstructor {
               lastDistance = intersection.distance;
               list7.push(list8);
             }
-            list8.push(intersection);
+            ensureNonNullable(list8).push(intersection);
           });
           list7.forEach((list9: Intersection[]) => {
             const list10: Shape[] = [];
@@ -3973,17 +3979,17 @@ interface ObjectConstructor {
             while (list10.length) {
               const inShapeIndex = list10.findIndex((shape: Shape) => shape.owner === unit.in);
               if (inShapeIndex > 0) {
-                const firstShape = list10[0];
-                list10[0] = list10[inShapeIndex];
+                const firstShape = ensureNonNullable(list10[0]);
+                list10[0] = ensureNonNullable(list10[inShapeIndex]);
                 list10[inShapeIndex] = firstShape;
               }
-              const trackShapeIndex = list10.findIndex((shape: Shape) => shape.owner.isTrack);
+              const trackShapeIndex = list10.findIndex((shape: Shape) => ensureNonNullable(shape.owner).isTrack);
               if (trackShapeIndex > 0) {
-                const firstShape2 = list10[0];
-                list10[0] = list10[trackShapeIndex];
+                const firstShape2 = ensureNonNullable(list10[0]);
+                list10[0] = ensureNonNullable(list10[trackShapeIndex]);
                 list10[trackShapeIndex] = firstShape2;
               }
-              const shape = list10.shift();
+              const shape = ensureNonNullable(list10.shift());
               const list11: Intersection[] = [];
               list9.forEach((intersection: Intersection) => {
                 if (intersection.segment.shape === shape) {
@@ -3998,9 +4004,9 @@ interface ObjectConstructor {
                     return intersectionA.zn - intersectionB.zn;
                   }
                 });
-                const intersection = list11.shift();
-                if (intersection.segment.shape && !shape.owner.unit.death) {
-                  shape.owner.handleIntersect(intersection, unit, segment);
+                const intersection = ensureNonNullable(list11.shift());
+                if (intersection.segment.shape && !ensureNonNullable(shape.owner).unit.death) {
+                  ensureNonNullable(shape.owner).handleIntersect(intersection, unit, segment);
                 }
               }
             }
@@ -4026,7 +4032,7 @@ interface ObjectConstructor {
       return unit === this.player;
     }
     alert(text?: string, color?: string) {
-      this.labels.push(new TextParticle(text, color || "#000000", this.player));
+      this.labels.push(new TextParticle(ensureNonNullable(text), color || "#000000", this.player));
     }
     loop(): void {
       let currentTime = now();
@@ -4135,6 +4141,10 @@ interface ObjectConstructor {
     botSafetyMax: number;
     botAttackTrackLength: number;
     font: string;
+    // Every field is a `string | number | boolean`; the index signature lets the
+    // config-editing form write fields back by their dynamic string key (its
+    // named fields keep their specific types since those take precedence).
+    [configKey: string]: string | number | boolean;
   }
   class KeyboardModeSwitch {
     mode2: boolean;
@@ -4251,7 +4261,7 @@ interface ObjectConstructor {
         event.preventDefault();
       };
       const onTouchMove = (event: TouchEvent) => {
-        const event2 = event.changedTouches[0];
+        const event2 = ensureNonNullable(event.changedTouches[0]);
         this.mouse = {
           x: event2.clientX,
           y: event2.clientY
@@ -4289,7 +4299,7 @@ interface ObjectConstructor {
           if (pressedIndex < 0) {
             this.pressedButtons.push(keyCode);
           }
-          const matchedSet = this.sets.find((set: KeyCodeSetHandler) => set.codes.every((code: number) => this.pressedButtons.find((pressedCode: number) => pressedCode === code)));
+          const matchedSet = this.sets.find((set: KeyCodeSetHandler) => set.codes.every((code: number) => !!this.pressedButtons.find((pressedCode: number) => pressedCode === code)));
           if (matchedSet) {
             matchedSet.handler();
           }
@@ -4542,9 +4552,14 @@ interface ObjectConstructor {
         }
       };
       const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers || [];
-      this.layers = layerDescriptors.map((layerDescriptor: SkinLayerDescriptor) => new SkinLayer(config, assign2(assign2({}, layerDescriptor), {
-        url: layerDescriptor.url && "" + baseUrl + layerDescriptor.url
-      }), onLayerReady));
+      this.layers = layerDescriptors.map((layerDescriptor: SkinLayerDescriptor) => {
+        const resolvedDescriptor: SkinLayerDescriptor = assign2({}, layerDescriptor);
+        const resolvedUrl = layerDescriptor.url && "" + baseUrl + layerDescriptor.url;
+        if (resolvedUrl) {
+          resolvedDescriptor.url = resolvedUrl;
+        }
+        return new SkinLayer(config, resolvedDescriptor, onLayerReady);
+      });
       this.frontLayers = this.layers.filter((layer: SkinLayer) => layer.level >= 1).sort((layerA: SkinLayer, layerB: SkinLayer) => layerA.level - layerB.level);
       this.backLayers = this.layers.filter((layer: SkinLayer) => layer.level < 1).sort((layerA: SkinLayer, layerB: SkinLayer) => layerB.level - layerA.level);
     }
@@ -4582,7 +4597,7 @@ interface ObjectConstructor {
       this.displays.push(display);
       this.sort();
     }
-    remove(display: Avatar) {
+    remove(_display: Avatar) {
       this.displays = this.displays.filter((display: Avatar) => display !== display);
       this.sort();
     }
@@ -4649,7 +4664,7 @@ interface ObjectConstructor {
     let nameColor = "#dddddd";
     const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "shields");
     if (shieldAsset) {
-      nameColor = shieldAsset.content.color;
+      nameColor = ensureNonNullable(shieldAsset.content.color);
     }
     context.fillStyle = nameColor;
     context.shadowColor = nameColor;
@@ -4744,16 +4759,16 @@ interface ObjectConstructor {
       const imageScale = trackWidth * skinLayer.scale * skinLayer2.scale / imageWidth;
       context.save();
       context.translate(unit.position.x, unit.position.y - config.baseHeight * skinLayer2.level);
-      context.rotate(unit.direction + Math.PI / 2);
+      context.rotate(ensureNonNullable(unit.direction) + Math.PI / 2);
       context.translate((skinLayer.x + skinLayer2.x) * trackWidth, (skinLayer.y + skinLayer2.y) * trackWidth);
       let rotation = 0;
       if (skinLayer2.direction === "target") {
         const point = (unit.target || new Vector(0, 0)).clone().sub(unit.position);
         const targetAngle = Math.atan2(point.y, point.x);
-        rotation += targetAngle - unit.direction;
+        rotation += targetAngle - ensureNonNullable(unit.direction);
       }
       if (skinLayer2.direction === "billboard") {
-        rotation += -unit.direction - Math.PI / 2;
+        rotation += -ensureNonNullable(unit.direction) - Math.PI / 2;
       }
       if (skinLayer2.rotation) {
         rotation += skinLayer2.rotation * 0.0174533;
@@ -4807,7 +4822,7 @@ interface ObjectConstructor {
   interface RenderContext {
     game: Game;
     view: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D;
+    ctx: CanvasRenderingContext2D | null;
     viewWidth: number;
     viewHeight: number;
     devicePixelRatio: number;
@@ -4832,14 +4847,14 @@ interface ObjectConstructor {
   const drawBaseFills = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       boundsInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
-      if (boundsInView(unit.base.polygon, trackWidth) || game.debugView) {
+      if (boundsInView({ bounds: ensureNonNullable(unit.base.polygon.bounds) }, trackWidth) || game.debugView) {
         fillPath(ctx, unit.base.polygon.path, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main);
       }
     });
@@ -4847,9 +4862,9 @@ interface ObjectConstructor {
   const drawTrailUnderlays = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       boundsInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
@@ -4876,9 +4891,9 @@ interface ObjectConstructor {
   const drawAvatarFrontLayers = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       pointInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
@@ -4891,11 +4906,11 @@ interface ObjectConstructor {
   const drawUnitNames = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       scale,
       scaler,
       pointInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth,
       font
@@ -4909,9 +4924,9 @@ interface ObjectConstructor {
   const drawAvatarBackLayers = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       pointInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
@@ -4924,9 +4939,9 @@ interface ObjectConstructor {
   const drawTrails = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       boundsInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
@@ -4945,14 +4960,14 @@ interface ObjectConstructor {
   const drawBaseBacks = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       boundsInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
-      if (boundsInView(unit.base.polygon, trackWidth)) {
+      if (boundsInView({ bounds: ensureNonNullable(unit.base.polygon.bounds) }, trackWidth)) {
         fillPath(ctx, unit.base.polygon.path, unit.skin.colors.back);
       }
     });
@@ -4960,10 +4975,10 @@ interface ObjectConstructor {
   const drawArenaBackground = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       viewScreenWidth,
       viewScreenHeight
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       baseHeight,
       arenaColor,
@@ -4984,9 +4999,9 @@ interface ObjectConstructor {
   const drawParticles = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       pointInView
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
@@ -4997,10 +5012,10 @@ interface ObjectConstructor {
   const drawLabels = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       scale,
       scaler
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       font
     } = game.config;
@@ -5011,10 +5026,10 @@ interface ObjectConstructor {
   const drawLeaderMarker = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       scale,
       scaler
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const topUnit = game.units[0];
     if (topUnit) {
       drawCrown(ctx, topUnit, scale, scaler);
@@ -5023,13 +5038,14 @@ interface ObjectConstructor {
   const drawMinimap = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       scaler,
       calcMult,
       viewScreenWidth,
       viewScreenHeight,
       padding
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
+    assertNonNullable(game.player);
     const minimapSize = viewScreenWidth / calcMult(8, 3);
     const minimapStrokeWidth = game.space.width / minimapSize * scaler * 3;
     ctx.save();
@@ -5039,7 +5055,7 @@ interface ObjectConstructor {
     fillPath(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
     strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / 2);
     strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / 2);
-    const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === game.player.base) ? "#ff0000" : "#00000099";
+    const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === ensureNonNullable(game.player).base) ? "#ff0000" : "#00000099";
     strokePath(ctx, game.border.polygon.path, borderColor, minimapStrokeWidth);
     ctx.beginPath();
     ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, Math.PI * 2);
@@ -5061,10 +5077,10 @@ interface ObjectConstructor {
   let spatialGrid: HTMLCanvasElement | null = null;
   window.addEventListener("resize", () => spatialGrid = null, false);
   const drawLeaderboard = (renderContext: RenderContext) => {
-    let {
-      ctx,
+    const {
       devicePixelRatio
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     if (!spatialGrid) {
       spatialGrid = document.createElement("canvas");
       spatialGrid.width = ~~renderContext.barWidth;
@@ -5103,7 +5119,7 @@ interface ObjectConstructor {
     let previousBarWidth: number | undefined;
     const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number) => {
       const rowY = padding + rowIndex * (barHeight * 1.3);
-      const score = unit.schemes.scores();
+      const score = ensureNonNullable(unit.schemes).scores();
       let scoreBarWidth = halfBarWidth * (score / maxScore);
       if (previousBarWidth && scoreBarWidth > previousBarWidth - halfBarWidth * 0.05) {
         scoreBarWidth = previousBarWidth - halfBarWidth * 0.05;
@@ -5135,10 +5151,10 @@ interface ObjectConstructor {
       context.font = uiFont;
       context.textAlign = "left";
       context.textBaseline = "middle";
-      context.fillText(rank + " – " + unit.schemes.print() + " " + unit.name, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
+      context.fillText(rank + " – " + ensureNonNullable(unit.schemes).print() + " " + unit.name, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
     };
     const topUnit = game.units[0];
-    const topScore = topUnit && topUnit.schemes.scores();
+    const topScore = topUnit && ensureNonNullable(topUnit.schemes).scores();
     let isPlayerListed = false;
     for (let i2 = 0; i2 < 5; i2++) {
       const unit = game.units[i2];
@@ -5146,18 +5162,17 @@ interface ObjectConstructor {
         if (game.isPlayer(unit)) {
           isPlayerListed = true;
         }
-        drawLeaderboardRow(unit, i2 + 1, i2, topScore);
+        drawLeaderboardRow(unit, i2 + 1, i2, ensureNonNullable(topScore));
       }
     }
     if (!isPlayerListed && game.player && !game.player.death) {
       const playerIndex = game.units.findIndex((unit: Unit) => game.isPlayer(unit));
-      drawLeaderboardRow(game.player, playerIndex + 1, 6, topScore);
+      drawLeaderboardRow(game.player, playerIndex + 1, 6, ensureNonNullable(topScore));
     }
   };
   const renderScoreBar = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       padding,
       backHeight,
       barHeight,
@@ -5166,12 +5181,14 @@ interface ObjectConstructor {
       strokeWidth,
       uiFont
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const {
       player
     } = game;
+    assertNonNullable(player);
     ctx.fillStyle = "#00000022";
     drawRoundedRect(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, 0]);
-    const scoreRatio = game.best ? Math.min(1, player.schemes.scores() / game.best) : 1;
+    const scoreRatio = game.best ? Math.min(1, ensureNonNullable(player.schemes).scores() / game.best) : 1;
     const fillWidth = barWidth * (0.25 + scoreRatio * 0.75);
     ctx.fillStyle = player.skin.colors.back;
     drawRoundedRect(ctx, 0, padding + backHeight, fillWidth, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
@@ -5181,28 +5198,27 @@ interface ObjectConstructor {
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(player.schemes.print(), halfBarHeight, padding + halfBarHeight * 1.1);
+    ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * 1.1);
   };
   const renderBestScore = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       padding,
       backHeight,
       barHeight,
       uiFont
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    let bestText = game.language.bestTxt + " " + game.player.schemes.print(game.best);
+    let bestText = game.language.bestTxt + " " + ensureNonNullable(ensureNonNullable(game.player).schemes).print(game.best ?? undefined);
     ctx.fillStyle = "#00000066";
     ctx.fillText(bestText, padding / 2, padding + barHeight + backHeight + padding / 2);
   };
   const renderKillCount = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
       scaler,
       padding,
       backHeight,
@@ -5211,11 +5227,12 @@ interface ObjectConstructor {
       fontSize,
       uiFont
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     const killsY = padding + barHeight + backHeight + fontSize + padding / 2 + 4;
     ctx.font = uiFont;
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    let killsText = "x" + game.player.statistics.kills;
+    let killsText = "x" + ensureNonNullable(game.player).statistics.kills;
     ctx.fillStyle = "#00000088";
     drawRoundedRect(ctx, 0, killsY, barHeight * 1.5 + ctx.measureText(killsText).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
     drawFaceIcon(ctx, barHeight * 1.4 / 2, killsY + barHeight / 2, scaler);
@@ -5225,21 +5242,16 @@ interface ObjectConstructor {
   const renderQuestNotification = (renderContext: RenderContext) => {
     const {
       game: game,
-      ctx,
-      scaler,
       padding,
       backHeight,
       barHeight,
-      halfBarHeight,
       fontSize,
       uiFont,
-      viewWidth,
-      viewHeight,
-      viewScreenWidth,
-      viewScreenHeight
+      viewScreenWidth
     } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     if (game.notifications.length) {
-      const quest = game.notifications[0];
+      const quest = ensureNonNullable(game.notifications[0]);
       if (quest.ready) {
         ctx.save();
         ctx.font = uiFont;
@@ -5280,13 +5292,15 @@ interface ObjectConstructor {
       baseHeight
     } = game.config;
     let {
-      ctx,
-      devicePixelRatio,
-      viewWidth,
-      viewHeight,
       origin,
       scale
     } = renderContext;
+    const {
+      devicePixelRatio,
+      viewWidth,
+      viewHeight
+    } = renderContext;
+    const ctx = ensureNonNullable(renderContext.ctx);
     if (game.debugView) {
       scale = 0.5;
       origin = game.space.center;
@@ -5571,10 +5585,10 @@ interface ObjectConstructor {
             }
           }
         }
-        game.best = bestScore;
+        game.best = bestScore ?? null;
         game.spawnPlayer(playerName, skinName, extraLives);
         if (extraLives) {
-          game.player.addLabel({
+          ensureNonNullable(game.player).addLabel({
             text: russianLanguage.lng.extraLife,
             time: 5000,
             color: "#7fed4c"
@@ -5636,7 +5650,7 @@ interface ObjectConstructor {
     pattern?: PatternSource;
     avatar?: AvatarDescriptor;
   }
-  const LanguageContext = createContext<Language | undefined>();
+  const LanguageContext = createContext<Language | undefined>(undefined);
   const Tips = ({
     messages
   }: {
@@ -5673,7 +5687,7 @@ interface ObjectConstructor {
       type: "text",
       id: configKey,
       name: configKey,
-      value: configValue,
+      value: String(configValue),
       autocomplete: "off",
       maxlength: "10"
     }))), createElement("button", {
@@ -5696,6 +5710,8 @@ interface ObjectConstructor {
     const config = api && api.game && api.game.config;
     const applyConfig = (event: Event) => {
       event.preventDefault();
+      assertNonNullable(api);
+      assertNonNullable(config);
       Object.keys(config).forEach((configKey: string) => {
         const element = document.getElementById(configKey);
         if (element) {
@@ -5704,7 +5720,7 @@ interface ObjectConstructor {
         }
       });
       api.game.stopped = true;
-      api.create(view.current);
+      api.create(ensureNonNullable(view.current));
       setPreparing(true);
       api.prepare(() => setPreparing(false));
       setState("menu");
@@ -5739,12 +5755,8 @@ interface ObjectConstructor {
   const MenuScreen = ({
     nickName,
     setNickName,
-    playable,
-    preparing,
     start,
     route,
-    provider,
-    setLanguage,
     api,
     skin
   }: {
@@ -5761,8 +5773,7 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = useContext(LanguageContext);
-    const config = api && api.game && api.game.config;
+    } = ensureNonNullable(useContext(LanguageContext));
     const isSupported = !!api;
     const handleNickNameInput = (event: Event) => setNickName((event.target as HTMLInputElement).value);
     const canPlay = isSupported;
@@ -5850,12 +5861,12 @@ interface ObjectConstructor {
       if (window.ads && window.ads.hideAds) {
         window.ads.hideAds();
       }
-      api.game.language = useContext(LanguageContext).lng;
+      ensureNonNullable(api).game.language = ensureNonNullable(useContext(LanguageContext)).lng;
       let skin2 = skin;
       if (skin2 === "default" || skin2 === "No skin") {
         skin2 = "";
       }
-      api.start(nickName, skin2, bestScore, handleGameOver, lastPercent);
+      ensureNonNullable(api).start(nickName, skin2, bestScore, handleGameOver, lastPercent);
       const {
         dataLayer
       } = window;
@@ -5873,10 +5884,7 @@ interface ObjectConstructor {
   const ResultsScreen = ({
     bestScore,
     results,
-    start,
-    route,
-    provider,
-    country = undefined
+    route
   }: {
     bestScore: number;
     results: GameResults;
@@ -5888,7 +5896,7 @@ interface ObjectConstructor {
     const goToMenu = () => route("menu");
     const {
       lng
-    } = useContext(LanguageContext);
+    } = ensureNonNullable(useContext(LanguageContext));
     const {
       dataLayer
     } = window;
@@ -5976,13 +5984,13 @@ interface ObjectConstructor {
   }) => {
     const {
       lng
-    } = useContext(LanguageContext);
+    } = ensureNonNullable(useContext(LanguageContext));
     const currentSkinIndex = skins.findIndex((skinSource: SkinSource) => skinSource.name === skin);
     const [skinIndex, setSkinIndex] = useState(currentSkinIndex > 0 ? currentSkinIndex : 0);
     const selectSkin = (index: number) => {
       if (index >= 0 && index < skins.length) {
         setSkinIndex(index);
-        setSkin(skins[index].name);
+        setSkin(ensureNonNullable(skins[index]).name);
       }
     };
     return createElement("div", {
@@ -5994,7 +6002,7 @@ interface ObjectConstructor {
       class: "orange",
       onClick: () => selectSkin(skinIndex - 1)
     }, "<"), createElement(SkinPreview, {
-      name: skins[skinIndex].name
+      name: ensureNonNullable(skins[skinIndex]).name
     }), createElement("button", {
       name: "right",
       class: "orange",
@@ -6057,10 +6065,8 @@ interface ObjectConstructor {
   const App = ({
     api,
     storage,
-    ads,
     provider,
-    skins,
-    mode = "common"
+    skins
   }: {
     api: GameApi | null;
     storage: StorageApi;
@@ -6092,12 +6098,12 @@ interface ObjectConstructor {
     }
     useEffect(() => {
       if (api) {
-        api.create(canvasRef.current);
+        api.create(ensureNonNullable(canvasRef.current));
         api.prepare(() => setPreparing(false));
         setPlayable(true);
       }
     }, []);
-    api.startGame = () => {
+    ensureNonNullable(api).startGame = () => {
       const element = document.getElementById("overlay");
       if (element) {
         element.style.display = "none";
@@ -6116,17 +6122,20 @@ interface ObjectConstructor {
       if (api && api.game) {
         api.game.visible = false;
       }
-      window.ShowPreroll();
+      ensureNonNullable(window.ShowPreroll)();
+    };
+    const setCanvasRef = (element: EventTarget | null) => {
+      canvasRef.current = element instanceof HTMLCanvasElement ? element : null;
     };
     return createElement(Fragment, null, createElement("canvas", {
       class: route === "game" || preparing ? "" : "fadein",
       id: "view",
-      ref: canvasRef
+      ref: setCanvasRef
     }), route !== "game" && createElement("div", {
       id: "ui_overlay"
     }), createElement(LanguageContext.Provider, {
-      value: language
-    }, createElement("div", {
+      value: language,
+      children: [createElement("div", {
       id: "ui",
       class: route === "game" ? "hide" : ""
     }, route === "menu" && createElement(MenuScreen, {
@@ -6153,7 +6162,7 @@ interface ObjectConstructor {
       skin: skin
     }), route === "results" && createElement(ResultsScreen, {
       bestScore: bestScore,
-      results: results,
+      results: ensureNonNullable(results),
       start: start,
       route: setRoute,
       provider: provider
@@ -6169,7 +6178,7 @@ interface ObjectConstructor {
       setSkin: setSkin
     })), route !== "game" && createElement(LanguageFooter, {
       setLanguage: setLanguage
-    })), createElement("div", {
+    })]}), createElement("div", {
       id: "overlay"
     }));
   };
@@ -6269,14 +6278,19 @@ interface ObjectConstructor {
       }
     }
   }
+  // `pool` is added via declaration merge rather than a class field: the base
+  // never sets it (each concrete subclass assigns its own narrower pool in its
+  // constructor), so an interface member keeps the type non-null for every
+  // reader without a class-field initializer that strict init would reject.
+  interface Asset {
+    pool: AssetSet;
+  }
   class Asset {
     content: AssetContent;
     loadingStarted: boolean;
     name: string;
-    pool: AssetSet;
     ready: boolean;
     constructor(name: string) {
-      this.pool = undefined;
       this.loadingStarted = false;
       this.name = name;
       this.content = {};
@@ -6285,7 +6299,7 @@ interface ObjectConstructor {
     load(): void {}
   }
   class SvgAsset extends Asset {
-    pool: ImageAssetSet;
+    override pool: ImageAssetSet;
     source: SkinColors;
     constructor(pool: ImageAssetSet, name: string, source: SkinColors) {
       super(name);
@@ -6294,14 +6308,14 @@ interface ObjectConstructor {
     }
   }
   class ImageAsset extends Asset {
-    pool: SvgAssetSet;
+    override pool: SvgAssetSet;
     source: SkinSource;
     constructor(pool: SvgAssetSet, name: string, source: SkinSource) {
       super(name);
       this.pool = pool;
       this.source = source;
     }
-    load(): void {
+    override load(): void {
       if (this.loadingStarted) {
         return;
       }
@@ -6322,10 +6336,10 @@ interface ObjectConstructor {
         }, source.colors);
       }
       if (source.pattern) {
-        this.content.pattern = new PatternAsset(this.pool.config, this.pool.view, this.pool.path, source.pattern, updateReady);
+        this.content.pattern = new PatternAsset(ensureNonNullable(this.pool.config), this.pool.view, this.pool.path, source.pattern, updateReady);
       }
       if (source.avatar) {
-        this.content.display = new Avatar(this.pool.config, this.pool.path, source.avatar, updateReady);
+        this.content.display = new Avatar(ensureNonNullable(this.pool.config), this.pool.path, source.avatar, updateReady);
       }
     }
   }
@@ -6365,8 +6379,6 @@ interface ObjectConstructor {
         const back = hsvToHex(backHsv);
         const nickHsv = scaleValue(hsv, 0.5);
         const nick = hsvToHex(nickHsv);
-        const plateHsv = brighten(hsv, 1.5);
-        const plate = hsvToHex(plateHsv);
         const darkPlateHsv = brighten(hsv, 2);
         const darkPlate = hsvToHex(darkPlateHsv);
         const colors = {
@@ -6421,6 +6433,7 @@ interface ObjectConstructor {
     element.width = 100;
     element.height = 100;
     const context = element.getContext("2d");
+    assertNonNullable(context);
     context.fillStyle = backColor;
     context.fillRect(0, 0, 100, 100);
     context.fillStyle = mainColor;
@@ -6447,7 +6460,7 @@ interface ObjectConstructor {
       this.usedBy = {};
       this.assets = {};
       this.unusedAssets = {};
-      this.rng = createRandomGenerator(seed);
+      this.rng = createRandomGenerator(ensureNonNullable(seed));
     }
     registerAsset(asset: Asset, tag: string) {
       this.unusedAssets[asset.name] = this.assets[asset.name] = {
@@ -6471,11 +6484,11 @@ interface ObjectConstructor {
     has(name: string): boolean {
       return name in this.unusedAssets;
     }
-    randomAssetName(tag?: string, unusedOnly: boolean = true): string {
+    randomAssetName(tag?: string, unusedOnly: boolean = true): string | undefined {
       let assetMap = unusedOnly ? this.unusedAssets : this.assets;
       let list4 = Object.keys(assetMap);
       if (tag) {
-        list4 = list4.filter((name: string) => assetMap[name].tag == tag);
+        list4 = list4.filter((name: string) => ensureNonNullable(assetMap[name]).tag == tag);
       }
       let index = this.rng(list4.length);
       let name = list4[index];
@@ -6485,7 +6498,8 @@ interface ObjectConstructor {
       if (!name) {
         name = this.randomAssetName(tag);
       }
-      let asset = this.assets[name].asset;
+      assertNonNullable(name);
+      let asset = ensureNonNullable(this.assets[name]).asset;
       delete this.unusedAssets[name];
       asset.load();
       const skin = new Skin();
@@ -6495,22 +6509,24 @@ interface ObjectConstructor {
       return skin;
     }
     release(skin: Skin) {
-      this.usedBy[skin.name] = this.usedBy[skin.name].filter((skin: Skin) => skin != skin);
-      if (this.usedBy[skin.name].length == 0) {
-        delete this.usedBy[skin.name];
-        this.unusedAssets[skin.name] = this.assets[skin.name];
+      const name = ensureNonNullable(skin.name);
+      const remaining = ensureNonNullable(this.usedBy[name]).filter((skin: Skin) => skin != skin);
+      this.usedBy[name] = remaining;
+      if (remaining.length == 0) {
+        delete this.usedBy[name];
+        this.unusedAssets[name] = ensureNonNullable(this.assets[name]);
       }
     }
     reskin(name: string) {
       let skins = this.usedBy[name];
       if (skins) {
         for (let skin of skins) {
-          skin.user.setSkin(this.get());
+          ensureNonNullable(skin.user).setSkin(this.get());
         }
         delete this.usedBy[name];
       }
     }
-    getCitySkin(name?: string): Skin | undefined {
+    getCitySkin(_name?: string): Skin | undefined {
       return undefined;
     }
   }
@@ -6520,7 +6536,7 @@ interface ObjectConstructor {
       this.registerAssets(imageAssetSet, "colored");
       this.registerAssets(svgAssetSet, "classic");
     }
-    getPlayerSkin(name?: string): Skin {
+    override getPlayerSkin(name?: string): Skin {
       if (!name) {
         return this.get(undefined, "colored");
       }
@@ -6544,7 +6560,19 @@ interface ObjectConstructor {
   });
   const languagesPromise = fetch("assets/languages.json").then((response: Response) => response.json());
   const skinsPromise = fetch("assets/skins/skins.json").then((response: Response) => response.json());
-  Promise.all([languagesPromise, skinsPromise]).then(([languages, skins]: [LanguagesData, SkinSource[]]) => {
+  // `ts-reset` types `Response.json()` as `Promise<unknown>`, so the fetched
+  // payloads arrive untyped. This validates the trusted shipped-asset shapes at
+  // the boundary (an object map of languages + an array of skins) and narrows
+  // them for the rest of the closure — analogous to the null-guard helpers.
+  function assertLoadedAssets(loadedAssets: [unknown, unknown]): asserts loadedAssets is [LanguagesData, SkinSource[]] {
+    const [languages, skins] = loadedAssets;
+    if (typeof languages !== "object" || languages === null || !Array.isArray(skins)) {
+      throw new Error("Unexpected assets payload from languages.json / skins.json");
+    }
+  }
+  Promise.all([languagesPromise, skinsPromise]).then((loadedAssets: [unknown, unknown]) => {
+    assertLoadedAssets(loadedAssets);
+    const [languages, skins] = loadedAssets;
     buildLanguageList(languages);
     const createSkinManager = (config: Config, canvas: HTMLCanvasElement) => {
       let imageAssetSet = new ImageAssetSet(config);
@@ -6555,12 +6583,14 @@ interface ObjectConstructor {
     const schemeCycler = new SchemeCycler(BotScoreLabel);
     const achievementStore = new AchievementStore([]);
     achievementStore.load();
-    const api = createGameApi(gameConfig, findDefaultLanguage(), createSkinManager, new NamePool(botNames, Math.random()), schemeCycler, achievementStore);
-    window.paperio2api = api;
+    const api = createGameApi(gameConfig, ensureNonNullable(findDefaultLanguage()), createSkinManager, new NamePool(botNames, Math.random()), schemeCycler, achievementStore);
+    if (api) {
+      window.paperio2api = api;
+    }
     render(createElement(App, {
       api: api,
       storage: Cookies,
       skins: skins
-    }), document.getElementById("game"));
+    }), ensureNonNullable(document.getElementById("game")));
   });
 })();
