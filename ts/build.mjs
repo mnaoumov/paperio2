@@ -11,5 +11,5 @@ await build({
   target: 'es2020',
   outfile: 'dist/app2.js',
   legalComments: 'none',
-  logLevel: 'info',
+  logLevel: 'info'
 });
