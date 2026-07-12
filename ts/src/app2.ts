@@ -1,128 +1,140 @@
 import Cookies from 'js-cookie';
-import { Fragment, createContext, createElement, render } from 'preact';
-import { useContext, useEffect, useRef, useState } from 'preact/hooks';
-import { assertNonNullable, ensureNonNullable } from './type-guards';
-// --- ambient augmentations for dynamic globals the engine touches ---
-// (js-cookie's own types now come from `@types/js-cookie`; only the engine's
-// own payload/window shapes are declared here.)
-// Mirrors the achievements/challenges cookie payload (see `AchievementStore`
-// below) — named here (rather than only inside the engine IIFE) so the
-// `Window.paperio_challenges` augmentation below can reference it.
-interface StoredChallenges {
-  [key: string]: boolean;
-}
+import {
+  createContext,
+  createElement,
+  Fragment,
+  render
+} from 'preact';
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState
+} from 'preact/hooks';
 
+import {
+  assertNonNullable,
+  ensureNonNullable
+} from './type-guards';
 // The `gtag`/GTM-style event queue some ad/analytics integrations install.
 interface DataLayerEntry {
   event: string;
-  publisher: string;
   productKey: string;
+  publisher: string;
+}
+
+interface Paper2Results {
+  bestPercent?: number;
+  build?: number;
+  kills: number;
+  reason?: number;
+  score: number;
+  scores?: Paper2ResultsScores;
+  time: number;
+  top?: number;
 }
 
 // The scores payload some other page-level script may leave on `window`
-// after posting game results — read-only from this file's perspective.
+// After posting game results — read-only from this file's perspective.
 interface Paper2ResultsScores {
   accumulator?: number;
   kills?: number;
 }
-interface Paper2Results {
-  build?: number;
-  top?: number;
-  score: number;
-  bestPercent?: number;
-  time: number;
-  kills: number;
-  reason?: number;
-  scores?: Paper2ResultsScores;
-}
+// --- ambient augmentations for dynamic globals the engine touches ---
+// (js-cookie's own types now come from `@types/js-cookie`; only the engine's
+// Own payload/window shapes are declared here.)
+// Mirrors the achievements/challenges cookie payload (see `AchievementStore`
+// Below) — named here (rather than only inside the engine IIFE) so the
+// `Window.paperio_challenges` augmentation below can reference it.
+type StoredChallenges = Record<string, boolean>;
 
 declare global {
-interface Window {
-  // The ad-network integration this offline copy strips out (see the
-  // project's `index.html` shim) — every call site guards with `if
-  // (window.ads && window.ads.showAds)`, so both members stay optional.
-  ads?: {
-    showAds?: () => void;
-    hideAds?: () => void;
-  };
-  dataLayer?: DataLayerEntry[];
-  // Classic Google Analytics `ga()`; every call site in this file passes
-  // exactly `("send", "event", category, action)`.
-  ga?: (command: string, hitType: string, eventCategory: string, eventAction: string) => void;
-  paper2_results: Paper2Results;
-  paperio_challenges?: StoredChallenges;
-  // `GameApi`'s own shape lives inside the engine IIFE below (it reaches
-  // deep into `Game` and friends) — bridged through `object` here rather
-  // than duplicating that whole type graph at this top level, since nothing
-  // in this file reads `window.paperio2api` back (only the offline shim in
-  // `index.html`, outside this compilation, calls into it at runtime).
-  paperio2api?: object;
-  playerId?: number;
-  // The shop/skins-unlock integration this offline copy strips out.
-  shop?: {
-    autoCheckUnlock: () => void;
-  };
-  ShowPreroll?: () => void;
-}
-interface Navigator {
-  userLanguage?: string;
-  browserLanguage?: string;
-}
-// Real `HTMLElement` (unlike its `HTMLInputElement`/`HTMLSelectElement`
-// subclasses) has no `.value` in `lib.dom` — needed for the one config-form
-// callsite that reads it off a plain `document.getElementById()` result.
-interface HTMLElement {
-  value: string;
-}
-// `better-typescript-lib` narrows `getElementById` to `Element | null`, which
-// drops the `.style`/`.value` members every call site in this file relies on
-// (each id maps to a real `HTMLElement`). Restore lib.dom's `HTMLElement`
-// return so those accesses type without a cast.
-interface Document {
-  getElementById(elementId: string): HTMLElement | null;
-}
+  // `better-typescript-lib` narrows `getElementById` to `Element | null`, which
+  // Drops the `.style`/`.value` members every call site in this file relies on
+  // (each id maps to a real `HTMLElement`). Restore lib.dom's `HTMLElement`
+  // Return so those accesses type without a cast.
+  interface Document {
+    getElementById(elementId: string): HTMLElement | null;
+  }
+  // Real `HTMLElement` (unlike its `HTMLInputElement`/`HTMLSelectElement`
+  // Subclasses) has no `.value` in `lib.dom` — needed for the one config-form
+  // Callsite that reads it off a plain `document.getElementById()` result.
+  interface HTMLElement {
+    value: string;
+  }
+  interface Navigator {
+    browserLanguage?: string;
+    userLanguage?: string;
+  }
+  // `Object.entries(x)` on an `any`/untyped argument resolves TypeScript's
+  // Generic `entries<T>` overload with `T` un-inferable, defaulting the values
+  // To `unknown`, which then poison the `createElement` prop object literals
+  // Built from the result. Both of this file's two `Object.entries()` call
+  // Sites pass untyped arguments, so a non-generic overload here fixes both.
+  interface ObjectConstructor {
+    entries(source: object): [string, boolean | number | string][];
+  }
 
-// `Object.entries(x)` on an `any`/untyped argument resolves TypeScript's
-// generic `entries<T>` overload with `T` un-inferable, defaulting the values
-// to `unknown`, which then poison the `createElement` prop object literals
-// built from the result. Both of this file's two `Object.entries()` call
-// sites pass untyped arguments, so a non-generic overload here fixes both.
-interface ObjectConstructor {
-  entries(source: object): [string, string | number | boolean][];
-}
+  interface Window {
+    // The ad-network integration this offline copy strips out (see the
+    // Project's `index.html` shim) — every call site guards with `if
+    // (window.ads && window.ads.showAds)`, so both members stay optional.
+    ads?: {
+      hideAds?: () => void;
+      showAds?: () => void;
+    };
+    dataLayer?: DataLayerEntry[];
+    // Classic Google Analytics `ga()`; every call site in this file passes
+    // Exactly `("send", "event", category, action)`.
+    ga?: (command: string, hitType: string, eventCategory: string, eventAction: string) => void;
+    paper2_results: Paper2Results;
+    paperio_challenges?: StoredChallenges;
+    // `GameApi`'s own shape lives inside the engine IIFE below (it reaches
+    // Deep into `Game` and friends) — bridged through `object` here rather
+    // Than duplicating that whole type graph at this top level, since nothing
+    // In this file reads `window.paperio2api` back (only the offline shim in
+    // `index.html`, outside this compilation, calls into it at runtime).
+    paperio2api?: object;
+    playerId?: number;
+    // The shop/skins-unlock integration this offline copy strips out.
+    shop?: {
+      autoCheckUnlock: () => void;
+    };
+    ShowPreroll?: () => void;
+  }
 }
 
 (function () {
-  "use strict";
+  'use strict';
 
   // --- shared structural types inferred from usage across the engine ---
   interface Bounds {
+    bottom: number;
     left: number;
     right: number;
     top: number;
-    bottom: number;
   }
   interface Intersection {
-    point: Vector;
-    segment: Segment;
     distance: number;
     overlay: boolean;
+    point: Vector;
+    segment: Segment;
     zn: number;
   }
   type ShapeOwner = Territory | Trail;
   interface TrailCrossing {
-    intersection: Intersection;
     base: ShapeOwner;
     enter: boolean;
+    intersection: Intersection;
   }
   interface TrailIntersectionRecord {
-    point: Vector;
     intersections: TrailCrossing[];
+    point: Vector;
   }
   interface Rgb {
-    r: number;
-    g: number;
     b: number;
+    g: number;
+    r: number;
   }
   interface Hsv {
     h: number;
@@ -139,7 +151,7 @@ interface ObjectConstructor {
     leave?: (payload: Bot, context: BotStateContext) => BotStateContext | void;
     update: (payload: Bot, context: BotStateContext) => string | void;
   }
-  type BotStates = { [name: string]: BotStateHandlers };
+  type BotStates = Record<string, BotStateHandlers>;
   interface UnitScores {
     accumulator: number;
     kills: number;
@@ -148,21 +160,21 @@ interface ObjectConstructor {
     kills: number;
   }
   interface UnitTrackDistance {
-    unit: Unit;
-    trackDistance: number;
-    trackPoint: Vector | null;
     danger: number;
+    trackDistance: number;
+    trackPoint: null | Vector;
+    unit: Unit;
   }
   interface Label {
-    text: string;
     color: string;
-    unit?: Unit | null;
-    time: number;
     fading?: boolean;
+    text: string;
+    time: number;
+    unit?: null | Unit;
   }
-  type ParticleColor = string | HTMLCanvasElement | HTMLImageElement;
+  type ParticleColor = HTMLCanvasElement | HTMLImageElement | string;
 
-  const EPSILON = Math.pow(2, -26);
+  const EPSILON = 2 ** -26;
   const isNearlyZero = (value: number) => Math.abs(value) <= EPSILON;
   const isNearlyEqual = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
   const lerp = (start: number, end: number, t: number) => start + (end - start) * t;
@@ -189,35 +201,34 @@ interface ObjectConstructor {
   };
   function pointInPolygon(list4: number[][], x: number, y: number) {
     let isInside = false;
-    let length = list4.length;
+    const length = list4.length;
     for (let i2 = 0, previousIndex = length - 1; i2 < length; previousIndex = i2++) {
       const currentPoint = ensureNonNullable(list4[i2]);
       const previousPoint = ensureNonNullable(list4[previousIndex]);
-      let currentX = ensureNonNullable(currentPoint[0]);
-      let currentY = ensureNonNullable(currentPoint[1]);
-      let previousX = ensureNonNullable(previousPoint[0]);
-      let previousY = ensureNonNullable(previousPoint[1]);
+      const currentX = ensureNonNullable(currentPoint[0]);
+      const currentY = ensureNonNullable(currentPoint[1]);
+      const previousX = ensureNonNullable(previousPoint[0]);
+      const previousY = ensureNonNullable(previousPoint[1]);
       if (isPointOnSegment(x, y, currentX, currentY, previousX, previousY)) {
         return 1;
       }
-      var isCrossing = currentY > y != previousY > y && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
+      const isCrossing = currentY > y != previousY > y && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
       if (isCrossing) {
         isInside = !isInside;
       }
     }
     if (isInside) {
       return 2;
-    } else {
-      return 0;
     }
+    return 0;
   }
   function isPointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
-    let dx1 = x1 - px;
-    let dy1 = y1 - py;
-    let dx2 = x2 - px;
-    let dy2 = y2 - py;
-    let cross = dx1 * dy2 - dy1 * dx2;
-    let dot = dx1 * dx2 + dy1 * dy2;
+    const dx1 = x1 - px;
+    const dy1 = y1 - py;
+    const dx2 = x2 - px;
+    const dy2 = y2 - py;
+    const cross = dx1 * dy2 - dy1 * dx2;
+    const dot = dx1 * dx2 + dy1 * dy2;
     return cross == 0 && dot <= 0;
   }
   let nextId = 1;
@@ -227,11 +238,15 @@ interface ObjectConstructor {
     b = 0;
     c = 0;
     end: Vector;
-    mark: number;
-    shape: Polygon | Polyline | null;
-    start: Vector;
-    vector: Vector | null = null;
     id?: number;
+    mark: number;
+    shape: null | Polygon | Polyline;
+    start: Vector;
+    vector: null | Vector = null;
+    get owner(): null | Polygon | Polyline {
+      return null;
+    }
+
     constructor(start: Vector, end: Vector) {
       if (start.equal(end)) {}
       this.mark = 0;
@@ -240,13 +255,11 @@ interface ObjectConstructor {
       this.end = end;
       this.calc();
     }
-    get owner(): Polygon | Polyline | null {
-      return null;
-    }
+
     calc() {
       const {
-        start,
-        end
+        end,
+        start
       } = this;
       this.vector = end.clone().sub(start);
       let normalX = start.y - end.y;
@@ -258,39 +271,22 @@ interface ObjectConstructor {
       this.b = normalY;
       this.c = -(normalX * start.x + normalY * start.y);
     }
+
     clone() {
       return new Segment(this.start, this.end);
     }
-    reverse() {
-      const start = this.start;
-      this.start = this.end;
-      this.end = start;
-      this.calc();
-      return this;
-    }
+
     commit(shape: Polygon | Polyline) {
       this.shape = shape;
       this.start.commit(this);
       this.end.commit(this);
       return this;
     }
-    remove() {
-      this.shape = null;
-      this.start.remove(this);
-      this.end.remove(this);
+
+    has(point: Vector) {
+      return this.start === point || this.end === point;
     }
-    length() {
-      return ensureNonNullable(this.vector).magnitude();
-    }
-    zn(segment: Segment) {
-      const a2 = segment.a;
-      const b2 = segment.b;
-      const {
-        a,
-        b
-      } = this;
-      return cross(a2, b2, a, b);
-    }
+
     intersect(segment: Segment): Intersection | null {
       const a2 = segment.a;
       const b2 = segment.b;
@@ -301,8 +297,8 @@ interface ObjectConstructor {
         a,
         b,
         c,
-        start,
-        end
+        end,
+        start
       } = this;
       const determinant = cross(a2, b2, a, b);
       if (!isNearlyZero(determinant)) {
@@ -313,10 +309,10 @@ interface ObjectConstructor {
           return null;
         }
         return {
-          point: start.equal(intersectionPoint) && start || end.equal(intersectionPoint) && end || start2.equal(intersectionPoint) && start2 || end2.equal(intersectionPoint) && end2 || intersectionPoint,
-          segment: this,
           distance: intersectionPoint.distance2(start2),
           overlay: false,
+          point: start.equal(intersectionPoint) && start || end.equal(intersectionPoint) && end || start2.equal(intersectionPoint) && start2 || end2.equal(intersectionPoint) && end2 || intersectionPoint,
+          segment: this,
           zn: Math.sign(determinant)
         };
       }
@@ -331,26 +327,51 @@ interface ObjectConstructor {
             overlapPoint = start2.distance2(start) >= start2.distance2(end) ? end : start;
           }
           return {
-            point: overlapPoint,
-            segment: this,
             distance: overlapPoint.distance2(start2),
             overlay: true,
+            point: overlapPoint,
+            segment: this,
             zn: 0
           };
         }
         const sharedPoint = start.equal(start2) || start.equal(end2) ? start : end;
         return {
-          point: sharedPoint,
-          segment: this,
           distance: sharedPoint.distance2(start2),
           overlay: false,
+          point: sharedPoint,
+          segment: this,
           zn: 0
         };
       }
       return null;
     }
-    has(point: Vector) {
-      return this.start === point || this.end === point;
+
+    length() {
+      return ensureNonNullable(this.vector).magnitude();
+    }
+
+    remove() {
+      this.shape = null;
+      this.start.remove(this);
+      this.end.remove(this);
+    }
+
+    reverse() {
+      const start = this.start;
+      this.start = this.end;
+      this.end = start;
+      this.calc();
+      return this;
+    }
+
+    zn(segment: Segment) {
+      const a2 = segment.a;
+      const b2 = segment.b;
+      const {
+        a,
+        b
+      } = this;
+      return cross(a2, b2, a, b);
     }
   }
   const CELL_MARGIN = 1;
@@ -363,10 +384,12 @@ interface ObjectConstructor {
       this.x = x;
       this.y = y;
     }
+
     commit(point: Vector) {
       this.points.push(point);
       point.cell = this;
     }
+
     remove(point: Vector) {
       const {
         points
@@ -401,6 +424,20 @@ interface ObjectConstructor {
       }
       Vector.space = this;
     }
+
+    cell(point: Vector) {
+      return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
+    }
+
+    checkPoint(point: Vector) {
+      const cell = this.cell(point);
+      return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) || point;
+    }
+
+    clear() {
+      this.cells = [];
+    }
+
     count() {
       let total = 0;
       this.cells.forEach((cell: ContourPoints) => {
@@ -408,27 +445,11 @@ interface ObjectConstructor {
       });
       return total;
     }
-    cell(point: Vector) {
-      return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
-    }
+
     getCell(col: number, row: number) {
       return ensureNonNullable(this.cells[col + row * this.w]);
     }
-    checkPoint(point: Vector) {
-      const cell = this.cell(point);
-      return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) || point;
-    }
-    segmentsCount(): { [id: number]: Segment } {
-      const segmentsById: { [id: number]: Segment } = {};
-      for (let i2 = 0; i2 < this.h; i2++) {
-        for (let i3 = 0; i3 < this.w; i3++) {
-          this.getCell(i3, i2).points.forEach((point: Vector) => {
-            point.segments.forEach((segment: Segment) => segmentsById[segment.id ?? 0] = segment);
-          });
-        }
-      }
-      return segmentsById;
-    }
+
     intersections(segment: Segment): Intersection[] {
       const point = this.cell(segment.start);
       const point2 = this.cell(segment.end);
@@ -455,8 +476,17 @@ interface ObjectConstructor {
       }
       return list4;
     }
-    clear() {
-      this.cells = [];
+
+    segmentsCount(): Record<number, Segment> {
+      const segmentsById: Record<number, Segment> = {};
+      for (let i2 = 0; i2 < this.h; i2++) {
+        for (let i3 = 0; i3 < this.w; i3++) {
+          this.getCell(i3, i2).points.forEach((point: Vector) => {
+            point.segments.forEach((segment: Segment) => segmentsById[segment.id ?? 0] = segment);
+          });
+        }
+      }
+      return segmentsById;
     }
   }
   const VECTOR_POOL_SIZE = 30000;
@@ -465,23 +495,57 @@ interface ObjectConstructor {
   });
   let i = 0;
   class Vector {
+    static space: null | SpatialGrid;
     cell: ContourPoints | null;
     segments: Segment[];
     x = 0;
     y = 0;
-    static space: SpatialGrid | null;
     constructor(x?: number, y?: number) {
       this.cell = null;
       this.segments = [];
       this.set(x, y);
     }
-    set(x?: number, y?: number) {
-      this.x = x || 0;
-      this.y = y || (y === 0 ? 0 : this.x);
+
+    static alloc(x?: number, y?: number) {
+      if (i) {
+        const vector = ensureNonNullable(vectorPool[--i]).set(x, y);
+        return vector;
+      }
+      return new Vector(x, y);
+    }
+
+    static clone(point: Vector) {
+      return Vector.alloc(point.x, point.y);
+    }
+
+    static poolLength() {
+      return i;
+    }
+
+    static release(vector: Vector) {
+      if (i < VECTOR_POOL_SIZE) {
+        vector.set();
+        if (vector.cell || vector.segments.length) {}
+        vectorPool[i++] = vector;
+      }
+    }
+
+    add(point: Vector) {
+      this.x += point.x;
+      this.y += point.y;
       return this;
     }
+
+    angle(point: Vector) {
+      return Math.atan2(this.cross(point), this.dot(point));
+    }
+
+    clone() {
+      return new Vector(this.x, this.y);
+    }
+
     commit(segment: Segment) {
-      if (this.segments.indexOf(segment) === -1) {
+      if (!this.segments.includes(segment)) {
         this.segments.push(segment);
       }
       if (!this.cell) {
@@ -489,36 +553,39 @@ interface ObjectConstructor {
         cell.commit(this);
       }
     }
-    remove(segment: Segment) {
-      const index = this.segments.indexOf(segment);
-      this.segments.splice(index, 1);
-      if (this.cell && !this.segments.length) {
-        this.cell.remove(this);
-      }
-    }
-    release() {
-      Vector.release(this);
-    }
-    add(point: Vector) {
-      this.x += point.x;
-      this.y += point.y;
+
+    copy(point: Vector) {
+      this.x = point.x;
+      this.y = point.y;
       return this;
     }
-    sub(point: Vector) {
-      this.x -= point.x;
-      this.y -= point.y;
-      return this;
+
+    cross(point: Vector) {
+      return this.x * point.y - this.y * point.x;
     }
-    mul(point: Vector) {
-      this.x *= point.x;
-      this.y *= point.y;
-      return this;
+
+    distance(point: Vector) {
+      return Math.sqrt(this.distance2(point));
     }
-    mulScalar(scalar: number) {
-      this.x *= scalar;
-      this.y *= scalar;
-      return this;
+
+    distance2(point: Vector) {
+      const dx = this.x - point.x;
+      const dy = this.y - point.y;
+      return dx * dx + dy * dy;
     }
+
+    dot(point: Vector) {
+      return this.x * point.x + this.y * point.y;
+    }
+
+    equal(point: Vector) {
+      return isNearlyEqual(this.x, point.x) && isNearlyEqual(this.y, point.y);
+    }
+
+    invert() {
+      return this.mulScalar(-1);
+    }
+
     magnitude() {
       const {
         x,
@@ -526,6 +593,19 @@ interface ObjectConstructor {
       } = this;
       return Math.sqrt(x * x + y * y);
     }
+
+    mul(point: Vector) {
+      this.x *= point.x;
+      this.y *= point.y;
+      return this;
+    }
+
+    mulScalar(scalar: number) {
+      this.x *= scalar;
+      this.y *= scalar;
+      return this;
+    }
+
     normalize() {
       const magnitude = this.magnitude();
       if (magnitude) {
@@ -533,25 +613,19 @@ interface ObjectConstructor {
       }
       return this;
     }
-    copy(point: Vector) {
-      this.x = point.x;
-      this.y = point.y;
-      return this;
+
+    release() {
+      Vector.release(this);
     }
-    distance(point: Vector) {
-      return Math.sqrt(this.distance2(point));
+
+    remove(segment: Segment) {
+      const index = this.segments.indexOf(segment);
+      this.segments.splice(index, 1);
+      if (this.cell && !this.segments.length) {
+        this.cell.remove(this);
+      }
     }
-    distance2(point: Vector) {
-      const dx = this.x - point.x;
-      const dy = this.y - point.y;
-      return dx * dx + dy * dy;
-    }
-    cross(point: Vector) {
-      return this.x * point.y - this.y * point.x;
-    }
-    dot(point: Vector) {
-      return this.x * point.x + this.y * point.y;
-    }
+
     rotate(angle: number) {
       const {
         x,
@@ -563,40 +637,21 @@ interface ObjectConstructor {
       this.y = x * sin + y * cos;
       return this;
     }
-    angle(point: Vector) {
-      return Math.atan2(this.cross(point), this.dot(point));
+
+    set(x?: number, y?: number) {
+      this.x = x || 0;
+      this.y = y || (y === 0 ? 0 : this.x);
+      return this;
     }
-    invert() {
-      return this.mulScalar(-1);
+
+    sub(point: Vector) {
+      this.x -= point.x;
+      this.y -= point.y;
+      return this;
     }
-    equal(point: Vector) {
-      return isNearlyEqual(this.x, point.x) && isNearlyEqual(this.y, point.y);
-    }
-    clone() {
-      return new Vector(this.x, this.y);
-    }
-    static alloc(x?: number, y?: number) {
-      if (i) {
-        let vector = ensureNonNullable(vectorPool[--i]).set(x, y);
-        return vector;
-      }
-      return new Vector(x, y);
-    }
-    static clone(point: Vector) {
-      return Vector.alloc(point.x, point.y);
-    }
-    static poolLength() {
-      return i;
-    }
+
     toString() {
-      return "[" + this.x.toFixed(4) + "," + this.y.toFixed(4) + "]";
-    }
-    static release(vector: Vector) {
-      if (i < VECTOR_POOL_SIZE) {
-        vector.set();
-        if (vector.cell || vector.segments.length) {}
-        vectorPool[i++] = vector;
-      }
+      return `[${this.x.toFixed(4)},${this.y.toFixed(4)}]`;
     }
   }
   Vector.space = null;
@@ -610,61 +665,31 @@ interface ObjectConstructor {
   const KILL_REASON_SURROUNDED = 5;
   const KILL_REASON_SYSTEM = 6;
   const KILL_REASON_CAPITAL_SURROUNDED = 7;
-  // deathReasons[8] ("убит разделением со столицей" / separated-from-capital) has
-  // no constant here — no code path ever produces reason code 8. Codes 0-7 are all used.
+  // DeathReasons[8] ("убит разделением со столицей" / separated-from-capital) has
+  // No constant here — no code path ever produces reason code 8. Codes 0-7 are all used.
   const FRAME_DURATION_MILLISECONDS = 1000 / 60;
   const TWO_FRAME_DURATION_MILLISECONDS = 1000 / 60 * 2;
   class Polyline {
     bounds: Bounds;
-    end: Vector | null;
-    owner: Trail | null;
+    end: null | Vector;
+    owner: null | Trail;
     path: Path2D;
     segments: Segment[];
-    start: Vector | null;
+    start: null | Vector;
     constructor(owner?: Trail) {
       this.owner = owner || null;
       this.start = null;
       this.end = null;
       this.segments = [];
       this.bounds = {
+        bottom: -Infinity,
         left: Infinity,
         right: -Infinity,
-        top: Infinity,
-        bottom: -Infinity
+        top: Infinity
       };
       this.path = new Path2D();
     }
-    commit(polygon: Polygon) {
-      this.segments.forEach((segment: Segment) => segment.commit(polygon));
-    }
-    remove() {
-      this.segments.forEach((segment: Segment) => segment.remove());
-    }
-    reverse() {
-      this.segments.reverse().forEach((segment: Segment) => segment.reverse());
-      if (this.end) {
-        [this.start, this.end] = [this.end, this.start];
-      }
-      return this;
-    }
-    clone() {
-      const polyline = new Polyline();
-      polyline.segments = this.segments.map((segment: Segment) => segment.clone());
-      polyline.start = this.start;
-      polyline.end = this.end;
-      Object.assign(polyline.bounds, this.bounds);
-      return polyline;
-    }
-    updateBounds(point: Vector) {
-      const {
-        x,
-        y
-      } = point;
-      this.bounds.left = Math.min(this.bounds.left, x);
-      this.bounds.right = Math.max(this.bounds.right, x);
-      this.bounds.top = Math.min(this.bounds.top, y);
-      this.bounds.bottom = Math.max(this.bounds.bottom, y);
-    }
+
     add2(point: Vector) {
       const lastPoint = this.end || this.start;
       if (lastPoint && lastPoint.equal(point)) {
@@ -693,6 +718,20 @@ interface ObjectConstructor {
       this.path.moveTo(x, y);
       return true;
     }
+
+    clone() {
+      const polyline = new Polyline();
+      polyline.segments = this.segments.map((segment: Segment) => segment.clone());
+      polyline.start = this.start;
+      polyline.end = this.end;
+      Object.assign(polyline.bounds, this.bounds);
+      return polyline;
+    }
+
+    commit(polygon: Polygon) {
+      this.segments.forEach((segment: Segment) => segment.commit(polygon));
+    }
+
     points() {
       const list4 = this.segments.map((segment: Segment) => segment.start);
       if (this.end) {
@@ -700,8 +739,34 @@ interface ObjectConstructor {
       }
       return list4;
     }
+
+    remove() {
+      this.segments.forEach((segment: Segment) => {
+        segment.remove();
+      });
+    }
+
+    reverse() {
+      this.segments.reverse().forEach((segment: Segment) => segment.reverse());
+      if (this.end) {
+        [this.start, this.end] = [this.end, this.start];
+      }
+      return this;
+    }
+
     toString() {
-      return this.segments.map((segment: Segment) => segment.start.toString()).join("");
+      return this.segments.map((segment: Segment) => segment.start.toString()).join('');
+    }
+
+    updateBounds(point: Vector) {
+      const {
+        x,
+        y
+      } = point;
+      this.bounds.left = Math.min(this.bounds.left, x);
+      this.bounds.right = Math.max(this.bounds.right, x);
+      this.bounds.top = Math.min(this.bounds.top, y);
+      this.bounds.bottom = Math.max(this.bounds.bottom, y);
     }
   }
   const computeCrossing = (point: Vector, point2: Vector, point3: Vector) => {
@@ -730,7 +795,7 @@ interface ObjectConstructor {
   };
   class Polygon {
     bounds: Bounds | null;
-    owner: ShapeOwner | null;
+    owner: null | ShapeOwner;
     path = new Path2D();
     segments: Segment[];
     simplify: Vector[];
@@ -747,128 +812,7 @@ interface ObjectConstructor {
       }
       this.updateBounds();
     }
-    commit(owner?: ShapeOwner) {
-      if (owner) {
-        this.owner = owner;
-      }
-      this.segments.forEach((segment: Segment) => segment.commit(this));
-    }
-    remove() {
-      this.segments.forEach((segment: Segment) => segment.remove());
-    }
-    reverse() {
-      this.segments.reverse();
-      this.segments.forEach((segment: Segment) => segment.reverse());
-      return this;
-    }
-    insert(segment: Segment, point: Vector) {
-      if (!segment.has(point)) {
-        const index = this.segments.findIndex((candidateSegment: Segment) => candidateSegment === segment);
-        const firstSegment = new Segment(segment.start, point).commit(this);
-        const secondSegment = new Segment(point, segment.end).commit(this);
-        segment.remove();
-        this.segments.splice(index, 1, firstSegment, secondSegment);
-      }
-    }
-    hasPoint(point: Vector) {
-      return this.segments.some((segment: Segment) => segment.has(point));
-    }
-    findSegment(point: Vector) {
-      const index = this.segments.findIndex((segment: Segment) => segment.start === point);
-      return index;
-    }
-    splice(polyline: Polyline, startIndex: number, endIndex: number) {
-      const list4 = this.segments.splice(startIndex, endIndex - startIndex, ...polyline.segments);
-      list4.forEach((segment: Segment) => segment.remove());
-      polyline.commit(this);
-    }
-    unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
-      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
-      this.remove();
-      this.segments = removedSegments.concat(polyline.reverse().segments);
-      polyline.commit(this);
-    }
-    left(list4: Vector[], startIndex: number, endIndex: number) {
-      const list5: Segment[] = [];
-      for (let i2 = 0; i2 < list4.length - 1; i2++) {
-        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
-      }
-      const list6 = this.segments.splice(startIndex, endIndex - startIndex, ...list5);
-      list5.forEach((segment: Segment) => segment.commit(this));
-      list6.forEach((segment: Segment) => segment.remove());
-    }
-    right(list4: Vector[], startIndex: number, endIndex: number) {
-      const list5: Segment[] = [];
-      for (let i2 = 0; i2 < list4.length - 1; i2++) {
-        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
-      }
-      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
-      this.remove();
-      list5.reverse().forEach((segment: Segment) => segment.reverse().commit(this));
-      this.segments = removedSegments.concat(list5);
-    }
-    points() {
-      return this.segments.map((segment: Segment) => segment.start);
-    }
-    intersections(segment: Segment) {
-      let list4: Intersection[] = [];
-      if (this.segments.length > 1) {
-        this.segments.forEach((ownSegment: Segment) => {
-          const intersection = ownSegment.intersect(segment);
-          if (intersection) {
-            list4.push(intersection);
-          }
-        });
-      }
-      if (list4.length > 1) {
-        list4.sort((intersectionA: Intersection, intersectionB: Intersection) => intersectionA.distance - intersectionB.distance);
-        list4 = list4.filter(function (intersection: Intersection, index: number) {
-          return list4.findIndex((otherIntersection: Intersection) => otherIntersection.point === intersection.point) == index;
-        });
-      }
-      return list4;
-    }
-    inside(point: Vector) {
-      const {
-        length
-      } = this.segments;
-      let product = 1;
-      for (let i2 = 0; i2 < length; i2++) {
-        const {
-          start,
-          end
-        } = ensureNonNullable(this.segments[i2]);
-        const crossing = computeCrossing(start, end, point);
-        if (crossing === 0) {
-          return true;
-        }
-        product *= crossing;
-      }
-      return product !== 1;
-    }
-    insideNew(point: Vector) {
-      return !!pointInPolygon(this.segments.map((segment: Segment) => [segment.start.x, segment.start.y]), point.x, point.y);
-    }
-    rawSquare() {
-      let area = 0;
-      this.segments.forEach((segment: Segment) => {
-        const {
-          start,
-          end
-        } = segment;
-        area += (start.x + end.x) * (end.y - start.y);
-      });
-      return area / 2;
-    }
-    square() {
-      let area = this.rawSquare();
-      if (area < 0) {
-        {
-          area *= -1;
-        }
-      }
-      return area;
-    }
+
     calcPath() {
       const path2D = new Path2D();
       const {
@@ -891,6 +835,7 @@ interface ObjectConstructor {
       this.path = path2D;
       this.updateBounds();
     }
+
     calcSimplify() {
       this.simplify = [];
       let i2 = 0;
@@ -912,6 +857,151 @@ interface ObjectConstructor {
         }
       });
     }
+
+    commit(owner?: ShapeOwner) {
+      if (owner) {
+        this.owner = owner;
+      }
+      this.segments.forEach((segment: Segment) => segment.commit(this));
+    }
+
+    findSegment(point: Vector) {
+      const index = this.segments.findIndex((segment: Segment) => segment.start === point);
+      return index;
+    }
+
+    hasPoint(point: Vector) {
+      return this.segments.some((segment: Segment) => segment.has(point));
+    }
+
+    insert(segment: Segment, point: Vector) {
+      if (!segment.has(point)) {
+        const index = this.segments.findIndex((candidateSegment: Segment) => candidateSegment === segment);
+        const firstSegment = new Segment(segment.start, point).commit(this);
+        const secondSegment = new Segment(point, segment.end).commit(this);
+        segment.remove();
+        this.segments.splice(index, 1, firstSegment, secondSegment);
+      }
+    }
+
+    inside(point: Vector) {
+      const {
+        length
+      } = this.segments;
+      let product = 1;
+      for (let i2 = 0; i2 < length; i2++) {
+        const {
+          end,
+          start
+        } = ensureNonNullable(this.segments[i2]);
+        const crossing = computeCrossing(start, end, point);
+        if (crossing === 0) {
+          return true;
+        }
+        product *= crossing;
+      }
+      return product !== 1;
+    }
+
+    insideNew(point: Vector) {
+      return !!pointInPolygon(this.segments.map((segment: Segment) => [segment.start.x, segment.start.y]), point.x, point.y);
+    }
+
+    intersections(segment: Segment) {
+      let list4: Intersection[] = [];
+      if (this.segments.length > 1) {
+        this.segments.forEach((ownSegment: Segment) => {
+          const intersection = ownSegment.intersect(segment);
+          if (intersection) {
+            list4.push(intersection);
+          }
+        });
+      }
+      if (list4.length > 1) {
+        list4.sort((intersectionA: Intersection, intersectionB: Intersection) => intersectionA.distance - intersectionB.distance);
+        list4 = list4.filter((intersection: Intersection, index: number) => {
+          return list4.findIndex((otherIntersection: Intersection) => otherIntersection.point === intersection.point) == index;
+        });
+      }
+      return list4;
+    }
+
+    left(list4: Vector[], startIndex: number, endIndex: number) {
+      const list5: Segment[] = [];
+      for (let i2 = 0; i2 < list4.length - 1; i2++) {
+        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
+      }
+      const list6 = this.segments.splice(startIndex, endIndex - startIndex, ...list5);
+      list5.forEach((segment: Segment) => segment.commit(this));
+      list6.forEach((segment: Segment) => {
+        segment.remove();
+      });
+    }
+
+    points() {
+      return this.segments.map((segment: Segment) => segment.start);
+    }
+
+    rawSquare() {
+      let area = 0;
+      this.segments.forEach((segment: Segment) => {
+        const {
+          end,
+          start
+        } = segment;
+        area += (start.x + end.x) * (end.y - start.y);
+      });
+      return area / 2;
+    }
+
+    remove() {
+      this.segments.forEach((segment: Segment) => {
+        segment.remove();
+      });
+    }
+
+    reverse() {
+      this.segments.reverse();
+      this.segments.forEach((segment: Segment) => segment.reverse());
+      return this;
+    }
+
+    right(list4: Vector[], startIndex: number, endIndex: number) {
+      const list5: Segment[] = [];
+      for (let i2 = 0; i2 < list4.length - 1; i2++) {
+        list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
+      }
+      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
+      this.remove();
+      list5.reverse().forEach((segment: Segment) => segment.reverse().commit(this));
+      this.segments = removedSegments.concat(list5);
+    }
+
+    splice(polyline: Polyline, startIndex: number, endIndex: number) {
+      const list4 = this.segments.splice(startIndex, endIndex - startIndex, ...polyline.segments);
+      list4.forEach((segment: Segment) => {
+        segment.remove();
+      });
+      polyline.commit(this);
+    }
+
+    square() {
+      let area = this.rawSquare();
+      if (area < 0) {
+        {
+          area *= -1;
+        }
+      }
+      return area;
+    }
+
+    unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
+      const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
+      this.remove();
+      this.segments = removedSegments.concat(polyline.reverse().segments);
+      polyline.commit(this);
+    }
+
     updateBounds() {
       this.calcSimplify();
       let left = Infinity;
@@ -933,18 +1023,18 @@ interface ObjectConstructor {
       top -= MIN_POINT_DISTANCE;
       bottom += MIN_POINT_DISTANCE;
       this.bounds = {
-        left: left,
-        right: right,
-        top: top,
-        bottom: bottom
+        bottom,
+        left,
+        right,
+        top
       };
     }
   }
-  const timeSource = typeof performance !== "undefined" ? performance : Date;
+  const timeSource = typeof performance !== 'undefined' ? performance : Date;
   const now = timeSource.now.bind(timeSource);
   const createCirclePoints = (point: Vector, segmentCount: number, radius: number) => {
-    if (typeof point.x !== "number") {
-      throw Error("circle");
+    if (typeof point.x !== 'number') {
+      throw Error('circle');
     }
     const fullCircleAngle = Math.PI * 2;
     const angleStep = fullCircleAngle / segmentCount;
@@ -959,15 +1049,15 @@ interface ObjectConstructor {
     const green = parseInt(hex.substring(3, 5), 16);
     const blue = parseInt(hex.substring(5, 7), 16);
     return {
-      r: red,
+      b: blue,
       g: green,
-      b: blue
+      r: red
     };
   };
   const rgbToHsv = ({
-    r,
+    b,
     g,
-    b
+    r
   }: Rgb): Hsv => {
     let normRed;
     let normGreen;
@@ -1015,33 +1105,32 @@ interface ObjectConstructor {
     };
   };
   const rgbToHex = ({
-    r,
+    b,
     g,
-    b
+    r
   }: Rgb): string => {
     const channelToHex = (channel: number) => {
       const hex = channel.toString(16);
       if (hex.length < 2) {
-        return "0" + hex;
-      } else {
-        return hex;
+        return `0${hex}`;
       }
+      return hex;
     };
-    return "#" + channelToHex(r) + channelToHex(g) + channelToHex(b);
+    return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
   };
   const hsvToRgb = ({
     h,
     s,
     v
   }: Hsv): Rgb => {
-    var red;
-    var green;
-    var blue;
-    var sector;
-    var fraction;
-    var p;
-    var q;
-    var t;
+    let red;
+    let green;
+    let blue;
+    let sector;
+    let fraction;
+    let p;
+    let q;
+    let t;
     h = Math.max(0, Math.min(360, h));
     s = Math.max(0, Math.min(100, s));
     v = Math.max(0, Math.min(100, v));
@@ -1050,9 +1139,9 @@ interface ObjectConstructor {
     if (s == 0) {
       red = green = blue = v;
       return {
-        r: Math.round(red * 255),
+        b: Math.round(blue * 255),
         g: Math.round(green * 255),
-        b: Math.round(blue * 255)
+        r: Math.round(red * 255)
       };
     }
     h /= 60;
@@ -1093,9 +1182,9 @@ interface ObjectConstructor {
         blue = q;
     }
     return {
-      r: Math.round(red * 255),
+      b: Math.round(blue * 255),
       g: Math.round(green * 255),
-      b: Math.round(blue * 255)
+      r: Math.round(red * 255)
     };
   };
   const hsvToHex = (hsv: Hsv) => rgbToHex(hsvToRgb(hsv));
@@ -1103,16 +1192,16 @@ interface ObjectConstructor {
     if (seed > 0 && seed < 1) {
       seed = Math.floor(seed * 1000000000);
     }
-    let nextInt = (bound: number) => {
+    const nextInt = (bound: number) => {
       seed = (seed * 69069 + 1) % 2147483648;
       return seed % bound;
     };
-    let random = (max?: number) => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
+    const random = (max?: number) => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
     return random;
   }
   function loadImage(src: string) {
     return new Promise<HTMLImageElement>((resolve: (value: HTMLImageElement) => void) => {
-      let element = document.createElement("img");
+      const element = document.createElement('img');
       element.src = src;
       element.onload = function () {
         resolve(element);
@@ -1127,9 +1216,9 @@ interface ObjectConstructor {
     } = hsv;
     v *= factor;
     return {
-      h: h,
-      s: s,
-      v: v
+      h,
+      s,
+      v
     };
   }
   function brighten(hsv: Hsv, factor: number): Hsv {
@@ -1141,9 +1230,9 @@ interface ObjectConstructor {
     const headroom = 100 - v;
     v = Math.max(v * factor, v + factor * headroom / 4);
     return {
-      h: h,
-      s: s,
-      v: v
+      h,
+      s,
+      v
     };
   }
   function setValue(hsv: Hsv, value: number): Hsv {
@@ -1154,9 +1243,9 @@ interface ObjectConstructor {
     } = hsv;
     v = value;
     return {
-      h: h,
-      s: s,
-      v: v
+      h,
+      s,
+      v
     };
   }
   function formatFixed2(value: number) {
@@ -1172,9 +1261,11 @@ interface ObjectConstructor {
       this.radius = radius;
       this.center = center;
     }
+
     static circular(center: Vector, segments: number, radius: number) {
       return new Border(new Polygon(createCirclePoints(center, segments, radius)), center, radius);
     }
+
     intersections(segment: Segment): Intersection[] {
       {
         if (segment.start.distance2(this.center) < this.radius ** 2 * 0.95 && segment.end.distance2(this.center) < this.radius ** 2 * 0.95) {
@@ -1200,6 +1291,7 @@ interface ObjectConstructor {
       this.calcSquare();
       this.polygon.calcPath();
     }
+
     calcPath() {
       this.path = new Path2D();
       const {
@@ -1221,12 +1313,44 @@ interface ObjectConstructor {
       this.path.closePath();
       return this.path;
     }
+
     calcSquare() {
       this.square = this.polygon.square();
     }
-    remove() {
-      this.polygon.remove();
+
+    handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+      const {
+        point: intersectionPoint,
+        segment: intersectionSegment
+      } = intersection;
+      if (unit.in === this) {
+        if (intersection.zn < 0) {
+          return;
+        }
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
+        unit.track.intersect(intersection, this, false);
+        unit.in = null;
+      } else {
+        if (intersection.zn > 0) {
+          return;
+        }
+        if (intersection.overlay) {
+          return;
+        }
+        if (intersectionPoint.equal(segment.end)) {
+          return;
+        }
+        if (unit.in) {
+          return;
+        }
+        this.polygon.insert(intersectionSegment, intersectionPoint);
+        unit.track.add(intersectionPoint);
+        unit.track.intersect(intersection, this, true);
+        unit.in = this;
+      }
     }
+
     handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       if (unit === this.unit) {
         this.handleSelfIntersect(intersection, unit, segment);
@@ -1234,6 +1358,7 @@ interface ObjectConstructor {
         this.handleEnemyIntersect(intersection, unit, segment);
       }
     }
+
     handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       if (intersection.overlay) {
         return;
@@ -1278,37 +1403,9 @@ interface ObjectConstructor {
         unit.track.remove();
       }
     }
-    handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
-      const {
-        point: intersectionPoint,
-        segment: intersectionSegment
-      } = intersection;
-      if (unit.in === this) {
-        if (intersection.zn < 0) {
-          return;
-        }
-        this.polygon.insert(intersectionSegment, intersectionPoint);
-        unit.track.add(intersectionPoint);
-        unit.track.intersect(intersection, this, false);
-        unit.in = null;
-      } else {
-        if (intersection.zn > 0) {
-          return;
-        }
-        if (intersection.overlay) {
-          return;
-        }
-        if (intersectionPoint.equal(segment.end)) {
-          return;
-        }
-        if (unit.in) {
-          return;
-        }
-        this.polygon.insert(intersectionSegment, intersectionPoint);
-        unit.track.add(intersectionPoint);
-        unit.track.intersect(intersection, this, true);
-        unit.in = this;
-      }
+
+    remove() {
+      this.polygon.remove();
     }
   }
   class Trail {
@@ -1326,6 +1423,7 @@ interface ObjectConstructor {
       this.intersections = [];
       this.isTrack = true;
     }
+
     add(point: Vector) {
       if (this.polyline.add2(point)) {
         const length2 = this.polyline.segments.length;
@@ -1351,36 +1449,11 @@ interface ObjectConstructor {
         }
       }
     }
-    intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
-      const existingRecord = this.intersections.find((record: TrailIntersectionRecord) => record.point.equal(intersection.point));
-      if (existingRecord) {
-        existingRecord.intersections.push({
-          intersection: intersection,
-          base: base,
-          enter: enter
-        });
-      } else {
-        this.intersections.push({
-          point: intersection.point,
-          intersections: [{
-            intersection: intersection,
-            base: base,
-            enter: enter
-          }]
-        });
-      }
-    }
-    remove() {
-      this.polyline.remove();
-      this.polyline = new Polyline(this);
-      this.length = 0;
-      this.simplyline = [];
-      this.intersections = [];
-    }
+
     handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment) {
-      let game = unit.game;
+      const game = unit.game;
       if (unit === this.unit) {
-        if (intersection.overlay === true || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
+        if (intersection.overlay || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
           this.unit.position = intersection.point;
           const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_WALL : KILL_REASON_SELF_INTERSECTION;
           game.kill(this.unit, undefined, killReason);
@@ -1388,6 +1461,34 @@ interface ObjectConstructor {
       } else {
         game.kill(this.unit, unit, KILL_REASON_TRAIL);
       }
+    }
+
+    intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
+      const existingRecord = this.intersections.find((record: TrailIntersectionRecord) => record.point.equal(intersection.point));
+      if (existingRecord) {
+        existingRecord.intersections.push({
+          base,
+          enter,
+          intersection
+        });
+      } else {
+        this.intersections.push({
+          intersections: [{
+            base,
+            enter,
+            intersection
+          }],
+          point: intersection.point
+        });
+      }
+    }
+
+    remove() {
+      this.polyline.remove();
+      this.polyline = new Polyline(this);
+      this.length = 0;
+      this.simplyline = [];
+      this.intersections = [];
     }
   }
   class StateMachine {
@@ -1397,26 +1498,28 @@ interface ObjectConstructor {
     states: BotStates;
     constructor(states: BotStates, initialState: string, payload: Bot) {
       this.states = states;
-      this.state = "";
+      this.state = '';
       this.payload = payload;
       this.context = {};
       this.change(initialState);
     }
+
     change(stateName: string) {
       const currentState = this.states[this.state];
-      if (currentState && currentState.leave) {
+      if (currentState?.leave) {
         this.context = currentState.leave(this.payload, this.context) || this.context;
       }
       const nextState = this.states[stateName];
       if (nextState) {
         this.state = stateName;
-        this.context = nextState.enter && nextState.enter(this.payload, this.context) || this.context;
+        this.context = nextState.enter?.(this.payload, this.context) || this.context;
         this.update();
       }
     }
+
     update() {
       const currentState = this.states[this.state];
-      const nextStateName = currentState && currentState.update(this.payload, this.context);
+      const nextStateName = currentState?.update(this.payload, this.context);
       if (nextStateName) {
         this.change(nextStateName);
       }
@@ -1438,7 +1541,7 @@ interface ObjectConstructor {
         }
       }
     }
-    return;
+    return false;
   };
   const isBotInDanger = (unit: Bot) => {
     if (unit.in === unit.base) {
@@ -1446,124 +1549,69 @@ interface ObjectConstructor {
     }
     return unit.maxDanger > unit.def * 0.8;
   };
-  var botStates: BotStates = {
-    idle: {
-      enter: function () {
-        return {};
-      },
-      update: function (unit, _context) {
-        if (unit.in === unit.base) {
-          if (unit.game.rng() < 0.25) {
-            return "cut";
-          } else {
-            return "exit";
-          }
-        } else {
-          return "back";
+  const botStates: BotStates = {
+    attack: {
+      enter: () => ({}),
+      update(unit, _context) {
+        const {
+          player
+        } = unit.game;
+        if (!player || player.death) {
+          return 'idle';
         }
+        const {
+          simplyline
+        } = player.track;
+        if (!simplyline.length) {
+          return 'idle';
+        }
+        if (player.track.length < unit.game.config.botAttackTrackLength && isBotInDanger(unit)) {
+          return 'idle';
+        }
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
+        simplyline.forEach((point, index) => {
+          const distanceSquared = unit.position.distance2(point);
+          if (distanceSquared < nearestDistance) {
+            nearestDistance = distanceSquared;
+            nearestIndex = index;
+          }
+        });
+        unit.target = simplyline[nearestIndex] ?? null;
+        return undefined;
+      }
+    },
+    back: {
+      enter(_unit, _context) {},
+      update(unit, _context) {
+        if (unit.in === unit.base) {
+          return 'idle';
+        }
+        unit.smoothness = lerp(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * 4)), Math.max(1, unit.maxDanger));
+        const distanceToBorder = unit.game.border.radius - unit.position.distance(unit.game.space.center);
+        if (distanceToBorder < 20) {
+          unit.smoothness = 1;
+        }
+        unit.target = unit.baseNearestPoint;
+        return undefined;
       }
     },
     capital: {
-      update: function (unit, context) {
+      update(unit, context) {
         if (unit.in !== unit.base) {
-          return "capture";
+          return 'capture';
         }
         unit.target = context.point ?? null;
-        return;
-      }
-    },
-    cut: {
-      enter: function (unit) {
-        const vector = unit.position.clone().sub(unit.game.space.center);
-        const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
-        const list4 = unit.base.polygon.intersections(segment);
-        const context: BotStateContext = {};
-        if (!list4.length) {
-          console.log("bot.position", unit.position.x, unit.position.y);
-          console.log("intersections", list4);
-        }
-        list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
-        const first = list4[0];
-        if (first) {
-          context.exitPoint = first.point;
-        }
-        return context;
-      },
-      update: function (unit, context) {
-        if (unit.in !== unit.base) {
-          return "capture";
-        }
-        const distanceToCenter = unit.position.distance(unit.game.space.center);
-        const distanceToBorder = unit.game.border.radius - distanceToCenter;
-        if (!context.exitPoint || distanceToBorder < 1) {
-          return "idle";
-        }
-        unit.target = context.exitPoint;
-        return;
-      }
-    },
-    exit: {
-      enter: function (unit) {
-        const context: BotStateContext = {};
-        let nearestDistance = Infinity;
-        let bestIndex;
-        const {
-          length
-        } = unit.base.polygon.segments;
-        let unitSpeed = unit.game.config.unitSpeed;
-        context.minDistance = unitSpeed;
-        while (bestIndex === undefined) {
-          for (let i2 = 0; i2 < 1; i2++) {
-            const segmentIndex = ~~(unit.game.rng() * length);
-            const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
-            const distance = start.distance(unit.position);
-            if (distance < nearestDistance && distance > unitSpeed) {
-              nearestDistance = distance;
-              bestIndex = segmentIndex;
-            }
-          }
-          unitSpeed *= 0.75;
-        }
-        context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
-        return context;
-      },
-      update: function (unit, context) {
-        if (unit.in !== unit.base) {
-          context = {};
-          return "capture";
-        }
-        if (isPlayerTrailInRange(unit)) {
-          return "attack";
-        }
-        const {
-          length
-        } = unit.base.polygon.segments;
-        const minDistance = ensureNonNullable(context.minDistance);
-        const segmentIndex = ~~(unit.game.rng() * length);
-        const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
-        const distance = start.distance(unit.position);
-        let exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
-        if (distance > minDistance && distance < exitPointDistance) {
-          context.exitPoint = start;
-        } else {
-          if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
-            context.exitPoint = start;
-          }
-          if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
-            context.exitPoint = start;
-          }
-        }
-        unit.target = context.exitPoint ?? null;
-        return;
+        return undefined;
       }
     },
     capture: {
-      update: function (unit, _context) {
+      update(unit, _context) {
         if (unit.in === unit.base) {
-          return "idle";
+          return 'idle';
         }
         if (isPlayerTrailInRange(unit)) {
-          return "attack";
+          return 'attack';
         }
         const {
           unitSpeed
@@ -1577,7 +1625,7 @@ interface ObjectConstructor {
         const distanceToCenter = unit.position.distance(center);
         const distanceToBorder = radius - distanceToCenter;
         if (unit.baseDistance < unitSpeed / 4 && unit.track.length > unitSpeed * 2 && distanceToBorder > 10) {
-          return "back";
+          return 'back';
         }
         const stepDistance = 25;
         const halfStep = stepDistance / 2;
@@ -1615,7 +1663,7 @@ interface ObjectConstructor {
         const baseDistanceRatio = unit.baseDistance / minTrackDistance;
         const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
         if (maxRatio > 1) {
-          return "back";
+          return 'back';
         }
         const greedDistance = unit.vrange * greed;
         const approachDistance = greedDistance;
@@ -1623,19 +1671,19 @@ interface ObjectConstructor {
         const toTarget = ensureNonNullable(unit.target).clone().sub(unit.position);
         let steerVector;
         if (unit.baseDistance > approachDistance || maxRatio > 0.75) {
-          unit.aspect = "приближение";
+          unit.aspect = 'приближение';
           steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 + Math.PI / 4) * windingSign);
         } else if (unit.baseDistance < retreatDistance) {
-          unit.aspect = "отдаление";
+          unit.aspect = 'отдаление';
           let angle = Math.PI / 4;
           const trackRatio = unit.track.length / retreatDistance;
           if (trackRatio < 1) {
-            unit.aspect = "отстрел";
+            unit.aspect = 'отстрел';
             angle = lerp(Math.PI / 2 * greed, 0, trackRatio);
           }
           steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 - angle) * windingSign);
         } else {
-          unit.aspect = "проход";
+          unit.aspect = 'проход';
           steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(Math.PI / 2 * windingSign);
           unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 3;
         }
@@ -1668,53 +1716,106 @@ interface ObjectConstructor {
           steerVector = centerDirection.clone().rotate(Math.PI / 2 * targetAngle2).rotate(Math.PI / 8 * -targetAngle2).mulScalar(chordHalfLength);
           unit.target = projectionPoint.clone().add(steerVector);
         } else if (unit.target.distance(center) > radius && unit.target.distance(center) < radius + stepDistance * 0.5) {}
-        return;
+        return undefined;
       }
     },
-    back: {
-      enter: function (_unit, _context) {},
-      update: function (unit, _context) {
-        if (unit.in === unit.base) {
-          return "idle";
+    cut: {
+      enter(unit) {
+        const vector = unit.position.clone().sub(unit.game.space.center);
+        const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
+        const list4 = unit.base.polygon.intersections(segment);
+        const context: BotStateContext = {};
+        if (!list4.length) {
+          console.log('bot.position', unit.position.x, unit.position.y);
+          console.log('intersections', list4);
         }
-        unit.smoothness = lerp(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * 4)), Math.max(1, unit.maxDanger));
-        const distanceToBorder = unit.game.border.radius - unit.position.distance(unit.game.space.center);
-        if (distanceToBorder < 20) {
-          unit.smoothness = 1;
+        list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
+        const first = list4[0];
+        if (first) {
+          context.exitPoint = first.point;
         }
-        unit.target = unit.baseNearestPoint;
-        return;
+        return context;
+      },
+      update(unit, context) {
+        if (unit.in !== unit.base) {
+          return 'capture';
+        }
+        const distanceToCenter = unit.position.distance(unit.game.space.center);
+        const distanceToBorder = unit.game.border.radius - distanceToCenter;
+        if (!context.exitPoint || distanceToBorder < 1) {
+          return 'idle';
+        }
+        unit.target = context.exitPoint;
+        return undefined;
       }
     },
-    attack: {
-      enter: () => ({}),
-      update: function (unit, _context) {
-        const {
-          player
-        } = unit.game;
-        if (!player || player.death) {
-          return "idle";
-        }
-        const {
-          simplyline
-        } = player.track;
-        if (!simplyline.length) {
-          return "idle";
-        }
-        if (player.track.length < unit.game.config.botAttackTrackLength && isBotInDanger(unit)) {
-          return "idle";
-        }
-        let nearestIndex = 0;
+    exit: {
+      enter(unit) {
+        const context: BotStateContext = {};
         let nearestDistance = Infinity;
-        simplyline.forEach((point, index) => {
-          const distanceSquared = unit.position.distance2(point);
-          if (distanceSquared < nearestDistance) {
-            nearestDistance = distanceSquared;
-            nearestIndex = index;
+        let bestIndex;
+        const {
+          length
+        } = unit.base.polygon.segments;
+        let unitSpeed = unit.game.config.unitSpeed;
+        context.minDistance = unitSpeed;
+        while (bestIndex === undefined) {
+          for (let i2 = 0; i2 < 1; i2++) {
+            const segmentIndex = ~~(unit.game.rng() * length);
+            const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
+            const distance = start.distance(unit.position);
+            if (distance < nearestDistance && distance > unitSpeed) {
+              nearestDistance = distance;
+              bestIndex = segmentIndex;
+            }
           }
-        });
-        unit.target = simplyline[nearestIndex] ?? null;
-        return;
+          unitSpeed *= 0.75;
+        }
+        context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
+        return context;
+      },
+      update(unit, context) {
+        if (unit.in !== unit.base) {
+          context = {};
+          return 'capture';
+        }
+        if (isPlayerTrailInRange(unit)) {
+          return 'attack';
+        }
+        const {
+          length
+        } = unit.base.polygon.segments;
+        const minDistance = ensureNonNullable(context.minDistance);
+        const segmentIndex = ~~(unit.game.rng() * length);
+        const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
+        const distance = start.distance(unit.position);
+        const exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
+        if (distance > minDistance && distance < exitPointDistance) {
+          context.exitPoint = start;
+        } else {
+          if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
+            context.exitPoint = start;
+          }
+          if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
+            context.exitPoint = start;
+          }
+        }
+        unit.target = context.exitPoint ?? null;
+        return undefined;
+      }
+    },
+    idle: {
+      enter() {
+        return {};
+      },
+      update(unit, _context) {
+        if (unit.in === unit.base) {
+          if (unit.game.rng() < 0.25) {
+            return 'cut';
+          }
+          return 'exit';
+        }
+        return 'back';
       }
     }
   };
@@ -1731,20 +1832,20 @@ interface ObjectConstructor {
   const particleSquarePath = createParticleSquarePath();
   class Particle {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
-    // spawnScoreParticles reassigns them to scalar speeds on already-expiring particles (time===1),
-    // so the field type is a union and the vector math below is typeof-guarded.
-    acceleration: Vector | number | null;
+    // SpawnScoreParticles reassigns them to scalar speeds on already-expiring particles (time===1),
+    // So the field type is a union and the vector math below is typeof-guarded.
+    acceleration: null | number | Vector;
     color: ParticleColor;
     fn: ((particle: Particle) => void) | null;
     position: Vector;
     rotate: number;
     rotation: number;
     scale: number;
-    target: Unit | null;
+    target: null | Unit;
     time: number;
-    velocity: Vector | number;
+    velocity: number | Vector;
     vscale: number;
-    constructor(target: Unit | null, color: ParticleColor, position: Vector, velocity: Vector | number, acceleration: Vector | number | null, rotate: number, scale: number, vscale: number, time: number, callback?: (particle: Particle) => void) {
+    constructor(target: null | Unit, color: ParticleColor, position: Vector, velocity: number | Vector, acceleration: null | number | Vector, rotate: number, scale: number, vscale: number, time: number, callback?: (particle: Particle) => void) {
       this.target = target;
       this.color = color;
       this.position = position;
@@ -1757,57 +1858,13 @@ interface ObjectConstructor {
       this.time = time;
       this.fn = callback || null;
     }
-    update(deltaTimeMilliseconds: number) {
-      const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
-      this.time -= deltaTimeMilliseconds;
-      if (this.time <= 0) {
-        if (this.fn) {
-          this.fn(this);
-        }
-        return;
-      }
-      if (typeof this.velocity !== "number") {
-        this.position.x += this.velocity.x * deltaTimeSeconds;
-        this.position.y += this.velocity.y * deltaTimeSeconds;
-        if (this.acceleration && typeof this.acceleration !== "number") {
-          this.velocity.x += this.acceleration.x * deltaTimeSeconds;
-          this.velocity.y += this.acceleration.y * deltaTimeSeconds;
-        }
-      }
-      this.rotation += this.rotate * deltaTimeSeconds;
-      this.scale += this.vscale * deltaTimeSeconds;
-    }
-    draw(context: CanvasRenderingContext2D) {
-      const {
-        x,
-        y
-      } = this.position;
-      const {
-        rotation,
-        color,
-        scale
-      } = this;
-      let savedTransform = context.getTransform();
-      context.translate(x, y);
-      context.rotate(rotation);
-      context.scale(scale, scale);
-      if (typeof color === "string") {
-        if (context.fillStyle !== color) {
-          context.fillStyle = color;
-        }
-        context.fill(particleSquarePath);
-      } else {
-        context.scale(1 / 20, 1 / 20);
-        context.drawImage(color, -color.width / 2, -color.height / 2);
-      }
-      context.setTransform(savedTransform);
-    }
+
     static nom(unit: Unit, segment: Segment, scale: number) {
       const randomSign = Math.sign(Math.random() - 0.5);
       const scaledMaxScale = unit.skin.container.maxScale * scale;
       const {
-        unitSpeed,
-        baseHeight
+        baseHeight,
+        unitSpeed
       } = unit.game.config;
       const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(randomSign * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
       const perpendicularOffset = ensureNonNullable(segment.vector).clone().rotate(Math.PI / 2).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / 2);
@@ -1820,9 +1877,56 @@ interface ObjectConstructor {
       const particle = new Particle(null, ensureNonNullable(particles[~~(Math.random() * particles.length)]), segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * -2, 300);
       return particle;
     }
+
+    draw(context: CanvasRenderingContext2D) {
+      const {
+        x,
+        y
+      } = this.position;
+      const {
+        color,
+        rotation,
+        scale
+      } = this;
+      const savedTransform = context.getTransform();
+      context.translate(x, y);
+      context.rotate(rotation);
+      context.scale(scale, scale);
+      if (typeof color === 'string') {
+        if (context.fillStyle !== color) {
+          context.fillStyle = color;
+        }
+        context.fill(particleSquarePath);
+      } else {
+        context.scale(1 / 20, 1 / 20);
+        context.drawImage(color, -color.width / 2, -color.height / 2);
+      }
+      context.setTransform(savedTransform);
+    }
+
+    update(deltaTimeMilliseconds: number) {
+      const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
+      this.time -= deltaTimeMilliseconds;
+      if (this.time <= 0) {
+        if (this.fn) {
+          this.fn(this);
+        }
+        return;
+      }
+      if (typeof this.velocity !== 'number') {
+        this.position.x += this.velocity.x * deltaTimeSeconds;
+        this.position.y += this.velocity.y * deltaTimeSeconds;
+        if (this.acceleration && typeof this.acceleration !== 'number') {
+          this.velocity.x += this.acceleration.x * deltaTimeSeconds;
+          this.velocity.y += this.acceleration.y * deltaTimeSeconds;
+        }
+      }
+      this.rotation += this.rotate * deltaTimeSeconds;
+      this.scale += this.vscale * deltaTimeSeconds;
+    }
   }
-  function spawnScoreParticles(unit: Unit, scoreCollector: Unit | null, list4: Segment[], shouldTransferScore?: boolean) {
-    let game = unit.game;
+  function spawnScoreParticles(unit: Unit, scoreCollector: null | Unit, list4: Segment[], shouldTransferScore?: boolean) {
+    const game = unit.game;
     if (game.visible) {
       const totalScores = ensureNonNullable(unit.schemes).scores();
       let i2 = 0;
@@ -1843,7 +1947,7 @@ interface ObjectConstructor {
             if (scoreCollector) {
               particle2.target = scoreCollector;
               particle2.time = 1;
-              particle2.velocity = (typeof particle2.velocity === "number" ? particle2.velocity : particle2.velocity.magnitude());
+              particle2.velocity = typeof particle2.velocity === 'number' ? particle2.velocity : particle2.velocity.magnitude();
               particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
               particle2.fn = () => {
                 if (shouldTransferScore) {
@@ -1863,44 +1967,46 @@ interface ObjectConstructor {
   }
   type SchemeConstructor = new (unit: Unit) => ScoreLabel;
   interface ComebackInfo {
+    game: Game;
     increment: number;
     rise: Polygon;
     victims: { base: Territory; poly: Polygon }[];
-    game: Game;
   }
   interface AchievementChecker {
-    progress: number;
-    update(unit: Unit, dt: number, game: Game): void;
     check(unit: Unit, dt: number, game: Game): boolean;
     onKill(unit: Unit): void;
     onOut(): void;
+    progress: number;
+    update(unit: Unit, dt: number, game: Game): void;
   }
   interface AchievementConfig {
-    name: string;
-    modes: string[];
-    getChecker: () => AchievementChecker;
     description: string;
-    url: string;
+    getChecker: () => AchievementChecker;
+    modes: string[];
+    name: string;
     onEarned?: (game: Game, achievement: Achievement) => void;
+    url: string;
   }
   interface StoredAchievement {
-    name: string;
     best: number;
     earned: boolean;
+    name: string;
   }
   interface StoredProfile {
     achievements?: StoredAchievement[];
   }
   class SchemeCycler {
-    Schemes: SchemeConstructor[];
     current: number;
+    Schemes: SchemeConstructor[];
     constructor(...schemeConstructors: SchemeConstructor[]) {
       this.Schemes = schemeConstructors;
       this.current = 0;
     }
+
     getSchemes(unit: Unit): Scoreboard {
       return new Scoreboard(this.Schemes.map((SchemeClass: SchemeConstructor) => new SchemeClass(unit)), this);
     }
+
     next(): void {
       this.current++;
       if (this.current === this.Schemes.length) {
@@ -1915,33 +2021,48 @@ interface ObjectConstructor {
       this.schemes = schemes;
       this.manager = manager;
     }
+
+    comeback(info?: ComebackInfo): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => {
+        scheme.comeback(info, this.manager.current !== index);
+      });
+    }
+
     getScheme(name?: string): ScoreLabel {
       if (name) {
         return ensureNonNullable(this.schemes.find((scheme: ScoreLabel) => scheme.name === name));
-      } else {
-        return ensureNonNullable(this.schemes[this.manager.current]);
       }
+      return ensureNonNullable(this.schemes[this.manager.current]);
     }
-    scores(): number {
-      return ensureNonNullable(this.schemes[this.manager.current]).scores();
+
+    kill(killer?: Unit, cause?: number): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => {
+        scheme.kill(killer, cause, this.manager.current !== index);
+      });
     }
-    result(): number {
-      return ensureNonNullable(this.schemes[this.manager.current]).result();
+
+    out(): void {
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => {
+        scheme.out(this.manager.current !== index);
+      });
     }
+
     print(score?: number): string {
       return ensureNonNullable(this.schemes[this.manager.current]).print(score);
     }
+
+    result(): number {
+      return ensureNonNullable(this.schemes[this.manager.current]).result();
+    }
+
+    scores(): number {
+      return ensureNonNullable(this.schemes[this.manager.current]).scores();
+    }
+
     update(dt?: number): void {
-      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.update(dt, this.manager.current !== index));
-    }
-    kill(killer?: Unit, cause?: number): void {
-      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.kill(killer, cause, this.manager.current !== index));
-    }
-    out(): void {
-      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.out(this.manager.current !== index));
-    }
-    comeback(info?: ComebackInfo): void {
-      this.schemes.forEach((scheme: ScoreLabel, index: number) => scheme.comeback(info, this.manager.current !== index));
+      this.schemes.forEach((scheme: ScoreLabel, index: number) => {
+        scheme.update(dt, this.manager.current !== index);
+      });
     }
   }
   class ScoreLabel {
@@ -1952,60 +2073,70 @@ interface ObjectConstructor {
       this.unit = unit;
       this.name = name;
     }
+
+    comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
     getScheme(): this {
       return this;
     }
-    scores(): number {
-      return 0;
-    }
+
+    kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
+    out(_isNotCurrent?: boolean): void {}
     print(_score?: number): string {
       return formatFixed2(this.scores());
     }
+
     result(): number {
       return this.scores();
     }
-    kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
+
+    scores(): number {
+      return 0;
+    }
+
     update(_dt?: number, _isNotCurrent?: boolean): void {}
-    out(_isNotCurrent?: boolean): void {}
-    comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
   }
   class BotScoreLabel extends ScoreLabel {
     constructor(unit: Unit) {
-      super(unit, "percent");
+      super(unit, 'percent');
     }
-    override scores(): number {
-      return this.unit.percent * 100;
-    }
-    override result(): number {
-      return +this.scores().toFixed(2);
-    }
-    override print(scoreOverride?: number): string {
-      const score = scoreOverride || this.scores();
-      return formatFixed2(score) + "%";
-    }
-    override kill(killer?: Unit, _cause?: number, isNotCurrent?: boolean): void {
-      if (!isNotCurrent && this.unit.isPlayer) {
-        this.unit.addLabel({
-          text: this.unit.game.language.killText,
-          color: ensureNonNullable(killer).skin.colors.main,
-          unit: this.unit,
-          time: 1000,
-          fading: true
-        });
-      }
-    }
+
     override comeback({
       increment
     }: ComebackInfo, isNotCurrent?: boolean): void {
       if (!isNotCurrent && increment * 100 >= 0.01 && this.unit.isPlayer) {
         this.unit.addLabel({
-          text: "+" + (increment * 100).toFixed(2) + "%",
           color: this.unit.skin.colors.nick,
-          unit: this.unit,
+          fading: true,
+          text: `+${(increment * 100).toFixed(2)}%`,
           time: 1000,
-          fading: true
+          unit: this.unit
         });
       }
+    }
+
+    override kill(killer?: Unit, _cause?: number, isNotCurrent?: boolean): void {
+      if (!isNotCurrent && this.unit.isPlayer) {
+        this.unit.addLabel({
+          color: ensureNonNullable(killer).skin.colors.main,
+          fading: true,
+          text: this.unit.game.language.killText,
+          time: 1000,
+          unit: this.unit
+        });
+      }
+    }
+
+    override print(scoreOverride?: number): string {
+      const score = scoreOverride || this.scores();
+      return `${formatFixed2(score)}%`;
+    }
+
+    override result(): number {
+      return +this.scores().toFixed(2);
+    }
+
+    override scores(): number {
+      return this.unit.percent * 100;
     }
   }
   class Quest {
@@ -2038,13 +2169,7 @@ interface ObjectConstructor {
         this.ready = true;
       }
     }
-    update(amount: number): void {
-      this.current += amount;
-      if (this.current > ensureNonNullable(this.states[this.state])) {
-        this.state++;
-        this.current = 0;
-      }
-    }
+
     position(): number {
       switch (this.state) {
         case 0:
@@ -2055,6 +2180,14 @@ interface ObjectConstructor {
           return 1 - easeOutCubic(this.current / ensureNonNullable(this.states[2]));
         default:
           return 0;
+      }
+    }
+
+    update(amount: number): void {
+      this.current += amount;
+      if (this.current > ensureNonNullable(this.states[this.state])) {
+        this.state++;
+        this.current = 0;
       }
     }
   }
@@ -2081,27 +2214,29 @@ interface ObjectConstructor {
       this.earned = false;
       this.checker = null;
     }
+
     success(game: Game): void {
       this.earned = true;
       if (window.ga) {
-        window.ga("send", "event", "skins_unlock", this.name);
+        window.ga('send', 'event', 'skins_unlock', this.name);
       }
       this.checker = null;
       if (this.onEarned) {
         this.onEarned(game, this);
       }
-      game.notifications.push(new Quest("New skin unlocked!", this.description, this.url));
+      game.notifications.push(new Quest('New skin unlocked!', this.description, this.url));
     }
   }
   class AchievementStore {
     achievements: Achievement[];
     storageName: string;
-    constructor(achievementConfigs: AchievementConfig[], storageName: string = "paper.io.storage") {
+    constructor(achievementConfigs: AchievementConfig[], storageName = 'paper.io.storage') {
       this.storageName = storageName;
       this.achievements = achievementConfigs.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
     }
+
     load(): void {
-      const challenges: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
+      const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
       const loadChallenge = (challengeKey: string, achievementName: string) => {
         if (challenges[challengeKey]) {
           const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
@@ -2110,10 +2245,10 @@ interface ObjectConstructor {
           }
         }
       };
-      loadChallenge("c13", "reaper");
-      loadChallenge("c22", "capAmerica");
-      loadChallenge("c22", "thanos");
-      loadChallenge("geraldquest1", "geralt");
+      loadChallenge('c13', 'reaper');
+      loadChallenge('c22', 'capAmerica');
+      loadChallenge('c22', 'thanos');
+      loadChallenge('geraldquest1', 'geralt');
       const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
       if (profile.achievements) {
         profile.achievements.forEach((achievement: StoredAchievement) => {
@@ -2125,11 +2260,12 @@ interface ObjectConstructor {
         });
       }
     }
+
     save(): void {
       const storedAchievements: StoredAchievement[] = this.achievements.map((achievement: Achievement) => ({
-        name: achievement.name,
         best: achievement.best,
-        earned: achievement.earned
+        earned: achievement.earned,
+        name: achievement.name
       }));
       const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
       profile.achievements = storedAchievements;
@@ -2137,26 +2273,26 @@ interface ObjectConstructor {
         expires: 365
       };
       Cookies.set(this.storageName, profile, cookieOptions);
-      const challenges: StoredChallenges = Cookies.getJSON("paperio_challenges") || {};
+      const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
       const saveChallenge = (challengeKey: string, achievementName: string) => {
         const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
-        if (achievement && achievement.earned) {
+        if (achievement?.earned) {
           challenges[challengeKey] = true;
         }
       };
-      saveChallenge("c13", "reaper");
-      saveChallenge("c22", "capAmerica");
-      saveChallenge("c22", "thanos");
-      saveChallenge("geraldquest1", "geralt");
-      saveChallenge("sanitizerquest", "sanitizer");
-      saveChallenge("doctorquest", "doctor");
-      saveChallenge("covidquest", "covid");
-      Cookies.set("paperio_challenges", challenges, cookieOptions);
+      saveChallenge('c13', 'reaper');
+      saveChallenge('c22', 'capAmerica');
+      saveChallenge('c22', 'thanos');
+      saveChallenge('geraldquest1', 'geralt');
+      saveChallenge('sanitizerquest', 'sanitizer');
+      saveChallenge('doctorquest', 'doctor');
+      saveChallenge('covidquest', 'covid');
+      Cookies.set('paperio_challenges', challenges, cookieOptions);
       window.paperio_challenges = challenges;
       if (window.shop) {
         window.shop.autoCheckUnlock();
       } else {
-        console.log("window.shop unavaliable");
+        console.log('window.shop unavaliable');
       }
     }
   }
@@ -2176,6 +2312,24 @@ interface ObjectConstructor {
         return shouldTrack;
       });
     }
+
+    finish(): void {
+      this.achievements = [];
+      ensureNonNullable(this.profile).save();
+    }
+
+    onKill(unit: Unit): void {
+      this.achievements.forEach((achievement: Achievement) => {
+        ensureNonNullable(achievement.checker).onKill(unit);
+      });
+    }
+
+    onOut(): void {
+      this.achievements.forEach((achievement: Achievement) => {
+        ensureNonNullable(achievement.checker).onOut();
+      });
+    }
+
     update(unit: Unit, value: number, game: Game): void {
       this.achievements = this.achievements.filter((achievement: Achievement) => {
         ensureNonNullable(achievement.checker).update(unit, value, game);
@@ -2190,20 +2344,6 @@ interface ObjectConstructor {
         return true;
       });
     }
-    finish(): void {
-      this.achievements = [];
-      ensureNonNullable(this.profile).save();
-    }
-    onKill(unit: Unit): void {
-      this.achievements.forEach((achievement: Achievement) => {
-        ensureNonNullable(achievement.checker).onKill(unit);
-      });
-    }
-    onOut(): void {
-      this.achievements.forEach((achievement: Achievement) => {
-        ensureNonNullable(achievement.checker).onOut();
-      });
-    }
   }
   class City {
     capital: boolean;
@@ -2212,20 +2352,21 @@ interface ObjectConstructor {
     name: string;
     position: Vector;
     scores: number;
-    skin: Skin | null;
-    unit: Unit | null;
-    constructor(name: string, isCapital: boolean, position: Vector, unit: Unit | null) {
+    skin: null | Skin;
+    unit: null | Unit;
+    constructor(name: string, isCapital: boolean, position: Vector, unit: null | Unit) {
       this.name = name;
       this.capital = isCapital;
       this.position = position;
       this.unit = unit;
       this.labels = [];
-      this.country = ensureNonNullable(ensureNonNullable(unit).skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
+      this.country = ensureNonNullable(ensureNonNullable(unit).skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       this.scores = 0;
       this.skin = null;
     }
+
     add(amount: number) {
-      const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
+      const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       let scoreGain = 0;
       if (name === this.country) {
         scoreGain = amount * (this.capital ? 1 : 0.5);
@@ -2240,19 +2381,19 @@ interface ObjectConstructor {
     achievements: AchievementTracker | null;
     base: Territory;
     baseDistance: number;
-    baseNearestPoint: Vector | null;
-    baseNearestPointNormal: Vector | null;
-    baseNearestPointTangent: Vector | null;
+    baseNearestPoint: null | Vector;
+    baseNearestPointNormal: null | Vector;
+    baseNearestPointTangent: null | Vector;
     bestPercent: number;
     bornTime: number;
     cities: City[];
     death: boolean;
     direction: number;
-    fsm: StateMachine | null;
+    fsm: null | StateMachine;
     game: Game;
-    in: Territory | null;
+    in: null | Territory;
     jitter: number;
-    killer: Unit | null;
+    killer: null | Unit;
     labels: Label[];
     lastSquare: number;
     log: Vector[];
@@ -2261,16 +2402,28 @@ interface ObjectConstructor {
     position: Vector;
     respawn: boolean;
     scale: number;
-    schemes: Scoreboard | null;
+    schemes: null | Scoreboard;
     scores: UnitScores;
-    private _skin: Skin | null = null;
     smoothness: number;
     statistics: UnitStatistics;
-    target: Vector | null;
+    target: null | Vector;
     top: number;
     track: Trail;
     type: number;
     vrange: number;
+    get isPlayer() {
+      return false;
+    }
+
+    get skin(): Skin {
+      return ensureNonNullable(this._skin);
+    }
+
+    set skin(value: Skin) {
+      this._skin = value;
+    }
+
+    private _skin: null | Skin = null;
     constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       this.killer = null;
       this.achievements = null;
@@ -2305,30 +2458,35 @@ interface ObjectConstructor {
         accumulator: 0,
         kills: 0
       };
-      this.schemes = (schemeCycler && schemeCycler.getSchemes(this)) ?? null;
+      this.schemes = (schemeCycler?.getSchemes(this)) ?? null;
       this.baseDistance = 0;
       this.baseNearestPoint = null;
       this.baseNearestPointTangent = null;
       this.baseNearestPointNormal = null;
     }
-    get isPlayer() {
-      return false;
+
+    addLabel(label: Label) {
+      if (!label.unit) {
+        label.unit = this;
+      }
+      this.labels.push(label);
     }
-    get skin(): Skin {
-      return ensureNonNullable(this._skin);
+
+    movement() {
+      return this.target && this.target.clone().sub(this.position).normalize();
     }
-    set skin(value: Skin) {
-      this._skin = value;
-    }
-    setSkin(skin: Skin) {
-      this.skin = skin;
-      skin.user = this;
-    }
+
     onScoreChanged() {
       if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
+
+    setSkin(skin: Skin) {
+      this.skin = skin;
+      skin.user = this;
+    }
+
     update(deltaTime: number) {
       this.log.push(this.position);
       if (this.in !== this.base) {
@@ -2361,15 +2519,6 @@ interface ObjectConstructor {
       this.baseNearestPointTangent = tangent;
       this.baseNearestPointNormal = tangent && tangent.clone().rotate(-Math.PI / 2);
     }
-    movement() {
-      return this.target && this.target.clone().sub(this.position).normalize();
-    }
-    addLabel(label: Label) {
-      if (!label.unit) {
-        label.unit = this;
-      }
-      this.labels.push(label);
-    }
   }
   class Player extends Unit {
     moveTo?: boolean;
@@ -2377,10 +2526,12 @@ interface ObjectConstructor {
     override get isPlayer() {
       return true;
     }
+
     constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
       this.win = false;
     }
+
     override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       if (!this.respawn) {
@@ -2399,7 +2550,7 @@ interface ObjectConstructor {
     safety: number;
     // Assigned an empty array in the constructor and never populated by any observed code path.
     targets: Unit[];
-    unitDanger: Unit | null;
+    unitDanger: null | Unit;
     unitToTrackDistances: UnitTrackDistance[] = [];
     constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
@@ -2413,14 +2564,15 @@ interface ObjectConstructor {
       this.smoothness = 1;
       this.maxDanger = 0;
       this.unitDanger = null;
-      this.fsm = new StateMachine(botStates, "idle", this);
+      this.fsm = new StateMachine(botStates, 'idle', this);
     }
+
     override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       this.unitToTrackDistances = [];
       let maxDanger = 0;
       let dangerDistance = 0;
-      let dangerUnit: Unit | null = null;
+      let dangerUnit: null | Unit = null;
       if (this.in !== this.base) {
         const {
           player
@@ -2429,7 +2581,7 @@ interface ObjectConstructor {
           const isPlayerOutOfRange = player === otherUnit && this.position.distance(otherUnit.position) > this.vrange;
           if (otherUnit !== this && !isPlayerOutOfRange) {
             let nearestTrackDistance = Infinity;
-            let nearestTrackPoint: Vector | null = null;
+            let nearestTrackPoint: null | Vector = null;
             this.track.simplyline.forEach((trackPoint: Vector) => {
               const distanceSquared = trackPoint.distance2(otherUnit.position);
               if (distanceSquared < nearestTrackDistance) {
@@ -2440,10 +2592,10 @@ interface ObjectConstructor {
             nearestTrackDistance = Math.sqrt(nearestTrackDistance);
             const danger = this.baseDistance / nearestTrackDistance;
             this.unitToTrackDistances.push({
-              unit: otherUnit,
+              danger,
               trackDistance: nearestTrackDistance,
               trackPoint: nearestTrackPoint,
-              danger: danger
+              unit: otherUnit
             });
             if (danger > maxDanger) {
               dangerUnit = otherUnit;
@@ -2468,11 +2620,11 @@ interface ObjectConstructor {
     position: Vector;
     text: string;
     time: number;
-    unit: Unit | null;
+    unit: null | Unit;
     velocity: Vector;
-    constructor(text: string, color: string, unit: Unit | null, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds: number = 2000, isFading: boolean = true) {
+    constructor(text: string, color: string, unit: null | Unit, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds = 2000, isFading = true) {
       this.text = text;
-      this.color = color || "#000000";
+      this.color = color || '#000000';
       this.unit = unit;
       this.position = position;
       this.velocity = velocity;
@@ -2481,18 +2633,12 @@ interface ObjectConstructor {
       this.time = durationMilliseconds;
       this.fading = isFading;
     }
-    update(deltaMilliseconds: number) {
-      this.time -= deltaMilliseconds;
-      if (this.time > 0) {
-        this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
-        this.position.add(this.velocity.clone().mulScalar(deltaMilliseconds / 1000));
-      }
-    }
+
     draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number) {
       const easeOut = (t: number) => 1 + --t * t * t * t * t;
       let alphaHex = Math.floor(easeOut(this.time / this.duration) * 255).toString(16);
       if (alphaHex.length < 2) {
-        alphaHex = "0" + alphaHex;
+        alphaHex = `0${alphaHex}`;
       }
       const point = this.unit ? this.unit.position.clone().add(this.position) : this.position;
       const {
@@ -2500,15 +2646,23 @@ interface ObjectConstructor {
       } = window;
       const fontSize = fontScale * 30 / devicePixelRatio;
       context.save();
-      context.fillStyle = "" + this.color + (this.fading ? alphaHex : "");
-      context.font = "bold " + fontSize + "px " + fontFamily;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
+      context.fillStyle = `${this.color}${this.fading ? alphaHex : ''}`;
+      context.font = `bold ${fontSize}px ${fontFamily}`;
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
       context.fillText(this.text, point.x * positionScale, point.y * positionScale);
       context.restore();
     }
+
+    update(deltaMilliseconds: number) {
+      this.time -= deltaMilliseconds;
+      if (this.time > 0) {
+        this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
+        this.position.add(this.velocity.clone().mulScalar(deltaMilliseconds / 1000));
+      }
+    }
   }
-  var fromCharCode = String.fromCharCode;
+  const fromCharCode = String.fromCharCode;
   class NamePool {
     pool: string[];
     rng: (seed?: number) => number;
@@ -2516,50 +2670,65 @@ interface ObjectConstructor {
       this.pool = pool;
       this.rng = createRandomGenerator(seed);
     }
-    get() {
-      let randomValue = this.rng();
-      let name = this.pool[~~(randomValue * this.pool.length)];
-      return name;
-    }
+
     aviable() {
       return true;
     }
-    request() {}
+
+    get() {
+      const randomValue = this.rng();
+      const name = this.pool[~~(randomValue * this.pool.length)];
+      return name;
+    }
+
     release(names: string[]) {
       this.pool.push(...names);
     }
+
+    request() {}
   }
-  var objectAssign = Object.assign;
   const ENCODED_EXPECTED_HOST: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
   const ENCODED_REDIRECT_HOST: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
   {
-    const decodeString = (encoded: [number, number[], number[]]) => fromCharCode.apply(null, encoded[2].map((charIndex: number) => encoded[1].reduce((sum: number, delta: number, index: number) => {
-      if (index <= charIndex) {
-        return sum + delta;
-      }
-      return sum;
-    }, encoded[0])));
+    const decodeString = (encoded: [number, number[], number[]]) =>
+      fromCharCode.apply(
+        null,
+        encoded[2].map((charIndex: number) =>
+          encoded[1].reduce((sum: number, delta: number, index: number) => {
+            if (index <= charIndex) {
+              return sum + delta;
+            }
+            return sum;
+          }, encoded[0])
+        )
+      );
     const expectedHost = decodeString(ENCODED_EXPECTED_HOST);
     const redirectHost = decodeString(ENCODED_REDIRECT_HOST);
     const list4: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
-    const decodePropertyName = (charIndices: number[]) => fromCharCode.apply(null, charIndices.map((charIndex: number) => list4.reduce((sum: number, delta: number, index: number) => {
-      if (index <= charIndex) {
-        return sum + delta;
-      }
-      return sum;
-    }, 47)));
+    const decodePropertyName = (charIndices: number[]) =>
+      fromCharCode.apply(
+        null,
+        charIndices.map((charIndex: number) =>
+          list4.reduce((sum: number, delta: number, index: number) => {
+            if (index <= charIndex) {
+              return sum + delta;
+            }
+            return sum;
+          }, 47)
+        )
+      );
     // These decode to the property names "host", "replace" and "location" respectively; the
-    // original reflects them off `window` at runtime as a domain-lock. Typed against the real
+    // Original reflects them off `window` at runtime as a domain-lock. Typed against the real
     // Location members via literal-key assertions (the decoded strings are known constants).
     const hostKey = decodePropertyName([8, 12, 15, 16]);
     const replaceKey = decodePropertyName([14, 7, 13, 10, 4, 6, 7]);
     const redirectUrlPrefix = decodePropertyName([8, 16, 16, 13, 1, 0, 0]);
     const redirectUrlSeparator = decodePropertyName([0, 3, 5, 6, 2]);
     const locationKey = decodePropertyName([10, 12, 6, 4, 16, 9, 12, 11]);
-    const currentHost = window[locationKey as "location"][hostKey as "host"];
+    const currentHost = window[locationKey as 'location'][hostKey as 'host'];
     if (currentHost !== expectedHost) {
       setTimeout(() => {
-        window[locationKey as "location"][replaceKey as "replace"](redirectUrlPrefix + redirectHost + redirectUrlSeparator + currentHost);
+        window[locationKey as 'location'][replaceKey as 'replace'](redirectUrlPrefix + redirectHost + redirectUrlSeparator + currentHost);
       }, (Math.PI + Math.random()) * 60000);
     } else {
       {
@@ -2579,20 +2748,50 @@ interface ObjectConstructor {
     return Vector.alloc(x, y);
   };
   interface Config {
-    arenaSize: number; quadSize: number; borderPoints: number; prepareMult: number;
-    prepareBatchCount: number; maxPreparingTime: number; baseRadius: number; baseCount: number;
-    minScale: number; maxScale: number; observerScale: number; trackWidth: number; unitSpeed: number;
-    spawnTimeout: number; prepareCounter: number; prepareAcceleration: number; baseHeight: number;
-    botsCount: number; botLevel: number; startBotLevel: number; noPlayerBotLevel: number;
-    nearPlayerBotSpawnCount: number; followKiller: boolean; selfKillDelay: number; enemyKillDelay: number;
-    arenaColor: string; borderColor: string; backgroundTopColor: string; backgroundBottomColor: string;
-    platesStrokeWidth: number; botAggroMin: number; botAggroMax: number; botDefMin: number; botDefMax: number;
-    botGreedMin: number; botGreedMax: number; botSafetyMin: number; botSafetyMax: number;
-    botAttackTrackLength: number; font: string;
+    arenaColor: string;
+    arenaSize: number;
+    backgroundBottomColor: string;
+    backgroundTopColor: string;
+    baseCount: number;
+    baseHeight: number;
+    baseRadius: number;
+    borderColor: string;
+    borderPoints: number;
+    botAggroMax: number;
+    botAggroMin: number;
+    botAttackTrackLength: number;
+    botDefMax: number;
+    botDefMin: number;
+    botGreedMax: number;
+    botGreedMin: number;
+    botLevel: number;
+    botSafetyMax: number;
+    botSafetyMin: number;
+    botsCount: number;
+    enemyKillDelay: number;
+    followKiller: boolean;
+    font: string;
+    maxPreparingTime: number;
+    maxScale: number;
+    minScale: number;
+    nearPlayerBotSpawnCount: number;
+    noPlayerBotLevel: number;
+    observerScale: number;
+    platesStrokeWidth: number;
+    prepareAcceleration: number;
+    prepareBatchCount: number;
+    prepareCounter: number;
+    prepareMult: number;
+    quadSize: number;
+    selfKillDelay: number;
+    spawnTimeout: number;
+    startBotLevel: number;
+    trackWidth: number;
+    unitSpeed: number;
   }
   // Declaration merge: SkinManager (defined later in the file, still `any`-typed by another
-  // worker) is only missing these two members as far as `Game` is concerned. Merging adds them
-  // without touching that class's body.
+  // Worker) is only missing these two members as far as `Game` is concerned. Merging adds them
+  // Without touching that class's body.
   interface SkinManager {
     getPlayerSkin(name?: string): Skin;
     isFlagSkinManager?: boolean;
@@ -2612,99 +2811,99 @@ interface ObjectConstructor {
     write(): void;
   }
   interface Replayer {
-    start: number;
-    skip?: boolean;
     currentlyPlaying(): number;
     duration(): number;
     read(): boolean;
+    skip?: boolean;
     skipping(): boolean;
+    start: number;
   }
   interface Metric {
-    updateTime: number;
-    renderTime: number;
+    events: { kills: number; returns: number };
     frameTime: number;
-    events: { returns: number; kills: number };
+    renderTime: number;
+    updateTime: number;
   }
   interface GameOverResult {
-    build: number;
-    game: Game;
-    percent: number;
-    score: number;
-    newBest: boolean;
-    name: string;
-    top: number;
-    best: number | null;
-    bestPercent: number;
-    time: number;
-    kills: number;
-    image: string | undefined;
-    reason: number;
+    readonly best: null | number;
+    readonly bestPercent: number;
+    readonly build: number;
+    readonly game: Game;
+    readonly image: string | undefined;
+    readonly kills: number;
+    readonly name: string;
+    readonly newBest: boolean;
+    readonly percent: number;
+    readonly reason: number;
+    readonly score: number;
+    readonly time: number;
+    readonly top: number;
   }
   interface Bounds {
+    bottom: number;
     left: number;
     right: number;
     top: number;
-    bottom: number;
   }
   interface RenderContext {
-    game: Game;
-    view: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D | null;
-    viewWidth: number;
-    viewHeight: number;
-    devicePixelRatio: number;
-    scaler: number;
-    scale: number;
-    origin: Vector;
-    pointInView: (point: Vector, margin?: number) => boolean;
+    backHeight: number;
+    barHeight: number;
+    barWidth: number;
     boundsInView: (shape: { bounds: Bounds }, margin?: number) => boolean;
     calcMult: (a: number, b: number) => number;
-    viewScreenWidth: number;
-    viewScreenHeight: number;
+    ctx: CanvasRenderingContext2D | null;
+    devicePixelRatio: number;
     fontSize: number;
-    strokeWidth: number;
-    backHeight: number;
-    uiFont: string;
-    padding: number;
-    barHeight: number;
+    game: Game;
     halfBarHeight: number;
-    barWidth: number;
     halfBarWidth: number;
+    origin: Vector;
+    padding: number;
+    pointInView: (point: Vector, margin?: number) => boolean;
+    scale: number;
+    scaler: number;
+    strokeWidth: number;
+    uiFont: string;
+    view: HTMLCanvasElement;
+    viewHeight: number;
+    viewScreenHeight: number;
+    viewScreenWidth: number;
+    viewWidth: number;
   }
   interface Intersection {
-    point: Vector;
-    segment: Segment;
     distance: number;
     overlay: boolean;
+    point: Vector;
+    segment: Segment;
     zn: number;
   }
   interface IntersectionGroup {
-    point: Vector;
     intersections: Intersection[];
+    point: Vector;
   }
   interface ShapeOwnerIntersection {
+    index: number;
     owner: ShapeOwner;
     point: Vector;
     segment: Segment;
-    index: number;
   }
   interface ComebackMergeParams {
-    owner: Territory;
-    enter: Segment;
-    leave: Segment;
-    startPoint: Vector;
-    endPoint: Vector;
-    startT: number;
-    endT: number;
+    readonly endPoint: Vector;
+    readonly endT: number;
+    readonly enter: Segment;
+    readonly leave: Segment;
+    readonly owner: Territory;
+    readonly startPoint: Vector;
+    readonly startT: number;
   }
   type Shape = Polygon | Polyline;
   class Game {
     achievementsProfile: AchievementStore;
     angle = 0;
-    best: number | null;
+    best: null | number;
     border: Border;
-    botSpawnLimited: boolean;
     bots: number[];
+    botSpawnLimited: boolean;
     build: number;
     citiesManager: CitiesManager | null;
     config: Config;
@@ -2715,12 +2914,12 @@ interface ObjectConstructor {
     debugGraph: boolean;
     debugView: boolean;
     direction: Vector;
-    events: { returns: number; kills: number };
-    fakeMouse: Vector | null;
+    events: { kills: number; returns: number };
+    fakeMouse: null | Vector;
     fpsSequence: number[];
     gameOverCallback: ((result: GameOverResult) => void) | null;
     isTest: boolean;
-    keyboard?: Partial<PointerState> | null;
+    keyboard?: null | Partial<PointerState>;
     labels: TextParticle[];
     language: LanguageStrings;
     last: number;
@@ -2731,15 +2930,15 @@ interface ObjectConstructor {
     mouse: Vector;
     nameManager: NamePool;
     notifications: Quest[];
-    origin: Vector | null = null;
+    origin: null | Vector = null;
     particles: Particle[];
-    player: Player | null;
+    player: null | Player;
     playerDeathCallback: (() => void) | null;
-    qas: { [qualityKey: string]: boolean };
+    qas: Record<string, boolean>;
     quality: number;
-    recording: Recorder | null;
+    recording: null | Recorder;
     renderer: ((game: Game) => void) | null;
-    replaying?: Replayer | null;
+    replaying?: null | Replayer;
     rng: (n?: number) => number;
     scale: number;
     schemesManager: SchemeCycler;
@@ -2749,16 +2948,20 @@ interface ObjectConstructor {
     spawnSuspend: number;
     square: number;
     startTime = 0;
-    stats: { fps: number; ut: number; ait: number; st: number; rt: number };
+    stats: { ait: number; fps: number; rt: number; st: number; ut: number };
     stopped: boolean;
     tailRecovered: boolean;
     timeAccumulated: number;
-    timings: { updateStartTime: number; updateEndTime: number; aiStartTime: number; aiEndTime: number; spawnStartTime: number; spawnEndTime: number; renderStartTime: number; renderEndTime: number };
+    timings: { aiEndTime: number; aiStartTime: number; renderEndTime: number; renderStartTime: number; spawnEndTime: number; spawnStartTime: number; updateEndTime: number; updateStartTime: number };
     topListChanged: boolean;
     units: Unit[];
     updateParticlesId: number;
     view: HTMLCanvasElement;
     visible: boolean;
+    get renderContext(): RenderContext | undefined {
+      return this.getRenderContext();
+    }
+
     constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
       this.best = null;
       this.isTest = false;
@@ -2814,208 +3017,148 @@ interface ObjectConstructor {
       this.quality = 1;
       this.fpsSequence = [];
       this.qas = {
-        q9: true,
-        q8: true,
-        q7: true,
+        q5: true,
         q6: true,
-        q5: true
+        q7: true,
+        q8: true,
+        q9: true
       };
       if (canvas) {
         const onResize = () => {};
-        window.addEventListener("resize", onResize, false);
+        window.addEventListener('resize', onResize, false);
       }
       this.stats = {
-        fps: 0,
-        ut: 0,
         ait: 0,
+        fps: 0,
+        rt: 0,
         st: 0,
-        rt: 0
+        ut: 0
       };
       this.timings = {
-        updateStartTime: 0,
-        updateEndTime: 0,
-        aiStartTime: 0,
         aiEndTime: 0,
-        spawnStartTime: 0,
-        spawnEndTime: 0,
+        aiStartTime: 0,
+        renderEndTime: 0,
         renderStartTime: 0,
-        renderEndTime: 0
+        spawnEndTime: 0,
+        spawnStartTime: 0,
+        updateEndTime: 0,
+        updateStartTime: 0
       };
       this.events = {
-        returns: 0,
-        kills: 0
+        kills: 0,
+        returns: 0
       };
       this.updateParticlesId = setInterval(() => {
         this.particles = this.particles.filter((particle: Particle) => particle.time > 0);
       }, 500);
     }
-    stop(): void {
-      this.stopped = true;
-      clearInterval(this.updateParticlesId);
-      for (let unit of this.units) {
-        this.skinManager.release(unit.skin);
+
+    addCity(unit: Unit) {
+      const name = ensureNonNullable(unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
+      const city = new City(ensureNonNullable(this.citiesManager).get(name), false, unit.position.clone(), unit);
+      if (this.skinManager.isFlagSkinManager) {
+        const citySkin = this.skinManager.getCitySkin(name);
+        city.skin = citySkin ?? null;
       }
+      unit.cities.push(city);
     }
+
     addPlayer(player: Player) {
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
-        player.achievements = new AchievementTracker(this.achievementsProfile, "classic");
+        player.achievements = new AchievementTracker(this.achievementsProfile, 'classic');
       }
       this.addUnit(player);
       this.player = player;
       {
         setTimeout(() => {
-          const element = document.createElement("img");
-          element.src = "https://gameads.io/adspixel.png";
+          const element = document.createElement('img');
+          element.src = 'https://gameads.io/adspixel.png';
         }, (2 + Math.random()) * 60000);
       }
-      this.debug = player.name === "dratest";
+      this.debug = player.name === 'dratest';
     }
+
     addUnit(unit: Unit) {
       this.units.push(unit);
     }
-    getSpawnPosition(spawnMode?: "player" | "bounds" | "center" | "random", unitRadius?: number): Vector | undefined {
-      const {
-        center
-      } = this.space;
-      const {
-        radius
-      } = this.border;
-      const {
-        baseRadius
-      } = this.config;
-      let center2 = center;
-      if (spawnMode === "player" && !this.player) {
-        return;
-      }
-      unitRadius = unitRadius || baseRadius;
-      const spacingMultiplier = this.player ? lerp(3, 1, this.player.percent) : 2;
-      var minDistance = unitRadius + baseRadius * 2;
-      var minDistanceSquared = minDistance * minDistance;
-      var trailDistance = unitRadius + baseRadius * 2 * spacingMultiplier;
-      var trailDistanceSquared = trailDistance * trailDistance;
-      let spawnDistance;
-      switch (spawnMode) {
-        case "player":
-          spawnDistance = lerp(baseRadius * 12, baseRadius * 16, Math.random());
-          center2 = ensureNonNullable(this.player).position;
-          break;
-        case "bounds":
-          spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * 10)), Math.max(0, radius - (unitRadius + baseRadius * 4)), Math.random());
-          break;
-        case "center":
-          spawnDistance = lerp(0, radius / 3, Math.random());
-          break;
-        default:
-          spawnDistance = lerp(0, Math.max(0, radius - (unitRadius + baseRadius)), Math.random());
-          break;
-      }
-      var offset = Vector.alloc(0, spawnDistance).rotate(Math.random() * Math.PI * 2);
-      var vector = center2.clone().add(offset);
-      offset.release();
-      if (vector.distance(center) > radius - (unitRadius + baseRadius)) {
-        return;
-      }
-      for (var i2 = 0; i2 < this.units.length; i2++) {
-        var unit = ensureNonNullable(this.units[i2]);
-        if (unit.base.polygon.inside(vector)) {
-          return;
-        }
-        if (unit.base.polygon.simplify.some(function (vertex: Vector) {
-          return vector.distance2(vertex) < minDistanceSquared;
-        })) {
-          return;
-        }
-        if (unit.track.simplyline.some(function (trailPoint: Vector) {
-          return vector.distance2(trailPoint) < trailDistanceSquared;
-        })) {
-          return;
-        }
-      }
-      return vector;
+
+    alert(text?: string, color?: string) {
+      this.labels.push(new TextParticle(ensureNonNullable(text), color || '#000000', this.player));
     }
-    spawnBot(spawnMode?: "player" | "bounds" | "center" | "random"): void {
+
+    changeShields(): void {
       const {
-        baseCount,
-        baseRadius,
-        spawnTimeout,
-        botsCount
-      } = this.config;
-      if (this.botSpawnLimited) {
-        if (this.spawnSuspend > 0) {
-          return;
-        }
-        this.spawnSuspend = spawnTimeout * (1 + this.rng());
+        countries: leaderboard
+      } = ensureNonNullable(this.leaderboard);
+      if (leaderboard) {
+        const goldCountry = leaderboard[0]?.country;
+        const silverCountry = leaderboard[1]?.country;
+        const bronzeCountry = leaderboard[2]?.country;
+        this.units.forEach((unit: Unit) => {
+          const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'shields');
+          const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
+          if (shieldAsset && flagAsset) {
+            let shieldName = 'gray';
+            switch (flagAsset.name) {
+              case bronzeCountry:
+                shieldName = 'bronze';
+                break;
+              case goldCountry:
+                shieldName = 'gold';
+                break;
+              case silverCountry:
+                shieldName = 'silver';
+                break;
+            }
+            if (shieldAsset.name !== shieldName) {
+              unit.skin.removeAsset(shieldAsset);
+              if ('shieldSkinAssets' in this.skinManager) {
+                unit.skin.addAsset(this.skinManager.shieldSkinAssets.get(shieldName));
+              }
+            }
+          }
+        });
       }
-      if (this.units.length - (this.player ? 1 : 0) >= botsCount) {
-        return;
-      }
-      if (!this.nameManager || !this.nameManager.aviable()) {
-        return;
-      }
-      if (!this.skinManager || !this.skinManager.available()) {
-        return;
-      }
-      const spawnPosition = this.getSpawnPosition(spawnMode);
-      if (!spawnPosition) {
-        return;
-      }
-      const botTypeCounts: number[] = [0, 0, 0, 0];
-      const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
+    }
+
+    checkBaseCommits(): void {
       this.units.forEach((unit: Unit) => {
-        if (unit !== this.player) {
-          botTypeCounts[unit.type] = ensureNonNullable(botTypeCounts[unit.type]) + 1;
-        }
+        const polygon = unit.base.polygon;
+        polygon.segments.forEach((segment: Segment) => {
+          const {
+            end,
+            start
+          } = segment;
+          const startSegment = start.segments.find((candidate: Segment) => candidate === segment);
+          const endSegment = end.segments.find((candidate: Segment) => candidate === segment);
+          if (!startSegment || !endSegment) {
+            throw new Error('точки сегмента не закоммичены');
+          }
+        });
       });
-      this.bots = objectAssign({}, botTypeCounts);
-      const typeDistribution = ensureNonNullable(list4[Math.round(this.level * (list4.length - 1))]);
-      let distributionIndex = -1;
-      while (ensureNonNullable(botTypeCounts[ensureNonNullable(typeDistribution[++distributionIndex])]) > 0) {
-        const decrementType = ensureNonNullable(typeDistribution[distributionIndex]);
-        botTypeCounts[decrementType] = ensureNonNullable(botTypeCounts[decrementType]) - 1;
-      }
-      const botType = ensureNonNullable(typeDistribution[distributionIndex]);
-      const botName = ensureNonNullable(this.nameManager.get());
-      const bot = new Bot(this, botType, botName, spawnPosition, createCirclePoints(spawnPosition, baseCount, baseRadius), undefined, this.schemesManager);
-      const botSkin = this.skinManager.get();
-      bot.setSkin(botSkin);
-      this.addUnit(bot);
-      this.bots[botType] = ensureNonNullable(this.bots[botType]) + 1;
     }
-    spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
-      const {
-        baseCount,
-        baseRadius,
-        maxScale,
-        minScale,
-        botsCount
-      } = this.config;
-      const killUnitToMakeRoom = () => {
-        if (this.units.length) {
-          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_SYSTEM);
-        }
-      };
-      if (this.units.length && this.units.length >= botsCount) {
-        killUnitToMakeRoom();
-      }
-      let spawnPosition: Vector | undefined;
-      let i2 = 0;
-      var spawnRadius = areaPercent ? Math.sqrt(this.square * areaPercent / Math.PI) : baseRadius;
-      while (!spawnPosition) {
-        if (i2++ > 50) {
-          i2 = 0;
-          killUnitToMakeRoom();
-        }
-        spawnPosition = this.getSpawnPosition("random", spawnRadius);
-      }
-      const player = new Player(this, playerName || this.language.defaultPlayerName, spawnPosition, createCirclePoints(spawnPosition, baseCount, spawnRadius), undefined, this.schemesManager);
-      const playerSkin = this.skinManager.getPlayerSkin(skinName);
-      player.setSkin(playerSkin);
-      this.addPlayer(player);
-      this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
-      this.startTime = now();
+
+    checkSegments(): void {
+      let totalSegmentCount = 0;
+      this.units.forEach((unit: Unit) => {
+        totalSegmentCount += unit.base.polygon.segments.length;
+        totalSegmentCount += unit.track.polyline.segments.length;
+      });
+      this.space.segmentsCount();
     }
+
+    finishPrepare(): void {
+      const targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
+      if (this.cycle < targetCycle) {
+        console.log(`skip cycles to: ${targetCycle}`);
+      }
+      while (this.cycle < targetCycle) {
+        this.update();
+      }
+    }
+
     gameOver(reason?: number): void {
       const player = ensureNonNullable(this.player);
       if (!player.win) {
@@ -3041,11 +3184,11 @@ interface ObjectConstructor {
         const scale = canvasSize * 0.95 / maxDimension;
         const sizeUnit = canvasSize / 100;
         let dataUrl: string | undefined;
-        if (typeof document !== "undefined") {
-          const element = document.createElement("canvas");
+        if (typeof document !== 'undefined') {
+          const element = document.createElement('canvas');
           element.width = canvasSize;
           element.height = canvasSize;
-          const context = ensureNonNullable(element.getContext("2d"));
+          const context = ensureNonNullable(element.getContext('2d'));
           context.scale(scale, scale);
           context.translate(canvasSize / 2 / scale - vector.x, canvasSize / 2 / scale - vector.y);
           context.translate(0, sizeUnit / scale);
@@ -3054,22 +3197,22 @@ interface ObjectConstructor {
           context.translate(0, sizeUnit * -2 / scale);
           context.fillStyle = player.skin.pattern && player.skin.pattern.pattern || player.skin.colors.main;
           context.fill(player.base.polygon.path);
-          dataUrl = element.toDataURL("image/png");
+          dataUrl = element.toDataURL('image/png');
         }
         const result: GameOverResult = {
-          build: this.build,
-          game: this,
-          percent: player.percent,
-          score: ensureNonNullable(player.schemes).result(),
-          newBest: ensureNonNullable(player.schemes).result() > (this.best ?? 0),
-          name: player.name,
-          top: player.top,
           best: this.best,
           bestPercent: player.bestPercent,
-          time: now() - this.startTime,
-          kills: player.statistics.kills,
+          build: this.build,
+          game: this,
           image: dataUrl,
-          reason: ensureNonNullable(reason)
+          kills: player.statistics.kills,
+          name: player.name,
+          newBest: ensureNonNullable(player.schemes).result() > (this.best ?? 0),
+          percent: player.percent,
+          reason: ensureNonNullable(reason),
+          score: ensureNonNullable(player.schemes).result(),
+          time: now() - this.startTime,
+          top: player.top
         };
         if (reason === KILL_REASON_WIN) {
           player.win = true;
@@ -3091,74 +3234,13 @@ interface ObjectConstructor {
         }, reason === KILL_REASON_TRAIL || reason === KILL_REASON_EXIT_POINT || reason === KILL_REASON_SURROUNDED ? this.config.enemyKillDelay : this.config.selfKillDelay);
       }
     }
-    checkBaseCommits(): void {
-      this.units.forEach((unit: Unit) => {
-        const polygon = unit.base.polygon;
-        polygon.segments.forEach((segment: Segment) => {
-          const {
-            start,
-            end
-          } = segment;
-          const startSegment = start.segments.find((candidate: Segment) => candidate === segment);
-          const endSegment = end.segments.find((candidate: Segment) => candidate === segment);
-          if (!startSegment || !endSegment) {
-            throw new Error("точки сегмента не закоммичены");
-          }
-        });
-      });
-    }
-    kill(unit?: Unit, unit2?: Unit, reason?: number): void {
-      assertNonNullable(unit);
-      if (unit.death) {
-        return;
-      }
-      if (this.isTest) {
-        const deathReasons: string[] = ["выигрыш", "самопересечение", "убит об стену", "убит пересечением трека", "убит захватом точки выхода", "убит окружением", "удален системой", "убит откружением столицы", "убит разделением со столицей"];
-        console.log(unit.name + " убит" + (unit2 ? " " + unit2.name : "") + " (" + deathReasons[ensureNonNullable(reason)] + ")");
-      }
-      this.events.kills++;
-      unit.death = true;
-      if (this.skinManager) {
-        this.skinManager.release(unit.skin);
-      }
-      this.units.forEach((otherUnit: Unit) => {
-        if (otherUnit !== unit && otherUnit.in === unit.base) {
-          otherUnit.in = null;
-        }
-      });
-      if (reason !== KILL_REASON_SYSTEM) {
-        spawnScoreParticles(unit, null, unit.track.polyline.segments);
-        spawnScoreParticles(unit, null, unit.base.polygon.segments);
-      }
-      unit.track.remove();
-      unit.base.remove();
-      const index = this.units.findIndex((candidate: Unit) => candidate === unit);
-      this.units.splice(index, 1);
-      unit.killer = unit2 ?? null;
-      if (unit2) {
-        unit2.scores.kills = unit.scores.kills + unit.scores.accumulator;
-        if (unit2.schemes) {
-          unit2.schemes.kill(unit, reason);
-        }
-        if (unit2 && unit2.achievements) {
-          unit2.achievements.onKill(unit);
-        }
-        unit2.statistics.kills++;
-      }
-      unit.onScoreChanged();
-      if (unit2) {
-        unit2.onScoreChanged();
-      }
-      if (reason !== KILL_REASON_WIN && unit === this.player) {
-        this.gameOver(reason);
-      }
-    }
+
     getMovement(deltaMilliseconds: number, unit: Unit): Segment[] {
       const {
         unitSpeed
       } = this.config;
       const list4: Segment[] = [];
-      const vector: Vector | null | undefined = unit.movement();
+      const vector: null | undefined | Vector = unit.movement();
       if (!vector) {
         return list4;
       }
@@ -3180,17 +3262,17 @@ interface ObjectConstructor {
         const vector3 = ensureNonNullable(segment.vector);
         if (list5.length === 2) {
           const vector6 = ensureNonNullable(ensureNonNullable(list5[0]).segment.vector);
-          let angle = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
+          const angle = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
           intersection = angle > 0 ? ensureNonNullable(list5[0]) : ensureNonNullable(list5[1]);
         } else {
           intersection = ensureNonNullable(list5[0]);
         }
         const {
-          segment: borderSegment,
-          point: intersectionPoint
+          point: intersectionPoint,
+          segment: borderSegment
         } = intersection;
         const vector4 = ensureNonNullable(borderSegment.vector);
-        let angle2 = Math.atan2(vector3.x * vector4.y - vector4.x * vector3.y, vector3.dot(vector4));
+        const angle2 = Math.atan2(vector3.x * vector4.y - vector4.x * vector3.y, vector3.dot(vector4));
         if (angle2 < 0) {
           break;
         }
@@ -3208,275 +3290,7 @@ interface ObjectConstructor {
       list4.push(segment);
       return list4;
     }
-    readInput(deltaMilliseconds?: number): void {
-      if (!this.controller) {
-        return;
-      }
-      if (this.controller.pressed()) {
-        this.keyboard = Object.assign({}, this.controller.mouse);
-        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * ensureNonNullable(deltaMilliseconds) / 1000;
-        if (ensureNonNullable(this.controller.keyboardModeSwitch).mode2) {
-          let horizontalInput = 0;
-          if (this.controller.left) {
-            horizontalInput = -1;
-          }
-          if (this.controller.right) {
-            horizontalInput = 1;
-          }
-          if (horizontalInput) {
-            this.direction.rotate(horizontalInput * maxTurnThisFrame);
-          }
-        } else {
-          const vector = new Vector();
-          if (this.controller.up) {
-            vector.add(new Vector(0, -1));
-          }
-          if (this.controller.down) {
-            vector.add(new Vector(0, 1));
-          }
-          if (this.controller.left) {
-            vector.add(new Vector(-1, 0));
-          }
-          if (this.controller.right) {
-            vector.add(new Vector(1, 0));
-          }
-          if (vector.magnitude()) {
-            let turnAngle = Math.atan2(this.direction.x * vector.y - vector.x * this.direction.y, this.direction.x * vector.x + this.direction.y * vector.y);
-            if (Math.abs(turnAngle) > maxTurnThisFrame) {
-              turnAngle = Math.sign(turnAngle) * maxTurnThisFrame;
-            }
-            this.direction.rotate(turnAngle);
-          }
-        }
-      } else if (this.controller.mouse) {
-        if (!this.keyboard || this.keyboard.x !== this.controller.mouse.x && this.keyboard.y !== this.controller.mouse.y) {
-          this.keyboard = null;
-          this.direction = new Vector(this.controller.mouse.x, this.controller.mouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
-        }
-      } else if (!this.keyboard && this.controller.lastMouse) {
-        this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
-      }
-    }
-    prepareAndUpdate(deltaMilliseconds?: number): void {
-      if (this.preparing()) {
-        let prepareAcceleration = this.config.prepareAcceleration;
-        while (this.preparing() && prepareAcceleration > 0) {
-          this.update(TWO_FRAME_DURATION_MILLISECONDS);
-          prepareAcceleration--;
-        }
-      } else {
-        console.log(deltaMilliseconds);
-        this.update(deltaMilliseconds);
-      }
-    }
-    preparing(): boolean {
-      return this.cycle < this.config.prepareCounter;
-    }
-    finishPrepare(): void {
-      let targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
-      if (this.cycle < targetCycle) {
-        console.log("skip cycles to: " + targetCycle);
-      }
-      while (this.cycle < targetCycle) {
-        this.update();
-      }
-    }
-    recoverTail(): void {
-      let player = this.player;
-      if (player && player.in == player.base && !player.base.polygon.inside(player.position)) {
-        {
-          if (!player.moveTo) {
-            return;
-          }
-        }
-        let nearestSegment = player.base.polygon.segments.reduce((closest: Segment, segment: Segment) => closest.start.distance2(player.position) < segment.start.distance2(player.position) ? closest : segment);
-        let vector = nearestSegment.start.clone().sub(player.position);
-        let distance = vector.magnitude();
-        player.position = vector.mulScalar(1 + 1 / distance).add(player.position);
-        player.track.remove();
-        if (this.debug) {
-          player.game.alert("Tail is recovered");
-          console.log("Recovering tail, cycle: " + this.cycle);
-          this.tailRecovered = true;
-        } else if (window.ga) {
-          window.ga("send", "event", "error", "tailRecovered");
-        }
-      }
-    }
-    update(deltaMilliseconds?: number): boolean {
-      const {
-        maxScale,
-        minScale,
-        observerScale
-      } = this.config;
-      if (this.stopped) {
-        return false;
-      }
-      Vector.space = this.space;
-      if (deltaMilliseconds == null) {
-        deltaMilliseconds = 1000 / 60;
-      }
-      deltaMilliseconds += this.rng() * 0.01;
-      this.spawnSuspend -= deltaMilliseconds;
-      if (!this.isTest) {
-        this.readInput(deltaMilliseconds);
-      }
-      this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * 127 + 254) % 254;
-      console.assert(this.angle >= 0 && this.angle < 256);
-      if (this.replaying) {
-        if (!this.replaying.read()) {
-          delete this.replaying;
-          this.alert("End of replay", "#ff0000");
-          return false;
-        }
-      }
-      if (this.recording) {
-        this.recording.write();
-      }
-      this.recoverTail();
-      const {
-        player
-      } = this;
-      this.timings.aiStartTime = now();
-      this.units.forEach((unit: Unit) => unit.update(deltaMilliseconds));
-      this.timings.aiEndTime = now();
-      this.handleUnitMovements(deltaMilliseconds);
-      this.units.forEach((unit: Unit) => {
-        unit.lastSquare = unit.base.square;
-      });
-      this.units.forEach((unit: Unit) => {
-        const percent = unit.base.square / this.square;
-        unit.percent = percent;
-        unit.bestPercent = Math.max(unit.bestPercent, percent);
-        unit.scale = lerp(maxScale, minScale, easeOutCubic(~~(percent * 20) / 20));
-        unit.vrange = Math.sqrt(2455780) / 2 / unit.scale * 0.8;
-        if (unit.schemes) {
-          unit.schemes.update(deltaMilliseconds);
-        }
-        if (unit.labels.length) {
-          let vector = new Vector(0, -35);
-          const vector2 = new Vector(0, -10);
-          const vector3 = new Vector(0, -10);
-          unit.labels.forEach((textParticle: Label) => {
-            this.labels.push(new TextParticle(textParticle.text, textParticle.color, ensureNonNullable(textParticle.unit), vector, vector2, textParticle.time, textParticle.fading));
-            vector = vector.clone().add(vector3);
-          });
-          unit.labels = [];
-        }
-      });
-      this.units.sort((unitA: Unit, unitB: Unit) => unitB.schemes && unitA.schemes ? unitB.schemes.scores() - unitA.schemes.scores() : 0);
-      this.units.forEach((unit: Unit, index: number) => {
-        unit.top = index + 1;
-      });
-      this.labels = this.labels.filter((particle: TextParticle) => {
-        particle.update(deltaMilliseconds);
-        return particle.time > 0;
-      });
-      if (this.notifications.length) {
-        const quest = ensureNonNullable(this.notifications[0]);
-        if (quest.ready) {
-          quest.update(deltaMilliseconds);
-          if (quest.state > 3) {
-            this.notifications.shift();
-          }
-        }
-      }
-      this.particles.forEach((particle: Particle) => particle.update(deltaMilliseconds));
-      if (player) {
-        this.level = lerp(this.config.startBotLevel, 1, player.percent);
-      } else {
-        this.level = this.config.noPlayerBotLevel;
-      }
-      if (this.config.botLevel !== -1) {
-        this.level = this.config.botLevel;
-      }
-      this.units.forEach((bot: Unit) => {
-        if (bot instanceof Bot) {
-          const clampedLevel = Math.min(1, Math.max(0, this.level + bot.jitter));
-          let {
-            botAggroMin,
-            botAggroMax,
-            botDefMin,
-            botDefMax,
-            botGreedMin,
-            botGreedMax,
-            botSafetyMin,
-            botSafetyMax
-          } = this.config;
-          switch (bot.type) {
-            case 1:
-              botAggroMin *= 1.25;
-              botAggroMax *= 1.25;
-              break;
-            case 2:
-              botGreedMin *= 2;
-              botGreedMax *= 1.1;
-              botSafetyMin *= 0.75;
-              botSafetyMax *= 0.75;
-              break;
-            case 3:
-              botAggroMin *= 0.75;
-              botAggroMax *= 0.75;
-              botGreedMin *= 4;
-              botGreedMax *= 1.1;
-              botSafetyMin *= 0.5;
-              botSafetyMax *= 0.5;
-              botDefMin *= 2;
-              botDefMax *= 2;
-              break;
-          }
-          bot.aggro = lerp(botAggroMin, botAggroMax, clampedLevel);
-          bot.greed = lerp(botGreedMin, botGreedMax, clampedLevel);
-          bot.safety = lerp(botSafetyMin, botSafetyMax, clampedLevel);
-          bot.def = lerp(botDefMin, botDefMax, clampedLevel);
-        }
-      });
-      if (this.player && this.player.achievements) {
-        this.player.achievements.update(this.player, deltaMilliseconds, this);
-      }
-      if (player && player.track.length > this.config.botAttackTrackLength) {
-        let closestBot: Bot | null = null;
-        let closestDistance = Infinity;
-        for (const unit of this.units) {
-          if (unit instanceof Bot) {
-            let minDistance = Infinity;
-            player.track.simplyline.forEach((trackPoint: Vector) => {
-              const distanceSquared = trackPoint.distance2(unit.position);
-              if (distanceSquared < minDistance) {
-                minDistance = distanceSquared;
-              }
-            });
-            minDistance = Math.sqrt(minDistance);
-            if (minDistance < closestDistance) {
-              closestBot = unit;
-              closestDistance = minDistance;
-            }
-          }
-        }
-        if (closestBot) {
-          ensureNonNullable(closestBot.fsm).change("attack");
-        }
-      }
-      const targetScale = player ? player.scale : observerScale;
-      const scaleDelta = targetScale - this.scale;
-      this.scale += scaleDelta * deltaMilliseconds / 400;
-      if (player && player.percent > 0.9999) {
-        player.percent = 1;
-        this.gameOver(KILL_REASON_WIN);
-      }
-      this.timings.spawnStartTime = now();
-      for (let i2 = 0; i2 < this.config.nearPlayerBotSpawnCount; i2++) {
-        this.spawnBot("player");
-      }
-      this.spawnBot("center");
-      this.spawnBot(this.rng() > 0.3 ? "bounds" : "random");
-      this.timings.spawnEndTime = now();
-      this.cycle++;
-      return true;
-    }
-    get renderContext(): RenderContext | undefined {
-      return this.getRenderContext();
-    }
+
     getRenderContext(): RenderContext | undefined {
       const {
         view
@@ -3487,7 +3301,7 @@ interface ObjectConstructor {
       const {
         font
       } = this.config;
-      const context = view.getContext("2d");
+      const context = view.getContext('2d');
       const clientWidth = view.clientWidth;
       const clientHeight = view.clientHeight;
       const viewWidth = ~~(clientWidth * this.quality);
@@ -3514,7 +3328,7 @@ interface ObjectConstructor {
       }
       if (this.origin && (!this.player || this.player.killer)) {
         const distance = this.origin.distance(vector);
-        let stepDistance = distance / 30;
+        const stepDistance = distance / 30;
         const offset = vector.clone().sub(this.origin).normalize().mulScalar(stepDistance);
         vector = this.origin.add(offset);
       }
@@ -3537,197 +3351,104 @@ interface ObjectConstructor {
       const fontSize = ~~(calcMult(20, 30) * scaler);
       const strokeWidth = this.config.platesStrokeWidth * scaler;
       const backHeight = ~~(scaler * 4);
-      const uiFont = fontSize + "px " + font;
+      const uiFont = `${fontSize}px ${font}`;
       const padding = ~~(scaler * 16);
       const halfBarHeight = ~~(fontSize * 0.75);
       const barHeight = halfBarHeight * 2;
       const barWidth = ~~(viewScreenWidth / calcMult(4, 2.25));
       const halfBarWidth = ~~(barWidth / 2);
       return {
-        game: this,
-        view: view,
+        backHeight,
+        barHeight,
+        barWidth,
+        boundsInView,
+        calcMult,
         ctx: context,
-        viewWidth: viewWidth,
-        viewHeight: viewHeight,
-        devicePixelRatio: devicePixelRatio,
-        scaler: scaler,
-        scale: scale,
+        devicePixelRatio,
+        fontSize,
+        game: this,
+        halfBarHeight,
+        halfBarWidth,
         origin: vector,
-        pointInView: pointInView,
-        boundsInView: boundsInView,
-        calcMult: calcMult,
-        viewScreenWidth: viewScreenWidth,
-        viewScreenHeight: viewScreenHeight,
-        fontSize: fontSize,
-        strokeWidth: strokeWidth,
-        backHeight: backHeight,
-        uiFont: uiFont,
-        padding: padding,
-        barHeight: barHeight,
-        halfBarHeight: halfBarHeight,
-        barWidth: barWidth,
-        halfBarWidth: halfBarWidth
+        padding,
+        pointInView,
+        scale,
+        scaler,
+        strokeWidth,
+        uiFont,
+        view,
+        viewHeight,
+        viewScreenHeight,
+        viewScreenWidth,
+        viewWidth
       };
     }
-    updateMetrics(frameTime: number): void {
+
+    getSpawnPosition(spawnMode?: 'bounds' | 'center' | 'player' | 'random', unitRadius?: number): undefined | Vector {
       const {
-        stats,
-        timings
-      } = this;
-      const metric: Metric = {
-        updateTime: timings.updateEndTime - timings.updateStartTime,
-        renderTime: timings.renderEndTime - timings.renderStartTime,
-        frameTime: frameTime,
-        events: this.events
-      };
-      this.metrics.push(metric);
-      if (this.metrics.length > MAX_METRICS_SAMPLES) {
-        this.metrics.shift();
-      }
-      const smoothingFactor = 0.05;
-      stats.fps = lerp(stats.fps, 1000 / frameTime, smoothingFactor);
-      stats.ut = lerp(stats.ut, timings.updateEndTime - timings.updateStartTime, smoothingFactor);
-      stats.ait = lerp(stats.ait, timings.aiEndTime - timings.aiStartTime, smoothingFactor);
-      stats.st = lerp(stats.st, timings.spawnEndTime - timings.spawnStartTime, smoothingFactor);
-      stats.rt = lerp(stats.rt, timings.renderEndTime - timings.renderStartTime, smoothingFactor);
-      this.fpsSequence.push(stats.fps);
-      const lowFpsThreshold = 25;
-      const highFpsThreshold = 35;
-      const criticalFpsThreshold = 10;
-      const fpsSampleSize = 120;
-      const minQuality = 0.5;
-      if (this.fpsSequence.length > fpsSampleSize) {
-        this.fpsSequence.sort();
-        const medianFps = ensureNonNullable(this.fpsSequence[~~(fpsSampleSize / 2)]);
-        if (medianFps < lowFpsThreshold) {
-          this.quality -= 0.1;
-        }
-        if (medianFps < criticalFpsThreshold) {
-          this.quality -= 0.1;
-        }
-        if (this.quality < minQuality) {
-          this.quality = minQuality;
-        }
-        if (medianFps > highFpsThreshold) {
-          this.quality += 0.1;
-        }
-        if (this.quality > 1) {
-          this.quality = 1;
-        }
-        const qualityLevel = Math.round(this.quality * 10);
-        this.quality = qualityLevel / 10;
-        if (qualityLevel < 10) {
-          const qualityKey = "q" + qualityLevel;
-          if (this.qas[qualityKey]) {
-            this.qas[qualityKey] = false;
-            if (window.ga) {
-              window.ga("send", "event", "fps", qualityKey);
-            }
-          }
-        }
-        this.fpsSequence = [];
-      }
-      this.events = {
-        returns: 0,
-        kills: 0
-      };
-    }
-    setLeaderboard(leaderboard?: Leaderboard) {
-      if (leaderboard) {
-        this.leaderboard = leaderboard;
-        this.changeShields();
-      }
-    }
-    changeShields(): void {
+        center
+      } = this.space;
       const {
-        countries: leaderboard
-      } = ensureNonNullable(this.leaderboard);
-      if (leaderboard) {
-        const goldCountry = leaderboard[0] && leaderboard[0].country;
-        const silverCountry = leaderboard[1] && leaderboard[1].country;
-        const bronzeCountry = leaderboard[2] && leaderboard[2].country;
-        this.units.forEach((unit: Unit) => {
-          const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "shields");
-          const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags");
-          if (shieldAsset && flagAsset) {
-            let shieldName = "gray";
-            switch (flagAsset.name) {
-              case goldCountry:
-                shieldName = "gold";
-                break;
-              case silverCountry:
-                shieldName = "silver";
-                break;
-              case bronzeCountry:
-                shieldName = "bronze";
-                break;
-            }
-            if (shieldAsset.name !== shieldName) {
-              unit.skin.removeAsset(shieldAsset);
-              if ("shieldSkinAssets" in this.skinManager) {
-                unit.skin.addAsset(this.skinManager.shieldSkinAssets.get(shieldName));
-              }
-            }
-          }
-        });
+        radius
+      } = this.border;
+      const {
+        baseRadius
+      } = this.config;
+      let center2 = center;
+      if (spawnMode === 'player' && !this.player) {
+        return;
       }
-    }
-    post(): void {
-      var paper2_results = window.paper2_results;
-      var scores = paper2_results.scores;
-      function getLanguageCode(): string {
-        return (navigator.languages && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toUpperCase();
+      unitRadius = unitRadius || baseRadius;
+      const spacingMultiplier = this.player ? lerp(3, 1, this.player.percent) : 2;
+      const minDistance = unitRadius + baseRadius * 2;
+      const minDistanceSquared = minDistance * minDistance;
+      const trailDistance = unitRadius + baseRadius * 2 * spacingMultiplier;
+      const trailDistanceSquared = trailDistance * trailDistance;
+      let spawnDistance;
+      switch (spawnMode) {
+        case 'bounds':
+          spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * 10)), Math.max(0, radius - (unitRadius + baseRadius * 4)), Math.random());
+          break;
+        case 'center':
+          spawnDistance = lerp(0, radius / 3, Math.random());
+          break;
+        case 'player':
+          spawnDistance = lerp(baseRadius * 12, baseRadius * 16, Math.random());
+          center2 = ensureNonNullable(this.player).position;
+          break;
+        default:
+          spawnDistance = lerp(0, Math.max(0, radius - (unitRadius + baseRadius)), Math.random());
+          break;
       }
-      var payload = {
-        build: paper2_results.build || 0,
-        player: window.playerId || 0,
-        lng: getLanguageCode(),
-        name: ensureNonNullable(this.player).name,
-        top: paper2_results.top || 0,
-        persent: Math.round(paper2_results.score * 100),
-        best: paper2_results.bestPercent && Math.round(paper2_results.bestPercent * 10000) || 0,
-        time: Math.round(paper2_results.time / 1000),
-        kills: paper2_results.kills,
-        scores: {
-          accumulator: scores && scores.accumulator || 0,
-          kills: scores && scores.kills || 0
-        },
-        reason: paper2_results.reason || 0
-      };
-      function xorEncode(text: string): string {
-        var encoded = "";
-        for (var i2 = 0; i2 < text.length; i2++) {
-          var charCode = text.charCodeAt(i2);
-          var encodedCharCode = charCode ^ 42;
-          encoded = encoded + String.fromCharCode(encodedCharCode);
+      const offset = Vector.alloc(0, spawnDistance).rotate(Math.random() * Math.PI * 2);
+      const vector = center2.clone().add(offset);
+      offset.release();
+      if (vector.distance(center) > radius - (unitRadius + baseRadius)) {
+        return;
+      }
+      for (let i2 = 0; i2 < this.units.length; i2++) {
+        const unit = ensureNonNullable(this.units[i2]);
+        if (unit.base.polygon.inside(vector)) {
+          return;
         }
-        return encoded;
+        if (
+          unit.base.polygon.simplify.some((vertex: Vector) => {
+            return vector.distance2(vertex) < minDistanceSquared;
+          })
+        ) {
+          return;
+        }
+        if (
+          unit.track.simplyline.some((trailPoint: Vector) => {
+            return vector.distance2(trailPoint) < trailDistanceSquared;
+          })
+        ) {
+          return;
+        }
       }
-      fetch("/newpaperio/ajax/results.php", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: xorEncode(escape(JSON.stringify(payload)))
-      });
+      return vector;
     }
-    addCity(unit: Unit) {
-      const name = ensureNonNullable(unit.skin.assets.find((asset: Asset) => asset.pool.name === "flags")).name;
-      const city = new City(ensureNonNullable(this.citiesManager).get(name), false, unit.position.clone(), unit);
-      if (this.skinManager.isFlagSkinManager) {
-        const citySkin = this.skinManager.getCitySkin(name);
-        city.skin = citySkin ?? null;
-      }
-      unit.cities.push(city);
-    }
-    checkSegments(): void {
-      let totalSegmentCount = 0;
-      this.units.forEach((unit: Unit) => {
-        totalSegmentCount += unit.base.polygon.segments.length;
-        totalSegmentCount += unit.track.polyline.segments.length;
-      });
-      this.space.segmentsCount();
-    }
+
     handleReturn(unit: Unit): boolean | undefined {
       if (unit.death) {
         return;
@@ -3770,7 +3491,7 @@ interface ObjectConstructor {
           if (unit3.track.polyline.start && polygon3.inside(unit3.track.polyline.start)) {
             this.kill(unit3, unit, KILL_REASON_EXIT_POINT);
           }
-          if (unit3.cities && unit3.cities[0] && polygon3.inside(unit3.cities[0].position)) {
+          if (unit3.cities?.[0] && polygon3.inside(unit3.cities[0].position)) {
             this.kill(unit3, unit, KILL_REASON_CAPITAL_SURROUNDED);
           }
         }
@@ -3784,10 +3505,10 @@ interface ObjectConstructor {
         const crossingSegments = point.segments.filter((segment: Segment) => ensureNonNullable(segment.shape).owner !== unit.track && ensureNonNullable(segment.shape).owner !== unit.base && segment.start === point);
         if (crossingSegments.length) {
           let list7: ShapeOwnerIntersection[] = crossingSegments.map((segment: Segment) => ({
+            index: i2,
             owner: ensureNonNullable(ensureNonNullable(segment.shape).owner),
-            point: point,
-            segment: segment,
-            index: i2
+            point,
+            segment
           }));
           if (!list5.length) {
             const intersectionRecord = unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point));
@@ -3802,19 +3523,21 @@ interface ObjectConstructor {
               return ensureNonNullable(list8[list8.length - 1]).enter;
             });
           } else {
-            let list8 = list5.filter((intersection: ShapeOwnerIntersection) => list7.some((otherIntersection: ShapeOwnerIntersection) => {
-              return otherIntersection.owner === intersection.owner;
-            }));
+            const list8 = list5.filter((intersection: ShapeOwnerIntersection) =>
+              list7.some((otherIntersection: ShapeOwnerIntersection) => {
+                return otherIntersection.owner === intersection.owner;
+              })
+            );
             if (list8.length) {
               const enterIntersection = ensureNonNullable(list8[0]);
               const leaveIntersection = ensureNonNullable(list7.find((intersection: ShapeOwnerIntersection) => intersection.owner === enterIntersection.owner));
               const mergeComeback = (params: ComebackMergeParams) => {
                 const {
-                  owner,
-                  startT,
+                  endPoint,
                   endT,
+                  owner,
                   startPoint,
-                  endPoint
+                  startT
                 } = params;
                 let {
                   enter,
@@ -3865,20 +3588,20 @@ interface ObjectConstructor {
                 });
               };
               if (!(enterIntersection.owner instanceof Territory)) {
-                throw new Error("Это не база");
+                throw new Error('Это не база');
               }
               mergeComeback({
-                owner: enterIntersection.owner,
-                enter: enterIntersection.segment,
-                startPoint: enterIntersection.point,
-                startT: enterIntersection.index,
-                leave: leaveIntersection.segment,
                 endPoint: leaveIntersection.point,
-                endT: leaveIntersection.index
+                endT: leaveIntersection.index,
+                enter: enterIntersection.segment,
+                leave: leaveIntersection.segment,
+                owner: enterIntersection.owner,
+                startPoint: enterIntersection.point,
+                startT: enterIntersection.index
               });
               const intersectionRecord2 = ensureNonNullable(unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point)));
               const list9 = intersectionRecord2.intersections.filter((crossing: TrailCrossing) => crossing.base === enterIntersection.owner);
-              if (list9.length === 1 || ensureNonNullable(list9[list9.length - 1]).enter === false) {
+              if (list9.length === 1 || !ensureNonNullable(list9[list9.length - 1]).enter) {
                 list7 = list7.filter((intersection: ShapeOwnerIntersection) => intersection.owner !== enterIntersection.owner);
               }
             }
@@ -3894,25 +3617,21 @@ interface ObjectConstructor {
       const increment = (unit.base.square - unit.lastSquare) / this.square;
       if (unit.schemes) {
         unit.schemes.comeback({
-          increment: increment,
+          game: this,
+          increment,
           rise: polygon3,
-          victims: list6,
-          game: this
+          victims: list6
         });
       }
-      return;
+      return undefined;
     }
-    render(): void {
-      if (this.renderer) {
-        this.renderer(this);
-      }
-    }
+
     handleUnitMovements(deltaMilliseconds?: number) {
       this.units.slice().forEach((unit: Unit) => {
         if (unit.death) {
           return;
         }
-        let list4 = this.getMovement(ensureNonNullable(deltaMilliseconds), unit);
+        const list4 = this.getMovement(ensureNonNullable(deltaMilliseconds), unit);
         {
           if (unit === this.player && !this.player.moveTo && unit.in === null && Math.random() < 0.0005) {
             unit.in = unit.base;
@@ -3929,15 +3648,15 @@ interface ObjectConstructor {
             const groupIndex = list6.findIndex((group: IntersectionGroup) => group.point.equal(intersection.point));
             if (groupIndex === -1) {
               list6.push({
-                point: intersection.point,
-                intersections: [intersection]
+                intersections: [intersection],
+                point: intersection.point
               });
             } else {
               const group = ensureNonNullable(list6[groupIndex]);
               if (intersection.point !== group.point) {
                 if (intersection.point.cell) {
                   if (group.point.cell) {
-                    throw new Error("Бывает ли такое?");
+                    throw new Error('Бывает ли такое?');
                   } else {
                     group.point = intersection.point;
                     group.intersections.forEach((intersection: Intersection) => {
@@ -3972,7 +3691,7 @@ interface ObjectConstructor {
               const {
                 shape
               } = intersection.segment;
-              if (shape && list10.indexOf(shape) === -1) {
+              if (shape && !list10.includes(shape)) {
                 list10.push(shape);
               }
             });
@@ -4000,9 +3719,8 @@ interface ObjectConstructor {
                 list11.sort((intersectionA: Intersection, intersectionB: Intersection) => {
                   if (unit.in) {
                     return intersectionB.zn - intersectionA.zn;
-                  } else {
-                    return intersectionA.zn - intersectionB.zn;
                   }
+                  return intersectionA.zn - intersectionB.zn;
                 });
                 const intersection = ensureNonNullable(list11.shift());
                 if (intersection.segment.shape && !ensureNonNullable(shape.owner).unit.death) {
@@ -4022,20 +3740,66 @@ interface ObjectConstructor {
           }
           unit.position = end;
           if (this.visible && !list4.length && unit.in && unit.in !== unit.base) {
-            let particle = Particle.nom(unit, segment, this.config.trackWidth);
+            const particle = Particle.nom(unit, segment, this.config.trackWidth);
             this.particles.push(particle);
           }
         }
       });
     }
+
     isPlayer(unit?: Unit): boolean {
       return unit === this.player;
     }
-    alert(text?: string, color?: string) {
-      this.labels.push(new TextParticle(ensureNonNullable(text), color || "#000000", this.player));
+
+    kill(unit?: Unit, unit2?: Unit, reason?: number): void {
+      assertNonNullable(unit);
+      if (unit.death) {
+        return;
+      }
+      if (this.isTest) {
+        const deathReasons: string[] = ['выигрыш', 'самопересечение', 'убит об стену', 'убит пересечением трека', 'убит захватом точки выхода', 'убит окружением', 'удален системой', 'убит откружением столицы', 'убит разделением со столицей'];
+        console.log(`${unit.name} убит${unit2 ? ` ${unit2.name}` : ''} (${deathReasons[ensureNonNullable(reason)]})`);
+      }
+      this.events.kills++;
+      unit.death = true;
+      if (this.skinManager) {
+        this.skinManager.release(unit.skin);
+      }
+      this.units.forEach((otherUnit: Unit) => {
+        if (otherUnit !== unit && otherUnit.in === unit.base) {
+          otherUnit.in = null;
+        }
+      });
+      if (reason !== KILL_REASON_SYSTEM) {
+        spawnScoreParticles(unit, null, unit.track.polyline.segments);
+        spawnScoreParticles(unit, null, unit.base.polygon.segments);
+      }
+      unit.track.remove();
+      unit.base.remove();
+      const index = this.units.findIndex((candidate: Unit) => candidate === unit);
+      this.units.splice(index, 1);
+      unit.killer = unit2 ?? null;
+      if (unit2) {
+        unit2.scores.kills = unit.scores.kills + unit.scores.accumulator;
+        if (unit2.schemes) {
+          unit2.schemes.kill(unit, reason);
+        }
+        if (unit2 && unit2.achievements) {
+          unit2.achievements.onKill(unit);
+        }
+        unit2.statistics.kills++;
+      }
+      unit.onScoreChanged();
+      if (unit2) {
+        unit2.onScoreChanged();
+      }
+      if (reason !== KILL_REASON_WIN && unit === this.player) {
+        this.gameOver(reason);
+      }
     }
+
     loop(): void {
-      let currentTime = now();
+      const currentTime = now();
       if (this.stopped) {
         return;
       }
@@ -4097,63 +3861,541 @@ interface ObjectConstructor {
       }
       this.timings.renderEndTime = now();
       this.last = currentTime;
-      requestAnimationFrame(() => this.loop());
+      requestAnimationFrame(() => {
+        this.loop();
+      });
+    }
+
+    post(): void {
+      const paper2_results = window.paper2_results;
+      const scores = paper2_results.scores;
+      function getLanguageCode(): string {
+        return (navigator.languages?.[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').substr(0, 2).toUpperCase();
+      }
+      const payload = {
+        best: paper2_results.bestPercent && Math.round(paper2_results.bestPercent * 10000) || 0,
+        build: paper2_results.build || 0,
+        kills: paper2_results.kills,
+        lng: getLanguageCode(),
+        name: ensureNonNullable(this.player).name,
+        persent: Math.round(paper2_results.score * 100),
+        player: window.playerId || 0,
+        reason: paper2_results.reason || 0,
+        scores: {
+          accumulator: scores?.accumulator || 0,
+          kills: scores?.kills || 0
+        },
+        time: Math.round(paper2_results.time / 1000),
+        top: paper2_results.top || 0
+      };
+      function xorEncode(text: string): string {
+        let encoded = '';
+        for (let i2 = 0; i2 < text.length; i2++) {
+          const charCode = text.charCodeAt(i2);
+          const encodedCharCode = charCode ^ 42;
+          encoded += String.fromCharCode(encodedCharCode);
+        }
+        return encoded;
+      }
+      fetch('/newpaperio/ajax/results.php', {
+        body: xorEncode(escape(JSON.stringify(payload))),
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        method: 'POST'
+      });
+    }
+
+    prepareAndUpdate(deltaMilliseconds?: number): void {
+      if (this.preparing()) {
+        let prepareAcceleration = this.config.prepareAcceleration;
+        while (this.preparing() && prepareAcceleration > 0) {
+          this.update(TWO_FRAME_DURATION_MILLISECONDS);
+          prepareAcceleration--;
+        }
+      } else {
+        console.log(deltaMilliseconds);
+        this.update(deltaMilliseconds);
+      }
+    }
+
+    preparing(): boolean {
+      return this.cycle < this.config.prepareCounter;
+    }
+
+    readInput(deltaMilliseconds?: number): void {
+      if (!this.controller) {
+        return;
+      }
+      if (this.controller.pressed()) {
+        this.keyboard = { ...this.controller.mouse };
+        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * ensureNonNullable(deltaMilliseconds) / 1000;
+        if (ensureNonNullable(this.controller.keyboardModeSwitch).mode2) {
+          let horizontalInput = 0;
+          if (this.controller.left) {
+            horizontalInput = -1;
+          }
+          if (this.controller.right) {
+            horizontalInput = 1;
+          }
+          if (horizontalInput) {
+            this.direction.rotate(horizontalInput * maxTurnThisFrame);
+          }
+        } else {
+          const vector = new Vector();
+          if (this.controller.up) {
+            vector.add(new Vector(0, -1));
+          }
+          if (this.controller.down) {
+            vector.add(new Vector(0, 1));
+          }
+          if (this.controller.left) {
+            vector.add(new Vector(-1, 0));
+          }
+          if (this.controller.right) {
+            vector.add(new Vector(1, 0));
+          }
+          if (vector.magnitude()) {
+            let turnAngle = Math.atan2(this.direction.x * vector.y - vector.x * this.direction.y, this.direction.x * vector.x + this.direction.y * vector.y);
+            if (Math.abs(turnAngle) > maxTurnThisFrame) {
+              turnAngle = Math.sign(turnAngle) * maxTurnThisFrame;
+            }
+            this.direction.rotate(turnAngle);
+          }
+        }
+      } else if (this.controller.mouse) {
+        if (!this.keyboard || this.keyboard.x !== this.controller.mouse.x && this.keyboard.y !== this.controller.mouse.y) {
+          this.keyboard = null;
+          this.direction = new Vector(this.controller.mouse.x, this.controller.mouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+        }
+      } else if (!this.keyboard && this.controller.lastMouse) {
+        this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+      }
+    }
+
+    recoverTail(): void {
+      const player = this.player;
+      if (player && player.in == player.base && !player.base.polygon.inside(player.position)) {
+        {
+          if (!player.moveTo) {
+            return;
+          }
+        }
+        const nearestSegment = player.base.polygon.segments.reduce((closest: Segment, segment: Segment) => closest.start.distance2(player.position) < segment.start.distance2(player.position) ? closest : segment);
+        const vector = nearestSegment.start.clone().sub(player.position);
+        const distance = vector.magnitude();
+        player.position = vector.mulScalar(1 + 1 / distance).add(player.position);
+        player.track.remove();
+        if (this.debug) {
+          player.game.alert('Tail is recovered');
+          console.log(`Recovering tail, cycle: ${this.cycle}`);
+          this.tailRecovered = true;
+        } else if (window.ga) {
+          window.ga('send', 'event', 'error', 'tailRecovered');
+        }
+      }
+    }
+
+    render(): void {
+      if (this.renderer) {
+        this.renderer(this);
+      }
+    }
+
+    setLeaderboard(leaderboard?: Leaderboard) {
+      if (leaderboard) {
+        this.leaderboard = leaderboard;
+        this.changeShields();
+      }
+    }
+
+    spawnBot(spawnMode?: 'bounds' | 'center' | 'player' | 'random'): void {
+      const {
+        baseCount,
+        baseRadius,
+        botsCount,
+        spawnTimeout
+      } = this.config;
+      if (this.botSpawnLimited) {
+        if (this.spawnSuspend > 0) {
+          return;
+        }
+        this.spawnSuspend = spawnTimeout * (1 + this.rng());
+      }
+      if (this.units.length - (this.player ? 1 : 0) >= botsCount) {
+        return;
+      }
+      if (!this.nameManager?.aviable()) {
+        return;
+      }
+      if (!this.skinManager?.available()) {
+        return;
+      }
+      const spawnPosition = this.getSpawnPosition(spawnMode);
+      if (!spawnPosition) {
+        return;
+      }
+      const botTypeCounts: number[] = [0, 0, 0, 0];
+      const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
+      this.units.forEach((unit: Unit) => {
+        if (unit !== this.player) {
+          botTypeCounts[unit.type] = ensureNonNullable(botTypeCounts[unit.type]) + 1;
+        }
+      });
+      this.bots = { ...botTypeCounts };
+      const typeDistribution = ensureNonNullable(list4[Math.round(this.level * (list4.length - 1))]);
+      let distributionIndex = -1;
+      while (ensureNonNullable(botTypeCounts[ensureNonNullable(typeDistribution[++distributionIndex])]) > 0) {
+        const decrementType = ensureNonNullable(typeDistribution[distributionIndex]);
+        botTypeCounts[decrementType] = ensureNonNullable(botTypeCounts[decrementType]) - 1;
+      }
+      const botType = ensureNonNullable(typeDistribution[distributionIndex]);
+      const botName = ensureNonNullable(this.nameManager.get());
+      const bot = new Bot(this, botType, botName, spawnPosition, createCirclePoints(spawnPosition, baseCount, baseRadius), undefined, this.schemesManager);
+      const botSkin = this.skinManager.get();
+      bot.setSkin(botSkin);
+      this.addUnit(bot);
+      this.bots[botType] = ensureNonNullable(this.bots[botType]) + 1;
+    }
+
+    spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
+      const {
+        baseCount,
+        baseRadius,
+        botsCount,
+        maxScale,
+        minScale
+      } = this.config;
+      const killUnitToMakeRoom = () => {
+        if (this.units.length) {
+          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_SYSTEM);
+        }
+      };
+      if (this.units.length && this.units.length >= botsCount) {
+        killUnitToMakeRoom();
+      }
+      let spawnPosition: undefined | Vector;
+      let i2 = 0;
+      const spawnRadius = areaPercent ? Math.sqrt(this.square * areaPercent / Math.PI) : baseRadius;
+      while (!spawnPosition) {
+        if (i2++ > 50) {
+          i2 = 0;
+          killUnitToMakeRoom();
+        }
+        spawnPosition = this.getSpawnPosition('random', spawnRadius);
+      }
+      const player = new Player(this, playerName || this.language.defaultPlayerName, spawnPosition, createCirclePoints(spawnPosition, baseCount, spawnRadius), undefined, this.schemesManager);
+      const playerSkin = this.skinManager.getPlayerSkin(skinName);
+      player.setSkin(playerSkin);
+      this.addPlayer(player);
+      this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
+      this.startTime = now();
+    }
+
+    stop(): void {
+      this.stopped = true;
+      clearInterval(this.updateParticlesId);
+      for (const unit of this.units) {
+        this.skinManager.release(unit.skin);
+      }
+    }
+
+    update(deltaMilliseconds?: number): boolean {
+      const {
+        maxScale,
+        minScale,
+        observerScale
+      } = this.config;
+      if (this.stopped) {
+        return false;
+      }
+      Vector.space = this.space;
+      if (deltaMilliseconds == null) {
+        deltaMilliseconds = 1000 / 60;
+      }
+      deltaMilliseconds += this.rng() * 0.01;
+      this.spawnSuspend -= deltaMilliseconds;
+      if (!this.isTest) {
+        this.readInput(deltaMilliseconds);
+      }
+      this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * 127 + 254) % 254;
+      console.assert(this.angle >= 0 && this.angle < 256);
+      if (this.replaying) {
+        if (!this.replaying.read()) {
+          delete this.replaying;
+          this.alert('End of replay', '#ff0000');
+          return false;
+        }
+      }
+      if (this.recording) {
+        this.recording.write();
+      }
+      this.recoverTail();
+      const {
+        player
+      } = this;
+      this.timings.aiStartTime = now();
+      this.units.forEach((unit: Unit) => {
+        unit.update(deltaMilliseconds);
+      });
+      this.timings.aiEndTime = now();
+      this.handleUnitMovements(deltaMilliseconds);
+      this.units.forEach((unit: Unit) => {
+        unit.lastSquare = unit.base.square;
+      });
+      this.units.forEach((unit: Unit) => {
+        const percent = unit.base.square / this.square;
+        unit.percent = percent;
+        unit.bestPercent = Math.max(unit.bestPercent, percent);
+        unit.scale = lerp(maxScale, minScale, easeOutCubic(~~(percent * 20) / 20));
+        unit.vrange = Math.sqrt(2455780) / 2 / unit.scale * 0.8;
+        if (unit.schemes) {
+          unit.schemes.update(deltaMilliseconds);
+        }
+        if (unit.labels.length) {
+          let vector = new Vector(0, -35);
+          const vector2 = new Vector(0, -10);
+          const vector3 = new Vector(0, -10);
+          unit.labels.forEach((textParticle: Label) => {
+            this.labels.push(new TextParticle(textParticle.text, textParticle.color, ensureNonNullable(textParticle.unit), vector, vector2, textParticle.time, textParticle.fading));
+            vector = vector.clone().add(vector3);
+          });
+          unit.labels = [];
+        }
+      });
+      this.units.sort((unitA: Unit, unitB: Unit) => unitB.schemes && unitA.schemes ? unitB.schemes.scores() - unitA.schemes.scores() : 0);
+      this.units.forEach((unit: Unit, index: number) => {
+        unit.top = index + 1;
+      });
+      this.labels = this.labels.filter((particle: TextParticle) => {
+        particle.update(deltaMilliseconds);
+        return particle.time > 0;
+      });
+      if (this.notifications.length) {
+        const quest = ensureNonNullable(this.notifications[0]);
+        if (quest.ready) {
+          quest.update(deltaMilliseconds);
+          if (quest.state > 3) {
+            this.notifications.shift();
+          }
+        }
+      }
+      this.particles.forEach((particle: Particle) => {
+        particle.update(deltaMilliseconds);
+      });
+      if (player) {
+        this.level = lerp(this.config.startBotLevel, 1, player.percent);
+      } else {
+        this.level = this.config.noPlayerBotLevel;
+      }
+      if (this.config.botLevel !== -1) {
+        this.level = this.config.botLevel;
+      }
+      this.units.forEach((bot: Unit) => {
+        if (bot instanceof Bot) {
+          const clampedLevel = Math.min(1, Math.max(0, this.level + bot.jitter));
+          let {
+            botAggroMax,
+            botAggroMin,
+            botDefMax,
+            botDefMin,
+            botGreedMax,
+            botGreedMin,
+            botSafetyMax,
+            botSafetyMin
+          } = this.config;
+          switch (bot.type) {
+            case 1:
+              botAggroMin *= 1.25;
+              botAggroMax *= 1.25;
+              break;
+            case 2:
+              botGreedMin *= 2;
+              botGreedMax *= 1.1;
+              botSafetyMin *= 0.75;
+              botSafetyMax *= 0.75;
+              break;
+            case 3:
+              botAggroMin *= 0.75;
+              botAggroMax *= 0.75;
+              botGreedMin *= 4;
+              botGreedMax *= 1.1;
+              botSafetyMin *= 0.5;
+              botSafetyMax *= 0.5;
+              botDefMin *= 2;
+              botDefMax *= 2;
+              break;
+          }
+          bot.aggro = lerp(botAggroMin, botAggroMax, clampedLevel);
+          bot.greed = lerp(botGreedMin, botGreedMax, clampedLevel);
+          bot.safety = lerp(botSafetyMin, botSafetyMax, clampedLevel);
+          bot.def = lerp(botDefMin, botDefMax, clampedLevel);
+        }
+      });
+      if (this.player && this.player.achievements) {
+        this.player.achievements.update(this.player, deltaMilliseconds, this);
+      }
+      if (player && player.track.length > this.config.botAttackTrackLength) {
+        let closestBot: Bot | null = null;
+        let closestDistance = Infinity;
+        for (const unit of this.units) {
+          if (unit instanceof Bot) {
+            let minDistance = Infinity;
+            player.track.simplyline.forEach((trackPoint: Vector) => {
+              const distanceSquared = trackPoint.distance2(unit.position);
+              if (distanceSquared < minDistance) {
+                minDistance = distanceSquared;
+              }
+            });
+            minDistance = Math.sqrt(minDistance);
+            if (minDistance < closestDistance) {
+              closestBot = unit;
+              closestDistance = minDistance;
+            }
+          }
+        }
+        if (closestBot) {
+          ensureNonNullable(closestBot.fsm).change('attack');
+        }
+      }
+      const targetScale = player ? player.scale : observerScale;
+      const scaleDelta = targetScale - this.scale;
+      this.scale += scaleDelta * deltaMilliseconds / 400;
+      if (player && player.percent > 0.9999) {
+        player.percent = 1;
+        this.gameOver(KILL_REASON_WIN);
+      }
+      this.timings.spawnStartTime = now();
+      for (let i2 = 0; i2 < this.config.nearPlayerBotSpawnCount; i2++) {
+        this.spawnBot('player');
+      }
+      this.spawnBot('center');
+      this.spawnBot(this.rng() > 0.3 ? 'bounds' : 'random');
+      this.timings.spawnEndTime = now();
+      this.cycle++;
+      return true;
+    }
+
+    updateMetrics(frameTime: number): void {
+      const {
+        stats,
+        timings
+      } = this;
+      const metric: Metric = {
+        events: this.events,
+        frameTime,
+        renderTime: timings.renderEndTime - timings.renderStartTime,
+        updateTime: timings.updateEndTime - timings.updateStartTime
+      };
+      this.metrics.push(metric);
+      if (this.metrics.length > MAX_METRICS_SAMPLES) {
+        this.metrics.shift();
+      }
+      const smoothingFactor = 0.05;
+      stats.fps = lerp(stats.fps, 1000 / frameTime, smoothingFactor);
+      stats.ut = lerp(stats.ut, timings.updateEndTime - timings.updateStartTime, smoothingFactor);
+      stats.ait = lerp(stats.ait, timings.aiEndTime - timings.aiStartTime, smoothingFactor);
+      stats.st = lerp(stats.st, timings.spawnEndTime - timings.spawnStartTime, smoothingFactor);
+      stats.rt = lerp(stats.rt, timings.renderEndTime - timings.renderStartTime, smoothingFactor);
+      this.fpsSequence.push(stats.fps);
+      const lowFpsThreshold = 25;
+      const highFpsThreshold = 35;
+      const criticalFpsThreshold = 10;
+      const fpsSampleSize = 120;
+      const minQuality = 0.5;
+      if (this.fpsSequence.length > fpsSampleSize) {
+        this.fpsSequence.sort();
+        const medianFps = ensureNonNullable(this.fpsSequence[~~(fpsSampleSize / 2)]);
+        if (medianFps < lowFpsThreshold) {
+          this.quality -= 0.1;
+        }
+        if (medianFps < criticalFpsThreshold) {
+          this.quality -= 0.1;
+        }
+        if (this.quality < minQuality) {
+          this.quality = minQuality;
+        }
+        if (medianFps > highFpsThreshold) {
+          this.quality += 0.1;
+        }
+        if (this.quality > 1) {
+          this.quality = 1;
+        }
+        const qualityLevel = Math.round(this.quality * 10);
+        this.quality = qualityLevel / 10;
+        if (qualityLevel < 10) {
+          const qualityKey = `q${qualityLevel}`;
+          if (this.qas[qualityKey]) {
+            this.qas[qualityKey] = false;
+            if (window.ga) {
+              window.ga('send', 'event', 'fps', qualityKey);
+            }
+          }
+        }
+        this.fpsSequence = [];
+      }
+      this.events = {
+        kills: 0,
+        returns: 0
+      };
     }
   }
   interface Config {
+    // Every field is a `string | number | boolean`; the index signature lets the
+    // Config-editing form write fields back by their dynamic string key (its
+    // Named fields keep their specific types since those take precedence).
+    [configKey: string]: boolean | number | string;
+    arenaColor: string;
     arenaSize: number;
-    quadSize: number;
-    borderPoints: number;
-    prepareMult: number;
-    prepareBatchCount: number;
-    maxPreparingTime: number;
-    baseRadius: number;
+    backgroundBottomColor: string;
+    backgroundTopColor: string;
     baseCount: number;
-    minScale: number;
+    baseHeight: number;
+    baseRadius: number;
+    borderColor: string;
+    borderPoints: number;
+    botAggroMax: number;
+    botAggroMin: number;
+    botAttackTrackLength: number;
+    botDefMax: number;
+    botDefMin: number;
+    botGreedMax: number;
+    botGreedMin: number;
+    botLevel: number;
+    botSafetyMax: number;
+    botSafetyMin: number;
+    botsCount: number;
+    enemyKillDelay: number;
+    followKiller: boolean;
+    font: string;
+    maxPreparingTime: number;
     maxScale: number;
+    minScale: number;
+    nearPlayerBotSpawnCount: number;
+    noPlayerBotLevel: number;
     observerScale: number;
+    platesStrokeWidth: number;
+    prepareAcceleration: number;
+    prepareBatchCount: number;
+    prepareCounter: number;
+    prepareMult: number;
+    quadSize: number;
+    selfKillDelay: number;
+    spawnTimeout: number;
+    startBotLevel: number;
     trackWidth: number;
     unitSpeed: number;
-    spawnTimeout: number;
-    prepareCounter: number;
-    prepareAcceleration: number;
-    baseHeight: number;
-    botsCount: number;
-    botLevel: number;
-    startBotLevel: number;
-    noPlayerBotLevel: number;
-    nearPlayerBotSpawnCount: number;
-    followKiller: boolean;
-    selfKillDelay: number;
-    enemyKillDelay: number;
-    arenaColor: string;
-    borderColor: string;
-    backgroundTopColor: string;
-    backgroundBottomColor: string;
-    platesStrokeWidth: number;
-    botAggroMin: number;
-    botAggroMax: number;
-    botDefMin: number;
-    botDefMax: number;
-    botGreedMin: number;
-    botGreedMax: number;
-    botSafetyMin: number;
-    botSafetyMax: number;
-    botAttackTrackLength: number;
-    font: string;
-    // Every field is a `string | number | boolean`; the index signature lets the
-    // config-editing form write fields back by their dynamic string key (its
-    // named fields keep their specific types since those take precedence).
-    [configKey: string]: string | number | boolean;
   }
   class KeyboardModeSwitch {
     mode2: boolean;
     constructor() {
       this.mode2 = false;
     }
+
     get(): boolean {
       return this.mode2;
     }
+
     switch(): void {}
   }
   interface PointerState {
@@ -4166,10 +4408,10 @@ interface ObjectConstructor {
     right: boolean;
   }
   interface ModifiersState {
-    shift: boolean;
-    ctrl: boolean;
     alt: boolean;
+    ctrl: boolean;
     meta: boolean;
+    shift: boolean;
   }
   interface KeyCodeHandler {
     code: number;
@@ -4185,10 +4427,10 @@ interface ObjectConstructor {
     dispose: () => void;
     down: boolean;
     keyboardModeSwitch: KeyboardModeSwitch | undefined;
-    lastMouse: PointerState | null;
+    lastMouse: null | PointerState;
     left: boolean;
     modifiers: ModifiersState;
-    mouse: PointerState | null;
+    mouse: null | PointerState;
     pressedButtons: number[];
     right: boolean;
     sets: KeyCodeSetHandler[];
@@ -4199,10 +4441,10 @@ interface ObjectConstructor {
       this.left = false;
       this.right = false;
       this.modifiers = {
-        shift: false,
-        ctrl: false,
         alt: false,
-        meta: false
+        ctrl: false,
+        meta: false,
+        shift: false
       };
       this.mouse = null;
       this.lastMouse = null;
@@ -4215,17 +4457,27 @@ interface ObjectConstructor {
       this.sets = [];
       this.keyboardModeSwitch = keyboardModeSwitch;
       this.pressedButtons = [];
-      const onKeyDown = (event: KeyboardEvent) => this.onKeyChange(event, true);
-      const onKeyUp = (event: KeyboardEvent) => this.onKeyChange(event, false);
+      const onKeyDown = (event: KeyboardEvent) => {
+        this.onKeyChange(event, true);
+      };
+      const onKeyUp = (event: KeyboardEvent) => {
+        this.onKeyChange(event, false);
+      };
       if (keyboardModeSwitch) {
         keyboardModeSwitch.get();
-        window.addEventListener("keydown", onKeyDown, false);
-        window.addEventListener("keyup", onKeyUp, false);
+        window.addEventListener('keydown', onKeyDown, false);
+        window.addEventListener('keyup', onKeyUp, false);
       }
-      const onContextMenu = (event: Event) => event.preventDefault();
-      element.addEventListener("contextmenu", onContextMenu, false);
-      const onMouseDown = (event: MouseEvent) => this.onMouseChange(event, true);
-      const onMouseUp = (event: MouseEvent) => this.onMouseChange(event, false);
+      const onContextMenu = (event: Event) => {
+        event.preventDefault();
+      };
+      element.addEventListener('contextmenu', onContextMenu, false);
+      const onMouseDown = (event: MouseEvent) => {
+        this.onMouseChange(event, true);
+      };
+      const onMouseUp = (event: MouseEvent) => {
+        this.onMouseChange(event, false);
+      };
       const onMouseLeave = (event: MouseEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
@@ -4250,11 +4502,11 @@ interface ObjectConstructor {
         };
         event.preventDefault();
       };
-      element.addEventListener("mouseenter", onMouseEnter, false);
-      element.addEventListener("mousemove", onMouseMove, false);
-      element.addEventListener("mouseleave", onMouseLeave, false);
-      element.addEventListener("mousedown", onMouseDown, false);
-      element.addEventListener("mouseup", onMouseUp, false);
+      element.addEventListener('mouseenter', onMouseEnter, false);
+      element.addEventListener('mousemove', onMouseMove, false);
+      element.addEventListener('mouseleave', onMouseLeave, false);
+      element.addEventListener('mousedown', onMouseDown, false);
+      element.addEventListener('mouseup', onMouseUp, false);
       const onTouchEnd = (event: TouchEvent) => {
         this.lastMouse = this.mouse;
         this.mouse = null;
@@ -4268,26 +4520,38 @@ interface ObjectConstructor {
         };
         event.preventDefault();
       };
-      element.addEventListener("touchstart", onTouchMove, false);
-      element.addEventListener("touchmove", onTouchMove, false);
-      element.addEventListener("touchend", onTouchEnd, false);
-      element.addEventListener("touchcancel", onTouchEnd, false);
+      element.addEventListener('touchstart', onTouchMove, false);
+      element.addEventListener('touchmove', onTouchMove, false);
+      element.addEventListener('touchend', onTouchEnd, false);
+      element.addEventListener('touchcancel', onTouchEnd, false);
       this.dispose = () => {
-        element.removeEventListener("contextmenu", onContextMenu, false);
+        element.removeEventListener('contextmenu', onContextMenu, false);
         if (keyboardModeSwitch) {
-          window.removeEventListener("keydown", onKeyDown, false);
-          window.removeEventListener("keyup", onKeyUp, false);
+          window.removeEventListener('keydown', onKeyDown, false);
+          window.removeEventListener('keyup', onKeyUp, false);
         }
-        element.removeEventListener("mouseenter", onMouseEnter, false);
-        element.removeEventListener("mousemove", onMouseMove, false);
-        element.removeEventListener("mouseleave", onMouseLeave, false);
-        element.removeEventListener("mousedown", onMouseDown, false);
-        element.removeEventListener("mouseup", onMouseUp, false);
+        element.removeEventListener('mouseenter', onMouseEnter, false);
+        element.removeEventListener('mousemove', onMouseMove, false);
+        element.removeEventListener('mouseleave', onMouseLeave, false);
+        element.removeEventListener('mousedown', onMouseDown, false);
+        element.removeEventListener('mouseup', onMouseUp, false);
       };
     }
-    pressed(): boolean {
-      return this.up || this.down || this.left || this.right;
+
+    addButton(code: number, handler: () => void) {
+      this.codes.push({
+        code,
+        handler
+      });
     }
+
+    addSet(codes: number[], handler: () => void) {
+      this.sets.push({
+        codes: codes.sort(),
+        handler
+      });
+    }
+
     onKeyChange(event: KeyboardEvent, isPressed: boolean) {
       if (event.target === document.body) {
         let isHandled = true;
@@ -4313,21 +4577,21 @@ interface ObjectConstructor {
           }
         }
         switch (keyCode) {
-          case 38:
-          case 87:
-            this.up = isPressed;
-            break;
-          case 40:
-          case 83:
-            this.down = isPressed;
-            break;
           case 37:
           case 65:
             this.left = isPressed;
             break;
+          case 38:
+          case 87:
+            this.up = isPressed;
+            break;
           case 39:
           case 68:
             this.right = isPressed;
+            break;
+          case 40:
+          case 83:
+            this.down = isPressed;
             break;
           case 67:
             if (!isPressed && this.keyboardModeSwitch) {
@@ -4347,6 +4611,7 @@ interface ObjectConstructor {
         }
       }
     }
+
     onMouseChange(event: MouseEvent, isPressed: boolean) {
       switch (event.button) {
         case 0:
@@ -4360,33 +4625,24 @@ interface ObjectConstructor {
           break;
       }
     }
-    addButton(code: number, handler: () => void) {
-      this.codes.push({
-        code: code,
-        handler: handler
-      });
-    }
-    addSet(codes: number[], handler: () => void) {
-      this.sets.push({
-        codes: codes.sort(),
-        handler: handler
-      });
+
+    pressed(): boolean {
+      return this.up || this.down || this.left || this.right;
     }
   }
-  var assign2 = Object.assign;
   interface SkinLayerDescriptor {
-    url?: string;
-    src?: HTMLCanvasElement | HTMLImageElement;
-    level?: number;
-    scale?: number;
-    x?: number;
-    y?: number;
     direction?: string;
-    rotation?: number;
+    level?: number;
     pivot?: {
       x?: number;
       y?: number;
     };
+    rotation?: number;
+    scale?: number;
+    src?: HTMLCanvasElement | HTMLImageElement;
+    url?: string;
+    x?: number;
+    y?: number;
   }
   class SkinLayer {
     config: Config;
@@ -4397,6 +4653,7 @@ interface ObjectConstructor {
       x: number;
       y: number;
     };
+
     rotation: number;
     scale: number;
     src: HTMLCanvasElement | HTMLImageElement | null;
@@ -4408,18 +4665,15 @@ interface ObjectConstructor {
       this.scale = 1;
       this.x = 0;
       this.y = 0;
-      this.direction = "";
+      this.direction = '';
       this.rotation = 0;
-      this.url = "";
+      this.url = '';
       this.src = null;
       this.image = null;
       this.config = config;
       Object.assign(this, descriptor);
-      this.pivot = Object.assign({
-        x: 0.5,
-        y: 0.5
-      }, descriptor.pivot);
-      let imagePromise = this.url ? loadImage(this.url) : this.src ? Promise.resolve(this.src) : null;
+      this.pivot = { x: 0.5, y: 0.5, ...descriptor.pivot };
+      const imagePromise = this.url ? loadImage(this.url) : this.src ? Promise.resolve(this.src) : null;
       if (imagePromise) {
         imagePromise.then((image: HTMLImageElement) => {
           this.src = image;
@@ -4430,27 +4684,28 @@ interface ObjectConstructor {
         });
       }
     }
+
     rescale(scale: number) {
       const {
-        trackWidth,
-        maxScale
+        maxScale,
+        trackWidth
       } = this.config;
       const baseSize = trackWidth * maxScale;
       const src = this.src;
       if (!src) {
         return;
       }
-      const sourceWidth = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
-      const sourceHeight = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
+      const sourceWidth = 'naturalWidth' in src ? src.naturalWidth || src.width : src.width;
+      const sourceHeight = 'naturalHeight' in src ? src.naturalHeight || src.height : src.height;
       const scaleRatio = baseSize * scale * this.scale / sourceWidth;
       const targetWidth = ~~(sourceWidth * scaleRatio);
       const targetHeight = ~~(sourceHeight * scaleRatio);
       const scaleX = targetWidth / sourceWidth;
       const scaleY = targetHeight / sourceHeight;
-      const element = document.createElement("canvas");
+      const element = document.createElement('canvas');
       element.width = targetWidth;
       element.height = targetHeight;
-      const context = element.getContext("2d");
+      const context = element.getContext('2d');
       if (!context) {
         return;
       }
@@ -4461,8 +4716,8 @@ interface ObjectConstructor {
   }
   let svgElement: SVGSVGElement | undefined;
   interface PatternSource {
-    url?: string;
     scale?: number;
+    url?: string;
   }
   class PatternAsset {
     pattern: CanvasPattern | null;
@@ -4485,29 +4740,29 @@ interface ObjectConstructor {
         const sourceHeight = ~~(spatialGrid2.naturalHeight || spatialGrid2.height);
         const scaleRatio = maxScale * 100 * this.scale / sourceWidth;
         if (sourceWidth == 0) {
-          console.log(this.url + " has no width");
+          console.log(`${this.url} has no width`);
         }
         if (sourceHeight == 0) {
-          console.log(this.url + " has no heigth");
+          console.log(`${this.url} has no heigth`);
         }
         const targetWidth = Math.floor(sourceWidth * scaleRatio) || 1;
         const targetHeight = Math.floor(sourceHeight * scaleRatio) || 1;
-        const element = document.createElement("canvas");
+        const element = document.createElement('canvas');
         element.width = targetWidth;
         element.height = targetHeight;
-        const elementContext = element.getContext("2d");
+        const elementContext = element.getContext('2d');
         if (!elementContext) {
           return;
         }
         elementContext.drawImage(spatialGrid2, 0, 0, targetWidth + 1, targetHeight + 1);
-        const canvasContext = canvas.getContext("2d");
+        const canvasContext = canvas.getContext('2d');
         if (!canvasContext) {
           return;
         }
-        this.pattern = canvasContext.createPattern(element, "repeat");
+        this.pattern = canvasContext.createPattern(element, 'repeat');
         const inverseScale = 1 / maxScale;
         if (!svgElement) {
-          svgElement = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+          svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         }
         const transformMatrix = svgElement.createSVGMatrix().scale(inverseScale, inverseScale);
         if (this.pattern && this.pattern.setTransform) {
@@ -4553,8 +4808,8 @@ interface ObjectConstructor {
       };
       const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers || [];
       this.layers = layerDescriptors.map((layerDescriptor: SkinLayerDescriptor) => {
-        const resolvedDescriptor: SkinLayerDescriptor = assign2({}, layerDescriptor);
-        const resolvedUrl = layerDescriptor.url && "" + baseUrl + layerDescriptor.url;
+        const resolvedDescriptor: SkinLayerDescriptor = { ...layerDescriptor };
+        const resolvedUrl = layerDescriptor.url && `${baseUrl}${layerDescriptor.url}`;
         if (resolvedUrl) {
           resolvedDescriptor.url = resolvedUrl;
         }
@@ -4573,33 +4828,41 @@ interface ObjectConstructor {
     displays: Avatar[];
     frontLayers: DisplayLayerEntry[];
     maxScale: number;
+    get ready(): boolean {
+      return this.displays.every((display: Avatar) => display.ready);
+    }
+
     constructor() {
       this.displays = [];
       this.frontLayers = [];
       this.backLayers = [];
       this.maxScale = 0;
     }
-    get ready(): boolean {
-      return this.displays.every((display: Avatar) => display.ready);
-    }
-    sort(): void {
-      this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) => display.frontLayers.map((layer: SkinLayer) => ({
-        display: display,
-        layer: layer
-      })))).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryA.layer.level - entryB.layer.level);
-      this.backLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) => display.backLayers.map((layer: SkinLayer) => ({
-        display: display,
-        layer: layer
-      })))).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryB.layer.level - entryA.layer.level);
-      this.maxScale = Math.max(...this.frontLayers.map((entry: DisplayLayerEntry) => entry.display.scale * entry.layer.scale));
-    }
+
     add(display: Avatar) {
       this.displays.push(display);
       this.sort();
     }
+
     remove(display: Avatar) {
       this.displays = this.displays.filter((other: Avatar) => other !== display);
       this.sort();
+    }
+
+    sort(): void {
+      this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) =>
+        display.frontLayers.map((layer: SkinLayer) => ({
+          display,
+          layer
+        }))
+      )).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryA.layer.level - entryB.layer.level);
+      this.backLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) =>
+        display.backLayers.map((layer: SkinLayer) => ({
+          display,
+          layer
+        }))
+      )).sort((entryA: DisplayLayerEntry, entryB: DisplayLayerEntry) => entryB.layer.level - entryA.layer.level);
+      this.maxScale = Math.max(...this.frontLayers.map((entry: DisplayLayerEntry) => entry.display.scale * entry.layer.scale));
     }
   }
   let cachedGradient: CanvasGradient | undefined;
@@ -4607,8 +4870,8 @@ interface ObjectConstructor {
   let cachedBottomColor: string | undefined;
   let cachedContext: CanvasRenderingContext2D | undefined;
   interface SizedGridLike {
-    width: number;
     height: number;
+    width: number;
   }
   const getVerticalGradient = (context: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, topColor: string, bottomColor: string): CanvasGradient | undefined => {
     if (cachedContext !== context || cachedTopColor !== topColor || cachedBottomColor !== bottomColor) {
@@ -4623,7 +4886,7 @@ interface ObjectConstructor {
     context.lineWidth = lineWidth;
     context.stroke(path);
   };
-  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: string | CanvasPattern, trail: Trail, _unused: Vector, lineWidth: number) => {
+  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: CanvasPattern | string, trail: Trail, _unused: Vector, lineWidth: number) => {
     if (trail.polyline.segments.length) {
       context.lineWidth = lineWidth;
       context.strokeStyle = strokeStyle;
@@ -4639,21 +4902,21 @@ interface ObjectConstructor {
     context.save();
     context.translate(unit.position.x, unit.position.y);
     context.scale(1.001 / zoom, 1.001 / zoom);
-    context.font = fontSize + "px " + fontFamily;
-    context.textAlign = "center";
-    context.textBaseline = "bottom";
+    context.font = `${fontSize}px ${fontFamily}`;
+    context.textAlign = 'center';
+    context.textBaseline = 'bottom';
     let name = unit.name;
     if (unit == unit.game.player) {
       if (new Date().getSeconds() % 2 == 0) {
         if (unit.game.recording) {
-          name = "Recording";
+          name = 'Recording';
         } else if (unit.game.replaying) {
-          name = "Replaying";
+          name = 'Replaying';
         }
       }
     }
     const textOffsetY = ~~(zoom * -12);
-    const outlineColor = "#363331";
+    const outlineColor = '#363331';
     context.lineWidth = outlineWidth / 4;
     context.strokeStyle = outlineColor;
     context.shadowColor = outlineColor;
@@ -4661,8 +4924,8 @@ interface ObjectConstructor {
     context.strokeText(name, 0, textOffsetY);
     context.fillStyle = outlineColor;
     context.fillText(name, 2, textOffsetY + 2);
-    let nameColor = "#dddddd";
-    const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === "shields");
+    let nameColor = '#dddddd';
+    const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'shields');
     if (shieldAsset) {
       nameColor = ensureNonNullable(shieldAsset.content.color);
     }
@@ -4694,9 +4957,9 @@ interface ObjectConstructor {
     context.save();
     context.translate(unit.position.x, unit.position.y);
     context.scale(1 / (zoom * devicePixelRatio), 1 / (zoom * devicePixelRatio));
-    context.fillStyle = "#ffff00";
-    context.strokeStyle = "#ff8800";
-    context.lineJoin = "round";
+    context.fillStyle = '#ffff00';
+    context.strokeStyle = '#ff8800';
+    context.lineJoin = 'round';
     context.lineWidth = 1;
     context.translate(0, zoom * -10 * devicePixelRatio);
     context.translate(0, -verticalOffset * devicePixelRatio);
@@ -4737,17 +5000,17 @@ interface ObjectConstructor {
   const facePath = createFacePath();
   const drawFaceIcon = (context: CanvasRenderingContext2D, x: number, y: number, scale: number) => {
     context.save();
-    context.fillStyle = "#ffffffcc";
+    context.fillStyle = '#ffffffcc';
     context.translate(x, y);
     context.scale(scale, scale);
     context.fill(facePath);
     context.restore();
   };
   interface AvatarBearer {
+    direction?: number;
     position: Vector;
     skin: Skin;
-    direction?: number;
-    target?: Vector | null;
+    target?: null | Vector;
   }
   const drawSkinLayer = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer) => {
     const {
@@ -4762,12 +5025,12 @@ interface ObjectConstructor {
       context.rotate(ensureNonNullable(unit.direction) + Math.PI / 2);
       context.translate((skinLayer.x + skinLayer2.x) * trackWidth, (skinLayer.y + skinLayer2.y) * trackWidth);
       let rotation = 0;
-      if (skinLayer2.direction === "target") {
+      if (skinLayer2.direction === 'target') {
         const point = (unit.target || new Vector(0, 0)).clone().sub(unit.position);
         const targetAngle = Math.atan2(point.y, point.x);
         rotation += targetAngle - ensureNonNullable(unit.direction);
       }
-      if (skinLayer2.direction === "billboard") {
+      if (skinLayer2.direction === 'billboard') {
         rotation += -ensureNonNullable(unit.direction) - Math.PI / 2;
       }
       if (skinLayer2.rotation) {
@@ -4784,7 +5047,9 @@ interface ObjectConstructor {
   };
   const drawAvatarLayers = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean) => {
     const list4 = isFront ? avatar.frontLayers : avatar.backLayers;
-    list4.forEach((layerEntry: DisplayLayerEntry) => drawSkinLayer(config, context, unit, layerEntry.display, layerEntry.layer));
+    list4.forEach((layerEntry: DisplayLayerEntry) => {
+      drawSkinLayer(config, context, unit, layerEntry.display, layerEntry.layer);
+    });
   };
   const drawRoundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number) => {
     const [topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius] = cornerRadii;
@@ -4801,53 +5066,53 @@ interface ObjectConstructor {
     context.closePath();
     context.fill();
     if (strokeWidth) {
-      context.strokeStyle = "#00000099";
+      context.strokeStyle = '#00000099';
       context.lineWidth = strokeWidth;
       context.stroke();
     }
   };
-  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: string | CanvasPattern) => {
+  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: CanvasPattern | string) => {
     context.fillStyle = fillStyle;
     context.fill(path);
   };
   interface Bounds {
-    left: number;
-    top: number;
-    right: number;
     bottom: number;
+    left: number;
+    right: number;
+    top: number;
   }
   interface HasBounds {
     bounds: Bounds;
   }
   interface RenderContext {
-    game: Game;
-    view: HTMLCanvasElement;
-    ctx: CanvasRenderingContext2D | null;
-    viewWidth: number;
-    viewHeight: number;
-    devicePixelRatio: number;
-    scaler: number;
-    scale: number;
-    origin: Vector;
-    pointInView: (point: Vector, padding?: number) => boolean;
+    backHeight: number;
+    barHeight: number;
+    barWidth: number;
     boundsInView: (target: HasBounds, padding?: number) => boolean;
     calcMult: (a: number, b: number) => number;
-    viewScreenWidth: number;
-    viewScreenHeight: number;
+    ctx: CanvasRenderingContext2D | null;
+    devicePixelRatio: number;
     fontSize: number;
-    strokeWidth: number;
-    backHeight: number;
-    uiFont: string;
-    padding: number;
-    barHeight: number;
+    game: Game;
     halfBarHeight: number;
-    barWidth: number;
     halfBarWidth: number;
+    origin: Vector;
+    padding: number;
+    pointInView: (point: Vector, padding?: number) => boolean;
+    scale: number;
+    scaler: number;
+    strokeWidth: number;
+    uiFont: string;
+    view: HTMLCanvasElement;
+    viewHeight: number;
+    viewScreenHeight: number;
+    viewScreenWidth: number;
+    viewWidth: number;
   }
   const drawBaseFills = (renderContext: RenderContext) => {
     const {
-      game: game,
-      boundsInView
+      boundsInView,
+      game
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
@@ -4861,16 +5126,16 @@ interface ObjectConstructor {
   };
   const drawTrailUnderlays = (renderContext: RenderContext) => {
     const {
-      game: game,
-      boundsInView
+      boundsInView,
+      game
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
     ctx.save();
-    ctx.lineCap = "round";
-    ctx.globalCompositeOperation = "destination-out";
+    ctx.lineCap = 'round';
+    ctx.globalCompositeOperation = 'destination-out';
     game.units.forEach((unit: Unit) => {
       const {
         start
@@ -4879,7 +5144,7 @@ interface ObjectConstructor {
         if (boundsInView(unit.track.polyline, trackWidth)) {
           strokeTrail(ctx, unit.skin.colors.main, unit.track, unit.position, trackWidth);
           ctx.save();
-          ctx.globalCompositeOperation = "destination-over";
+          ctx.globalCompositeOperation = 'destination-over';
           ctx.clip(unit.base.polygon.path);
           strokeTrail(ctx, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main, unit.track, unit.position, trackWidth + 2);
           ctx.restore();
@@ -4890,7 +5155,7 @@ interface ObjectConstructor {
   };
   const drawAvatarFrontLayers = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
       pointInView
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
@@ -4905,15 +5170,15 @@ interface ObjectConstructor {
   };
   const drawUnitNames = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
+      pointInView,
       scale,
-      scaler,
-      pointInView
+      scaler
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
-      trackWidth,
-      font
+      font,
+      trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
       if (pointInView(unit.position, trackWidth * 20) || game.debugView) {
@@ -4923,7 +5188,7 @@ interface ObjectConstructor {
   };
   const drawAvatarBackLayers = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
       pointInView
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
@@ -4938,20 +5203,20 @@ interface ObjectConstructor {
   };
   const drawTrails = (renderContext: RenderContext) => {
     const {
-      game: game,
-      boundsInView
+      boundsInView,
+      game
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
       trackWidth
     } = game.config;
     ctx.save();
-    ctx.lineCap = "round";
+    ctx.lineCap = 'round';
     ctx.globalAlpha = 0.6;
     game.units.forEach((unit: Unit) => {
       if (unit.in !== unit.base) {
         if (boundsInView(unit.track.polyline, trackWidth)) {
-          strokeTrail(ctx, game.tailRecovered && unit == game.player ? "#f00" : unit.skin.colors.main, unit.track, unit.position, trackWidth);
+          strokeTrail(ctx, game.tailRecovered && unit == game.player ? '#f00' : unit.skin.colors.main, unit.track, unit.position, trackWidth);
         }
       }
     });
@@ -4959,8 +5224,8 @@ interface ObjectConstructor {
   };
   const drawBaseBacks = (renderContext: RenderContext) => {
     const {
-      game: game,
-      boundsInView
+      boundsInView,
+      game
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
@@ -4974,17 +5239,17 @@ interface ObjectConstructor {
   };
   const drawArenaBackground = (renderContext: RenderContext) => {
     const {
-      game: game,
-      viewScreenWidth,
-      viewScreenHeight
+      game,
+      viewScreenHeight,
+      viewScreenWidth
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const {
-      baseHeight,
       arenaColor,
-      borderColor,
+      backgroundBottomColor,
       backgroundTopColor,
-      backgroundBottomColor
+      baseHeight,
+      borderColor
     } = game.config;
     fillPath(ctx, game.border.polygon.path, arenaColor);
     ctx.translate(0, baseHeight * 3);
@@ -4998,7 +5263,7 @@ interface ObjectConstructor {
   };
   const drawParticles = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
       pointInView
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
@@ -5011,7 +5276,7 @@ interface ObjectConstructor {
   };
   const drawLabels = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
       scale,
       scaler
     } = renderContext;
@@ -5020,12 +5285,14 @@ interface ObjectConstructor {
       font
     } = game.config;
     ctx.scale(1 / scale, 1 / scale);
-    game.labels.forEach((label: TextParticle) => label.draw(ctx, font, scale, scaler));
+    game.labels.forEach((label: TextParticle) => {
+      label.draw(ctx, font, scale, scaler);
+    });
     ctx.scale(scale, scale);
   };
   const drawLeaderMarker = (renderContext: RenderContext) => {
     const {
-      game: game,
+      game,
       scale,
       scaler
     } = renderContext;
@@ -5037,12 +5304,12 @@ interface ObjectConstructor {
   };
   const drawMinimap = (renderContext: RenderContext) => {
     const {
-      game: game,
-      scaler,
       calcMult,
-      viewScreenWidth,
+      game,
+      padding,
+      scaler,
       viewScreenHeight,
-      padding
+      viewScreenWidth
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     assertNonNullable(game.player);
@@ -5051,18 +5318,18 @@ interface ObjectConstructor {
     ctx.save();
     ctx.translate(viewScreenWidth - padding - minimapSize, viewScreenHeight - padding - minimapSize);
     ctx.scale(minimapSize / game.space.width, minimapSize / game.space.height);
-    fillPath(ctx, game.border.polygon.path, "#c2d6cdaa");
+    fillPath(ctx, game.border.polygon.path, '#c2d6cdaa');
     fillPath(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
     strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / 2);
     strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / 2);
-    const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === ensureNonNullable(game.player).base) ? "#ff0000" : "#00000099";
+    const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === ensureNonNullable(game.player).base) ? '#ff0000' : '#00000099';
     strokePath(ctx, game.border.polygon.path, borderColor, minimapStrokeWidth);
     ctx.beginPath();
     ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, Math.PI * 2);
     ctx.fillStyle = game.player.skin.colors.nick;
     ctx.fill();
-    const flagAsset = game.player.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === "flags");
-    const spatialGrid2 = flagAsset && flagAsset.content.roundedFlag;
+    const flagAsset = game.player.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === 'flags');
+    const spatialGrid2 = flagAsset?.content.roundedFlag;
     if (spatialGrid2 && game.player.cities) {
       game.player.cities.forEach((city: City) => {
         ctx.save();
@@ -5075,20 +5342,20 @@ interface ObjectConstructor {
     ctx.restore();
   };
   let spatialGrid: HTMLCanvasElement | null = null;
-  window.addEventListener("resize", () => spatialGrid = null, false);
+  window.addEventListener('resize', () => spatialGrid = null, false);
   const drawLeaderboard = (renderContext: RenderContext) => {
     const {
       devicePixelRatio
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     if (!spatialGrid) {
-      spatialGrid = document.createElement("canvas");
+      spatialGrid = document.createElement('canvas');
       spatialGrid.width = ~~renderContext.barWidth;
       spatialGrid.height = ~~(renderContext.barHeight * 1.3 * 8);
     }
     if (renderContext.game.topListChanged) {
       renderContext.game.topListChanged = false;
-      let context = spatialGrid.getContext("2d");
+      const context = spatialGrid.getContext('2d');
       if (context) {
         context.save();
         context.clearRect(0, 0, spatialGrid.width, spatialGrid.height);
@@ -5105,16 +5372,16 @@ interface ObjectConstructor {
   };
   const drawLeaderboardRows = (context: CanvasRenderingContext2D, renderContext: RenderContext) => {
     const {
-      game: game,
-      viewScreenWidth,
-      padding,
       backHeight,
       barHeight,
-      halfBarHeight,
       barWidth,
+      game,
+      halfBarHeight,
       halfBarWidth,
+      padding,
       strokeWidth,
-      uiFont
+      uiFont,
+      viewScreenWidth
     } = renderContext;
     let previousBarWidth: number | undefined;
     const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number) => {
@@ -5128,14 +5395,14 @@ interface ObjectConstructor {
       const barRightOffset = halfBarWidth + scoreBarWidth;
       let barX = viewScreenWidth - barRightOffset;
       const cornerRadii: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
-      context.fillStyle = "#00000022";
+      context.fillStyle = '#00000022';
       drawRoundedRect(context, barX + backHeight, rowY + backHeight * 3, barWidth, barHeight, cornerRadii);
       context.fillStyle = unit.skin.colors.back;
       drawRoundedRect(context, barX, rowY + backHeight, barWidth, barHeight, cornerRadii, strokeWidth);
       context.fillStyle = unit.skin.colors.main;
       drawRoundedRect(context, barX, rowY, barWidth, barHeight, cornerRadii, strokeWidth);
-      const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === "flags");
-      const flagImage = flagAsset && flagAsset.content.roundedFlag;
+      const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === 'flags');
+      const flagImage = flagAsset?.content.roundedFlag;
       if (flagImage) {
         const flagHeight = barHeight * 0.8;
         const flagOffsetX = barHeight / 4;
@@ -5149,9 +5416,9 @@ interface ObjectConstructor {
       }
       context.fillStyle = unit.skin.colors.plate;
       context.font = uiFont;
-      context.textAlign = "left";
-      context.textBaseline = "middle";
-      context.fillText(rank + " – " + ensureNonNullable(unit.schemes).print() + " " + unit.name, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
+      context.textAlign = 'left';
+      context.textBaseline = 'middle';
+      context.fillText(`${rank} – ${ensureNonNullable(unit.schemes).print()} ${unit.name}`, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
     };
     const topUnit = game.units[0];
     const topScore = topUnit && ensureNonNullable(topUnit.schemes).scores();
@@ -5172,12 +5439,12 @@ interface ObjectConstructor {
   };
   const renderScoreBar = (renderContext: RenderContext) => {
     const {
-      game: game,
-      padding,
       backHeight,
       barHeight,
-      halfBarHeight,
       barWidth,
+      game,
+      halfBarHeight,
+      padding,
       strokeWidth,
       uiFont
     } = renderContext;
@@ -5186,7 +5453,7 @@ interface ObjectConstructor {
       player
     } = game;
     assertNonNullable(player);
-    ctx.fillStyle = "#00000022";
+    ctx.fillStyle = '#00000022';
     drawRoundedRect(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, 0]);
     const scoreRatio = game.best ? Math.min(1, ensureNonNullable(player.schemes).scores() / game.best) : 1;
     const fillWidth = barWidth * (0.25 + scoreRatio * 0.75);
@@ -5196,56 +5463,56 @@ interface ObjectConstructor {
     drawRoundedRect(ctx, 0, padding, fillWidth, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
     ctx.fillStyle = player.skin.colors.plate;
     ctx.font = uiFont;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * 1.1);
   };
   const renderBestScore = (renderContext: RenderContext) => {
     const {
-      game: game,
-      padding,
       backHeight,
       barHeight,
+      game,
+      padding,
       uiFont
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     ctx.font = uiFont;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    let bestText = game.language.bestTxt + " " + ensureNonNullable(ensureNonNullable(game.player).schemes).print(game.best ?? undefined);
-    ctx.fillStyle = "#00000066";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const bestText = `${game.language.bestTxt} ${ensureNonNullable(ensureNonNullable(game.player).schemes).print(game.best ?? undefined)}`;
+    ctx.fillStyle = '#00000066';
     ctx.fillText(bestText, padding / 2, padding + barHeight + backHeight + padding / 2);
   };
   const renderKillCount = (renderContext: RenderContext) => {
     const {
-      game: game,
-      scaler,
-      padding,
       backHeight,
       barHeight,
-      halfBarHeight,
       fontSize,
+      game,
+      halfBarHeight,
+      padding,
+      scaler,
       uiFont
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     const killsY = padding + barHeight + backHeight + fontSize + padding / 2 + 4;
     ctx.font = uiFont;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    let killsText = "x" + ensureNonNullable(game.player).statistics.kills;
-    ctx.fillStyle = "#00000088";
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const killsText = `x${ensureNonNullable(game.player).statistics.kills}`;
+    ctx.fillStyle = '#00000088';
     drawRoundedRect(ctx, 0, killsY, barHeight * 1.5 + ctx.measureText(killsText).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
     drawFaceIcon(ctx, barHeight * 1.4 / 2, killsY + barHeight / 2, scaler);
-    ctx.fillStyle = "#ffffffcc";
+    ctx.fillStyle = '#ffffffcc';
     ctx.fillText(killsText, barHeight * 1.25, killsY + halfBarHeight + barHeight * 0.03);
   };
   const renderQuestNotification = (renderContext: RenderContext) => {
     const {
-      game: game,
-      padding,
       backHeight,
       barHeight,
       fontSize,
+      game,
+      padding,
       uiFont,
       viewScreenWidth
     } = renderContext;
@@ -5261,20 +5528,20 @@ interface ObjectConstructor {
         const iconSize = fontSize * 2;
         const notificationWidth = textWidth + padding * 5 + iconSize;
         const inset = padding / 2;
-        ctx.fillStyle = "#00000088";
+        ctx.fillStyle = '#00000088';
         drawRoundedRect(ctx, (viewScreenWidth - notificationWidth) / 2, notificationY, notificationWidth, notificationHeight, [(barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2]);
-        ctx.fillStyle = "#ffffff";
-        ctx.shadowColor = "#ffffff";
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 1;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
         ctx.fillText(quest.title, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset);
-        ctx.fillStyle = "#ffffff88";
-        ctx.shadowColor = "#ffffff88";
+        ctx.fillStyle = '#ffffff88';
+        ctx.shadowColor = '#ffffff88';
         ctx.shadowBlur = 1;
         ctx.font = uiFont;
         ctx.fillText(quest.description, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset + fontSize);
-        ctx.shadowColor = "#ffffff";
+        ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 10;
         if (quest.image) {
           ctx.drawImage(quest.image, (viewScreenWidth - notificationWidth) / 2 + inset, notificationY + inset, iconSize, iconSize);
@@ -5297,8 +5564,8 @@ interface ObjectConstructor {
     } = renderContext;
     const {
       devicePixelRatio,
-      viewWidth,
-      viewHeight
+      viewHeight,
+      viewWidth
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     if (game.debugView) {
@@ -5315,12 +5582,12 @@ interface ObjectConstructor {
     drawBaseFills(renderContext);
     drawTrailUnderlays(renderContext);
     ctx.translate(0, baseHeight);
-    ctx.globalCompositeOperation = "destination-over";
+    ctx.globalCompositeOperation = 'destination-over';
     drawAvatarBackLayers(renderContext);
     drawTrails(renderContext);
     drawBaseBacks(renderContext);
     drawArenaBackground(renderContext);
-    ctx.globalCompositeOperation = "source-over";
+    ctx.globalCompositeOperation = 'source-over';
     drawAvatarFrontLayers(renderContext);
     drawUnitNames(renderContext);
     drawParticles(renderContext);
@@ -5341,13 +5608,13 @@ interface ObjectConstructor {
     }
   }
   interface Metric {
-    updateTime: number;
-    renderTime: number;
-    frameTime: number;
     events: {
-      returns: number;
       kills: number;
+      returns: number;
     };
+    frameTime: number;
+    renderTime: number;
+    updateTime: number;
   }
   function renderDebugOverlay(game: Game) {
     const {
@@ -5356,39 +5623,39 @@ interface ObjectConstructor {
     if (!view) {
       return;
     }
-    const context = view.getContext("2d");
+    const context = view.getContext('2d');
     if (!context) {
       return;
     }
-    context.fillStyle = "#000000";
-    context.strokeStyle = "#ffffff";
-    context.textAlign = "left";
-    context.textBaseline = "top";
+    context.fillStyle = '#000000';
+    context.strokeStyle = '#ffffff';
+    context.textAlign = 'left';
+    context.textBaseline = 'top';
     let lineY = game.quality * 160;
-    const drawStatLine = (text: string = "", indentLevel: number = 0) => {
+    const drawStatLine = (text = '', indentLevel = 0) => {
       if (text) {
         context.strokeText(text, 10 + indentLevel * 20, lineY);
         context.fillText(text, 10 + indentLevel * 20, lineY);
       }
       lineY += game.quality * 20;
     };
-    drawStatLine("Update time: " + game.stats.ut.toFixed(1));
-    drawStatLine("AI time: " + game.stats.ait.toFixed(1), 1);
-    drawStatLine("Spawn time: " + game.stats.st.toFixed(1), 1);
-    drawStatLine("Render time: " + game.stats.rt.toFixed(1));
-    drawStatLine("FPS: " + Math.round(game.stats.fps));
-    drawStatLine("Quality: " + game.quality);
+    drawStatLine(`Update time: ${game.stats.ut.toFixed(1)}`);
+    drawStatLine(`AI time: ${game.stats.ait.toFixed(1)}`, 1);
+    drawStatLine(`Spawn time: ${game.stats.st.toFixed(1)}`, 1);
+    drawStatLine(`Render time: ${game.stats.rt.toFixed(1)}`);
+    drawStatLine(`FPS: ${Math.round(game.stats.fps)}`);
+    drawStatLine(`Quality: ${game.quality}`);
     drawStatLine();
-    drawStatLine("Units: " + game.units.length);
-    drawStatLine("Level: " + game.level.toFixed(3));
+    drawStatLine(`Units: ${game.units.length}`);
+    drawStatLine(`Level: ${game.level.toFixed(3)}`);
     drawStatLine();
-    drawStatLine("Particles: " + game.particles.length);
+    drawStatLine(`Particles: ${game.particles.length}`);
     drawStatLine();
     if (game.recording) {
-      drawStatLine("Recording: " + game.recording.duration().toFixed(1) + " s");
+      drawStatLine(`Recording: ${game.recording.duration().toFixed(1)} s`);
     }
     if (game.replaying) {
-      drawStatLine("Replaying: " + game.replaying.currentlyPlaying().toFixed(1) + "/" + game.replaying.duration().toFixed(1) + " s");
+      drawStatLine(`Replaying: ${game.replaying.currentlyPlaying().toFixed(1)}/${game.replaying.duration().toFixed(1)} s`);
     }
     if (game.debugGraph) {
       const graphWidth = view.width / 3;
@@ -5407,7 +5674,7 @@ interface ObjectConstructor {
       const yScale = graphHeight / maxFrameTime;
       context.save();
       context.translate((view.width - graphWidth) / 2, graphHeight);
-      context.fillStyle = "#00000033";
+      context.fillStyle = '#00000033';
       context.fillRect(0, -graphHeight, graphWidth, graphHeight);
       game.metrics.forEach((metric: Metric, index: number) => {
         path2D.lineTo(xStep * index, -metric.updateTime * yScale);
@@ -5418,30 +5685,30 @@ interface ObjectConstructor {
       path2D4.lineTo(xStep * (game.metrics.length - 1), 0);
       context.lineWidth = 1;
       const targetFrameTimeY = yScale * 16.67;
-      context.strokeStyle = "red";
+      context.strokeStyle = 'red';
       context.beginPath();
       context.moveTo(0, -targetFrameTimeY);
       context.lineTo(graphWidth, -targetFrameTimeY);
       context.stroke();
-      context.fillStyle = "#ffff00a0";
+      context.fillStyle = '#ffff00a0';
       context.fill(path2D4);
-      context.strokeStyle = "#990099cc";
+      context.strokeStyle = '#990099cc';
       context.stroke(path2D);
-      context.strokeStyle = "#009900cc";
+      context.strokeStyle = '#009900cc';
       context.stroke(path2D2);
-      context.strokeStyle = "#0000ffcc";
+      context.strokeStyle = '#0000ffcc';
       context.stroke(path2D3);
       context.lineWidth = 0.5;
       game.metrics.forEach((metric: Metric, index: number) => {
         const {
-          returns,
-          kills
+          kills,
+          returns
         } = metric.events;
         if (returns || kills) {
           if (kills) {
-            context.strokeStyle = "#99000040";
+            context.strokeStyle = '#99000040';
           } else {
-            context.strokeStyle = "#00000040";
+            context.strokeStyle = '#00000040';
           }
           context.beginPath();
           context.moveTo(xStep * index, 0);
@@ -5453,72 +5720,72 @@ interface ObjectConstructor {
     }
   }
   interface LanguageStrings {
-    yourScore: string;
     bestScore: string;
-    newText: string;
-    timePlayed: string;
-    playersKilled: string;
-    playAgain: string;
+    bestTxt: string;
+    btnContinue: string;
+    btnPlay: string;
+    btnSelect: string;
+    defaultPlayerName: string;
+    extraLife: string;
+    killText: string;
     menu: string;
     messages: string[];
+    newText: string;
     nosupport: string;
-    btnPlay: string;
     placeholderText: string;
-    defaultPlayerName: string;
-    bestTxt: string;
-    killText: string;
-    btnContinue: string;
-    extraLife: string;
-    btnSelect: string;
+    playAgain: string;
+    playersKilled: string;
+    timePlayed: string;
+    yourScore: string;
   }
   interface Language {
-    name: string;
     lng: LanguageStrings;
+    name: string;
   }
-  var russianLanguage: Language = {
-    name: "ru",
+  const russianLanguage: Language = {
     lng: {
-      yourScore: "ВАШ РЕЗУЛЬТАТ",
-      bestScore: "ЛУЧШИЙ РЕЗУЛЬТАТ",
-      newText: "НОВЫЙ",
-      timePlayed: "ДЛИТЕЛЬНОСТЬ",
-      playersKilled: "УБИТО",
-      playAgain: "ИГРАТЬ СНОВА",
-      menu: "МЕНЮ",
-      messages: ["Не знаете как играть?", "Коснитесь экрана для управления", "Пересекайте хвосты противников и не позволяйте им пересечь свой!", "Захватите всю карту"],
-      nosupport: "Игра не поддерживается на вашем браузере",
-      btnPlay: "ИГРАТЬ",
-      placeholderText: "Ваше имя",
-      defaultPlayerName: "Игрок",
-      bestTxt: "ЛУЧШИЙ",
-      killText: "Убит",
-      btnContinue: "ПРОДОЛЖИТЬ",
-      extraLife: "ДОПОЛНИТЕЛЬНАЯ ЖИЗНЬ!",
-      btnSelect: "ВЫБРАТЬ"
-    }
+      bestScore: 'ЛУЧШИЙ РЕЗУЛЬТАТ',
+      bestTxt: 'ЛУЧШИЙ',
+      btnContinue: 'ПРОДОЛЖИТЬ',
+      btnPlay: 'ИГРАТЬ',
+      btnSelect: 'ВЫБРАТЬ',
+      defaultPlayerName: 'Игрок',
+      extraLife: 'ДОПОЛНИТЕЛЬНАЯ ЖИЗНЬ!',
+      killText: 'Убит',
+      menu: 'МЕНЮ',
+      messages: ['Не знаете как играть?', 'Коснитесь экрана для управления', 'Пересекайте хвосты противников и не позволяйте им пересечь свой!', 'Захватите всю карту'],
+      newText: 'НОВЫЙ',
+      nosupport: 'Игра не поддерживается на вашем браузере',
+      placeholderText: 'Ваше имя',
+      playAgain: 'ИГРАТЬ СНОВА',
+      playersKilled: 'УБИТО',
+      timePlayed: 'ДЛИТЕЛЬНОСТЬ',
+      yourScore: 'ВАШ РЕЗУЛЬТАТ'
+    },
+    name: 'ru'
   };
   interface GameResults {
+    kills: number;
     newBest: boolean;
     score: number;
     time: number;
-    kills: number;
   }
   interface GameApi {
     create: (view: HTMLCanvasElement) => void;
-    preparing: boolean;
-    prepare: (onPrepared?: () => void) => void;
-    start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
     game: Game;
+    prepare: (onPrepared?: () => void) => void;
+    preparing: boolean;
+    start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
     startGame?: () => void;
   }
   const createGameApi = (config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null => {
-    let gameApi = {} as GameApi;
+    const gameApi = {} as GameApi;
     if (Path2D) {
       gameApi.create = (view: HTMLCanvasElement) => {
         const {
           arenaSize,
-          quadSize,
-          borderPoints
+          borderPoints,
+          quadSize
         } = config;
         const spatialGrid2 = new SpatialGrid(arenaSize, arenaSize, quadSize);
         Vector.space = spatialGrid2;
@@ -5589,9 +5856,9 @@ interface ObjectConstructor {
         game.spawnPlayer(playerName, skinName, extraLives);
         if (extraLives) {
           ensureNonNullable(game.player).addLabel({
+            color: '#7fed4c',
             text: russianLanguage.lng.extraLife,
-            time: 5000,
-            color: "#7fed4c"
+            time: 5000
           });
         }
         if (onGameOver) {
@@ -5605,50 +5872,47 @@ interface ObjectConstructor {
         window.focus();
       };
       return gameApi;
-    } else {
-      return null;
     }
+    return null;
   };
-  type Dispatch<T> = (action: T | ((prevState: T) => T)) => void;
+  type Dispatch<T> = (action: ((prevState: T) => T) | T) => void;
   // Declaration-merged onto the core `Component` (rather than kept as a
-  // parallel `PreactComponent` type): the bundled preact/hooks addon patches
-  // the shared `preactOptions` object and touches the same live
-  // component/vnode instances the core reconciler already types, so both
-  // sides need to agree on one shape.
+  // Parallel `PreactComponent` type): the bundled preact/hooks addon patches
+  // The shared `preactOptions` object and touches the same live
+  // Component/vnode instances the core reconciler already types, so both
+  // Sides need to agree on one shape.
 
-  interface LanguagesData {
-    [languageCode: string]: Partial<LanguageStrings>;
-  }
-  var assign3 = Object.assign;
+  type LanguagesData = Record<string, Partial<LanguageStrings>>;
   const list3: Language[] = [];
   const buildLanguageList = (languagesData: LanguagesData) => {
     const {
       en
     } = languagesData;
-    Object.entries(languagesData).forEach(([languageName, languageStrings]) => {
+    Object.keys(languagesData).forEach((languageName) => {
+      const languageStrings = languagesData[languageName];
       list3.push({
-        name: languageName,
-        lng: assign3(assign3({}, en), languageStrings) as LanguageStrings
+        lng: ({ ...(en ?? {}), ...(languageStrings ?? {}) }) as LanguageStrings,
+        name: languageName
       });
     });
   };
-  const browserLanguageCode = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || "en").substr(0, 2).toLowerCase();
-  const findDefaultLanguage = (): Language | undefined => list3.find((language: Language) => language.name === browserLanguageCode) || list3.find((language: Language) => language.name === "en");
-  type Ref<T> = {
+  const browserLanguageCode = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').substr(0, 2).toLowerCase();
+  const findDefaultLanguage = (): Language | undefined => list3.find((language: Language) => language.name === browserLanguageCode) || list3.find((language: Language) => language.name === 'en');
+  interface Ref<T> {
     current: T;
-  };
+  }
   interface SkinColors {
-    main: string;
     back: string;
+    main: string;
     nick: string;
-    plate: string;
     particles: ParticleColor[];
+    plate: string;
   }
   interface SkinSource {
-    name: string;
-    colors?: Partial<SkinColors>;
-    pattern?: PatternSource;
     avatar?: AvatarDescriptor;
+    colors?: Partial<SkinColors>;
+    name: string;
+    pattern?: PatternSource;
   }
   const LanguageContext = createContext<Language | undefined>(undefined);
   const Tips = ({
@@ -5658,54 +5922,75 @@ interface ObjectConstructor {
   }) => {
     const [tipIndex, setTipIndex] = useState(0);
     useEffect(() => {
-      const intervalId = setInterval(() => setTipIndex((previousIndex: number) => (previousIndex + 1) % messages.length), 3000);
-      return () => clearInterval(intervalId);
+      const intervalId = setInterval(() => {
+        setTipIndex((previousIndex: number) => (previousIndex + 1) % messages.length);
+      }, 3000);
+      return () => {
+        clearInterval(intervalId);
+      };
     }, []);
-    return createElement("div", {
-      class: "tips"
-    }, createElement("div", {
-      class: "tip",
-      key: tipIndex
-    }, messages[tipIndex]));
+    return createElement(
+      'div',
+      {
+        class: 'tips'
+      },
+      createElement('div', {
+        class: 'tip',
+        key: tipIndex
+      }, messages[tipIndex])
+    );
   };
   const ConfigForm = ({
-    config,
-    apply
+    apply,
+    config
   }: {
-    config: Config | null | undefined;
     apply: (event: Event) => void;
+    config: Config | null | undefined;
   }) => {
     if (!config) {
       return null;
     }
-    return createElement("form", {
-      class: "config",
-      onSubmit: apply
-    }, Object.entries(config).map(([configKey, configValue]) => createElement("label", {
-      style: "color: white;"
-    }, configKey, "\xA0", createElement("input", {
-      type: "text",
-      id: configKey,
-      name: configKey,
-      value: String(configValue),
-      autocomplete: "off",
-      maxlength: "10"
-    }))), createElement("button", {
-      id: "apply",
-      name: "apply",
-      class: "yellow"
-    }, "Применить"));
+    return createElement(
+      'form',
+      {
+        class: 'config',
+        onSubmit: apply
+      },
+      Object.entries(config).map(([configKey, configValue]) =>
+        createElement(
+          'label',
+          {
+            style: 'color: white;'
+          },
+          configKey,
+          '\xA0',
+          createElement('input', {
+            autocomplete: 'off',
+            id: configKey,
+            maxlength: '10',
+            name: configKey,
+            type: 'text',
+            value: String(configValue)
+          })
+        )
+      ),
+      createElement('button', {
+        class: 'yellow',
+        id: 'apply',
+        name: 'apply'
+      }, 'Применить')
+    );
   };
   const ConfigScreen = ({
     api,
-    view,
     setPreparing,
-    setState
+    setState,
+    view
   }: {
     api: GameApi | null;
-    view: Ref<HTMLCanvasElement | null>;
     setPreparing: Dispatch<boolean>;
     setState: Dispatch<string>;
+    view: Ref<HTMLCanvasElement | null>;
   }) => {
     const config = api && api.game && api.game.config;
     const applyConfig = (event: Event) => {
@@ -5722,19 +6007,30 @@ interface ObjectConstructor {
       api.game.stopped = true;
       api.create(ensureNonNullable(view.current));
       setPreparing(true);
-      api.prepare(() => setPreparing(false));
-      setState("menu");
+      api.prepare(() => {
+        setPreparing(false);
+      });
+      setState('menu');
     };
-    return createElement("div", {
-      class: "uibox"
-    }, createElement("div", {
-      class: "logo"
-    }, createElement("img", {
-      src: "assets/images/logo.png"
-    })), createElement(ConfigForm, {
-      config: config,
-      apply: applyConfig
-    }));
+    return createElement(
+      'div',
+      {
+        class: 'uibox'
+      },
+      createElement(
+        'div',
+        {
+          class: 'logo'
+        },
+        createElement('img', {
+          src: 'assets/images/logo.png'
+        })
+      ),
+      createElement(ConfigForm, {
+        apply: applyConfig,
+        config
+      })
+    );
   };
   const LanguageFooter = ({
     setLanguage
@@ -5742,40 +6038,50 @@ interface ObjectConstructor {
     setLanguage: Dispatch<Language | undefined>;
   }) => {
     const currentLanguage = useContext(LanguageContext);
-    const languageItems = list3.map((language: Language, index: number) => createElement("li", {
-      class: language === currentLanguage ? "active" : "",
-      onClick: () => setLanguage(list3[index])
-    }, language.name.toUpperCase()));
-    return createElement("div", {
-      id: "footer"
-    }, createElement("ul", {
-      id: "lng"
-    }, languageItems));
+    const languageItems = list3.map((language: Language, index: number) =>
+      createElement('li', {
+        class: language === currentLanguage ? 'active' : '',
+        onClick: () => {
+          setLanguage(list3[index]);
+        }
+      }, language.name.toUpperCase())
+    );
+    return createElement(
+      'div',
+      {
+        id: 'footer'
+      },
+      createElement('ul', {
+        id: 'lng'
+      }, languageItems)
+    );
   };
   const MenuScreen = ({
-    nickName,
-    setNickName,
-    start,
-    route,
     api,
-    skin
+    nickName,
+    route,
+    setNickName,
+    skin,
+    start
   }: {
+    api: GameApi | null;
     nickName: string;
-    setNickName: Dispatch<string>;
     playable: boolean;
     preparing: boolean;
-    start: () => void;
-    route: Dispatch<string>;
     provider?: undefined;
+    route: Dispatch<string>;
     setLanguage: Dispatch<Language | undefined>;
-    api: GameApi | null;
+    setNickName: Dispatch<string>;
     skin: string;
+    start: () => void;
   }) => {
     const {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
     const isSupported = !!api;
-    const handleNickNameInput = (event: Event) => setNickName((event.target as HTMLInputElement).value);
+    const handleNickNameInput = (event: Event) => {
+      setNickName((event.target as HTMLInputElement).value);
+    };
     const canPlay = isSupported;
     const handlePlay = (event: Event) => {
       event.preventDefault();
@@ -5784,71 +6090,100 @@ interface ObjectConstructor {
       }
     };
     useEffect(() => {
-      if (window.ads && window.ads.showAds) {
+      if (window.ads?.showAds) {
         window.ads.showAds();
       }
     }, []);
-    return createElement(Fragment, null, createElement("div", {
-      id: "left_side"
-    }), createElement("div", {
-      class: "uibox"
-    }, createElement("div", {
-      class: "logo"
-    }, createElement("img", {
-      src: "assets/images/logo.png"
-    })), createElement(Tips, {
-      messages: lng.messages
-    }), createElement("div", {
-      class: "play"
-    }, createElement("input", {
-      type: "text",
-      id: "nick",
-      name: "nick",
-      value: nickName,
-      autocomplete: "off",
-      placeholder: lng.placeholderText,
-      maxlength: "12",
-      oninput: handleNickNameInput
-    }), createElement("button", {
-      id: "play",
-      name: "play",
-      class: "yellow" + (canPlay ? "" : " disabled"),
-      onClick: handlePlay
-    }, lng.btnPlay), createElement("button", {
-      id: "skins",
-      name: "skins",
-      class: "orange noPadding",
-      onClick: () => route("skins")
-    }, createElement("img", {
-      width: "30",
-      height: "30",
-      src: "assets/skins/select/" + (skin || "noskin").toLowerCase().replace(/\s+/g, "") + ".png"
-    }))), !isSupported && createElement("p", {
-      class: "notsupported"
-    }, lng.nosupport)), createElement("div", {
-      id: "right_side"
-    }));
+    return createElement(
+      Fragment,
+      null,
+      createElement('div', {
+        id: 'left_side'
+      }),
+      createElement(
+        'div',
+        {
+          class: 'uibox'
+        },
+        createElement(
+          'div',
+          {
+            class: 'logo'
+          },
+          createElement('img', {
+            src: 'assets/images/logo.png'
+          })
+        ),
+        createElement(Tips, {
+          messages: lng.messages
+        }),
+        createElement(
+          'div',
+          {
+            class: 'play'
+          },
+          createElement('input', {
+            autocomplete: 'off',
+            id: 'nick',
+            maxlength: '12',
+            name: 'nick',
+            oninput: handleNickNameInput,
+            placeholder: lng.placeholderText,
+            type: 'text',
+            value: nickName
+          }),
+          createElement('button', {
+            class: `yellow${canPlay ? '' : ' disabled'}`,
+            id: 'play',
+            name: 'play',
+            onClick: handlePlay
+          }, lng.btnPlay),
+          createElement(
+            'button',
+            {
+              class: 'orange noPadding',
+              id: 'skins',
+              name: 'skins',
+              onClick: () => {
+                route('skins');
+              }
+            },
+            createElement('img', {
+              height: '30',
+              src: `assets/skins/select/${(skin || 'noskin').toLowerCase().replace(/\s+/g, '')}.png`,
+              width: '30'
+            })
+          )
+        ),
+        !isSupported && createElement('p', {
+          class: 'notsupported'
+        }, lng.nosupport)
+      ),
+      createElement('div', {
+        id: 'right_side'
+      })
+    );
   };
   const GameScreen = ({
-    nickName,
-    bestScore,
-    setBestScore,
-    setResults,
-    setPreparing,
     api,
+    bestScore,
+    lastPercent,
+    nickName,
     route,
-    skin,
-    lastPercent
+    setBestScore,
+    setPreparing,
+    setResults,
+    skin
   }: {
-    nickName: string;
-    bestScore: number;
-    setBestScore: Dispatch<number>;
-    setResults: Dispatch<GameResults | null>;
-    setPreparing: Dispatch<boolean>;
     api: GameApi | null;
-    route: Dispatch<string>;
-    skin: string;
+    bestScore: number;
     lastPercent?: number;
+    nickName: string;
+    route: Dispatch<string>;
+    setBestScore: Dispatch<number>;
+    setPreparing: Dispatch<boolean>;
+    setResults: Dispatch<GameResults | null>;
+    skin: string;
   }) => {
     useEffect(() => {
       const handleGameOver = (results: GameResults) => {
@@ -5856,15 +6191,15 @@ interface ObjectConstructor {
           setBestScore(results.score);
         }
         setResults(results);
-        route("results");
+        route('results');
       };
-      if (window.ads && window.ads.hideAds) {
+      if (window.ads?.hideAds) {
         window.ads.hideAds();
       }
       ensureNonNullable(api).game.language = ensureNonNullable(useContext(LanguageContext)).lng;
       let skin2 = skin;
-      if (skin2 === "default" || skin2 === "No skin") {
-        skin2 = "";
+      if (skin2 === 'default' || skin2 === 'No skin') {
+        skin2 = '';
       }
       ensureNonNullable(api).start(nickName, skin2, bestScore, handleGameOver, lastPercent);
       const {
@@ -5872,9 +6207,9 @@ interface ObjectConstructor {
       } = window;
       if (dataLayer) {
         dataLayer.push({
-          event: "levelStart",
-          publisher: "CONNECT2MEDIA",
-          productKey: "paper2IO"
+          event: 'levelStart',
+          productKey: 'paper2IO',
+          publisher: 'CONNECT2MEDIA'
         });
       }
       setPreparing(false);
@@ -5887,13 +6222,15 @@ interface ObjectConstructor {
     route
   }: {
     bestScore: number;
-    results: GameResults;
-    start: () => void;
-    route: Dispatch<string>;
-    provider?: undefined;
     country?: undefined;
+    provider?: undefined;
+    results: GameResults;
+    route: Dispatch<string>;
+    start: () => void;
   }) => {
-    const goToMenu = () => route("menu");
+    const goToMenu = () => {
+      route('menu');
+    };
     const {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
@@ -5902,85 +6239,164 @@ interface ObjectConstructor {
     } = window;
     if (dataLayer) {
       dataLayer.push({
-        event: "levelCompletion",
-        publisher: "CONNECT2MEDIA",
-        productKey: "paper2IO"
+        event: 'levelCompletion',
+        productKey: 'paper2IO',
+        publisher: 'CONNECT2MEDIA'
       });
     }
     useEffect(() => {
-      if (window.ads && window.ads.showAds) {
+      if (window.ads?.showAds) {
         window.ads.showAds();
       }
     }, []);
-    return createElement(Fragment, null, createElement("div", {
-      id: "left_side"
-    }), createElement("div", {
-      class: "uibox"
-    }, createElement("div", {
-      class: "logo"
-    }, createElement("img", {
-      src: "assets/images/logo.png"
-    })), createElement("div", {
-      class: "nav"
-    }, createElement("button", {
-      class: "yellow slider-5",
-      id: "menu",
-      onClick: goToMenu
-    }, lng.btnContinue)), createElement("div", {
-      class: "resultbox"
-    }, createElement("div", {
-      class: "results"
-    }, createElement("div", {
-      class: "left"
-    }, createElement("div", {
-      class: "slider-1"
-    }, lng.yourScore, ":"), createElement("div", {
-      class: "slider-2"
-    }, results.newBest && createElement("span", {
-      class: "newScore"
-    }, lng.newText, " "), lng.bestScore, ":"), createElement("div", {
-      class: "slider-3"
-    }, lng.timePlayed, ":"), createElement("div", {
-      class: "slider-4"
-    }, lng.playersKilled, ":")), createElement("div", {
-      class: "right"
-    }, createElement("div", {
-      class: "slider-1"
-    }, results.score.toFixed(2) + "%"), createElement("div", {
-      class: "slider-2"
-    }, bestScore.toFixed(2) + "%"), createElement("div", {
-      class: "slider-3"
-    }, new Date(results.time).toISOString().slice(14, -5)), createElement("div", {
-      class: "slider-4"
-    }, results.kills)))), createElement("div", {
-      id: "yandex_rtb"
-    })), createElement("div", {
-      id: "right_side"
-    }));
+    return createElement(
+      Fragment,
+      null,
+      createElement('div', {
+        id: 'left_side'
+      }),
+      createElement(
+        'div',
+        {
+          class: 'uibox'
+        },
+        createElement(
+          'div',
+          {
+            class: 'logo'
+          },
+          createElement('img', {
+            src: 'assets/images/logo.png'
+          })
+        ),
+        createElement(
+          'div',
+          {
+            class: 'nav'
+          },
+          createElement('button', {
+            class: 'yellow slider-5',
+            id: 'menu',
+            onClick: goToMenu
+          }, lng.btnContinue)
+        ),
+        createElement(
+          'div',
+          {
+            class: 'resultbox'
+          },
+          createElement(
+            'div',
+            {
+              class: 'results'
+            },
+            createElement(
+              'div',
+              {
+                class: 'left'
+              },
+              createElement(
+                'div',
+                {
+                  class: 'slider-1'
+                },
+                lng.yourScore,
+                ':'
+              ),
+              createElement(
+                'div',
+                {
+                  class: 'slider-2'
+                },
+                results.newBest && createElement(
+                  'span',
+                  {
+                    class: 'newScore'
+                  },
+                  lng.newText,
+                  ' '
+                ),
+                lng.bestScore,
+                ':'
+              ),
+              createElement(
+                'div',
+                {
+                  class: 'slider-3'
+                },
+                lng.timePlayed,
+                ':'
+              ),
+              createElement(
+                'div',
+                {
+                  class: 'slider-4'
+                },
+                lng.playersKilled,
+                ':'
+              )
+            ),
+            createElement(
+              'div',
+              {
+                class: 'right'
+              },
+              createElement('div', {
+                class: 'slider-1'
+              }, `${results.score.toFixed(2)}%`),
+              createElement('div', {
+                class: 'slider-2'
+              }, `${bestScore.toFixed(2)}%`),
+              createElement('div', {
+                class: 'slider-3'
+              }, new Date(results.time).toISOString().slice(14, -5)),
+              createElement('div', {
+                class: 'slider-4'
+              }, results.kills)
+            )
+          )
+        ),
+        createElement('div', {
+          id: 'yandex_rtb'
+        })
+      ),
+      createElement('div', {
+        id: 'right_side'
+      })
+    );
   };
   const SkinPreview = ({
     name
   }: {
     name: string;
   }) => {
-    return createElement("div", {
-      class: "skin"
-    }, createElement("div", {
-      class: "skin-view"
-    }, createElement("h3", null, name), createElement("img", {
-      src: "assets/skins/select/" + name.toLowerCase().replace(/\s+/g, "") + ".png"
-    })));
+    return createElement(
+      'div',
+      {
+        class: 'skin'
+      },
+      createElement(
+        'div',
+        {
+          class: 'skin-view'
+        },
+        createElement('h3', null, name),
+        createElement('img', {
+          src: `assets/skins/select/${name.toLowerCase().replace(/\s+/g, '')}.png`
+        })
+      )
+    );
   };
   const SkinCarousel = ({
-    skins,
-    skin,
     menu,
-    setSkin
+    setSkin,
+    skin,
+    skins
   }: {
-    skins: SkinSource[];
-    skin: string;
     menu: () => void;
     setSkin: Dispatch<string>;
+    skin: string;
+    skins: SkinSource[];
   }) => {
     const {
       lng
@@ -5993,131 +6409,169 @@ interface ObjectConstructor {
         setSkin(ensureNonNullable(skins[index]).name);
       }
     };
-    return createElement("div", {
-      class: "skinbox"
-    }, createElement("div", {
-      class: "skins-container"
-    }, createElement("button", {
-      name: "left",
-      class: "orange",
-      onClick: () => selectSkin(skinIndex - 1)
-    }, "<"), createElement(SkinPreview, {
-      name: ensureNonNullable(skins[skinIndex]).name
-    }), createElement("button", {
-      name: "right",
-      class: "orange",
-      onClick: () => selectSkin(skinIndex + 1)
-    }, ">")), createElement("div", {
-      class: "nav"
-    }, createElement("button", {
-      class: "green",
-      onClick: menu
-    }, lng.btnSelect)));
+    return createElement(
+      'div',
+      {
+        class: 'skinbox'
+      },
+      createElement(
+        'div',
+        {
+          class: 'skins-container'
+        },
+        createElement('button', {
+          class: 'orange',
+          name: 'left',
+          onClick: () => {
+            selectSkin(skinIndex - 1);
+          }
+        }, '<'),
+        createElement(SkinPreview, {
+          name: ensureNonNullable(skins[skinIndex]).name
+        }),
+        createElement('button', {
+          class: 'orange',
+          name: 'right',
+          onClick: () => {
+            selectSkin(skinIndex + 1);
+          }
+        }, '>')
+      ),
+      createElement(
+        'div',
+        {
+          class: 'nav'
+        },
+        createElement('button', {
+          class: 'green',
+          onClick: menu
+        }, lng.btnSelect)
+      )
+    );
   };
   const SkinsScreen = ({
-    skins,
-    skin,
     route,
-    setSkin
+    setSkin,
+    skin,
+    skins
   }: {
-    skins: SkinSource[];
-    skin: string;
     route: Dispatch<string>;
     setSkin: Dispatch<string>;
+    skin: string;
+    skins: SkinSource[];
   }) => {
-    const goToMenu = () => route("menu");
+    const goToMenu = () => {
+      route('menu');
+    };
     useEffect(() => {
-      const element = document.getElementById("paperio-site_multisize");
+      const element = document.getElementById('paperio-site_multisize');
       if (element) {
-        element.style.display = "none";
+        element.style.display = 'none';
       }
     }, []);
-    return createElement(Fragment, null, createElement("div", {
-      id: "left_side"
-    }), createElement("div", {
-      class: "uibox"
-    }, createElement("div", {
-      class: "logo"
-    }, createElement("img", {
-      src: "assets/images/logo.png"
-    })), createElement(SkinCarousel, {
-      skins: [{
-        name: "No skin"
-      }].concat(skins),
-      menu: goToMenu,
-      setSkin: setSkin,
-      skin: skin
-    })), createElement("div", {
-      id: "right_side"
-    }));
+    return createElement(
+      Fragment,
+      null,
+      createElement('div', {
+        id: 'left_side'
+      }),
+      createElement(
+        'div',
+        {
+          class: 'uibox'
+        },
+        createElement(
+          'div',
+          {
+            class: 'logo'
+          },
+          createElement('img', {
+            src: 'assets/images/logo.png'
+          })
+        ),
+        createElement(SkinCarousel, {
+          menu: goToMenu,
+          setSkin,
+          skin,
+          skins: [{
+            name: 'No skin'
+          }].concat(skins)
+        })
+      ),
+      createElement('div', {
+        id: 'right_side'
+      })
+    );
   };
   interface StoredGameData {
-    nickName?: string;
     bestScore?: number;
+    nickName?: string;
     skin?: string;
   }
   interface StorageApi {
-    getJSON: (key: string) => StoredGameData | null;
+    getJSON: (key: string) => null | StoredGameData;
     set: (key: string, value: StoredGameData, options: {
       expires: number;
     }) => void;
   }
   const App = ({
     api,
-    storage,
     provider,
-    skins
+    skins,
+    storage
   }: {
-    api: GameApi | null;
-    storage: StorageApi;
     ads?: undefined;
+    api: GameApi | null;
+    mode?: string;
     provider?: undefined;
     skins: SkinSource[];
-    mode?: string;
+    storage: StorageApi;
   }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [playable, setPlayable] = useState(false);
-    const [route, setRoute] = useState("menu");
+    const [route, setRoute] = useState('menu');
     const [preparing, setPreparing] = useState(true);
     const [language, setLanguage] = useState(findDefaultLanguage());
     const [results, setResults] = useState<GameResults | null>(null);
-    const storageKey = "paper.io.storage";
+    const storageKey = 'paper.io.storage';
     const storedData = storage.getJSON(storageKey) || {};
-    const [nickName, setNickName] = useState(storedData.nickName || "");
+    const [nickName, setNickName] = useState(storedData.nickName || '');
     const [bestScore, setBestScore] = useState(storedData.bestScore || 0);
-    const [skin, setSkin] = useState(storedData.skin || "");
+    const [skin, setSkin] = useState(storedData.skin || '');
     const storageOptions = {
       expires: 365
     };
     if (nickName !== storedData.nickName || bestScore !== storedData.bestScore || skin !== storedData.skin) {
       storage.set(storageKey, {
-        nickName: nickName,
-        bestScore: bestScore,
-        skin: skin
+        bestScore,
+        nickName,
+        skin
       }, storageOptions);
     }
     useEffect(() => {
       if (api) {
         api.create(ensureNonNullable(canvasRef.current));
-        api.prepare(() => setPreparing(false));
+        api.prepare(() => {
+          setPreparing(false);
+        });
         setPlayable(true);
       }
     }, []);
     ensureNonNullable(api).startGame = () => {
-      const element = document.getElementById("overlay");
+      const element = document.getElementById('overlay');
       if (element) {
-        element.style.display = "none";
+        element.style.display = 'none';
       }
       if (api && api.game) {
         api.game.visible = true;
       }
-      setRoute("game");
+      setRoute('game');
     };
     const start = () => {
-      const element = document.getElementById("overlay");
+      const element = document.getElementById('overlay');
       if (element) {
-        element.style.display = "block";
-        element.style.animation = "fadein 500ms";
+        element.style.display = 'block';
+        element.style.animation = 'fadein 500ms';
       }
       if (api && api.game) {
         api.game.visible = false;
@@ -6127,110 +6581,128 @@ interface ObjectConstructor {
     const setCanvasRef = (element: EventTarget | null) => {
       canvasRef.current = element instanceof HTMLCanvasElement ? element : null;
     };
-    return createElement(Fragment, null, createElement("canvas", {
-      class: route === "game" || preparing ? "" : "fadein",
-      id: "view",
-      ref: setCanvasRef
-    }), route !== "game" && createElement("div", {
-      id: "ui_overlay"
-    }), createElement(LanguageContext.Provider, {
-      value: language,
-      children: [createElement("div", {
-      id: "ui",
-      class: route === "game" ? "hide" : ""
-    }, route === "menu" && createElement(MenuScreen, {
-      nickName: nickName,
-      setNickName: setNickName,
-      playable: playable,
-      preparing: preparing,
-      start: start,
-      route: setRoute,
-      provider: provider,
-      setLanguage: setLanguage,
-      api: api,
-      setState: setRoute,
-      skins: skins,
-      skin: skin
-    }), route === "game" && createElement(GameScreen, {
-      nickName: nickName,
-      bestScore: bestScore,
-      setBestScore: setBestScore,
-      setResults: setResults,
-      setPreparing: setPreparing,
-      api: api,
-      route: setRoute,
-      skin: skin
-    }), route === "results" && createElement(ResultsScreen, {
-      bestScore: bestScore,
-      results: ensureNonNullable(results),
-      start: start,
-      route: setRoute,
-      provider: provider
-    }), route === "config" && createElement(ConfigScreen, {
-      api: api,
-      view: canvasRef,
-      setPreparing: setPreparing,
-      setState: setRoute
-    }), route === "skins" && createElement(SkinsScreen, {
-      skins: skins,
-      skin: skin,
-      route: setRoute,
-      setSkin: setSkin
-    })), route !== "game" && createElement(LanguageFooter, {
-      setLanguage: setLanguage
-    })]}), createElement("div", {
-      id: "overlay"
-    }));
+    return createElement(
+      Fragment,
+      null,
+      createElement('canvas', {
+        class: route === 'game' || preparing ? '' : 'fadein',
+        id: 'view',
+        ref: setCanvasRef
+      }),
+      route !== 'game' && createElement('div', {
+        id: 'ui_overlay'
+      }),
+      createElement(LanguageContext.Provider, {
+        children: [
+          createElement(
+            'div',
+            {
+              class: route === 'game' ? 'hide' : '',
+              id: 'ui'
+            },
+            route === 'menu' && createElement(MenuScreen, {
+              api,
+              nickName,
+              playable,
+              preparing,
+              provider,
+              route: setRoute,
+              setLanguage,
+              setNickName,
+              setState: setRoute,
+              skin,
+              skins,
+              start
+            }),
+            route === 'game' && createElement(GameScreen, {
+              api,
+              bestScore,
+              nickName,
+              route: setRoute,
+              setBestScore,
+              setPreparing,
+              setResults,
+              skin
+            }),
+            route === 'results' && createElement(ResultsScreen, {
+              bestScore,
+              provider,
+              results: ensureNonNullable(results),
+              route: setRoute,
+              start
+            }),
+            route === 'config' && createElement(ConfigScreen, {
+              api,
+              setPreparing,
+              setState: setRoute,
+              view: canvasRef
+            }),
+            route === 'skins' && createElement(SkinsScreen, {
+              route: setRoute,
+              setSkin,
+              skin,
+              skins
+            })
+          ),
+          route !== 'game' && createElement(LanguageFooter, {
+            setLanguage
+          })
+        ],
+        value: language
+      }),
+      createElement('div', {
+        id: 'overlay'
+      })
+    );
   };
-  let defaultConfig = {
+  const defaultConfig = {
+    arenaColor: '#e7fff4',
     arenaSize: 2000,
-    quadSize: 20,
-    borderPoints: 300,
-    prepareMult: 3,
-    prepareBatchCount: 5,
-    maxPreparingTime: 500,
-    baseRadius: 30,
+    backgroundBottomColor: '#81faff',
+    backgroundTopColor: '#2d6998',
     baseCount: 50,
-    minScale: 3,
-    maxScale: 4.5,
-    observerScale: 2.5,
-    trackWidth: 8,
-    unitSpeed: 90,
-    spawnTimeout: 3000,
-    prepareCounter: 6000,
-    prepareAcceleration: 30,
     baseHeight: 2,
-    botsCount: 15,
-    botLevel: -1,
-    startBotLevel: 0.1,
-    noPlayerBotLevel: 0.5,
-    nearPlayerBotSpawnCount: 1,
-    followKiller: true,
-    selfKillDelay: 1000,
-    enemyKillDelay: 2000,
-    arenaColor: "#e7fff4",
-    borderColor: "#88a799",
-    backgroundTopColor: "#2d6998",
-    backgroundBottomColor: "#81faff",
-    platesStrokeWidth: 0,
-    botAggroMin: 0.2,
+    baseRadius: 30,
+    borderColor: '#88a799',
+    borderPoints: 300,
     botAggroMax: 1,
-    botDefMin: 1.2,
-    botDefMax: 0.6,
-    botGreedMin: 0.1,
-    botGreedMax: 0.6,
-    botSafetyMin: 0.5,
-    botSafetyMax: 1,
+    botAggroMin: 0.2,
     botAttackTrackLength: 1500,
-    font: "PT Sans Caption"
+    botDefMax: 0.6,
+    botDefMin: 1.2,
+    botGreedMax: 0.6,
+    botGreedMin: 0.1,
+    botLevel: -1,
+    botSafetyMax: 1,
+    botSafetyMin: 0.5,
+    botsCount: 15,
+    enemyKillDelay: 2000,
+    followKiller: true,
+    font: 'PT Sans Caption',
+    maxPreparingTime: 500,
+    maxScale: 4.5,
+    minScale: 3,
+    nearPlayerBotSpawnCount: 1,
+    noPlayerBotLevel: 0.5,
+    observerScale: 2.5,
+    platesStrokeWidth: 0,
+    prepareAcceleration: 30,
+    prepareBatchCount: 5,
+    prepareCounter: 6000,
+    prepareMult: 3,
+    quadSize: 20,
+    selfKillDelay: 1000,
+    spawnTimeout: 3000,
+    startBotLevel: 0.1,
+    trackWidth: 8,
+    unitSpeed: 90
   };
-  var COLOR_PALETTE: string[] = ["#3b5998", "#8b9dc3", "#2a4d69", "#4b86b4", "#8dbdff", "#64a1f4", "#3b7dd8", "#843b62", "#8874a3", "#8d5524", "#c68642", "#f1c27d", "#f77f00", "#fcbf49", "#ffe066", "#65737e", "#a7adba", "#4a7c59", "#1a936f", "#88d498", "#2a9d8f", "#68b0ab", "#99e550", "#6abe30", "#4b692f", "#8f974a", "#8a6f30", "#524b24", "#d62828", "#fe4a49", "#ed6a5a", "#ff3377", "#ff77aa", "#ff99cc", "#b23a48", "#fcb9b2"];
-  var assign4 = Object.assign;
+  const COLOR_PALETTE: string[] = ['#3b5998', '#8b9dc3', '#2a4d69', '#4b86b4', '#8dbdff', '#64a1f4', '#3b7dd8', '#843b62', '#8874a3', '#8d5524', '#c68642', '#f1c27d', '#f77f00', '#fcbf49', '#ffe066', '#65737e', '#a7adba', '#4a7c59', '#1a936f', '#88d498', '#2a9d8f', '#68b0ab', '#99e550', '#6abe30', '#4b692f', '#8f974a', '#8a6f30', '#524b24', '#d62828', '#fe4a49', '#ed6a5a', '#ff3377', '#ff77aa', '#ff99cc', '#b23a48', '#fcb9b2'];
   interface AssetContent {
-    colors?: SkinColors;
-    pattern?: PatternAsset;
-    display?: Avatar;
     color?: string;
+    colors?: SkinColors;
+    display?: Avatar;
+    pattern?: PatternAsset;
     roundedFlag?: HTMLCanvasElement | HTMLImageElement;
   }
   class Skin {
@@ -6239,23 +6711,24 @@ interface ObjectConstructor {
     config: Config | undefined;
     container: DisplayList;
     name: string | undefined;
-    pattern: PatternAsset | null;
-    user: Unit | undefined;
+    pattern: null | PatternAsset;
+    user: undefined | Unit;
     constructor() {
       this.config = undefined;
       this.user = undefined;
       this.name = undefined;
       this.assets = [];
       this.colors = {
-        main: "black",
-        back: "black",
-        nick: "black",
-        plate: "black",
-        particles: ["black"]
+        back: 'black',
+        main: 'black',
+        nick: 'black',
+        particles: ['black'],
+        plate: 'black'
       };
       this.pattern = null;
       this.container = new DisplayList();
     }
+
     addAsset(asset: Asset) {
       if (asset.content.colors) {
         this.colors = asset.content.colors;
@@ -6268,6 +6741,7 @@ interface ObjectConstructor {
       }
       this.assets.push(asset);
     }
+
     removeAsset(asset: Asset) {
       if (asset.content.display) {
         this.container.remove(asset.content.display);
@@ -6279,9 +6753,9 @@ interface ObjectConstructor {
     }
   }
   // `pool` is added via declaration merge rather than a class field: the base
-  // never sets it (each concrete subclass assigns its own narrower pool in its
-  // constructor), so an interface member keeps the type non-null for every
-  // reader without a class-field initializer that strict init would reject.
+  // Never sets it (each concrete subclass assigns its own narrower pool in its
+  // Constructor), so an interface member keeps the type non-null for every
+  // Reader without a class-field initializer that strict init would reject.
   interface Asset {
     pool: AssetSet;
   }
@@ -6296,6 +6770,7 @@ interface ObjectConstructor {
       this.content = {};
       this.ready = false;
     }
+
     load(): void {}
   }
   class SvgAsset extends Asset {
@@ -6315,6 +6790,7 @@ interface ObjectConstructor {
       this.pool = pool;
       this.source = source;
     }
+
     override load(): void {
       if (this.loadingStarted) {
         return;
@@ -6327,13 +6803,7 @@ interface ObjectConstructor {
         source
       } = this;
       if (source.colors) {
-        this.content.colors = assign4({
-          main: "#000000",
-          back: "#000000",
-          nick: "#000000",
-          plate: "#000000",
-          particles: ["#000000"]
-        }, source.colors);
+        this.content.colors = { back: '#000000', main: '#000000', nick: '#000000', particles: ['#000000'], plate: '#000000', ...source.colors };
       }
       if (source.pattern) {
         this.content.pattern = new PatternAsset(ensureNonNullable(this.pool.config), this.pool.view, this.pool.path, source.pattern, updateReady);
@@ -6352,9 +6822,10 @@ interface ObjectConstructor {
       this.name = name;
       this.assets = [];
     }
+
     get(name?: string, requireReady?: boolean): Asset | null {
       let asset;
-      asset = this.assets.find((asset: Asset) => asset.name === name && (requireReady ? asset.ready === true : true));
+      asset = this.assets.find((asset: Asset) => asset.name === name && (requireReady ? asset.ready : true));
       if (!asset) {
         return null;
       }
@@ -6364,10 +6835,11 @@ interface ObjectConstructor {
   }
   class ImageAssetSet extends AssetSet {
     constructor(config: Config) {
-      super("colors");
+      super('colors');
       this.config = config;
       this.add(COLOR_PALETTE);
     }
+
     add(colors: string[]) {
       const {
         config
@@ -6382,16 +6854,16 @@ interface ObjectConstructor {
         const darkPlateHsv = brighten(hsv, 2);
         const darkPlate = hsvToHex(darkPlateHsv);
         const colors = {
+          back,
           main: color,
-          back: back,
-          nick: nick,
-          plate: hsv.v > 50 ? nick : darkPlate,
-          particles: [hsvToHex(setValue(hsv, 100)), hsvToHex(setValue(hsv, 90)), hsvToHex(setValue(hsv, 80)), hsvToHex(setValue(hsv, 70)), hsvToHex(setValue(hsv, 60)), hsvToHex(setValue(hsv, 50)), hsvToHex(setValue(hsv, 40)), hsvToHex(setValue(hsv, 30)), hsvToHex(setValue(hsv, 20))]
+          nick,
+          particles: [hsvToHex(setValue(hsv, 100)), hsvToHex(setValue(hsv, 90)), hsvToHex(setValue(hsv, 80)), hsvToHex(setValue(hsv, 70)), hsvToHex(setValue(hsv, 60)), hsvToHex(setValue(hsv, 50)), hsvToHex(setValue(hsv, 40)), hsvToHex(setValue(hsv, 30)), hsvToHex(setValue(hsv, 20))],
+          plate: hsv.v > 50 ? nick : darkPlate
         };
         const svgAsset = new SvgAsset(this, color, colors);
         svgAsset.content.colors = colors;
         if (config) {
-          svgAsset.content.display = new Avatar(config, "", {
+          svgAsset.content.display = new Avatar(config, '', {
             layers: [{
               src: createColorTile(colors.nick, colors.nick)
             }, {
@@ -6405,6 +6877,7 @@ interface ObjectConstructor {
         return svgAsset;
       }));
     }
+
     loadAsset<T>(asset: T): T {
       return asset;
     }
@@ -6412,27 +6885,28 @@ interface ObjectConstructor {
   class SvgAssetSet extends AssetSet {
     path: string;
     view: HTMLCanvasElement;
-    constructor(config: Config, canvas: HTMLCanvasElement, path: string, sources: SkinSource[], shouldPreload: boolean = false) {
-      super("classic");
+    constructor(config: Config, canvas: HTMLCanvasElement, path: string, sources: SkinSource[], shouldPreload = false) {
+      super('classic');
       this.config = config;
       this.view = canvas;
       this.path = path;
       this.add(sources);
       if (shouldPreload) {
-        for (let asset of this.assets) {
+        for (const asset of this.assets) {
           asset.load();
         }
       }
     }
+
     add(sources: SkinSource[]) {
       this.assets.push(...(sources || []).map((source: SkinSource) => new ImageAsset(this, source.name, source)));
     }
   }
   function createColorTile(mainColor: string, backColor: string): HTMLCanvasElement {
-    const element = document.createElement("canvas");
+    const element = document.createElement('canvas');
     element.width = 100;
     element.height = 100;
-    const context = element.getContext("2d");
+    const context = element.getContext('2d');
     assertNonNullable(context);
     context.fillStyle = backColor;
     context.fillRect(0, 0, 100, 100);
@@ -6444,12 +6918,8 @@ interface ObjectConstructor {
     asset: Asset;
     tag: string;
   }
-  interface SkinManagerAssetMap {
-    [name: string]: SkinManagerAssetEntry;
-  }
-  interface SkinManagerUsageMap {
-    [name: string]: Skin[];
-  }
+  type SkinManagerAssetMap = Record<string, SkinManagerAssetEntry>;
+  type SkinManagerUsageMap = Record<string, Skin[]>;
   class SkinManager {
     assets: SkinManagerAssetMap;
     game?: Game;
@@ -6462,44 +6932,21 @@ interface ObjectConstructor {
       this.unusedAssets = {};
       this.rng = createRandomGenerator(ensureNonNullable(seed));
     }
-    registerAsset(asset: Asset, tag: string) {
-      this.unusedAssets[asset.name] = this.assets[asset.name] = {
-        asset: asset,
-        tag: tag
-      };
-    }
-    registerAssets(assetSet: AssetSet, tag: string) {
-      for (let asset of assetSet.assets) {
-        this.registerAsset(asset, tag);
-      }
-    }
+
     available(tag?: string): number {
-      let list4 = Object.values(this.unusedAssets);
+      const list4 = Object.values(this.unusedAssets);
       if (tag) {
         return list4.filter((entry: SkinManagerAssetEntry) => entry.tag == tag).length;
-      } else {
-        return list4.length;
       }
+      return list4.length;
     }
-    has(name: string): boolean {
-      return name in this.unusedAssets;
-    }
-    randomAssetName(tag?: string, unusedOnly: boolean = true): string | undefined {
-      let assetMap = unusedOnly ? this.unusedAssets : this.assets;
-      let list4 = Object.keys(assetMap);
-      if (tag) {
-        list4 = list4.filter((name: string) => ensureNonNullable(assetMap[name]).tag == tag);
-      }
-      let index = this.rng(list4.length);
-      let name = list4[index];
-      return name;
-    }
+
     get(name?: string, tag?: string): Skin {
       if (!name) {
         name = this.randomAssetName(tag);
       }
       assertNonNullable(name);
-      let asset = ensureNonNullable(this.assets[name]).asset;
+      const asset = ensureNonNullable(this.assets[name]).asset;
       delete this.unusedAssets[name];
       asset.load();
       const skin = new Skin();
@@ -6508,6 +6955,39 @@ interface ObjectConstructor {
       this.usedBy[name] = (this.usedBy[name] || []).concat(skin);
       return skin;
     }
+
+    getCitySkin(_name?: string): Skin | undefined {
+      return undefined;
+    }
+
+    has(name: string): boolean {
+      return name in this.unusedAssets;
+    }
+
+    randomAssetName(tag?: string, unusedOnly = true): string | undefined {
+      const assetMap = unusedOnly ? this.unusedAssets : this.assets;
+      let list4 = Object.keys(assetMap);
+      if (tag) {
+        list4 = list4.filter((name: string) => ensureNonNullable(assetMap[name]).tag == tag);
+      }
+      const index = this.rng(list4.length);
+      const name = list4[index];
+      return name;
+    }
+
+    registerAsset(asset: Asset, tag: string) {
+      this.unusedAssets[asset.name] = this.assets[asset.name] = {
+        asset,
+        tag
+      };
+    }
+
+    registerAssets(assetSet: AssetSet, tag: string) {
+      for (const asset of assetSet.assets) {
+        this.registerAsset(asset, tag);
+      }
+    }
+
     release(skin: Skin) {
       const name = ensureNonNullable(skin.name);
       const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin != skin);
@@ -6517,57 +6997,53 @@ interface ObjectConstructor {
         this.unusedAssets[name] = ensureNonNullable(this.assets[name]);
       }
     }
+
     reskin(name: string) {
-      let skins = this.usedBy[name];
+      const skins = this.usedBy[name];
       if (skins) {
-        for (let skin of skins) {
+        for (const skin of skins) {
           ensureNonNullable(skin.user).setSkin(this.get());
         }
         delete this.usedBy[name];
       }
     }
-    getCitySkin(_name?: string): Skin | undefined {
-      return undefined;
-    }
   }
   class GameSkinManager extends SkinManager {
     constructor(imageAssetSet: ImageAssetSet, svgAssetSet: SvgAssetSet, seed?: number) {
       super(seed);
-      this.registerAssets(imageAssetSet, "colored");
-      this.registerAssets(svgAssetSet, "classic");
+      this.registerAssets(imageAssetSet, 'colored');
+      this.registerAssets(svgAssetSet, 'classic');
     }
+
+    getBotSkin(): Skin {
+      const tagOrder = this.rng() < 0.25 ? ['colored', 'classic'] : ['classic', 'colored'];
+      const name = this.randomAssetName(tagOrder[0], true) || this.randomAssetName(tagOrder[1]);
+      return this.get(name);
+    }
+
     override getPlayerSkin(name?: string): Skin {
       if (!name) {
-        return this.get(undefined, "colored");
+        return this.get(undefined, 'colored');
       }
       this.reskin(name);
       return this.get(name);
     }
-    getBotSkin(): Skin {
-      let tagOrder = this.rng() < 0.25 ? ["colored", "classic"] : ["classic", "colored"];
-      let name = this.randomAssetName(tagOrder[0], true) || this.randomAssetName(tagOrder[1]);
-      return this.get(name);
-    }
   }
-  const BOT_NAMES_TEXT = "DeadMorose\nold_demon\nfox\nDeFreeZe\nGoSeek\nKeyplex\nDarkfury\nFunnyway\nBLACK_PRINCE\n[BigBoss]ShadiBoo\nDizzer\nKARATEL\nHowlux\nLight_Soul\n2fab4u\nBoOT\nMrKat2017\nSkulL\nCmeTano4Ka\nflash\nh1me3ra\nHoward\ni_Pro\nred_devil\nbest_of_the_best\nblow_crazy \nface_of_vengeance\nGlambit \nMASTER_GRIF\nMr.ByBlIk\nn1ce_DayZ\nRantom\nAbove Daemons\ncompany_THE_Best\nDanie\ndarklight\nDaxmaut\ndiablo\ngreat_man\nkiller_innothing\nNix\nValett\nDarkAngelKael\nduelist\ni_zadrot\nMonster_Energy\nMr.Winston\nRaindrops\nSumerbraum\nTermit\nTITAN\nWOOOlf\nAVSTRAL\nBadLike\nBuri\ncop_zombie\ndestroyer_for_us\nEKEN\nEksnet\nFrostorik\nghost_of_fear\nHotzarzim\nj111m\nKael\nKikET\n4CHAN\nPIKABU\n9GAG\naustralia\naustria\nayylmao\nbait\nbangladesh\nbelgium\nbosnia\nbotswana\nbrazil\nbulgaria\ncambodia\ncanada\nchile\nchina\ncia\nconfederate\ncroatia\ndenmark\nea\nearth\nestonia\neuropeanunion\nfacepunch\nfeminism\nfinland\nfrance\ngermanempire\ngermany\ngreece\nhongkong\nhungary\nindia\nindiana\nindonesia\niran\niraq\nireland\nitaly\njamaica\njapan\nkc\nlatvia\nlithuania\nluxembourg\nmaldivas\nmatriarchy\nmexico\nmoon\nnazi\nnetherlands\nnigeria\nnorthkorea\nnorway\norigin\npakistan\npatriarchy\nperu\npewdiepie\npiccolo\npoland\nportugal\nprodota\nqingdynasty\nquebec\nreddit\nrussia\nsanik\nsatanist\nsealand\nsouthkorea\nspain\nstalin\nsteam\nsweden\nswitzerland\ntaiwan\ntexas\nthailand\ntsaristrussia\ntumblr\nukraine\nunitedkingdom\nusa\nussr\nvinesauce\nyaranaika\ntumblr\nhongkong\nKillerGamer\nLimuzin\nmage\nMCGaMeR\nMr_Het\nNadornsMonsters\nnero\noutcaster\nSteepCat\nTUCA\nurban_hunter\nvirtual_lord\nwertyi\nWinstonLight\nWoJDoo\nArtemad\nClydeKautz\nBarney\nRhodaPing\nSharlaPropes\nNanciTyner\nIlaWorm\nSebastianRawlinson\nCraigFlury\nEstebanBrehm\nDeberaVancuren\nTabithaOlivieri\nTrishaKimball\nMilagrosHyler\nCinderellaGerson\nFranBaldridge\nMelisaBrock\nGaynelleSimmonds\nEttaMirabella\nLaveraLabrecque\nBudNormand\nEliasSherwood\nJackpot\nSensation\nChuck\nSoots\nTheSaint\nICEman\nMiracleSnoopy\nBahartet\nBiotary\nHammer85\nBizcarit\nBlackenta\nBurkelstrin\nBurntSeen\nChariana\ngoldfinger\nConfidentHelp\nCopiconc\nDemocoman\nGaartely\nGenantro\nGlitzMcGenius\nJuliatu\nKalstaxi\nKeymatr\nKredicon\nLuvGurly\nMasteranca\nMediaBolt\nMeemuset\nMonsterInformer\nOccuiffu\nOnnitall\nRodeonevedo\nSandBlondeFully\nShipnease\nSlypectle\nSpinfonexu\nAdocarli\nAnglosi\nSimba\nAuetonbr\nBanshfeli\nQWERT\nBezequaci\nBizarrebobw\nBizarrewo\nBlenetra\nBootXboxStein\nBradleyFinest\nCeticRaven\nChunkyKlug\nDailiesHigh\nDravencybe\nFarerSaiyan\nGabring\nHalcytech\nHeminepe\nHeraldhama\nImagene\nLolandexte\nLucebayn\nMatroner\nMediumbben\nMofficanki\nNateinvelo\nTIMBERLAKE\nNessDiddy\nPlatinumTrippin\ntheviking\nPlusedge\nRaetstalyda\nJustinStromberg\nRebecaSenn\nRoxy\nNeil\nMaria\nWarren\nGrace\nWilliam\nJane\nVanessa\nLisa\nStephanie\nDidi\nBoris\nRuth\nLeonard\nJack\nCaroline\nSebastian\nConnor\nIan\nTOMAS\nSue\nFOX\nDylan\nLisa\nGrace\nJabbaDabba\nJennifer\nBenjamin\nPiPPa\nSteven\nJoe\nKNine\nKevin\nCaroline\nMcFlurry\nKatherine\nLeah\nIrene\nOwen\nUna\nGabrielleSlater\nAmyFisher\nAngelaGrant\nAlisonOgden\nDeadshot\nNitro\nTrevorBlack\nKatherinePullman\nOliverMacDonald\nAvaVaughan\nJenniferWhite\nWarrenPeters\nLeahCameron\nAlisonBerry\nKeithBuckland\nJulianMackay\nNatalieSanderson\nviZion\nJoshuaPeake\nKeithDowd\nHotdog\nJamesLambert\nJanBond\nColinMarshall\nJasonRees\nFRED\nJaneHughes\nLeonardOliver\nHarryAnderson\nGraceSmith\nDeirdreJones\nAudreySpringer\nEllaGray\nDominicHamilton\nKeithBlake\nRuthJackson\nMollyHudson\nSophieBerry\nCarolineLyman\nEmmaHudson\nJoeLyman\nOliviaPiper\nChristopherAllan\nMariaKing\nPippaSlater\nSarahJohnston\nRyanWhite\nJackHill\nWilliamMackay\nBenjaminAlsop\nAmandaRoberts\nThomasParsons\nLiamMcGrath\nJanHenderson\nSoniaChapman\nWilliam\nLily\nPeter\nKeith\nIsaac\nLeah\nMadeleine\nKaren\nFrank\nAlan\nMichael\nRachel\nDominic\nPaul\nNicola\nEmily\nTim\nbigBEN\nCohen\nGood\nFrancis\nOdom\nGreen\nCain\nTrevino\nLucero\nAshley\nigloo\nduffer\nloaded\nsickness\ngreeting\nlonely\nbafflement\ntrusty\nalteration\nevil\nsolva\npenumbra\ndauphine\nalluring\nlilly\nstinchar\ncubic\nblackbrook\nrebuff\ninclined\nlyon\nsquash\nunique\nlyne\nchewy\nmasticate\nmagnet\nknit\nindolent\nsevere\nfestus\ntrain\nincisionKim\nBean\nAguilar\nErnesto\nCurtis\nCortez\nTyshawn\nBrady\nBeckett\nXavier\nCason\nBryson\nSheldon\nPierce\nDeshawn\nAndy\nAaron\nArmando\nKarson\nK9\nNadia\nJovan\nErin\nTerry\nGrayson\nCelia\nAlexzander\nCannon\nJoey\nStella\nGracie\nKFCLOVER\nChico\nPrince\nMocha\nScooter\nChester\nCoco\nDusty\nZoe\nSocks\njefferson\nignore\nalladale\nvirtue\nprovided\ncohesive\nbullfinche\ncomet\ndip\nzipper\npostulate\nlick\nbashful\npascals\nrudy\ngloaming\ncashew\nmixcloud\ntraumatic\nprostate\npeas\nmelon\nbulbous\ngavel\nnumnah\nnavel\nriver\nsaskatoon\ncaused\nhardy\npare\nfemale\nvolunteer\nspeck\nyears\nvalid\narmpit\nbobby\nbolham\ngoogle\nbrennand\npastry\nweapon\ncuillin\ndescent\neasier\nmore\nrisedale\ngoggles\ncute\nmagellanic\nrenal\nzunyi\nEveryPrivate\nChipmunkThreat\nLeafyForefoot\nSebastianExxon\nHuckFaisalabad\nWheelchairHadar\nBulimiaMilk\nEiderStallion\nMoronicBuckinghamshire\nPayBiff\nHillsboroughEnvelope\nAllianzRhapsody\nArseEnteral\nBoronRadiant\nArchiveUntrue\nPlasticSpeech\nOfficerWiltshire\nBungBuzzard\nMoscowStellar\nTrialsHearty\nModelHorse\nBootsGrimacing\nShiraMosedale\nLeopardClapper\nSkatersStars\nCaramelizeStraws\nAngolanVinomadefied\nBatterySiemens\nHedgeThompson\nLukaIcing\nMimosaBrunswick\nTinForgetful\nHumberHook\nSeagullTrump\nBookerTouring\nSugarWarn\nCustardsStructure\nRudyBarium\nElectrolyteDisfigured\nBlighterPhysicist\nAntoniadiAtom\nPachaRule\nMaltyPatches\nHonoluluSwedish\nGemGleaming\nAssociatedThose\nAfterCointreau\nEyesPierre\nStewartGels\nAretePuppy\nFullscreenTrophic\nMailWillow\nScaupFrosty\nZaraBipedal\nCheapScafell\nDevonYolk\nSkegCohesive\nCricketBashful\nCocoaPuck\nDecathlonIschemic\nOftSnottor\nCheepNewlyn\nSwimGrill\nBaubleSymbolic\nAstronomerSpam\nVarlotLealt\nSensorSquamish\nKeyTechnetium\nCrummyQuirky\nVinePlane\nWaterskiBlind\nOrdinateCrown\nSpotTense\nFumeVine\nGlasswareCherries\nPhenomenonWillied\nPappusWazzed\nFilterSpace\nHypnosisSociable\nGaffEnder\nTordaHelpless\nResearchMat\nAmpereHeptagon\nEclipseBaldy\nLliediDiopside\nRockersGatcombe\nSabineEssential\nPlutoAbsurd\nTagTestify\nForswearJosie\nEquuleusFalter\nChewieFluther\nWombYakama\nHinderHighland\nBiteSeptum\nRifleGym\nJuneauInboard\nTroubadourChillingwood\nNeogeneLecturer\nSullivanStencils\nCheesecakePit\nClumpUnhelpful\nCheckBig\nLollyPumpkin\nCitrusyCountless\nVarunaRemy\nDivergentOils\nFallingTalisker\nBlackwaterNifty\nBrinkworthFranklyn\nFreddyPostman\nClumperPoke\nSlopeTokahee\nStencilsHume\nJijiKey\nAdeptStores\nUnicodeIgneous\nMeatyNut\nMaskSpark\nForegoingMoist\nEthicalConfident\nOblongataIsraeli\nGreenAle\nFibulaJoss\nShrugMinge\nFlowsWhispers\nActiveGlissade\nExaltedSpaghetti\nMeerkatMatch\nCouldHoff\nYawnObtuse\nCrazyUnknown\nPlanemoTyler\nCalderaBeans\nSoundcloudJapan\nSeveralGalled\nStarbucksDomain\nEdibleGlazier\nResourcesCapital\nNitrogenBella\nFlavorfulProtoplanet\nTeachSqueeze\nMeiosisSiphon\nTelephoneMarl\nTrundleRitec\nTheodoreShamrock\nNoirMelody\nVanillaArmenian\nHonkExoticism\nMandibleSepsis\nVenomousSignal\nManukaEval\nLooksLeaves\nFriedInto\nBlowTalented\nStubbsHeadphones\nWigeonNewcastle\nLoadHamster\nPinkieSaint\nEuphoniumRedundant\nSabdenRoad\nSuccessApache\nPateraCitric\nBalnagownQuiver\nGambianHartford\nRidingNostalgic\nAmbushFlex\nBretonCommon\nSpot!Fine\nPlaintivePride\nDiphthongPraline\nShearraInflate\nWoldsLennon\nSordiniMeathead\nSordCegidog\nSelfiesWeigh\nOrganVile\nPinchWeixin\nSassyFlag\nAlberniDart\nBowenImmense\nRulerFocus\nMaggotMine\nRegulateInventions\nMeshAlbite\nPoxArabella\nTikiFredericton\nNeedleDiapir\nGeneBlurt\nBindyFollowed\nMongolianTurtle\nSenseProfess\nFoldingHacking\nArsonistClipping\nKerryBonnie\nMaliciousMilitary\nMountainFrivolous\nCannonCog\nCordFlapping\nSnickerIndonesian\ndome\nking\nohio\nstandard\nfustilarian\nnative\nsupply\namherst\ninitial\ntowel\npumpion\nperfect\nmouldy\nflasks\ncarina\nduchess\ncrackers\nexciting\nhole\nwiggle\ngreat\nben\npoop\notis\npolite\nslapping\notherwise\ngrilled\nwes\nsummary\nnice\nbasketball\nstarbolins\nbaby\nbooking\nrhubarb\nperson\nshooter\nbounded\nnorthamptonshire\nsyllable\ngreenish\nuptight\ntweed\nthe\nreeky\nlathered\nascension\nobtain\nnagging\nchallenger\nsecret\nworcester\nlangley\npolly\nurinal\ntrusting\nbeverley\nfrankie\ndartmoor\nmash\ngillie\nmethodist\ngalaxy\nmozart\nbarrage\nspoticus\nscheduled\neel\npanel\nflapjack\nchemist\nalbert\nmetacarpus\ndense\nbleeding\nfixation\nniggles\ncamel\nrosin\ncommunity\nleash\ndulais\nladder\nlee\nindices\nyou\neducation\ndumplings\nbid\nprince\nartiste\navocet\nburns\nbarney\nmanaged\nburritos\npeduncle\npaltry\nequator\nsubmerge\nexpected\nfags\nperl\nclueless\ncartier\nwombled\nbearded\nkalman\ntrees\npink\naddie\ntod\nusd";
-  var botNames = BOT_NAMES_TEXT.split("\n");
-  var assign5 = Object.assign;
-  console.log("Version: A6 2020-10-14T10:51:36.392Z");
-  const gameConfig = assign5(assign5({}, defaultConfig), {
-    followKiller: true,
-    selfKillDelay: 1000,
-    enemyKillDelay: 2000
-  });
-  const languagesPromise = fetch("assets/languages.json").then((response: Response) => response.json());
-  const skinsPromise = fetch("assets/skins/skins.json").then((response: Response) => response.json());
+  const BOT_NAMES_TEXT =
+    'DeadMorose\nold_demon\nfox\nDeFreeZe\nGoSeek\nKeyplex\nDarkfury\nFunnyway\nBLACK_PRINCE\n[BigBoss]ShadiBoo\nDizzer\nKARATEL\nHowlux\nLight_Soul\n2fab4u\nBoOT\nMrKat2017\nSkulL\nCmeTano4Ka\nflash\nh1me3ra\nHoward\ni_Pro\nred_devil\nbest_of_the_best\nblow_crazy \nface_of_vengeance\nGlambit \nMASTER_GRIF\nMr.ByBlIk\nn1ce_DayZ\nRantom\nAbove Daemons\ncompany_THE_Best\nDanie\ndarklight\nDaxmaut\ndiablo\ngreat_man\nkiller_innothing\nNix\nValett\nDarkAngelKael\nduelist\ni_zadrot\nMonster_Energy\nMr.Winston\nRaindrops\nSumerbraum\nTermit\nTITAN\nWOOOlf\nAVSTRAL\nBadLike\nBuri\ncop_zombie\ndestroyer_for_us\nEKEN\nEksnet\nFrostorik\nghost_of_fear\nHotzarzim\nj111m\nKael\nKikET\n4CHAN\nPIKABU\n9GAG\naustralia\naustria\nayylmao\nbait\nbangladesh\nbelgium\nbosnia\nbotswana\nbrazil\nbulgaria\ncambodia\ncanada\nchile\nchina\ncia\nconfederate\ncroatia\ndenmark\nea\nearth\nestonia\neuropeanunion\nfacepunch\nfeminism\nfinland\nfrance\ngermanempire\ngermany\ngreece\nhongkong\nhungary\nindia\nindiana\nindonesia\niran\niraq\nireland\nitaly\njamaica\njapan\nkc\nlatvia\nlithuania\nluxembourg\nmaldivas\nmatriarchy\nmexico\nmoon\nnazi\nnetherlands\nnigeria\nnorthkorea\nnorway\norigin\npakistan\npatriarchy\nperu\npewdiepie\npiccolo\npoland\nportugal\nprodota\nqingdynasty\nquebec\nreddit\nrussia\nsanik\nsatanist\nsealand\nsouthkorea\nspain\nstalin\nsteam\nsweden\nswitzerland\ntaiwan\ntexas\nthailand\ntsaristrussia\ntumblr\nukraine\nunitedkingdom\nusa\nussr\nvinesauce\nyaranaika\ntumblr\nhongkong\nKillerGamer\nLimuzin\nmage\nMCGaMeR\nMr_Het\nNadornsMonsters\nnero\noutcaster\nSteepCat\nTUCA\nurban_hunter\nvirtual_lord\nwertyi\nWinstonLight\nWoJDoo\nArtemad\nClydeKautz\nBarney\nRhodaPing\nSharlaPropes\nNanciTyner\nIlaWorm\nSebastianRawlinson\nCraigFlury\nEstebanBrehm\nDeberaVancuren\nTabithaOlivieri\nTrishaKimball\nMilagrosHyler\nCinderellaGerson\nFranBaldridge\nMelisaBrock\nGaynelleSimmonds\nEttaMirabella\nLaveraLabrecque\nBudNormand\nEliasSherwood\nJackpot\nSensation\nChuck\nSoots\nTheSaint\nICEman\nMiracleSnoopy\nBahartet\nBiotary\nHammer85\nBizcarit\nBlackenta\nBurkelstrin\nBurntSeen\nChariana\ngoldfinger\nConfidentHelp\nCopiconc\nDemocoman\nGaartely\nGenantro\nGlitzMcGenius\nJuliatu\nKalstaxi\nKeymatr\nKredicon\nLuvGurly\nMasteranca\nMediaBolt\nMeemuset\nMonsterInformer\nOccuiffu\nOnnitall\nRodeonevedo\nSandBlondeFully\nShipnease\nSlypectle\nSpinfonexu\nAdocarli\nAnglosi\nSimba\nAuetonbr\nBanshfeli\nQWERT\nBezequaci\nBizarrebobw\nBizarrewo\nBlenetra\nBootXboxStein\nBradleyFinest\nCeticRaven\nChunkyKlug\nDailiesHigh\nDravencybe\nFarerSaiyan\nGabring\nHalcytech\nHeminepe\nHeraldhama\nImagene\nLolandexte\nLucebayn\nMatroner\nMediumbben\nMofficanki\nNateinvelo\nTIMBERLAKE\nNessDiddy\nPlatinumTrippin\ntheviking\nPlusedge\nRaetstalyda\nJustinStromberg\nRebecaSenn\nRoxy\nNeil\nMaria\nWarren\nGrace\nWilliam\nJane\nVanessa\nLisa\nStephanie\nDidi\nBoris\nRuth\nLeonard\nJack\nCaroline\nSebastian\nConnor\nIan\nTOMAS\nSue\nFOX\nDylan\nLisa\nGrace\nJabbaDabba\nJennifer\nBenjamin\nPiPPa\nSteven\nJoe\nKNine\nKevin\nCaroline\nMcFlurry\nKatherine\nLeah\nIrene\nOwen\nUna\nGabrielleSlater\nAmyFisher\nAngelaGrant\nAlisonOgden\nDeadshot\nNitro\nTrevorBlack\nKatherinePullman\nOliverMacDonald\nAvaVaughan\nJenniferWhite\nWarrenPeters\nLeahCameron\nAlisonBerry\nKeithBuckland\nJulianMackay\nNatalieSanderson\nviZion\nJoshuaPeake\nKeithDowd\nHotdog\nJamesLambert\nJanBond\nColinMarshall\nJasonRees\nFRED\nJaneHughes\nLeonardOliver\nHarryAnderson\nGraceSmith\nDeirdreJones\nAudreySpringer\nEllaGray\nDominicHamilton\nKeithBlake\nRuthJackson\nMollyHudson\nSophieBerry\nCarolineLyman\nEmmaHudson\nJoeLyman\nOliviaPiper\nChristopherAllan\nMariaKing\nPippaSlater\nSarahJohnston\nRyanWhite\nJackHill\nWilliamMackay\nBenjaminAlsop\nAmandaRoberts\nThomasParsons\nLiamMcGrath\nJanHenderson\nSoniaChapman\nWilliam\nLily\nPeter\nKeith\nIsaac\nLeah\nMadeleine\nKaren\nFrank\nAlan\nMichael\nRachel\nDominic\nPaul\nNicola\nEmily\nTim\nbigBEN\nCohen\nGood\nFrancis\nOdom\nGreen\nCain\nTrevino\nLucero\nAshley\nigloo\nduffer\nloaded\nsickness\ngreeting\nlonely\nbafflement\ntrusty\nalteration\nevil\nsolva\npenumbra\ndauphine\nalluring\nlilly\nstinchar\ncubic\nblackbrook\nrebuff\ninclined\nlyon\nsquash\nunique\nlyne\nchewy\nmasticate\nmagnet\nknit\nindolent\nsevere\nfestus\ntrain\nincisionKim\nBean\nAguilar\nErnesto\nCurtis\nCortez\nTyshawn\nBrady\nBeckett\nXavier\nCason\nBryson\nSheldon\nPierce\nDeshawn\nAndy\nAaron\nArmando\nKarson\nK9\nNadia\nJovan\nErin\nTerry\nGrayson\nCelia\nAlexzander\nCannon\nJoey\nStella\nGracie\nKFCLOVER\nChico\nPrince\nMocha\nScooter\nChester\nCoco\nDusty\nZoe\nSocks\njefferson\nignore\nalladale\nvirtue\nprovided\ncohesive\nbullfinche\ncomet\ndip\nzipper\npostulate\nlick\nbashful\npascals\nrudy\ngloaming\ncashew\nmixcloud\ntraumatic\nprostate\npeas\nmelon\nbulbous\ngavel\nnumnah\nnavel\nriver\nsaskatoon\ncaused\nhardy\npare\nfemale\nvolunteer\nspeck\nyears\nvalid\narmpit\nbobby\nbolham\ngoogle\nbrennand\npastry\nweapon\ncuillin\ndescent\neasier\nmore\nrisedale\ngoggles\ncute\nmagellanic\nrenal\nzunyi\nEveryPrivate\nChipmunkThreat\nLeafyForefoot\nSebastianExxon\nHuckFaisalabad\nWheelchairHadar\nBulimiaMilk\nEiderStallion\nMoronicBuckinghamshire\nPayBiff\nHillsboroughEnvelope\nAllianzRhapsody\nArseEnteral\nBoronRadiant\nArchiveUntrue\nPlasticSpeech\nOfficerWiltshire\nBungBuzzard\nMoscowStellar\nTrialsHearty\nModelHorse\nBootsGrimacing\nShiraMosedale\nLeopardClapper\nSkatersStars\nCaramelizeStraws\nAngolanVinomadefied\nBatterySiemens\nHedgeThompson\nLukaIcing\nMimosaBrunswick\nTinForgetful\nHumberHook\nSeagullTrump\nBookerTouring\nSugarWarn\nCustardsStructure\nRudyBarium\nElectrolyteDisfigured\nBlighterPhysicist\nAntoniadiAtom\nPachaRule\nMaltyPatches\nHonoluluSwedish\nGemGleaming\nAssociatedThose\nAfterCointreau\nEyesPierre\nStewartGels\nAretePuppy\nFullscreenTrophic\nMailWillow\nScaupFrosty\nZaraBipedal\nCheapScafell\nDevonYolk\nSkegCohesive\nCricketBashful\nCocoaPuck\nDecathlonIschemic\nOftSnottor\nCheepNewlyn\nSwimGrill\nBaubleSymbolic\nAstronomerSpam\nVarlotLealt\nSensorSquamish\nKeyTechnetium\nCrummyQuirky\nVinePlane\nWaterskiBlind\nOrdinateCrown\nSpotTense\nFumeVine\nGlasswareCherries\nPhenomenonWillied\nPappusWazzed\nFilterSpace\nHypnosisSociable\nGaffEnder\nTordaHelpless\nResearchMat\nAmpereHeptagon\nEclipseBaldy\nLliediDiopside\nRockersGatcombe\nSabineEssential\nPlutoAbsurd\nTagTestify\nForswearJosie\nEquuleusFalter\nChewieFluther\nWombYakama\nHinderHighland\nBiteSeptum\nRifleGym\nJuneauInboard\nTroubadourChillingwood\nNeogeneLecturer\nSullivanStencils\nCheesecakePit\nClumpUnhelpful\nCheckBig\nLollyPumpkin\nCitrusyCountless\nVarunaRemy\nDivergentOils\nFallingTalisker\nBlackwaterNifty\nBrinkworthFranklyn\nFreddyPostman\nClumperPoke\nSlopeTokahee\nStencilsHume\nJijiKey\nAdeptStores\nUnicodeIgneous\nMeatyNut\nMaskSpark\nForegoingMoist\nEthicalConfident\nOblongataIsraeli\nGreenAle\nFibulaJoss\nShrugMinge\nFlowsWhispers\nActiveGlissade\nExaltedSpaghetti\nMeerkatMatch\nCouldHoff\nYawnObtuse\nCrazyUnknown\nPlanemoTyler\nCalderaBeans\nSoundcloudJapan\nSeveralGalled\nStarbucksDomain\nEdibleGlazier\nResourcesCapital\nNitrogenBella\nFlavorfulProtoplanet\nTeachSqueeze\nMeiosisSiphon\nTelephoneMarl\nTrundleRitec\nTheodoreShamrock\nNoirMelody\nVanillaArmenian\nHonkExoticism\nMandibleSepsis\nVenomousSignal\nManukaEval\nLooksLeaves\nFriedInto\nBlowTalented\nStubbsHeadphones\nWigeonNewcastle\nLoadHamster\nPinkieSaint\nEuphoniumRedundant\nSabdenRoad\nSuccessApache\nPateraCitric\nBalnagownQuiver\nGambianHartford\nRidingNostalgic\nAmbushFlex\nBretonCommon\nSpot!Fine\nPlaintivePride\nDiphthongPraline\nShearraInflate\nWoldsLennon\nSordiniMeathead\nSordCegidog\nSelfiesWeigh\nOrganVile\nPinchWeixin\nSassyFlag\nAlberniDart\nBowenImmense\nRulerFocus\nMaggotMine\nRegulateInventions\nMeshAlbite\nPoxArabella\nTikiFredericton\nNeedleDiapir\nGeneBlurt\nBindyFollowed\nMongolianTurtle\nSenseProfess\nFoldingHacking\nArsonistClipping\nKerryBonnie\nMaliciousMilitary\nMountainFrivolous\nCannonCog\nCordFlapping\nSnickerIndonesian\ndome\nking\nohio\nstandard\nfustilarian\nnative\nsupply\namherst\ninitial\ntowel\npumpion\nperfect\nmouldy\nflasks\ncarina\nduchess\ncrackers\nexciting\nhole\nwiggle\ngreat\nben\npoop\notis\npolite\nslapping\notherwise\ngrilled\nwes\nsummary\nnice\nbasketball\nstarbolins\nbaby\nbooking\nrhubarb\nperson\nshooter\nbounded\nnorthamptonshire\nsyllable\ngreenish\nuptight\ntweed\nthe\nreeky\nlathered\nascension\nobtain\nnagging\nchallenger\nsecret\nworcester\nlangley\npolly\nurinal\ntrusting\nbeverley\nfrankie\ndartmoor\nmash\ngillie\nmethodist\ngalaxy\nmozart\nbarrage\nspoticus\nscheduled\neel\npanel\nflapjack\nchemist\nalbert\nmetacarpus\ndense\nbleeding\nfixation\nniggles\ncamel\nrosin\ncommunity\nleash\ndulais\nladder\nlee\nindices\nyou\neducation\ndumplings\nbid\nprince\nartiste\navocet\nburns\nbarney\nmanaged\nburritos\npeduncle\npaltry\nequator\nsubmerge\nexpected\nfags\nperl\nclueless\ncartier\nwombled\nbearded\nkalman\ntrees\npink\naddie\ntod\nusd';
+  const botNames = BOT_NAMES_TEXT.split('\n');
+  console.log('Version: A6 2020-10-14T10:51:36.392Z');
+  const gameConfig = { ...defaultConfig, enemyKillDelay: 2000, followKiller: true, selfKillDelay: 1000 };
+  const languagesPromise = fetch('assets/languages.json').then((response: Response) => response.json());
+  const skinsPromise = fetch('assets/skins/skins.json').then((response: Response) => response.json());
   // `ts-reset` types `Response.json()` as `Promise<unknown>`, so the fetched
-  // payloads arrive untyped. This validates the trusted shipped-asset shapes at
-  // the boundary (an object map of languages + an array of skins) and narrows
-  // them for the rest of the closure — analogous to the null-guard helpers.
+  // Payloads arrive untyped. This validates the trusted shipped-asset shapes at
+  // The boundary (an object map of languages + an array of skins) and narrows
+  // Them for the rest of the closure — analogous to the null-guard helpers.
   function assertLoadedAssets(loadedAssets: [unknown, unknown]): asserts loadedAssets is [LanguagesData, SkinSource[]] {
     const [languages, skins] = loadedAssets;
-    if (typeof languages !== "object" || languages === null || !Array.isArray(skins)) {
-      throw new Error("Unexpected assets payload from languages.json / skins.json");
+    if (typeof languages !== 'object' || languages === null || !Array.isArray(skins)) {
+      throw new Error('Unexpected assets payload from languages.json / skins.json');
     }
   }
   Promise.all([languagesPromise, skinsPromise]).then((loadedAssets: [unknown, unknown]) => {
@@ -6575,8 +7051,8 @@ interface ObjectConstructor {
     const [languages, skins] = loadedAssets;
     buildLanguageList(languages);
     const createSkinManager = (config: Config, canvas: HTMLCanvasElement) => {
-      let imageAssetSet = new ImageAssetSet(config);
-      let svgAssetSet = new SvgAssetSet(config, canvas, "assets/skins/", skins);
+      const imageAssetSet = new ImageAssetSet(config);
+      const svgAssetSet = new SvgAssetSet(config, canvas, 'assets/skins/', skins);
       const gameSkinManager = new GameSkinManager(imageAssetSet, svgAssetSet, 1);
       return gameSkinManager;
     };
@@ -6587,10 +7063,13 @@ interface ObjectConstructor {
     if (api) {
       window.paperio2api = api;
     }
-    render(createElement(App, {
-      api: api,
-      storage: Cookies,
-      skins: skins
-    }), ensureNonNullable(document.getElementById("game")));
+    render(
+      createElement(App, {
+        api,
+        skins,
+        storage: Cookies
+      }),
+      ensureNonNullable(document.getElementById('game'))
+    );
   });
 })();
