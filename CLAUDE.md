@@ -83,6 +83,14 @@ death and during the pre-game "prepare" phase.
     from the engine's own strings (e.g. the kill-reason codes from the `deathReasons` array:
     `KILL_REASON_WIN`/`SELF_INTERSECTION`/`WALL`/`TRAIL`/`EXIT_POINT`/`SURROUNDED`/`SYSTEM`/
     `CAPITAL_SURROUNDED`).
+  - **Rename-pass caveat (fixed):** collapsing two distinct obfuscated identifiers to the same
+    recovered name introduced three variable-shadowing bugs where an inner callback parameter
+    shadowed an outer one, silently diverging from `app2.js`: `Polygon.intersections`
+    (`segment.intersect(segment)` — self-intersection), `DisplayList.remove` (`display !== display`
+    — always false; dead code, no callers) and `SkinManager.release` (`skin != skin` — emptied the
+    whole `usedBy` list on every death). All three are repaired and verified via CDP (`release`
+    removes exactly one skin, `intersections` yields 0 crossings for a foreign segment). Watch for
+    this collision class in any future renaming.
   - Types come from the dependencies too: the hand-written preact/js-cookie type declarations
     were removed in favour of the real `preact` / `@types/js-cookie` types (only the
     self-contained `Dispatch`/`Ref` aliases are kept). The engine's own structural types

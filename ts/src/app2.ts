@@ -810,11 +810,11 @@ interface ObjectConstructor {
     points() {
       return this.segments.map((segment: Segment) => segment.start);
     }
-    intersections(_segment: Segment) {
+    intersections(segment: Segment) {
       let list4: Intersection[] = [];
       if (this.segments.length > 1) {
-        this.segments.forEach((segment: Segment) => {
-          const intersection = segment.intersect(segment);
+        this.segments.forEach((ownSegment: Segment) => {
+          const intersection = ownSegment.intersect(segment);
           if (intersection) {
             list4.push(intersection);
           }
@@ -4597,8 +4597,8 @@ interface ObjectConstructor {
       this.displays.push(display);
       this.sort();
     }
-    remove(_display: Avatar) {
-      this.displays = this.displays.filter((display: Avatar) => display !== display);
+    remove(display: Avatar) {
+      this.displays = this.displays.filter((other: Avatar) => other !== display);
       this.sort();
     }
   }
@@ -6510,7 +6510,7 @@ interface ObjectConstructor {
     }
     release(skin: Skin) {
       const name = ensureNonNullable(skin.name);
-      const remaining = ensureNonNullable(this.usedBy[name]).filter((skin: Skin) => skin != skin);
+      const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin != skin);
       this.usedBy[name] = remaining;
       if (remaining.length == 0) {
         delete this.usedBy[name];
