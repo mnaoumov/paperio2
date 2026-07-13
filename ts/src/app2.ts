@@ -1926,6 +1926,31 @@ declare global {
     return path2D;
   }
   const particleSquarePath = createParticleSquarePath();
+  const RANDOM_MIDPOINT = 0.5;
+  const IMAGE_CENTER_DIVISOR = 2;
+  const NOM_SCALE_HALF_DIVISOR = 2;
+  // eslint-disable-next-line no-magic-numbers -- ±6° velocity spread for spawned nom particles.
+  const NOM_VELOCITY_SPREAD_ANGLE = Math.PI / 30;
+  // eslint-disable-next-line no-magic-numbers -- ±18° acceleration spread for spawned nom particles.
+  const NOM_ACCEL_SPREAD_ANGLE = Math.PI / 10;
+  const NOM_DECELERATION_FACTOR = -6;
+  const NOM_SCALE_MIN = 0.75;
+  const NOM_SCALE_RANGE = 0.5;
+  const NOM_VSCALE_FACTOR = -2;
+  const NOM_PARTICLE_LIFETIME_MS = 300;
+  const PARTICLE_IMAGE_SCALE_DIVISOR = 20;
+  const SCORE_PARTICLE_SPACING = 5;
+  const SCORE_PARTICLE_SPEED_MIN = 25;
+  const SCORE_PARTICLE_SPEED_RANGE = 100;
+  const SCORE_PARTICLE_SLOW_CHANCE = 0.25;
+  const SCORE_PARTICLE_SLOW_FACTOR = 0.1;
+  const SCORE_TRANSFER_ROTATION_FACTOR = 3;
+  const ROTATION_SPEED_RANGE = 0.5;
+  const SCORE_PARTICLE_LIFETIME_MIN_MS = 500;
+  const SCORE_PARTICLE_LIFETIME_RANGE_MS = 500;
+  const VSCALE_ROTATION_FACTOR = 0.7;
+  const SCORE_ACCEL_MIN = 1.5;
+  const SCORE_ACCEL_RANGE = 0.5;
   class Particle {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
     // SpawnScoreParticles reassigns them to scalar speeds on already-expiring particles (time===1),
@@ -1950,27 +1975,27 @@ declare global {
       this.rotate = rotate;
       this.scale = scale;
       this.vscale = vscale;
-      this.rotation = Math.random() * Math.PI * 2;
+      this.rotation = Math.random() * FULL_TURN;
       this.time = time;
-      this.fn = callback || null;
+      this.fn = callback ?? null;
     }
 
     public static nom(unit: Unit, segment: Segment, scale: number): Particle {
-      const randomSign = Math.sign(Math.random() - 0.5);
+      const randomSign = Math.sign(Math.random() - RANDOM_MIDPOINT);
       const scaledMaxScale = unit.skin.container.maxScale * scale;
       const {
         baseHeight,
         unitSpeed
       } = unit.game.config;
-      const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(randomSign * Math.random() * (Math.PI / 30)).mulScalar(unitSpeed * (1 + Math.random()));
-      const perpendicularOffset = ensureNonNullable(segment.vector).clone().rotate(Math.PI / 2).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / 2);
-      const forwardOffset = ensureNonNullable(segment.vector).clone().normalize().mulScalar(scaledMaxScale / 2);
-      const acceleration = ensureNonNullable(segment.vector).clone().normalize().mulScalar(unitSpeed * -6).rotate(randomSign * Math.random() * (Math.PI / 10));
+      const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(randomSign * Math.random() * NOM_VELOCITY_SPREAD_ANGLE).mulScalar(unitSpeed * (1 + Math.random()));
+      const perpendicularOffset = ensureNonNullable(segment.vector).clone().rotate(QUARTER_TURN).normalize().mulScalar(randomSign * Math.random() * scaledMaxScale / NOM_SCALE_HALF_DIVISOR);
+      const forwardOffset = ensureNonNullable(segment.vector).clone().normalize().mulScalar(scaledMaxScale / NOM_SCALE_HALF_DIVISOR);
+      const acceleration = ensureNonNullable(segment.vector).clone().normalize().mulScalar(unitSpeed * NOM_DECELERATION_FACTOR).rotate(randomSign * Math.random() * NOM_ACCEL_SPREAD_ANGLE);
       const {
         particles
       } = ensureNonNullable(unit.in).unit.skin.colors;
-      const scale2 = 0.75 + Math.random() * 0.5;
-      const particle = new Particle(null, ensureNonNullable(particles[~~(Math.random() * particles.length)]), segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * -2, 300);
+      const scale2 = NOM_SCALE_MIN + Math.random() * NOM_SCALE_RANGE;
+      const particle = new Particle(null, ensureNonNullable(particles[Math.trunc(Math.random() * particles.length)]), segment.start.clone().add(perpendicularOffset).add(forwardOffset).add(new Vector(0, -baseHeight)), velocity, acceleration, Math.PI + Math.random() * Math.PI, scale2, scale2 * NOM_VSCALE_FACTOR, NOM_PARTICLE_LIFETIME_MS);
       return particle;
     }
 
@@ -1994,14 +2019,14 @@ declare global {
         }
         context.fill(particleSquarePath);
       } else {
-        context.scale(1 / 20, 1 / 20);
-        context.drawImage(color, -color.width / 2, -color.height / 2);
+        context.scale(1 / PARTICLE_IMAGE_SCALE_DIVISOR, 1 / PARTICLE_IMAGE_SCALE_DIVISOR);
+        context.drawImage(color, -color.width / IMAGE_CENTER_DIVISOR, -color.height / IMAGE_CENTER_DIVISOR);
       }
       context.setTransform(savedTransform);
     }
 
     public update(deltaTimeMilliseconds: number): void {
-      const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
+      const deltaTimeSeconds = deltaTimeMilliseconds / MILLISECONDS_IN_SECOND;
       this.time -= deltaTimeMilliseconds;
       if (this.time <= 0) {
         if (this.fn) {
@@ -2030,21 +2055,21 @@ declare global {
       let scorePerParticle = 0;
       list4.forEach((segment: Segment) => {
         accumulatedDistance += ensureNonNullable(segment.vector).magnitude();
-        if (accumulatedDistance > 5) {
+        if (accumulatedDistance > SCORE_PARTICLE_SPACING) {
           accumulatedDistance = 0;
-          const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(Math.sign(Math.random() - 0.5) * Math.PI / 2).mulScalar(25 + Math.random() * 100);
-          if (Math.random() > 0.25) {
-            velocity.mulScalar(0.1);
+          const velocity = ensureNonNullable(segment.vector).clone().normalize().rotate(Math.sign(Math.random() - RANDOM_MIDPOINT) * QUARTER_TURN).mulScalar(SCORE_PARTICLE_SPEED_MIN + Math.random() * SCORE_PARTICLE_SPEED_RANGE);
+          if (Math.random() > SCORE_PARTICLE_SLOW_CHANCE) {
+            velocity.mulScalar(SCORE_PARTICLE_SLOW_FACTOR);
           }
-          const rotationSpeed = (shouldTransferScore ? 3 : 1) * (1 + Math.random() * 0.5);
-          const time = 500 + Math.random() * 500;
-          const vscale = -rotationSpeed * 0.7 * (1000 / time);
-          const particle = new Particle(null, ensureNonNullable(unit.skin.colors.particles[~~(Math.random() * unit.skin.colors.particles.length)]), segment.start.clone(), velocity, null, Math.PI * 2 * (1 + Math.random()) * Math.sign(Math.random() - 0.5 || 1), rotationSpeed, vscale, time, (particle2: Particle) => {
+          const rotationSpeed = (shouldTransferScore ? SCORE_TRANSFER_ROTATION_FACTOR : 1) * (1 + Math.random() * ROTATION_SPEED_RANGE);
+          const time = SCORE_PARTICLE_LIFETIME_MIN_MS + Math.random() * SCORE_PARTICLE_LIFETIME_RANGE_MS;
+          const vscale = -rotationSpeed * VSCALE_ROTATION_FACTOR * (MILLISECONDS_IN_SECOND / time);
+          const particle = new Particle(null, ensureNonNullable(unit.skin.colors.particles[Math.trunc(Math.random() * unit.skin.colors.particles.length)]), segment.start.clone(), velocity, null, FULL_TURN * (1 + Math.random()) * Math.sign(Math.random() - RANDOM_MIDPOINT || 1), rotationSpeed, vscale, time, (particle2: Particle) => {
             if (scoreCollector) {
               particle2.target = scoreCollector;
               particle2.time = 1;
               particle2.velocity = typeof particle2.velocity === 'number' ? particle2.velocity : particle2.velocity.magnitude();
-              particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
+              particle2.acceleration = (SCORE_ACCEL_MIN + Math.random() * SCORE_ACCEL_RANGE) * game.config.unitSpeed;
               particle2.fn = (): void => {
                 if (shouldTransferScore) {
                   ensureNonNullable(scoreCollector.schemes).getScheme().accumulator += scorePerParticle;
@@ -2066,7 +2091,11 @@ declare global {
     game: Game;
     increment: number;
     rise: Polygon;
-    victims: { base: Territory; poly: Polygon }[];
+    victims: ComebackVictim[];
+  }
+  interface ComebackVictim {
+    base: Territory;
+    poly: Polygon;
   }
   interface AchievementChecker {
     check(unit: Unit, dt: number, game: Game): boolean;
