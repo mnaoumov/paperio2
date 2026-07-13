@@ -2496,6 +2496,8 @@ declare global {
       });
     }
   }
+  const CITY_SAME_COUNTRY_FACTOR = 0.5;
+  const CITY_FOREIGN_FACTOR = 0.1;
   class City {
     public capital: boolean;
     public country: string;
@@ -2518,16 +2520,17 @@ declare global {
 
     public add(amount: number): number {
       const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
-      let scoreGain = 0;
+      let scoreGain: number;
       if (name === this.country) {
-        scoreGain = amount * (this.capital ? 1 : 0.5);
+        scoreGain = amount * (this.capital ? 1 : CITY_SAME_COUNTRY_FACTOR);
       } else {
-        scoreGain = amount * 0.1;
+        scoreGain = amount * CITY_FOREIGN_FACTOR;
       }
       this.scores += scoreGain;
       return scoreGain;
     }
   }
+  const TOP_LIST_RANK_LIMIT = 5;
   class Unit {
     public achievements: AchievementTracker | null;
     public base: Territory;
@@ -2543,6 +2546,7 @@ declare global {
     public fsm: null | StateMachine;
     public game: Game;
     public in: null | Territory;
+    public readonly isPlayer: boolean = false;
     public jitter: number;
     public killer: null | Unit;
     public labels: Label[];
@@ -2562,10 +2566,6 @@ declare global {
     public track: Trail;
     public type: number;
     public vrange: number;
-    public get isPlayer(): boolean {
-      return false;
-    }
-
     public get skin(): Skin {
       return ensureNonNullable(this._skin);
     }
@@ -2617,18 +2617,16 @@ declare global {
     }
 
     public addLabel(label: Label): void {
-      if (!label.unit) {
-        label.unit = this;
-      }
+      label.unit ??= this;
       this.labels.push(label);
     }
 
     public movement(): null | Vector {
-      return this.target && this.target.clone().sub(this.position).normalize();
+      return this.target?.clone().sub(this.position).normalize() ?? null;
     }
 
     public onScoreChanged(): void {
-      if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
+      if (this.game.units.indexOf(this) <= TOP_LIST_RANK_LIMIT || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
@@ -2641,7 +2639,7 @@ declare global {
     public update(deltaTime: number): void {
       this.log.push(this.position);
       if (this.in !== this.base) {
-        this.scores.accumulator += this.percent * 100 * deltaTime / 1000;
+        this.scores.accumulator += this.percent * PERCENT_MAX * deltaTime / MILLISECONDS_IN_SECOND;
       }
       let nearestDistanceSquared = 0;
       let nearestPoint = null;
@@ -2668,28 +2666,29 @@ declare global {
       this.baseDistance = nearestDistanceSquared;
       this.baseNearestPoint = nearestPoint;
       this.baseNearestPointTangent = tangent;
-      this.baseNearestPointNormal = tangent && tangent.clone().rotate(-Math.PI / 2);
+      this.baseNearestPointNormal = tangent?.clone().rotate(-QUARTER_TURN) ?? null;
     }
   }
+  const PLAYER_ANGLE_DIVISOR = 127;
+  const PLAYER_TARGET_DISTANCE = 50;
   class Player extends Unit {
+    public override readonly isPlayer: boolean = true;
     public moveTo?: boolean;
     public win: boolean;
-    public override get isPlayer(): boolean {
-      return true;
-    }
-
-    public constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
-      super(game, name, position, basePoints, _unused, schemeCycler);
+    public constructor(game: Game, name: string, position: Vector, basePoints: Vector[], unused?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, unused, schemeCycler);
       this.win = false;
     }
 
     public override update(deltaMilliseconds: number): void {
       super.update(deltaMilliseconds);
       if (!this.respawn) {
-        this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
+        this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / PLAYER_ANGLE_DIVISOR).mulScalar(PLAYER_TARGET_DISTANCE).add(this.position);
       }
     }
   }
+  const BOT_JITTER_RANDOM_SCALE = 2;
+  const BOT_JITTER_MAGNITUDE = 0.1;
   class Bot extends Unit {
     public aggro: number;
     public aspect?: string;
@@ -2703,14 +2702,14 @@ declare global {
     public targets: Unit[];
     public unitDanger: null | Unit;
     public unitToTrackDistances: UnitTrackDistance[] = [];
-    public constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
-      super(game, name, position, basePoints, _unused, schemeCycler);
+    public constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], unused?: undefined, schemeCycler?: SchemeCycler) {
+      super(game, name, position, basePoints, unused, schemeCycler);
       this.aggro = 0;
       this.greed = 0;
       this.safety = 0;
       this.def = 0;
       this.type = type;
-      this.jitter = (this.game.rng() * 2 - 1) * 0.1;
+      this.jitter = (this.game.rng() * BOT_JITTER_RANDOM_SCALE - 1) * BOT_JITTER_MAGNITUDE;
       this.targets = [];
       this.smoothness = 1;
       this.maxDanger = 0;
