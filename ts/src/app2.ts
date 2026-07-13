@@ -6,7 +6,7 @@
  * types. esbuild bundles this plus preact + js-cookie into `dist/app2.js`.
  */
 
-import type { FunctionComponent } from 'preact';
+import type { VNode } from 'preact';
 
 import Cookies from 'js-cookie';
 import {
@@ -6246,17 +6246,21 @@ declare global {
     pattern?: PatternSource;
   }
   const LanguageContext = createContext<Language | undefined>(undefined);
+  const TIP_ROTATION_INTERVAL_MS = 3000;
+  const PERCENT_DECIMAL_PLACES = 2;
+  const PLAYTIME_ISO_START_INDEX = 14;
+  const PLAYTIME_ISO_END_INDEX = -5;
   interface TipsProps {
     messages: string[];
   }
-  const Tips: FunctionComponent<TipsProps> = ({
+  function Tips({
     messages
-  }) => {
+  }: TipsProps): VNode<unknown> {
     const [tipIndex, setTipIndex] = useState(0);
     useEffect(() => {
       const intervalId = setInterval(() => {
         setTipIndex((previousIndex: number) => (previousIndex + 1) % messages.length);
-      }, 3000);
+      }, TIP_ROTATION_INTERVAL_MS);
       return (): void => {
         clearInterval(intervalId);
       };
@@ -6271,15 +6275,15 @@ declare global {
         key: tipIndex
       }, messages[tipIndex])
     );
-  };
+  }
   interface ConfigFormProps {
     apply: (event: Event) => void;
     config: Config | null | undefined;
   }
-  const ConfigForm: FunctionComponent<ConfigFormProps> = ({
+  function ConfigForm({
     apply,
     config
-  }) => {
+  }: ConfigFormProps): null | VNode<unknown> {
     if (!config) {
       return null;
     }
@@ -6313,21 +6317,21 @@ declare global {
         name: 'apply'
       }, 'Применить')
     );
-  };
+  }
   interface ConfigScreenProps {
     api: GameApi | null;
     setPreparing: Dispatch<boolean>;
     setState: Dispatch<string>;
     view: Ref<HTMLCanvasElement | null>;
   }
-  const ConfigScreen: FunctionComponent<ConfigScreenProps> = ({
+  function ConfigScreen({
     api,
     setPreparing,
     setState,
     view
-  }) => {
-    const config = api && api.game && api.game.config;
-    const applyConfig = (event: Event): void => {
+  }: ConfigScreenProps): VNode<unknown> {
+    const config = api?.game.config;
+    function applyConfig(event: Event): void {
       event.preventDefault();
       assertNonNullable(api);
       assertNonNullable(config);
@@ -6335,7 +6339,7 @@ declare global {
         const element = document.getElementById(configKey);
         if (element) {
           const parsedValue = parseFloat(element.value);
-          config[configKey] = parsedValue !== parsedValue ? element.value : parsedValue;
+          config[configKey] = Number.isNaN(parsedValue) ? element.value : parsedValue;
         }
       });
       api.game.stopped = true;
@@ -6345,7 +6349,7 @@ declare global {
         setPreparing(false);
       });
       setState('menu');
-    };
+    }
     return createElement(
       'div',
       {
@@ -6365,13 +6369,13 @@ declare global {
         config
       })
     );
-  };
+  }
   interface LanguageFooterProps {
     setLanguage: Dispatch<Language | undefined>;
   }
-  const LanguageFooter: FunctionComponent<LanguageFooterProps> = ({
+  function LanguageFooter({
     setLanguage
-  }) => {
+  }: LanguageFooterProps): VNode<unknown> {
     const currentLanguage = useContext(LanguageContext);
     const languageItems = list3.map((language: Language, index: number) =>
       createElement('li', {
@@ -6390,7 +6394,7 @@ declare global {
         id: 'lng'
       }, languageItems)
     );
-  };
+  }
   interface MenuScreenProps {
     api: GameApi | null;
     nickName: string;
@@ -6405,28 +6409,28 @@ declare global {
     skins: SkinSource[];
     start: () => void;
   }
-  const MenuScreen: FunctionComponent<MenuScreenProps> = ({
+  function MenuScreen({
     api,
     nickName,
     route,
     setNickName,
     skin,
     start
-  }) => {
+  }: MenuScreenProps): VNode<unknown> {
     const {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
     const isSupported = !!api;
-    const handleNickNameInput = (event: Event): void => {
+    function handleNickNameInput(event: Event): void {
       setNickName((event.target as HTMLInputElement).value);
-    };
+    }
     const canPlay = isSupported;
-    const handlePlay = (event: Event): void => {
+    function handlePlay(event: Event): void {
       event.preventDefault();
       if (canPlay) {
         start();
       }
-    };
+    }
     useEffect(() => {
       if (window.ads?.showAds) {
         window.ads.showAds();
@@ -6501,7 +6505,7 @@ declare global {
         id: 'right_side'
       })
     );
-  };
+  }
   interface GameScreenProps {
     api: GameApi | null;
     bestScore: number;
@@ -6513,7 +6517,7 @@ declare global {
     setResults: Dispatch<GameResults | null>;
     skin: string;
   }
-  const GameScreen: FunctionComponent<GameScreenProps> = ({
+  function GameScreen({
     api,
     bestScore,
     lastPercent,
@@ -6523,15 +6527,15 @@ declare global {
     setPreparing,
     setResults,
     skin
-  }) => {
+  }: GameScreenProps): null {
     useEffect(() => {
-      const handleGameOver = (results: GameResults): void => {
+      function handleGameOver(results: GameResults): void {
         if (results.newBest) {
           setBestScore(results.score);
         }
         setResults(results);
         route('results');
-      };
+      }
       if (window.ads?.hideAds) {
         window.ads.hideAds();
       }
@@ -6554,7 +6558,7 @@ declare global {
       setPreparing(false);
     }, []);
     return null;
-  };
+  }
   interface ResultsScreenProps {
     bestScore: number;
     country?: undefined;
@@ -6563,14 +6567,14 @@ declare global {
     route: Dispatch<string>;
     start: () => void;
   }
-  const ResultsScreen: FunctionComponent<ResultsScreenProps> = ({
+  function ResultsScreen({
     bestScore,
     results,
     route
-  }) => {
-    const goToMenu = (): void => {
+  }: ResultsScreenProps): VNode<unknown> {
+    function goToMenu(): void {
       route('menu');
-    };
+    }
     const {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
@@ -6683,13 +6687,13 @@ declare global {
               },
               createElement('div', {
                 class: 'slider-1'
-              }, `${results.score.toFixed(2)}%`),
+              }, `${results.score.toFixed(PERCENT_DECIMAL_PLACES)}%`),
               createElement('div', {
                 class: 'slider-2'
-              }, `${bestScore.toFixed(2)}%`),
+              }, `${bestScore.toFixed(PERCENT_DECIMAL_PLACES)}%`),
               createElement('div', {
                 class: 'slider-3'
-              }, new Date(results.time).toISOString().slice(14, -5)),
+              }, new Date(results.time).toISOString().slice(PLAYTIME_ISO_START_INDEX, PLAYTIME_ISO_END_INDEX)),
               createElement('div', {
                 class: 'slider-4'
               }, results.kills)
@@ -6704,13 +6708,13 @@ declare global {
         id: 'right_side'
       })
     );
-  };
+  }
   interface SkinPreviewProps {
     name: string;
   }
-  const SkinPreview: FunctionComponent<SkinPreviewProps> = ({
+  function SkinPreview({
     name
-  }) => {
+  }: SkinPreviewProps): VNode<unknown> {
     return createElement(
       'div',
       {
@@ -6727,30 +6731,30 @@ declare global {
         })
       )
     );
-  };
+  }
   interface SkinCarouselProps {
     menu: () => void;
     setSkin: Dispatch<string>;
     skin: string;
     skins: SkinSource[];
   }
-  const SkinCarousel: FunctionComponent<SkinCarouselProps> = ({
+  function SkinCarousel({
     menu,
     setSkin,
     skin,
     skins
-  }) => {
+  }: SkinCarouselProps): VNode<unknown> {
     const {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
     const currentSkinIndex = skins.findIndex((skinSource: SkinSource) => skinSource.name === skin);
     const [skinIndex, setSkinIndex] = useState(currentSkinIndex > 0 ? currentSkinIndex : 0);
-    const selectSkin = (index: number): void => {
+    function selectSkin(index: number): void {
       if (index >= 0 && index < skins.length) {
         setSkinIndex(index);
         setSkin(ensureNonNullable(skins[index]).name);
       }
-    };
+    }
     return createElement(
       'div',
       {
@@ -6790,22 +6794,22 @@ declare global {
         }, lng.btnSelect)
       )
     );
-  };
+  }
   interface SkinsScreenProps {
     route: Dispatch<string>;
     setSkin: Dispatch<string>;
     skin: string;
     skins: SkinSource[];
   }
-  const SkinsScreen: FunctionComponent<SkinsScreenProps> = ({
+  function SkinsScreen({
     route,
     setSkin,
     skin,
     skins
-  }) => {
-    const goToMenu = (): void => {
+  }: SkinsScreenProps): VNode<unknown> {
+    function goToMenu(): void {
       route('menu');
-    };
+    }
     useEffect(() => {
       const element = document.getElementById('paperio-site_multisize');
       if (element) {
@@ -6845,17 +6849,18 @@ declare global {
         id: 'right_side'
       })
     );
-  };
+  }
   interface StoredGameData {
     bestScore?: number;
     nickName?: string;
     skin?: string;
   }
+  interface StorageSetOptions {
+    readonly expires: number;
+  }
   interface StorageApi {
     getJSON: (key: string) => null | StoredGameData;
-    set: (key: string, value: StoredGameData, options: {
-      expires: number;
-    }) => void;
+    set: (key: string, value: StoredGameData, options: StorageSetOptions) => void;
   }
   interface AppProps {
     ads?: undefined;
@@ -6865,12 +6870,12 @@ declare global {
     skins: SkinSource[];
     storage: StorageApi;
   }
-  const App: FunctionComponent<AppProps> = ({
+  function App({
     api,
     provider,
     skins,
     storage
-  }) => {
+  }: AppProps): VNode<unknown> {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [playable, setPlayable] = useState(false);
     const [route, setRoute] = useState('menu');
@@ -6878,12 +6883,12 @@ declare global {
     const [language, setLanguage] = useState(findDefaultLanguage());
     const [results, setResults] = useState<GameResults | null>(null);
     const storageKey = 'paper.io.storage';
-    const storedData = storage.getJSON(storageKey) || {};
-    const [nickName, setNickName] = useState(storedData.nickName || '');
-    const [bestScore, setBestScore] = useState(storedData.bestScore || 0);
-    const [skin, setSkin] = useState(storedData.skin || '');
+    const storedData = storage.getJSON(storageKey) ?? {};
+    const [nickName, setNickName] = useState(storedData.nickName ?? '');
+    const [bestScore, setBestScore] = useState(storedData.bestScore ?? 0);
+    const [skin, setSkin] = useState(storedData.skin ?? '');
     const storageOptions = {
-      expires: 365
+      expires: DAYS_IN_YEAR
     };
     if (nickName !== storedData.nickName || bestScore !== storedData.bestScore || skin !== storedData.skin) {
       storage.set(storageKey, {
@@ -6906,25 +6911,25 @@ declare global {
       if (element) {
         element.style.display = 'none';
       }
-      if (api && api.game) {
+      if (api?.game) {
         api.game.visible = true;
       }
       setRoute('game');
     };
-    const start = (): void => {
+    function start(): void {
       const element = document.getElementById('overlay');
       if (element) {
         element.style.display = 'block';
         element.style.animation = 'fadein 500ms';
       }
-      if (api && api.game) {
+      if (api?.game) {
         api.game.visible = false;
       }
       ensureNonNullable(window.ShowPreroll)();
-    };
-    const setCanvasRef = (element: EventTarget | null): void => {
+    }
+    function setCanvasRef(element: EventTarget | null): void {
       canvasRef.current = element instanceof HTMLCanvasElement ? element : null;
-    };
+    }
     return createElement(
       Fragment,
       null,
@@ -6998,7 +7003,7 @@ declare global {
         id: 'overlay'
       })
     );
-  };
+  }
   /* eslint-disable no-magic-numbers -- default game-config data table; each value is already named by its config key. */
   const defaultConfig = {
     arenaColor: '#e7fff4',
