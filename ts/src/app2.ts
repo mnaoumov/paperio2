@@ -277,22 +277,32 @@ declare global {
   function generateId(): number {
     return nextId++;
   }
+
+  function firstMatchingPoint(target: Vector, candidates: Vector[]): Vector {
+    for (const candidate of candidates) {
+      if (candidate.equal(target)) {
+        return candidate;
+      }
+    }
+    return target;
+  }
+
   class Segment {
-    a = 0;
-    b = 0;
-    c = 0;
-    end: Vector;
-    id?: number;
-    mark: number;
-    shape: null | Polygon | Polyline;
-    start: Vector;
-    vector: null | Vector = null;
-    get owner(): null | Polygon | Polyline {
+    public a = 0;
+    public b = 0;
+    public c = 0;
+    public end: Vector;
+    public id?: number;
+    public mark: number;
+    public shape: null | Polygon | Polyline;
+    public start: Vector;
+    public vector: null | Vector = null;
+    // eslint-disable-next-line @typescript-eslint/class-literal-property-style -- base `owner` accessor; a Segment has no owner (only its shape does), overridable in spirit.
+    public get owner(): null | Polygon | Polyline {
       return null;
     }
 
-    constructor(start: Vector, end: Vector) {
-      if (start.equal(end)) {}
+    public constructor(start: Vector, end: Vector) {
       this.mark = 0;
       this.shape = null;
       this.start = start;
@@ -300,7 +310,7 @@ declare global {
       this.calc();
     }
 
-    calc() {
+    public calc(): void {
       const {
         end,
         start
@@ -316,22 +326,22 @@ declare global {
       this.c = -(normalX * start.x + normalY * start.y);
     }
 
-    clone() {
+    public clone(): Segment {
       return new Segment(this.start, this.end);
     }
 
-    commit(shape: Polygon | Polyline) {
+    public commit(shape: Polygon | Polyline): this {
       this.shape = shape;
       this.start.commit(this);
       this.end.commit(this);
       return this;
     }
 
-    has(point: Vector) {
+    public has(point: Vector): boolean {
       return this.start === point || this.end === point;
     }
 
-    intersect(segment: Segment): Intersection | null {
+    public intersect(segment: Segment): Intersection | null {
       const a2 = segment.a;
       const b2 = segment.b;
       const c2 = segment.c;
@@ -348,14 +358,15 @@ declare global {
       if (!isNearlyZero(determinant)) {
         const intersectionX = -cross(c2, b2, c, b) / determinant;
         const intersectionY = -cross(a2, c2, a, c) / determinant;
-        const intersectionPoint = isBetween(start2.x, end2.x, intersectionX) && isBetween(start2.y, end2.y, intersectionY) && isBetween(start.x, end.x, intersectionX) && isBetween(start.y, end.y, intersectionY) && new Vector(intersectionX, intersectionY);
-        if (!intersectionPoint) {
+        const isWithinBothSegments = isBetween(start2.x, end2.x, intersectionX) && isBetween(start2.y, end2.y, intersectionY) && isBetween(start.x, end.x, intersectionX) && isBetween(start.y, end.y, intersectionY);
+        if (!isWithinBothSegments) {
           return null;
         }
+        const intersectionPoint = new Vector(intersectionX, intersectionY);
         return {
           distance: intersectionPoint.distance2(start2),
           overlay: false,
-          point: start.equal(intersectionPoint) && start || end.equal(intersectionPoint) && end || start2.equal(intersectionPoint) && start2 || end2.equal(intersectionPoint) && end2 || intersectionPoint,
+          point: firstMatchingPoint(intersectionPoint, [start, end, start2, end2]),
           segment: this,
           zn: Math.sign(determinant)
         };
@@ -366,7 +377,7 @@ declare global {
         if (overlapX >= EPSILON || overlapY >= EPSILON) {
           let overlapPoint;
           if (isBetween(start.x, end.x, start2.x) && isBetween(start.y, end.y, start2.y)) {
-            overlapPoint = start.equal(start2) && start || end.equal(start2) && end || start2;
+            overlapPoint = firstMatchingPoint(start2, [start, end]);
           } else {
             overlapPoint = start2.distance2(start) >= start2.distance2(end) ? end : start;
           }
@@ -390,17 +401,17 @@ declare global {
       return null;
     }
 
-    length() {
+    public length(): number {
       return ensureNonNullable(this.vector).magnitude();
     }
 
-    remove() {
+    public remove(): void {
       this.shape = null;
       this.start.remove(this);
       this.end.remove(this);
     }
 
-    reverse() {
+    public reverse(): this {
       const start = this.start;
       this.start = this.end;
       this.end = start;
@@ -408,7 +419,7 @@ declare global {
       return this;
     }
 
-    zn(segment: Segment) {
+    public zn(segment: Segment): number {
       const a2 = segment.a;
       const b2 = segment.b;
       const {
@@ -420,21 +431,21 @@ declare global {
   }
   const CELL_MARGIN = 1;
   class ContourPoints {
-    points: Vector[];
-    x: number;
-    y: number;
-    constructor(x: number, y: number) {
+    public points: Vector[];
+    public x: number;
+    public y: number;
+    public constructor(x: number, y: number) {
       this.points = [];
       this.x = x;
       this.y = y;
     }
 
-    commit(point: Vector) {
+    public commit(point: Vector): void {
       this.points.push(point);
       point.cell = this;
     }
 
-    remove(point: Vector) {
+    public remove(point: Vector): void {
       const {
         points
       } = this;
