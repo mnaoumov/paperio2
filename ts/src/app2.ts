@@ -731,14 +731,14 @@ declare global {
   // eslint-disable-next-line no-magic-numbers -- two-frame threshold (2x the single-frame duration).
   const TWO_FRAME_DURATION_MILLISECONDS = FRAME_DURATION_MILLISECONDS * 2;
   class Polyline {
-    bounds: Bounds;
-    end: null | Vector;
-    owner: null | Trail;
-    path: Path2D;
-    segments: Segment[];
-    start: null | Vector;
-    constructor(owner?: Trail) {
-      this.owner = owner || null;
+    public bounds: Bounds;
+    public end: null | Vector;
+    public owner: null | Trail;
+    public path: Path2D;
+    public segments: Segment[];
+    public start: null | Vector;
+    public constructor(owner?: Trail) {
+      this.owner = owner ?? null;
       this.start = null;
       this.end = null;
       this.segments = [];
@@ -751,9 +751,9 @@ declare global {
       this.path = new Path2D();
     }
 
-    add2(point: Vector) {
-      const lastPoint = this.end || this.start;
-      if (lastPoint && lastPoint.equal(point)) {
+    public add2(point: Vector): boolean {
+      const lastPoint = this.end ?? this.start;
+      if (lastPoint?.equal(point)) {
         return false;
       }
       const {
@@ -780,7 +780,7 @@ declare global {
       return true;
     }
 
-    clone() {
+    public clone(): Polyline {
       const polyline = new Polyline();
       polyline.segments = this.segments.map((segment: Segment) => segment.clone());
       polyline.start = this.start;
@@ -789,11 +789,11 @@ declare global {
       return polyline;
     }
 
-    commit(polygon: Polygon) {
+    public commit(polygon: Polygon): void {
       this.segments.forEach((segment: Segment) => segment.commit(polygon));
     }
 
-    points() {
+    public points(): Vector[] {
       const list4 = this.segments.map((segment: Segment) => segment.start);
       if (this.end) {
         list4.push(this.end);
@@ -801,13 +801,13 @@ declare global {
       return list4;
     }
 
-    remove() {
+    public remove(): void {
       this.segments.forEach((segment: Segment) => {
         segment.remove();
       });
     }
 
-    reverse() {
+    public reverse(): this {
       this.segments.reverse().forEach((segment: Segment) => segment.reverse());
       if (this.end) {
         [this.start, this.end] = [this.end, this.start];
@@ -815,11 +815,11 @@ declare global {
       return this;
     }
 
-    toString() {
+    public toString(): string {
       return this.segments.map((segment: Segment) => segment.start.toString()).join('');
     }
 
-    updateBounds(point: Vector) {
+    public updateBounds(point: Vector): void {
       const {
         x,
         y
@@ -830,7 +830,7 @@ declare global {
       this.bounds.bottom = Math.max(this.bounds.bottom, y);
     }
   }
-  const computeCrossing = (point: Vector, point2: Vector, point3: Vector) => {
+  function computeCrossing(point: Vector, point2: Vector, point3: Vector): number {
     const deltaStartX = point.x - point3.x;
     const deltaStartY = point.y - point3.y;
     const deltaEndX = point2.x - point3.x;
@@ -838,8 +838,8 @@ declare global {
     if (deltaStartY * deltaEndY > 0) {
       return 1;
     }
-    const cross = deltaStartX * deltaEndY - deltaStartY * deltaEndX;
-    const sign = isNearlyZero(cross) ? 0 : Math.sign(cross);
+    const crossProduct = deltaStartX * deltaEndY - deltaStartY * deltaEndX;
+    const sign = isNearlyZero(crossProduct) ? 0 : Math.sign(crossProduct);
     if (sign === 0) {
       if (deltaStartX * deltaEndX <= 0) {
         return 0;
@@ -853,7 +853,7 @@ declare global {
       return sign;
     }
     return 1;
-  };
+  }
   class Polygon {
     bounds: Bounds | null;
     owner: null | ShapeOwner;
