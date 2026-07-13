@@ -717,6 +717,7 @@ declare global {
   Vector.space = null;
   const MIN_POINT_DISTANCE = 25;
   const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
+  const SIMPLIFY_LOOKBACK_COUNT = 2;
   const KILL_REASON_WIN = 0;
   const KILL_REASON_SELF_INTERSECTION = 1;
   const KILL_REASON_WALL = 2;
@@ -888,10 +889,10 @@ declare global {
         start
       } = ensureNonNullable(segments[0]);
       path2D.moveTo(start.x, start.y);
-      for (let i = 1; i < length; i++) {
+      for (let segmentIndex = 1; segmentIndex < length; segmentIndex++) {
         const {
           start: point
-        } = ensureNonNullable(segments[i]);
+        } = ensureNonNullable(segments[segmentIndex]);
         path2D.lineTo(point.x, point.y);
       }
       path2D.closePath();
@@ -906,11 +907,11 @@ declare global {
         const {
           start
         } = segment;
-        if (i2 < 2) {
+        if (i2 < SIMPLIFY_LOOKBACK_COUNT) {
           this.simplify.push(start);
           i2++;
         } else {
-          const previousPoint = ensureNonNullable(this.simplify[i2 - 2]);
+          const previousPoint = ensureNonNullable(this.simplify[i2 - SIMPLIFY_LOOKBACK_COUNT]);
           if (start.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             this.simplify[i2 - 1] = start;
           } else {
@@ -983,7 +984,7 @@ declare global {
       if (list4.length > 1) {
         list4.sort((intersectionA: Intersection, intersectionB: Intersection) => intersectionA.distance - intersectionB.distance);
         list4 = list4.filter((intersection: Intersection, index: number) => {
-          return list4.findIndex((otherIntersection: Intersection) => otherIntersection.point === intersection.point) == index;
+          return list4.findIndex((otherIntersection: Intersection) => otherIntersection.point === intersection.point) === index;
         });
       }
       return list4;
@@ -1014,6 +1015,7 @@ declare global {
         } = segment;
         area += (start.x + end.x) * (end.y - start.y);
       });
+      // eslint-disable-next-line no-magic-numbers -- the shoelace formula halves the summed edge cross-products.
       return area / 2;
     }
 
@@ -1051,9 +1053,7 @@ declare global {
     public square(): number {
       let area = this.rawSquare();
       if (area < 0) {
-        {
-          area *= -1;
-        }
+        area *= -1;
       }
       return area;
     }
