@@ -21,7 +21,6 @@ import type {
 import { BOT_NAMES } from './bot-names.ts';
 import {
   AchievementStore,
-  App,
   BotScoreLabel,
   buildLanguageList,
   createGameApi,
@@ -34,6 +33,7 @@ import {
   SvgAssetSet
 } from './engine.ts';
 import { ensureNonNullable } from './type-guards.ts';
+import { App } from './ui.ts';
 // The ad-network integration this offline copy strips out (see `index.html`).
 interface AdNetworkApi {
   hideAds?: () => void;
