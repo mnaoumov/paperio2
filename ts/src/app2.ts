@@ -12,11 +12,9 @@ import {
   render
 } from 'preact';
 
-import type {
-  Config,
-  SkinSource
-} from './engine.ts';
+import type { Config } from './engine.ts';
 import type { LanguagesData } from './i18n.ts';
+import type { SkinSource } from './skins.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
 import {
@@ -24,16 +22,18 @@ import {
   BotScoreLabel,
   createGameApi,
   defaultConfig,
-  GameSkinManager,
-  ImageAssetSet,
   NamePool,
-  SchemeCycler,
-  SvgAssetSet
+  SchemeCycler
 } from './engine.ts';
 import {
   buildLanguageList,
   findDefaultLanguage
 } from './i18n.ts';
+import {
+  GameSkinManager,
+  ImageAssetSet,
+  SvgAssetSet
+} from './skins.ts';
 import { ensureNonNullable } from './type-guards.ts';
 import { App } from './ui.ts';
 // The ad-network integration this offline copy strips out (see `index.html`).

@@ -15,10 +15,10 @@ import {
 import type {
   Config,
   GameApi,
-  GameResults,
-  SkinSource
+  GameResults
 } from './engine.ts';
 import type { Language } from './i18n.ts';
+import type { SkinSource } from './skins.ts';
 
 import { DAYS_IN_YEAR } from './engine.ts';
 import {
