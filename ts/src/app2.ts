@@ -2950,11 +2950,6 @@ declare global {
   interface ShieldSkinAssets {
     get(name: string): Asset;
   }
-  interface SkinManager {
-    getPlayerSkin(name?: string): Skin;
-    isFlagSkinManager?: boolean;
-    shieldSkinAssets?: ShieldSkinAssets;
-  }
   interface CitiesManager {
     get(countryCode: string): string;
   }
@@ -6106,8 +6101,11 @@ declare global {
     start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
     startGame?: () => void;
   }
-  const createGameApi = (config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null => {
+  const BORDER_RADIUS_FACTOR = 0.95;
+  const EXTRA_LIFE_LABEL_DURATION_MS = 5000;
+  function createGameApi(config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null {
     const gameApi = {} as GameApi;
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Path2D feature-detection for old browsers; lib.dom types it as always-defined but it may be absent at runtime.
     if (Path2D) {
       gameApi.create = (view: HTMLCanvasElement): void => {
         const {
@@ -6117,25 +6115,27 @@ declare global {
         } = config;
         const spatialGrid2 = new SpatialGrid(arenaSize, arenaSize, quadSize);
         Vector.space = spatialGrid2;
-        const vector = new Vector(arenaSize / 2, arenaSize / 2);
-        const radius = Math.min(vector.x, vector.y) * 0.95;
+        const vector = new Vector(arenaSize / HALF_DIVISOR, arenaSize / HALF_DIVISOR);
+        const radius = Math.min(vector.x, vector.y) * BORDER_RADIUS_FACTOR;
         const border = Border.circular(vector, borderPoints, radius);
         const skinManager = createSkinManager(config, view);
         const game = new Game(config, view, spatialGrid2, border, skinManager, null, namePool, new Controller(view, new KeyboardModeSwitch()), language.lng, schemeCycler, achievementStore, Math.random());
         skinManager.game = game;
         game.renderer = renderGame;
         gameApi.game = game;
+        /* eslint-disable no-magic-numbers -- keyboard keyCodes for the debug toggle combos (Shift/Alt/Q/B/M and G). */
         game.controller.addSet([16, 18, 81, 66, 77], () => {
           game.debug = !game.debug;
         });
         game.controller.addButton(71, () => {
           game.debugGraph = !game.debugGraph;
         });
+        /* eslint-enable no-magic-numbers -- end of the debug-combo keyCode literals. */
       };
       gameApi.preparing = true;
       let i2 = 0;
       let prepareIntervalId: number | undefined;
-      const runPrepareBatch = (): void => {
+      function runPrepareBatch(): void {
         const {
           prepareMult
         } = config;
@@ -6143,10 +6143,10 @@ declare global {
           prepareBatchCount
         } = config;
         while (prepareBatchCount--) {
-          gameApi.game.update(1000 / 60 * prepareMult + Math.random());
+          gameApi.game.update(FRAME_DURATION_MILLISECONDS * prepareMult + Math.random());
           i2++;
         }
-      };
+      }
       gameApi.prepare = (onPrepared?: () => void): void => {
         const {
           game: gameApi2
@@ -6186,7 +6186,7 @@ declare global {
           ensureNonNullable(game.player).addLabel({
             color: '#7fed4c',
             text: russianLanguage.lng.extraLife,
-            time: 5000
+            time: EXTRA_LIFE_LABEL_DURATION_MS
           });
         }
         if (onGameOver) {
@@ -6202,7 +6202,7 @@ declare global {
       return gameApi;
     }
     return null;
-  };
+  }
   type Dispatch<T> = (action: ((prevState: T) => T) | T) => void;
   // Declaration-merged onto the core `Component` (rather than kept as a
   // Parallel `PreactComponent` type): the bundled preact/hooks addon patches
@@ -6212,7 +6212,7 @@ declare global {
 
   type LanguagesData = Record<string, Partial<LanguageStrings>>;
   const list3: Language[] = [];
-  const buildLanguageList = (languagesData: LanguagesData): void => {
+  function buildLanguageList(languagesData: LanguagesData): void {
     const {
       en
     } = languagesData;
@@ -6223,9 +6223,12 @@ declare global {
         name: languageName
       });
     });
-  };
-  const browserLanguageCode = (navigator.languages && navigator.languages.length && navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').substr(0, 2).toLowerCase();
-  const findDefaultLanguage = (): Language | undefined => list3.find((language: Language) => language.name === browserLanguageCode) || list3.find((language: Language) => language.name === 'en');
+  }
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing, @typescript-eslint/no-unnecessary-condition, @typescript-eslint/prefer-optional-chain -- defensive navigator.languages feature-detection for old browsers (lib.dom types it as always-present), and an empty-string language code must fall through to the next candidate, so `||` (falsy fallback) is intentional.
+  const browserLanguageCode = ((navigator.languages && navigator.languages.length && navigator.languages[0]) || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').slice(0, LANGUAGE_CODE_LENGTH).toLowerCase();
+  function findDefaultLanguage(): Language | undefined {
+    return list3.find((language: Language) => language.name === browserLanguageCode) ?? list3.find((language: Language) => language.name === 'en');
+  }
   interface Ref<T> {
     current: T;
   }
@@ -6996,6 +6999,7 @@ declare global {
       })
     );
   };
+  /* eslint-disable no-magic-numbers -- default game-config data table; each value is already named by its config key. */
   const defaultConfig = {
     arenaColor: '#e7fff4',
     arenaSize: 2000,
@@ -7038,6 +7042,7 @@ declare global {
     trackWidth: 8,
     unitSpeed: 90
   };
+  /* eslint-enable no-magic-numbers -- end of the default game-config data table. */
   const COLOR_PALETTE: string[] = ['#3b5998', '#8b9dc3', '#2a4d69', '#4b86b4', '#8dbdff', '#64a1f4', '#3b7dd8', '#843b62', '#8874a3', '#8d5524', '#c68642', '#f1c27d', '#f77f00', '#fcbf49', '#ffe066', '#65737e', '#a7adba', '#4a7c59', '#1a936f', '#88d498', '#2a9d8f', '#68b0ab', '#99e550', '#6abe30', '#4b692f', '#8f974a', '#8a6f30', '#524b24', '#d62828', '#fe4a49', '#ed6a5a', '#ff3377', '#ff77aa', '#ff99cc', '#b23a48', '#fcb9b2'];
   interface AssetContent {
     color?: string;
@@ -7093,17 +7098,17 @@ declare global {
       }
     }
   }
-  // `pool` is added via declaration merge rather than a class field: the base
-  // Never sets it (each concrete subclass assigns its own narrower pool in its
-  // Constructor), so an interface member keeps the type non-null for every
-  // Reader without a class-field initializer that strict init would reject.
-  interface Asset {
-    pool: AssetSet;
-  }
-  class Asset {
+  // `pool` is an abstract field: the base Asset never sets it (each concrete
+  // Subclass assigns its own narrower pool in its constructor), so the abstract
+  // Declaration keeps the type non-null for every reader without a base
+  // Class-field initializer that strict init would reject. Asset is never
+  // Instantiated directly (only SvgAsset / ImageAsset are), so `abstract` is
+  // Runtime-neutral.
+  abstract class Asset {
     public content: AssetContent;
     public loadingStarted: boolean;
     public name: string;
+    public abstract pool: AssetSet;
     public ready: boolean;
     public constructor(name: string) {
       this.loadingStarted = false;
@@ -7112,7 +7117,9 @@ declare global {
       this.ready = false;
     }
 
-    public load(): void {}
+    public load(): void {
+      noop();
+    }
   }
   class SvgAsset extends Asset {
     public override pool: ImageAssetSet;
@@ -7165,8 +7172,7 @@ declare global {
     }
 
     public get(name?: string, requireReady?: boolean): Asset | null {
-      let asset;
-      asset = this.assets.find((asset: Asset) => asset.name === name && (requireReady ? asset.ready : true));
+      const asset = this.assets.find((candidate: Asset) => candidate.name === name && (requireReady ? candidate.ready : true));
       if (!asset) {
         return null;
       }
@@ -7174,6 +7180,10 @@ declare global {
       return asset;
     }
   }
+  const BACK_VALUE_SCALE = 0.75;
+  const NICK_VALUE_SCALE = 0.5;
+  const DARK_PLATE_BRIGHTEN_FACTOR = 2;
+  const PLATE_VALUE_THRESHOLD = 50;
   class ImageAssetSet extends AssetSet {
     public constructor(config: Config) {
       super('colors');
@@ -7185,31 +7195,33 @@ declare global {
       const {
         config
       } = this;
-      this.assets.push(...(colors || []).map((color: string) => {
+      this.assets.push(...colors.map((color: string) => {
         const rgb = hexToRgb(color);
         const hsv = rgbToHsv(rgb);
-        const backHsv = scaleValue(hsv, 0.75);
+        const backHsv = scaleValue(hsv, BACK_VALUE_SCALE);
         const back = hsvToHex(backHsv);
-        const nickHsv = scaleValue(hsv, 0.5);
+        const nickHsv = scaleValue(hsv, NICK_VALUE_SCALE);
         const nick = hsvToHex(nickHsv);
-        const darkPlateHsv = brighten(hsv, 2);
+        const darkPlateHsv = brighten(hsv, DARK_PLATE_BRIGHTEN_FACTOR);
         const darkPlate = hsvToHex(darkPlateHsv);
-        const colors = {
+        const skinColors = {
           back,
           main: color,
           nick,
+          /* eslint-disable no-magic-numbers -- HSV value levels (100..20) for the particle color ramp. */
           particles: [hsvToHex(setValue(hsv, 100)), hsvToHex(setValue(hsv, 90)), hsvToHex(setValue(hsv, 80)), hsvToHex(setValue(hsv, 70)), hsvToHex(setValue(hsv, 60)), hsvToHex(setValue(hsv, 50)), hsvToHex(setValue(hsv, 40)), hsvToHex(setValue(hsv, 30)), hsvToHex(setValue(hsv, 20))],
-          plate: hsv.v > 50 ? nick : darkPlate
+          /* eslint-enable no-magic-numbers -- end of the particle color-ramp value levels. */
+          plate: hsv.v > PLATE_VALUE_THRESHOLD ? nick : darkPlate
         };
-        const svgAsset = new SvgAsset(this, color, colors);
-        svgAsset.content.colors = colors;
+        const svgAsset = new SvgAsset(this, color, skinColors);
+        svgAsset.content.colors = skinColors;
         if (config) {
           svgAsset.content.display = new Avatar(config, '', {
             layers: [{
-              src: createColorTile(colors.nick, colors.nick)
+              src: createColorTile(skinColors.nick, skinColors.nick)
             }, {
               level: 1,
-              src: createColorTile(colors.main, colors.back)
+              src: createColorTile(skinColors.main, skinColors.back)
             }]
           });
         }
@@ -7240,19 +7252,22 @@ declare global {
     }
 
     public add(sources: SkinSource[]): void {
-      this.assets.push(...(sources || []).map((source: SkinSource) => new ImageAsset(this, source.name, source)));
+      this.assets.push(...sources.map((source: SkinSource) => new ImageAsset(this, source.name, source)));
     }
   }
+  const COLOR_TILE_SIZE = 100;
+  const COLOR_TILE_INSET = 10;
+  const COLOR_TILE_INNER_SIZE = 80;
   function createColorTile(mainColor: string, backColor: string): HTMLCanvasElement {
     const element = document.createElement('canvas');
-    element.width = 100;
-    element.height = 100;
+    element.width = COLOR_TILE_SIZE;
+    element.height = COLOR_TILE_SIZE;
     const context = element.getContext('2d');
     assertNonNullable(context);
     context.fillStyle = backColor;
-    context.fillRect(0, 0, 100, 100);
+    context.fillRect(0, 0, COLOR_TILE_SIZE, COLOR_TILE_SIZE);
     context.fillStyle = mainColor;
-    context.fillRect(10, 10, 80, 80);
+    context.fillRect(COLOR_TILE_INSET, COLOR_TILE_INSET, COLOR_TILE_INNER_SIZE, COLOR_TILE_INNER_SIZE);
     return element;
   }
   interface SkinManagerAssetEntry {
@@ -7261,7 +7276,20 @@ declare global {
   }
   type SkinManagerAssetMap = Record<string, SkinManagerAssetEntry>;
   type SkinManagerUsageMap = Record<string, Skin[]>;
-  class SkinManager {
+  // `isFlagSkinManager` / `shieldSkinAssets` are kept as a type-only interface
+  // Merge rather than class fields: they are never assigned, and the
+  // `'shieldSkinAssets' in skinManager` guard relies on them being absent at
+  // Runtime. A real class field is emitted (as `undefined` via esbuild's
+  // `__publicField`), which would make that guard always true and crash; the
+  // Project bans `declare` class properties, so an interface merge is the only
+  // Way to keep these two members type-only.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- see the comment above: these two members must stay type-only, unachievable as class fields under this build.
+  interface SkinManager {
+    isFlagSkinManager?: boolean;
+    shieldSkinAssets?: ShieldSkinAssets;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- coupled half of the type-only interface merge above (see that comment).
+  abstract class SkinManager {
     public assets: SkinManagerAssetMap;
     public game?: Game;
     public rng: (n?: number) => number;
@@ -7277,29 +7305,33 @@ declare global {
     public available(tag?: string): number {
       const list4 = Object.values(this.unusedAssets);
       if (tag) {
-        return list4.filter((entry: SkinManagerAssetEntry) => entry.tag == tag).length;
+        return list4.filter((entry: SkinManagerAssetEntry) => entry.tag === tag).length;
       }
       return list4.length;
     }
 
     public get(name?: string, tag?: string): Skin {
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- name may be an empty string, which must trigger the fallback; `??=` would not.
       if (!name) {
         name = this.randomAssetName(tag);
       }
       assertNonNullable(name);
       const asset = ensureNonNullable(this.assets[name]).asset;
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- removing an entry from a string-keyed Record; setting undefined would leave a stale key that available()/randomAssetName would still enumerate.
       delete this.unusedAssets[name];
       asset.load();
       const skin = new Skin();
       skin.addAsset(asset);
       skin.name = name;
-      this.usedBy[name] = (this.usedBy[name] || []).concat(skin);
+      this.usedBy[name] = (this.usedBy[name] ?? []).concat(skin);
       return skin;
     }
 
     public getCitySkin(_name?: string): Skin | undefined {
       return undefined;
     }
+
+    public abstract getPlayerSkin(name?: string): Skin;
 
     public has(name: string): boolean {
       return name in this.unusedAssets;
@@ -7309,7 +7341,7 @@ declare global {
       const assetMap = unusedOnly ? this.unusedAssets : this.assets;
       let list4 = Object.keys(assetMap);
       if (tag) {
-        list4 = list4.filter((name: string) => ensureNonNullable(assetMap[name]).tag == tag);
+        list4 = list4.filter((name: string) => ensureNonNullable(assetMap[name]).tag === tag);
       }
       const index = this.rng(list4.length);
       const name = list4[index];
@@ -7317,10 +7349,12 @@ declare global {
     }
 
     public registerAsset(asset: Asset, tag: string): void {
-      this.unusedAssets[asset.name] = this.assets[asset.name] = {
+      const entry: SkinManagerAssetEntry = {
         asset,
         tag
       };
+      this.assets[asset.name] = entry;
+      this.unusedAssets[asset.name] = entry;
     }
 
     public registerAssets(assetSet: AssetSet, tag: string): void {
@@ -7331,9 +7365,10 @@ declare global {
 
     public release(skin: Skin): void {
       const name = ensureNonNullable(skin.name);
-      const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin != skin);
+      const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin !== skin);
       this.usedBy[name] = remaining;
-      if (remaining.length == 0) {
+      if (remaining.length === 0) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- removing the usage entry for a string-keyed Record.
         delete this.usedBy[name];
         this.unusedAssets[name] = ensureNonNullable(this.assets[name]);
       }
@@ -7345,10 +7380,12 @@ declare global {
         for (const skin of skins) {
           ensureNonNullable(skin.user).setSkin(this.get());
         }
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete -- removing the usage entry for a string-keyed Record.
         delete this.usedBy[name];
       }
     }
   }
+  const BOT_COLORED_SKIN_CHANCE = 0.25;
   class GameSkinManager extends SkinManager {
     public constructor(imageAssetSet: ImageAssetSet, svgAssetSet: SvgAssetSet, seed?: number) {
       super(seed);
@@ -7357,7 +7394,8 @@ declare global {
     }
 
     public getBotSkin(): Skin {
-      const tagOrder = this.rng() < 0.25 ? ['colored', 'classic'] : ['classic', 'colored'];
+      const tagOrder = this.rng() < BOT_COLORED_SKIN_CHANCE ? ['colored', 'classic'] : ['classic', 'colored'];
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- randomAssetName returns `string | undefined`; the `||` intentionally falls through on any falsy result (including an empty asset name) to try the second tag.
       const name = this.randomAssetName(tagOrder[0], true) || this.randomAssetName(tagOrder[1]);
       return this.get(name);
     }
@@ -7373,8 +7411,9 @@ declare global {
   const BOT_NAMES_TEXT =
     'DeadMorose\nold_demon\nfox\nDeFreeZe\nGoSeek\nKeyplex\nDarkfury\nFunnyway\nBLACK_PRINCE\n[BigBoss]ShadiBoo\nDizzer\nKARATEL\nHowlux\nLight_Soul\n2fab4u\nBoOT\nMrKat2017\nSkulL\nCmeTano4Ka\nflash\nh1me3ra\nHoward\ni_Pro\nred_devil\nbest_of_the_best\nblow_crazy \nface_of_vengeance\nGlambit \nMASTER_GRIF\nMr.ByBlIk\nn1ce_DayZ\nRantom\nAbove Daemons\ncompany_THE_Best\nDanie\ndarklight\nDaxmaut\ndiablo\ngreat_man\nkiller_innothing\nNix\nValett\nDarkAngelKael\nduelist\ni_zadrot\nMonster_Energy\nMr.Winston\nRaindrops\nSumerbraum\nTermit\nTITAN\nWOOOlf\nAVSTRAL\nBadLike\nBuri\ncop_zombie\ndestroyer_for_us\nEKEN\nEksnet\nFrostorik\nghost_of_fear\nHotzarzim\nj111m\nKael\nKikET\n4CHAN\nPIKABU\n9GAG\naustralia\naustria\nayylmao\nbait\nbangladesh\nbelgium\nbosnia\nbotswana\nbrazil\nbulgaria\ncambodia\ncanada\nchile\nchina\ncia\nconfederate\ncroatia\ndenmark\nea\nearth\nestonia\neuropeanunion\nfacepunch\nfeminism\nfinland\nfrance\ngermanempire\ngermany\ngreece\nhongkong\nhungary\nindia\nindiana\nindonesia\niran\niraq\nireland\nitaly\njamaica\njapan\nkc\nlatvia\nlithuania\nluxembourg\nmaldivas\nmatriarchy\nmexico\nmoon\nnazi\nnetherlands\nnigeria\nnorthkorea\nnorway\norigin\npakistan\npatriarchy\nperu\npewdiepie\npiccolo\npoland\nportugal\nprodota\nqingdynasty\nquebec\nreddit\nrussia\nsanik\nsatanist\nsealand\nsouthkorea\nspain\nstalin\nsteam\nsweden\nswitzerland\ntaiwan\ntexas\nthailand\ntsaristrussia\ntumblr\nukraine\nunitedkingdom\nusa\nussr\nvinesauce\nyaranaika\ntumblr\nhongkong\nKillerGamer\nLimuzin\nmage\nMCGaMeR\nMr_Het\nNadornsMonsters\nnero\noutcaster\nSteepCat\nTUCA\nurban_hunter\nvirtual_lord\nwertyi\nWinstonLight\nWoJDoo\nArtemad\nClydeKautz\nBarney\nRhodaPing\nSharlaPropes\nNanciTyner\nIlaWorm\nSebastianRawlinson\nCraigFlury\nEstebanBrehm\nDeberaVancuren\nTabithaOlivieri\nTrishaKimball\nMilagrosHyler\nCinderellaGerson\nFranBaldridge\nMelisaBrock\nGaynelleSimmonds\nEttaMirabella\nLaveraLabrecque\nBudNormand\nEliasSherwood\nJackpot\nSensation\nChuck\nSoots\nTheSaint\nICEman\nMiracleSnoopy\nBahartet\nBiotary\nHammer85\nBizcarit\nBlackenta\nBurkelstrin\nBurntSeen\nChariana\ngoldfinger\nConfidentHelp\nCopiconc\nDemocoman\nGaartely\nGenantro\nGlitzMcGenius\nJuliatu\nKalstaxi\nKeymatr\nKredicon\nLuvGurly\nMasteranca\nMediaBolt\nMeemuset\nMonsterInformer\nOccuiffu\nOnnitall\nRodeonevedo\nSandBlondeFully\nShipnease\nSlypectle\nSpinfonexu\nAdocarli\nAnglosi\nSimba\nAuetonbr\nBanshfeli\nQWERT\nBezequaci\nBizarrebobw\nBizarrewo\nBlenetra\nBootXboxStein\nBradleyFinest\nCeticRaven\nChunkyKlug\nDailiesHigh\nDravencybe\nFarerSaiyan\nGabring\nHalcytech\nHeminepe\nHeraldhama\nImagene\nLolandexte\nLucebayn\nMatroner\nMediumbben\nMofficanki\nNateinvelo\nTIMBERLAKE\nNessDiddy\nPlatinumTrippin\ntheviking\nPlusedge\nRaetstalyda\nJustinStromberg\nRebecaSenn\nRoxy\nNeil\nMaria\nWarren\nGrace\nWilliam\nJane\nVanessa\nLisa\nStephanie\nDidi\nBoris\nRuth\nLeonard\nJack\nCaroline\nSebastian\nConnor\nIan\nTOMAS\nSue\nFOX\nDylan\nLisa\nGrace\nJabbaDabba\nJennifer\nBenjamin\nPiPPa\nSteven\nJoe\nKNine\nKevin\nCaroline\nMcFlurry\nKatherine\nLeah\nIrene\nOwen\nUna\nGabrielleSlater\nAmyFisher\nAngelaGrant\nAlisonOgden\nDeadshot\nNitro\nTrevorBlack\nKatherinePullman\nOliverMacDonald\nAvaVaughan\nJenniferWhite\nWarrenPeters\nLeahCameron\nAlisonBerry\nKeithBuckland\nJulianMackay\nNatalieSanderson\nviZion\nJoshuaPeake\nKeithDowd\nHotdog\nJamesLambert\nJanBond\nColinMarshall\nJasonRees\nFRED\nJaneHughes\nLeonardOliver\nHarryAnderson\nGraceSmith\nDeirdreJones\nAudreySpringer\nEllaGray\nDominicHamilton\nKeithBlake\nRuthJackson\nMollyHudson\nSophieBerry\nCarolineLyman\nEmmaHudson\nJoeLyman\nOliviaPiper\nChristopherAllan\nMariaKing\nPippaSlater\nSarahJohnston\nRyanWhite\nJackHill\nWilliamMackay\nBenjaminAlsop\nAmandaRoberts\nThomasParsons\nLiamMcGrath\nJanHenderson\nSoniaChapman\nWilliam\nLily\nPeter\nKeith\nIsaac\nLeah\nMadeleine\nKaren\nFrank\nAlan\nMichael\nRachel\nDominic\nPaul\nNicola\nEmily\nTim\nbigBEN\nCohen\nGood\nFrancis\nOdom\nGreen\nCain\nTrevino\nLucero\nAshley\nigloo\nduffer\nloaded\nsickness\ngreeting\nlonely\nbafflement\ntrusty\nalteration\nevil\nsolva\npenumbra\ndauphine\nalluring\nlilly\nstinchar\ncubic\nblackbrook\nrebuff\ninclined\nlyon\nsquash\nunique\nlyne\nchewy\nmasticate\nmagnet\nknit\nindolent\nsevere\nfestus\ntrain\nincisionKim\nBean\nAguilar\nErnesto\nCurtis\nCortez\nTyshawn\nBrady\nBeckett\nXavier\nCason\nBryson\nSheldon\nPierce\nDeshawn\nAndy\nAaron\nArmando\nKarson\nK9\nNadia\nJovan\nErin\nTerry\nGrayson\nCelia\nAlexzander\nCannon\nJoey\nStella\nGracie\nKFCLOVER\nChico\nPrince\nMocha\nScooter\nChester\nCoco\nDusty\nZoe\nSocks\njefferson\nignore\nalladale\nvirtue\nprovided\ncohesive\nbullfinche\ncomet\ndip\nzipper\npostulate\nlick\nbashful\npascals\nrudy\ngloaming\ncashew\nmixcloud\ntraumatic\nprostate\npeas\nmelon\nbulbous\ngavel\nnumnah\nnavel\nriver\nsaskatoon\ncaused\nhardy\npare\nfemale\nvolunteer\nspeck\nyears\nvalid\narmpit\nbobby\nbolham\ngoogle\nbrennand\npastry\nweapon\ncuillin\ndescent\neasier\nmore\nrisedale\ngoggles\ncute\nmagellanic\nrenal\nzunyi\nEveryPrivate\nChipmunkThreat\nLeafyForefoot\nSebastianExxon\nHuckFaisalabad\nWheelchairHadar\nBulimiaMilk\nEiderStallion\nMoronicBuckinghamshire\nPayBiff\nHillsboroughEnvelope\nAllianzRhapsody\nArseEnteral\nBoronRadiant\nArchiveUntrue\nPlasticSpeech\nOfficerWiltshire\nBungBuzzard\nMoscowStellar\nTrialsHearty\nModelHorse\nBootsGrimacing\nShiraMosedale\nLeopardClapper\nSkatersStars\nCaramelizeStraws\nAngolanVinomadefied\nBatterySiemens\nHedgeThompson\nLukaIcing\nMimosaBrunswick\nTinForgetful\nHumberHook\nSeagullTrump\nBookerTouring\nSugarWarn\nCustardsStructure\nRudyBarium\nElectrolyteDisfigured\nBlighterPhysicist\nAntoniadiAtom\nPachaRule\nMaltyPatches\nHonoluluSwedish\nGemGleaming\nAssociatedThose\nAfterCointreau\nEyesPierre\nStewartGels\nAretePuppy\nFullscreenTrophic\nMailWillow\nScaupFrosty\nZaraBipedal\nCheapScafell\nDevonYolk\nSkegCohesive\nCricketBashful\nCocoaPuck\nDecathlonIschemic\nOftSnottor\nCheepNewlyn\nSwimGrill\nBaubleSymbolic\nAstronomerSpam\nVarlotLealt\nSensorSquamish\nKeyTechnetium\nCrummyQuirky\nVinePlane\nWaterskiBlind\nOrdinateCrown\nSpotTense\nFumeVine\nGlasswareCherries\nPhenomenonWillied\nPappusWazzed\nFilterSpace\nHypnosisSociable\nGaffEnder\nTordaHelpless\nResearchMat\nAmpereHeptagon\nEclipseBaldy\nLliediDiopside\nRockersGatcombe\nSabineEssential\nPlutoAbsurd\nTagTestify\nForswearJosie\nEquuleusFalter\nChewieFluther\nWombYakama\nHinderHighland\nBiteSeptum\nRifleGym\nJuneauInboard\nTroubadourChillingwood\nNeogeneLecturer\nSullivanStencils\nCheesecakePit\nClumpUnhelpful\nCheckBig\nLollyPumpkin\nCitrusyCountless\nVarunaRemy\nDivergentOils\nFallingTalisker\nBlackwaterNifty\nBrinkworthFranklyn\nFreddyPostman\nClumperPoke\nSlopeTokahee\nStencilsHume\nJijiKey\nAdeptStores\nUnicodeIgneous\nMeatyNut\nMaskSpark\nForegoingMoist\nEthicalConfident\nOblongataIsraeli\nGreenAle\nFibulaJoss\nShrugMinge\nFlowsWhispers\nActiveGlissade\nExaltedSpaghetti\nMeerkatMatch\nCouldHoff\nYawnObtuse\nCrazyUnknown\nPlanemoTyler\nCalderaBeans\nSoundcloudJapan\nSeveralGalled\nStarbucksDomain\nEdibleGlazier\nResourcesCapital\nNitrogenBella\nFlavorfulProtoplanet\nTeachSqueeze\nMeiosisSiphon\nTelephoneMarl\nTrundleRitec\nTheodoreShamrock\nNoirMelody\nVanillaArmenian\nHonkExoticism\nMandibleSepsis\nVenomousSignal\nManukaEval\nLooksLeaves\nFriedInto\nBlowTalented\nStubbsHeadphones\nWigeonNewcastle\nLoadHamster\nPinkieSaint\nEuphoniumRedundant\nSabdenRoad\nSuccessApache\nPateraCitric\nBalnagownQuiver\nGambianHartford\nRidingNostalgic\nAmbushFlex\nBretonCommon\nSpot!Fine\nPlaintivePride\nDiphthongPraline\nShearraInflate\nWoldsLennon\nSordiniMeathead\nSordCegidog\nSelfiesWeigh\nOrganVile\nPinchWeixin\nSassyFlag\nAlberniDart\nBowenImmense\nRulerFocus\nMaggotMine\nRegulateInventions\nMeshAlbite\nPoxArabella\nTikiFredericton\nNeedleDiapir\nGeneBlurt\nBindyFollowed\nMongolianTurtle\nSenseProfess\nFoldingHacking\nArsonistClipping\nKerryBonnie\nMaliciousMilitary\nMountainFrivolous\nCannonCog\nCordFlapping\nSnickerIndonesian\ndome\nking\nohio\nstandard\nfustilarian\nnative\nsupply\namherst\ninitial\ntowel\npumpion\nperfect\nmouldy\nflasks\ncarina\nduchess\ncrackers\nexciting\nhole\nwiggle\ngreat\nben\npoop\notis\npolite\nslapping\notherwise\ngrilled\nwes\nsummary\nnice\nbasketball\nstarbolins\nbaby\nbooking\nrhubarb\nperson\nshooter\nbounded\nnorthamptonshire\nsyllable\ngreenish\nuptight\ntweed\nthe\nreeky\nlathered\nascension\nobtain\nnagging\nchallenger\nsecret\nworcester\nlangley\npolly\nurinal\ntrusting\nbeverley\nfrankie\ndartmoor\nmash\ngillie\nmethodist\ngalaxy\nmozart\nbarrage\nspoticus\nscheduled\neel\npanel\nflapjack\nchemist\nalbert\nmetacarpus\ndense\nbleeding\nfixation\nniggles\ncamel\nrosin\ncommunity\nleash\ndulais\nladder\nlee\nindices\nyou\neducation\ndumplings\nbid\nprince\nartiste\navocet\nburns\nbarney\nmanaged\nburritos\npeduncle\npaltry\nequator\nsubmerge\nexpected\nfags\nperl\nclueless\ncartier\nwombled\nbearded\nkalman\ntrees\npink\naddie\ntod\nusd';
   const botNames = BOT_NAMES_TEXT.split('\n');
-  console.log('Version: A6 2020-10-14T10:51:36.392Z');
-  const gameConfig = { ...defaultConfig, enemyKillDelay: 2000, followKiller: true, selfKillDelay: 1000 };
+  const GAME_ENEMY_KILL_DELAY_MS = 2000;
+  const GAME_SELF_KILL_DELAY_MS = 1000;
+  const gameConfig = { ...defaultConfig, enemyKillDelay: GAME_ENEMY_KILL_DELAY_MS, followKiller: true, selfKillDelay: GAME_SELF_KILL_DELAY_MS };
   const languagesPromise = fetch('assets/languages.json').then((response: Response) => response.json());
   const skinsPromise = fetch('assets/skins/skins.json').then((response: Response) => response.json());
   // `ts-reset` types `Response.json()` as `Promise<unknown>`, so the fetched
@@ -7387,16 +7426,17 @@ declare global {
       throw new Error('Unexpected assets payload from languages.json / skins.json');
     }
   }
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget bootstrap matching the original engine; the game is rendered once the assets resolve.
   Promise.all([languagesPromise, skinsPromise]).then((loadedAssets: [unknown, unknown]) => {
     assertLoadedAssets(loadedAssets);
     const [languages, skins] = loadedAssets;
     buildLanguageList(languages);
-    const createSkinManager = (config: Config, canvas: HTMLCanvasElement): GameSkinManager => {
+    function createSkinManager(config: Config, canvas: HTMLCanvasElement): GameSkinManager {
       const imageAssetSet = new ImageAssetSet(config);
       const svgAssetSet = new SvgAssetSet(config, canvas, 'assets/skins/', skins);
       const gameSkinManager = new GameSkinManager(imageAssetSet, svgAssetSet, 1);
       return gameSkinManager;
-    };
+    }
     const schemeCycler = new SchemeCycler(BotScoreLabel);
     const achievementStore = new AchievementStore([]);
     achievementStore.load();
