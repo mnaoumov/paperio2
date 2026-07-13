@@ -1093,12 +1093,24 @@ declare global {
       };
     }
   }
-  const timeSource = typeof performance !== 'undefined' ? performance : Date;
+  const timeSource = typeof performance === 'undefined' ? Date : performance;
   const now = timeSource.now.bind(timeSource);
-  const createCirclePoints = (point: Vector, segmentCount: number, radius: number): Vector[] => {
+  const RGB_CHANNEL_MAX = 255;
+  const HUE_DEGREES_MAX = 360;
+  const PERCENT_MAX = 100;
+  const HEX_RADIX = 16;
+  const HEX_CHANNEL_DIGITS = 2;
+  const HSV_SECTOR_DEGREES = 60;
+  const HSV_SECTOR_COUNT = 6;
+  const LCG_MULTIPLIER = 69069;
+  const LCG_MODULUS = 2147483648;
+  const RANDOM_INT_RANGE = 1000000000;
+  const FIXED_DECIMAL_DIGITS = 2;
+  function createCirclePoints(point: Vector, segmentCount: number, radius: number): Vector[] {
     if (typeof point.x !== 'number') {
       throw Error('circle');
     }
+    // eslint-disable-next-line no-magic-numbers -- a full circle spans 2π radians.
     const fullCircleAngle = Math.PI * 2;
     const angleStep = fullCircleAngle / segmentCount;
     const list4: Vector[] = [];
@@ -1106,53 +1118,44 @@ declare global {
       list4.push(new Vector(point.x + Math.cos(angle) * radius, point.y + Math.sin(angle) * radius));
     }
     return list4;
-  };
-  const hexToRgb = (hex: string): Rgb => {
-    const red = parseInt(hex.substring(1, 3), 16);
-    const green = parseInt(hex.substring(3, 5), 16);
-    const blue = parseInt(hex.substring(5, 7), 16);
+  }
+  function hexToRgb(hex: string): Rgb {
+    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the red channel is chars 1-3.
+    const red = parseInt(hex.substring(1, 3), HEX_RADIX);
+    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the green channel is chars 3-5.
+    const green = parseInt(hex.substring(3, 5), HEX_RADIX);
+    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the blue channel is chars 5-7.
+    const blue = parseInt(hex.substring(5, 7), HEX_RADIX);
     return {
       b: blue,
       g: green,
       r: red
     };
-  };
-  const rgbToHsv = ({
+  }
+  function rgbToHsv({
     b,
     g,
     r
-  }: Rgb): Hsv => {
-    let normRed;
-    let normGreen;
-    let normBlue;
-    let redHueComponent;
-    let greenHueComponent;
-    let blueHueComponent;
+  }: Rgb): Hsv {
+    const normRed = r / RGB_CHANNEL_MAX;
+    const normGreen = g / RGB_CHANNEL_MAX;
+    const normBlue = b / RGB_CHANNEL_MAX;
+    const max = Math.max(normRed, normGreen, normBlue);
+    const delta = max - Math.min(normRed, normGreen, normBlue);
     let hue = 0;
-    let saturation;
-    let max;
-    let delta;
-    let computeHueComponent;
-    let round2;
-    normRed = r / 255;
-    normGreen = g / 255;
-    normBlue = b / 255;
-    max = Math.max(normRed, normGreen, normBlue);
-    delta = max - Math.min(normRed, normGreen, normBlue);
-    computeHueComponent = (channelValue: number): number => (max - channelValue) / 6 / delta + 1 / 2;
-    round2 = (value: number): number => Math.round(value * 100) / 100;
-    if (delta == 0) {
-      hue = saturation = 0;
-    } else {
+    let saturation = 0;
+    if (delta !== 0) {
       saturation = delta / max;
-      redHueComponent = computeHueComponent(normRed);
-      greenHueComponent = computeHueComponent(normGreen);
-      blueHueComponent = computeHueComponent(normBlue);
+      const redHueComponent = computeHueComponent(normRed);
+      const greenHueComponent = computeHueComponent(normGreen);
+      const blueHueComponent = computeHueComponent(normBlue);
       if (normRed === max) {
         hue = blueHueComponent - greenHueComponent;
       } else if (normGreen === max) {
+        // eslint-disable-next-line no-magic-numbers -- green-max hue starts 1/3 of the way around the wheel.
         hue = 1 / 3 + redHueComponent - blueHueComponent;
       } else if (normBlue === max) {
+        // eslint-disable-next-line no-magic-numbers -- blue-max hue starts 2/3 of the way around the wheel.
         hue = 2 / 3 + greenHueComponent - redHueComponent;
       }
       if (hue < 0) {
@@ -1162,157 +1165,161 @@ declare global {
       }
     }
     return {
-      h: Math.round(hue * 360),
-      s: round2(saturation * 100),
-      v: round2(max * 100)
+      h: Math.round(hue * HUE_DEGREES_MAX),
+      s: round2(saturation * PERCENT_MAX),
+      v: round2(max * PERCENT_MAX)
     };
-  };
-  const rgbToHex = ({
+    function computeHueComponent(channelValue: number): number {
+      // eslint-disable-next-line no-magic-numbers -- HSV hue-component interpolation: the 1/2 phase offset.
+      return (max - channelValue) / HSV_SECTOR_COUNT / delta + 1 / 2;
+    }
+    function round2(value: number): number {
+      // eslint-disable-next-line no-magic-numbers -- round to 2 decimal places (10^2).
+      return Math.round(value * 100) / 100;
+    }
+  }
+  function rgbToHex({
     b,
     g,
     r
-  }: Rgb): string => {
-    const channelToHex = (channel: number): string => {
-      const hex = channel.toString(16);
-      if (hex.length < 2) {
+  }: Rgb): string {
+    return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
+    function channelToHex(channel: number): string {
+      const hex = channel.toString(HEX_RADIX);
+      if (hex.length < HEX_CHANNEL_DIGITS) {
         return `0${hex}`;
       }
       return hex;
-    };
-    return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
-  };
-  const hsvToRgb = ({
+    }
+  }
+  function hsvToRgb({
     h,
     s,
     v
-  }: Hsv): Rgb => {
+  }: Hsv): Rgb {
+    h = Math.max(0, Math.min(HUE_DEGREES_MAX, h));
+    s = Math.max(0, Math.min(PERCENT_MAX, s)) / PERCENT_MAX;
+    v = Math.max(0, Math.min(PERCENT_MAX, v)) / PERCENT_MAX;
     let red;
     let green;
     let blue;
-    let sector;
-    let fraction;
-    let p;
-    let q;
-    let t;
-    h = Math.max(0, Math.min(360, h));
-    s = Math.max(0, Math.min(100, s));
-    v = Math.max(0, Math.min(100, v));
-    s /= 100;
-    v /= 100;
-    if (s == 0) {
-      red = green = blue = v;
-      return {
-        b: Math.round(blue * 255),
-        g: Math.round(green * 255),
-        r: Math.round(red * 255)
-      };
-    }
-    h /= 60;
-    sector = Math.floor(h);
-    fraction = h - sector;
-    p = v * (1 - s);
-    q = v * (1 - s * fraction);
-    t = v * (1 - s * (1 - fraction));
-    switch (sector) {
-      case 0:
-        red = v;
-        green = t;
-        blue = p;
-        break;
-      case 1:
-        red = q;
-        green = v;
-        blue = p;
-        break;
-      case 2:
-        red = p;
-        green = v;
-        blue = t;
-        break;
-      case 3:
-        red = p;
-        green = q;
-        blue = v;
-        break;
-      case 4:
-        red = t;
-        green = p;
-        blue = v;
-        break;
-      default:
-        red = v;
-        green = p;
-        blue = q;
+    if (s === 0) {
+      red = v;
+      green = v;
+      blue = v;
+    } else {
+      h /= HSV_SECTOR_DEGREES;
+      const sector = Math.floor(h);
+      const fraction = h - sector;
+      const p = v * (1 - s);
+      const q = v * (1 - s * fraction);
+      const t = v * (1 - s * (1 - fraction));
+      switch (sector) {
+        case 0:
+          red = v;
+          green = t;
+          blue = p;
+          break;
+        case 1:
+          red = q;
+          green = v;
+          blue = p;
+          break;
+        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
+        case 2:
+          red = p;
+          green = v;
+          blue = t;
+          break;
+        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
+        case 3:
+          red = p;
+          green = q;
+          blue = v;
+          break;
+        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
+        case 4:
+          red = t;
+          green = p;
+          blue = v;
+          break;
+        default:
+          red = v;
+          green = p;
+          blue = q;
+      }
     }
     return {
-      b: Math.round(blue * 255),
-      g: Math.round(green * 255),
-      r: Math.round(red * 255)
+      b: Math.round(blue * RGB_CHANNEL_MAX),
+      g: Math.round(green * RGB_CHANNEL_MAX),
+      r: Math.round(red * RGB_CHANNEL_MAX)
     };
-  };
-  const hsvToHex = (hsv: Hsv): string => rgbToHex(hsvToRgb(hsv));
+  }
+  function hsvToHex(hsv: Hsv): string {
+    return rgbToHex(hsvToRgb(hsv));
+  }
   function createRandomGenerator(seed: number): (max?: number) => number {
     if (seed > 0 && seed < 1) {
-      seed = Math.floor(seed * 1000000000);
+      seed = Math.floor(seed * RANDOM_INT_RANGE);
     }
-    const nextInt = (bound: number): number => {
-      seed = (seed * 69069 + 1) % 2147483648;
-      return seed % bound;
-    };
-    const random = (max?: number): number => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
     return random;
+    function nextInt(bound: number): number {
+      seed = (seed * LCG_MULTIPLIER + 1) % LCG_MODULUS;
+      return seed % bound;
+    }
+    function random(max?: number): number {
+      return max === undefined ? nextInt(RANDOM_INT_RANGE) / RANDOM_INT_RANGE : nextInt(max);
+    }
   }
   function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise<HTMLImageElement>((resolve: (value: HTMLImageElement) => void) => {
       const element = document.createElement('img');
       element.src = src;
-      element.onload = function (): void {
+      element.onload = (): void => {
         resolve(element);
       };
     });
   }
   function scaleValue(hsv: Hsv, factor: number): Hsv {
-    let {
+    const {
       h,
       s,
       v
     } = hsv;
-    v *= factor;
     return {
       h,
       s,
-      v
+      v: v * factor
     };
   }
   function brighten(hsv: Hsv, factor: number): Hsv {
-    let {
+    const {
       h,
       s,
       v
     } = hsv;
-    const headroom = 100 - v;
-    v = Math.max(v * factor, v + factor * headroom / 4);
+    const headroom = PERCENT_MAX - v;
+    // eslint-disable-next-line no-magic-numbers -- brighten adds up to a quarter of the remaining headroom.
+    const brightenedValue = Math.max(v * factor, v + factor * headroom / 4);
     return {
       h,
       s,
-      v
+      v: brightenedValue
     };
   }
   function setValue(hsv: Hsv, value: number): Hsv {
-    let {
+    const {
       h,
-      s,
-      v
+      s
     } = hsv;
-    v = value;
     return {
       h,
       s,
-      v
+      v: value
     };
   }
   function formatFixed2(value: number): string {
-    return value.toFixed(2);
+    return value.toFixed(FIXED_DECIMAL_DIGITS);
   }
   class Border {
     public center: Vector;
