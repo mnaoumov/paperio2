@@ -2279,6 +2279,10 @@ declare global {
       return this.unit.percent * PERCENT_MAX;
     }
   }
+  const QUEST_FADE_MS = 500;
+  const QUEST_HOLD_MS = 3000;
+  const QUEST_LINGER_MS = 250;
+  const QUEST_STATE_FADE_OUT = 2;
   class Quest {
     public current: number;
     public description: string;
@@ -2292,7 +2296,7 @@ declare global {
       this.description = description;
       this.state = 0;
       this.current = 0;
-      this.states = [500, 3000, 500, 250];
+      this.states = [QUEST_FADE_MS, QUEST_HOLD_MS, QUEST_FADE_MS, QUEST_LINGER_MS];
       this.image = null;
       if (imageUrl) {
         this.ready = false;
@@ -2316,8 +2320,8 @@ declare global {
           return easeOutCubic(this.current / ensureNonNullable(this.states[0]));
         case 1:
           return 1;
-        case 2:
-          return 1 - easeOutCubic(this.current / ensureNonNullable(this.states[2]));
+        case QUEST_STATE_FADE_OUT:
+          return 1 - easeOutCubic(this.current / ensureNonNullable(this.states[QUEST_STATE_FADE_OUT]));
         default:
           return 0;
       }
@@ -2367,6 +2371,12 @@ declare global {
       game.notifications.push(new Quest('New skin unlocked!', this.description, this.url));
     }
   }
+  const DAYS_IN_YEAR = 365;
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- the caller chooses the shape it expects from the untyped cookie JSON.
+  function readCookieJson<T>(name: string): T | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- js-cookie's deprecated getJSON is typed `any`.
+    return Cookies.getJSON(name);
+  }
   class AchievementStore {
     public achievements: Achievement[];
     public storageName: string;
@@ -2376,7 +2386,7 @@ declare global {
     }
 
     public load(): void {
-      const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
+      const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') ?? {};
       const loadChallenge = (challengeKey: string, achievementName: string): void => {
         if (challenges[challengeKey]) {
           const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
@@ -2389,7 +2399,7 @@ declare global {
       loadChallenge('c22', 'capAmerica');
       loadChallenge('c22', 'thanos');
       loadChallenge('geraldquest1', 'geralt');
-      const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
+      const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) ?? {};
       if (profile.achievements) {
         profile.achievements.forEach((achievement: StoredAchievement) => {
           const achievement2 = this.achievements.find((candidate: Achievement) => candidate.name === achievement.name);
@@ -2407,13 +2417,13 @@ declare global {
         earned: achievement.earned,
         name: achievement.name
       }));
-      const profile: StoredProfile = Cookies.getJSON(this.storageName) || {};
+      const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) ?? {};
       profile.achievements = storedAchievements;
       const cookieOptions = {
-        expires: 365
+        expires: DAYS_IN_YEAR
       };
       Cookies.set(this.storageName, profile, cookieOptions);
-      const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
+      const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') ?? {};
       const saveChallenge = (challengeKey: string, achievementName: string): void => {
         const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
         if (achievement?.earned) {
@@ -2428,11 +2438,12 @@ declare global {
       saveChallenge('doctorquest', 'doctor');
       saveChallenge('covidquest', 'covid');
       Cookies.set('paperio_challenges', challenges, cookieOptions);
+      // eslint-disable-next-line camelcase -- `paperio_challenges` is the external shop integration's global.
       window.paperio_challenges = challenges;
       if (window.shop) {
         window.shop.autoCheckUnlock();
       } else {
-        console.log('window.shop unavaliable');
+        console.warn('window.shop unavaliable');
       }
     }
   }
