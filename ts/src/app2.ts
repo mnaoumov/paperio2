@@ -457,16 +457,17 @@ declare global {
     }
   }
   class SpatialGrid {
-    cells: ContourPoints[];
-    center: Vector;
-    h: number;
-    height: number;
-    size: number;
-    w: number;
-    width: number;
-    constructor(width: number, height: number, cellSize: number) {
+    public cells: ContourPoints[];
+    public center: Vector;
+    public h: number;
+    public height: number;
+    public size: number;
+    public w: number;
+    public width: number;
+    public constructor(width: number, height: number, cellSize: number) {
       this.width = width;
       this.height = height;
+      // eslint-disable-next-line no-magic-numbers -- center is the play-area midpoint (width/2, height/2).
       this.center = new Vector(width / 2, height / 2);
       this.size = cellSize;
       this.w = Math.ceil(width / cellSize);
@@ -480,20 +481,20 @@ declare global {
       Vector.space = this;
     }
 
-    cell(point: Vector) {
+    public cell(point: Vector): ContourPoints {
       return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
     }
 
-    checkPoint(point: Vector) {
+    public checkPoint(point: Vector): Vector {
       const cell = this.cell(point);
-      return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) || point;
+      return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) ?? point;
     }
 
-    clear() {
+    public clear(): void {
       this.cells = [];
     }
 
-    count() {
+    public count(): number {
       let total = 0;
       this.cells.forEach((cell: ContourPoints) => {
         total += cell.points.length;
@@ -501,11 +502,11 @@ declare global {
       return total;
     }
 
-    getCell(col: number, row: number) {
+    public getCell(col: number, row: number): ContourPoints {
       return ensureNonNullable(this.cells[col + row * this.w]);
     }
 
-    intersections(segment: Segment): Intersection[] {
+    public intersections(segment: Segment): Intersection[] {
       const point = this.cell(segment.start);
       const point2 = this.cell(segment.end);
       const minCol = Math.max(0, Math.min(point.x, point2.x) - CELL_MARGIN);
@@ -516,8 +517,8 @@ declare global {
       const list4: Intersection[] = [];
       for (let row = minRow; row <= maxRow; row++) {
         for (let col = minCol; col <= maxCol; col++) {
-          this.getCell(col, row).points.forEach((point: Vector) => {
-            point.segments.forEach((segment2: Segment) => {
+          this.getCell(col, row).points.forEach((cellPoint: Vector) => {
+            cellPoint.segments.forEach((segment2: Segment) => {
               if (segment2.mark !== mark) {
                 const intersection = segment2.intersect(segment);
                 if (intersection) {
@@ -532,12 +533,14 @@ declare global {
       return list4;
     }
 
-    segmentsCount(): Record<number, Segment> {
+    public segmentsCount(): Record<number, Segment> {
       const segmentsById: Record<number, Segment> = {};
       for (let i2 = 0; i2 < this.h; i2++) {
         for (let i3 = 0; i3 < this.w; i3++) {
           this.getCell(i3, i2).points.forEach((point: Vector) => {
-            point.segments.forEach((segment: Segment) => segmentsById[segment.id ?? 0] = segment);
+            point.segments.forEach((segment: Segment) => {
+              segmentsById[segment.id ?? 0] = segment;
+            });
           });
         }
       }
@@ -550,18 +553,18 @@ declare global {
   });
   let i = 0;
   class Vector {
-    static space: null | SpatialGrid;
-    cell: ContourPoints | null;
-    segments: Segment[];
-    x = 0;
-    y = 0;
-    constructor(x?: number, y?: number) {
+    public static space: null | SpatialGrid;
+    public cell: ContourPoints | null;
+    public segments: Segment[];
+    public x = 0;
+    public y = 0;
+    public constructor(x?: number, y?: number) {
       this.cell = null;
       this.segments = [];
       this.set(x, y);
     }
 
-    static alloc(x?: number, y?: number) {
+    public static alloc(x?: number, y?: number): Vector {
       if (i) {
         const vector = ensureNonNullable(vectorPool[--i]).set(x, y);
         return vector;
@@ -569,37 +572,36 @@ declare global {
       return new Vector(x, y);
     }
 
-    static clone(point: Vector) {
+    public static clone(point: Vector): Vector {
       return Vector.alloc(point.x, point.y);
     }
 
-    static poolLength() {
+    public static poolLength(): number {
       return i;
     }
 
-    static release(vector: Vector) {
+    public static release(vector: Vector): void {
       if (i < VECTOR_POOL_SIZE) {
         vector.set();
-        if (vector.cell || vector.segments.length) {}
         vectorPool[i++] = vector;
       }
     }
 
-    add(point: Vector) {
+    public add(point: Vector): this {
       this.x += point.x;
       this.y += point.y;
       return this;
     }
 
-    angle(point: Vector) {
+    public angle(point: Vector): number {
       return Math.atan2(this.cross(point), this.dot(point));
     }
 
-    clone() {
+    public clone(): Vector {
       return new Vector(this.x, this.y);
     }
 
-    commit(segment: Segment) {
+    public commit(segment: Segment): void {
       if (!this.segments.includes(segment)) {
         this.segments.push(segment);
       }
@@ -609,39 +611,39 @@ declare global {
       }
     }
 
-    copy(point: Vector) {
+    public copy(point: Vector): this {
       this.x = point.x;
       this.y = point.y;
       return this;
     }
 
-    cross(point: Vector) {
+    public cross(point: Vector): number {
       return this.x * point.y - this.y * point.x;
     }
 
-    distance(point: Vector) {
+    public distance(point: Vector): number {
       return Math.sqrt(this.distance2(point));
     }
 
-    distance2(point: Vector) {
+    public distance2(point: Vector): number {
       const dx = this.x - point.x;
       const dy = this.y - point.y;
       return dx * dx + dy * dy;
     }
 
-    dot(point: Vector) {
+    public dot(point: Vector): number {
       return this.x * point.x + this.y * point.y;
     }
 
-    equal(point: Vector) {
+    public equal(point: Vector): boolean {
       return isNearlyEqual(this.x, point.x) && isNearlyEqual(this.y, point.y);
     }
 
-    invert() {
+    public invert(): this {
       return this.mulScalar(-1);
     }
 
-    magnitude() {
+    public magnitude(): number {
       const {
         x,
         y
@@ -649,19 +651,19 @@ declare global {
       return Math.sqrt(x * x + y * y);
     }
 
-    mul(point: Vector) {
+    public mul(point: Vector): this {
       this.x *= point.x;
       this.y *= point.y;
       return this;
     }
 
-    mulScalar(scalar: number) {
+    public mulScalar(scalar: number): this {
       this.x *= scalar;
       this.y *= scalar;
       return this;
     }
 
-    normalize() {
+    public normalize(): this {
       const magnitude = this.magnitude();
       if (magnitude) {
         this.mulScalar(1 / magnitude);
@@ -669,11 +671,11 @@ declare global {
       return this;
     }
 
-    release() {
+    public release(): void {
       Vector.release(this);
     }
 
-    remove(segment: Segment) {
+    public remove(segment: Segment): void {
       const index = this.segments.indexOf(segment);
       this.segments.splice(index, 1);
       if (this.cell && !this.segments.length) {
@@ -681,7 +683,7 @@ declare global {
       }
     }
 
-    rotate(angle: number) {
+    public rotate(angle: number): this {
       const {
         x,
         y
@@ -693,19 +695,20 @@ declare global {
       return this;
     }
 
-    set(x?: number, y?: number) {
-      this.x = x || 0;
-      this.y = y || (y === 0 ? 0 : this.x);
+    public set(x?: number, y?: number): this {
+      this.x = x ?? 0;
+      this.y = y ?? this.x;
       return this;
     }
 
-    sub(point: Vector) {
+    public sub(point: Vector): this {
       this.x -= point.x;
       this.y -= point.y;
       return this;
     }
 
-    toString() {
+    public toString(): string {
+      // eslint-disable-next-line no-magic-numbers -- 4-digit coordinate precision for the debug string.
       return `[${this.x.toFixed(4)},${this.y.toFixed(4)}]`;
     }
   }
@@ -722,8 +725,11 @@ declare global {
   const KILL_REASON_CAPITAL_SURROUNDED = 7;
   // DeathReasons[8] ("убит разделением со столицей" / separated-from-capital) has
   // No constant here — no code path ever produces reason code 8. Codes 0-7 are all used.
-  const FRAME_DURATION_MILLISECONDS = 1000 / 60;
-  const TWO_FRAME_DURATION_MILLISECONDS = 1000 / 60 * 2;
+  const MILLISECONDS_IN_SECOND = 1000;
+  const FRAMES_PER_SECOND = 60;
+  const FRAME_DURATION_MILLISECONDS = MILLISECONDS_IN_SECOND / FRAMES_PER_SECOND;
+  // eslint-disable-next-line no-magic-numbers -- two-frame threshold (2x the single-frame duration).
+  const TWO_FRAME_DURATION_MILLISECONDS = FRAME_DURATION_MILLISECONDS * 2;
   class Polyline {
     bounds: Bounds;
     end: null | Vector;
