@@ -2945,10 +2945,13 @@ declare global {
   // Declaration merge: SkinManager (defined later in the file, still `any`-typed by another
   // Worker) is only missing these two members as far as `Game` is concerned. Merging adds them
   // Without touching that class's body.
+  interface ShieldSkinAssets {
+    get(name: string): Asset;
+  }
   interface SkinManager {
     getPlayerSkin(name?: string): Skin;
     isFlagSkinManager?: boolean;
-    shieldSkinAssets?: { get(name: string): Asset };
+    shieldSkinAssets?: ShieldSkinAssets;
   }
   interface CitiesManager {
     get(countryCode: string): string;
@@ -2971,8 +2974,12 @@ declare global {
     skipping(): boolean;
     start: number;
   }
+  interface MetricEvents {
+    kills: number;
+    returns: number;
+  }
   interface Metric {
-    events: { kills: number; returns: number };
+    events: MetricEvents;
     frameTime: number;
     renderTime: number;
     updateTime: number;
@@ -2998,11 +3005,14 @@ declare global {
     right: number;
     top: number;
   }
+  interface BoundedShape {
+    bounds: Bounds;
+  }
   interface RenderContext {
     backHeight: number;
     barHeight: number;
     barWidth: number;
-    boundsInView: (shape: { bounds: Bounds }, margin?: number) => boolean;
+    boundsInView: (shape: BoundedShape, margin?: number) => boolean;
     calcMult: (a: number, b: number) => number;
     ctx: CanvasRenderingContext2D | null;
     devicePixelRatio: number;
