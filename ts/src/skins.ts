@@ -1,9 +1,9 @@
 import type {
   Config,
   Game,
-  ParticleColor,
   Unit
 } from './engine.ts';
+import type { ParticleColor } from './particles.ts';
 
 import {
   brighten,
