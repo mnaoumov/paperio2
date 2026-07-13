@@ -1,3 +1,11 @@
+/**
+ * @file
+ *
+ * Readable, typed reconstruction of the Paper.io 2 game engine — the original
+ * minified/obfuscated `app2.js`, recovered to meaningful names and strict
+ * types. esbuild bundles this plus preact + js-cookie into `dist/app2.js`.
+ */
+
 import Cookies from 'js-cookie';
 import {
   createContext,
@@ -15,7 +23,13 @@ import {
 import {
   assertNonNullable,
   ensureNonNullable
-} from './type-guards';
+} from './type-guards.ts';
+// The ad-network integration this offline copy strips out (see `index.html`).
+interface AdNetworkApi {
+  hideAds?: () => void;
+  showAds?: () => void;
+}
+
 // The `gtag`/GTM-style event queue some ad/analytics integrations install.
 interface DataLayerEntry {
   event: string;
@@ -46,6 +60,11 @@ interface Paper2ResultsScores {
 // Mirrors the achievements/challenges cookie payload (see `AchievementStore`
 // Below) — named here (rather than only inside the engine IIFE) so the
 // `Window.paperio_challenges` augmentation below can reference it.
+// The shop/skins-unlock integration this offline copy strips out.
+interface ShopApi {
+  autoCheckUnlock: () => void;
+}
+
 type StoredChallenges = Record<string, boolean>;
 
 declare global {
@@ -79,10 +98,7 @@ declare global {
     // The ad-network integration this offline copy strips out (see the
     // Project's `index.html` shim) — every call site guards with `if
     // (window.ads && window.ads.showAds)`, so both members stay optional.
-    ads?: {
-      hideAds?: () => void;
-      showAds?: () => void;
-    };
+    ads?: AdNetworkApi;
     dataLayer?: DataLayerEntry[];
     // Classic Google Analytics `ga()`; every call site in this file passes
     // Exactly `("send", "event", category, action)`.
@@ -97,14 +113,12 @@ declare global {
     paperio2api?: object;
     playerId?: number;
     // The shop/skins-unlock integration this offline copy strips out.
-    shop?: {
-      autoCheckUnlock: () => void;
-    };
+    shop?: ShopApi;
     ShowPreroll?: () => void;
   }
 }
 
-(function () {
+(function main(): void {
   'use strict';
 
   // --- shared structural types inferred from usage across the engine ---
@@ -147,9 +161,9 @@ declare global {
     point?: Vector;
   }
   interface BotStateHandlers {
-    enter?: (payload: Bot, context: BotStateContext) => BotStateContext | void;
-    leave?: (payload: Bot, context: BotStateContext) => BotStateContext | void;
-    update: (payload: Bot, context: BotStateContext) => string | void;
+    enter?: (payload: Bot, context: BotStateContext) => BotStateContext | undefined;
+    leave?: (payload: Bot, context: BotStateContext) => BotStateContext | undefined;
+    update: (payload: Bot, context: BotStateContext) => string | undefined;
   }
   type BotStates = Record<string, BotStateHandlers>;
   interface UnitScores {
@@ -174,12 +188,29 @@ declare global {
   }
   type ParticleColor = HTMLCanvasElement | HTMLImageElement | string;
 
+  // eslint-disable-next-line no-magic-numbers -- EPSILON is 2^-26, the engine's fixed geometric tolerance.
   const EPSILON = 2 ** -26;
-  const isNearlyZero = (value: number) => Math.abs(value) <= EPSILON;
-  const isNearlyEqual = (a: number, b: number) => Math.abs(a - b) <= EPSILON;
-  const lerp = (start: number, end: number, t: number) => start + (end - start) * t;
-  const easeOutCubic = (t: number) => --t * t * t + 1;
-  const clamp = (min: number, max: number, value: number) => {
+  const POLYGON_POINT_OUTSIDE = 0;
+  const POLYGON_POINT_ON_EDGE = 1;
+  const POLYGON_POINT_INSIDE = 2;
+
+  function isNearlyZero(value: number): boolean {
+    return Math.abs(value) <= EPSILON;
+  }
+
+  function isNearlyEqual(a: number, b: number): boolean {
+    return Math.abs(a - b) <= EPSILON;
+  }
+
+  function lerp(start: number, end: number, t: number): number {
+    return start + (end - start) * t;
+  }
+
+  function easeOutCubic(t: number): number {
+    return --t * t * t + 1;
+  }
+
+  function clamp(min: number, max: number, value: number): number {
     if (value < min) {
       return min;
     }
@@ -187,10 +218,17 @@ declare global {
       return max;
     }
     return value;
-  };
-  const cross = (ax: number, ay: number, bx: number, by: number) => ax * by - ay * bx;
-  const isBetween = (bound1: number, bound2: number, value: number) => Math.min(bound1, bound2) - EPSILON <= value && value <= Math.max(bound1, bound2) + EPSILON;
-  const intervalOverlap = (aStart: number, aEnd: number, bStart: number, bEnd: number) => {
+  }
+
+  function cross(ax: number, ay: number, bx: number, by: number): number {
+    return ax * by - ay * bx;
+  }
+
+  function isBetween(bound1: number, bound2: number, value: number): boolean {
+    return Math.min(bound1, bound2) - EPSILON <= value && value <= Math.max(bound1, bound2) + EPSILON;
+  }
+
+  function intervalOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
     if (aStart > aEnd) {
       [aStart, aEnd] = [aEnd, aStart];
     }
@@ -198,8 +236,9 @@ declare global {
       [bStart, bEnd] = [bEnd, bStart];
     }
     return Math.min(aEnd, bEnd) - Math.max(aStart, bStart);
-  };
-  function pointInPolygon(list4: number[][], x: number, y: number) {
+  }
+
+  function pointInPolygon(list4: number[][], x: number, y: number): number {
     let isInside = false;
     const length = list4.length;
     for (let i2 = 0, previousIndex = length - 1; i2 < length; previousIndex = i2++) {
@@ -210,29 +249,34 @@ declare global {
       const previousX = ensureNonNullable(previousPoint[0]);
       const previousY = ensureNonNullable(previousPoint[1]);
       if (isPointOnSegment(x, y, currentX, currentY, previousX, previousY)) {
-        return 1;
+        return POLYGON_POINT_ON_EDGE;
       }
-      const isCrossing = currentY > y != previousY > y && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
+      const isCrossing = (currentY > y) !== (previousY > y) && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
       if (isCrossing) {
         isInside = !isInside;
       }
     }
     if (isInside) {
-      return 2;
+      return POLYGON_POINT_INSIDE;
     }
-    return 0;
+    return POLYGON_POINT_OUTSIDE;
   }
-  function isPointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number) {
+
+  function isPointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): boolean {
     const dx1 = x1 - px;
     const dy1 = y1 - py;
     const dx2 = x2 - px;
     const dy2 = y2 - py;
-    const cross = dx1 * dy2 - dy1 * dx2;
+    const crossProduct = dx1 * dy2 - dy1 * dx2;
     const dot = dx1 * dx2 + dy1 * dy2;
-    return cross == 0 && dot <= 0;
+    return crossProduct === 0 && dot <= 0;
   }
+
   let nextId = 1;
-  const generateId = () => nextId++;
+
+  function generateId(): number {
+    return nextId++;
+  }
   class Segment {
     a = 0;
     b = 0;
