@@ -855,12 +855,12 @@ declare global {
     return 1;
   }
   class Polygon {
-    bounds: Bounds | null;
-    owner: null | ShapeOwner;
-    path = new Path2D();
-    segments: Segment[];
-    simplify: Vector[];
-    constructor(points: Vector[]) {
+    public bounds: Bounds | null;
+    public owner: null | ShapeOwner;
+    public path = new Path2D();
+    public segments: Segment[];
+    public simplify: Vector[];
+    public constructor(points: Vector[]) {
       this.segments = [];
       this.simplify = [];
       this.owner = null;
@@ -874,7 +874,7 @@ declare global {
       this.updateBounds();
     }
 
-    calcPath() {
+    public calcPath() {
       const path2D = new Path2D();
       const {
         segments
@@ -897,7 +897,7 @@ declare global {
       this.updateBounds();
     }
 
-    calcSimplify() {
+    public calcSimplify() {
       this.simplify = [];
       let i2 = 0;
       this.segments.forEach((segment: Segment) => {
@@ -919,23 +919,23 @@ declare global {
       });
     }
 
-    commit(owner?: ShapeOwner) {
+    public commit(owner?: ShapeOwner) {
       if (owner) {
         this.owner = owner;
       }
       this.segments.forEach((segment: Segment) => segment.commit(this));
     }
 
-    findSegment(point: Vector) {
+    public findSegment(point: Vector) {
       const index = this.segments.findIndex((segment: Segment) => segment.start === point);
       return index;
     }
 
-    hasPoint(point: Vector) {
+    public hasPoint(point: Vector) {
       return this.segments.some((segment: Segment) => segment.has(point));
     }
 
-    insert(segment: Segment, point: Vector) {
+    public insert(segment: Segment, point: Vector) {
       if (!segment.has(point)) {
         const index = this.segments.findIndex((candidateSegment: Segment) => candidateSegment === segment);
         const firstSegment = new Segment(segment.start, point).commit(this);
@@ -945,7 +945,7 @@ declare global {
       }
     }
 
-    inside(point: Vector) {
+    public inside(point: Vector) {
       const {
         length
       } = this.segments;
@@ -964,11 +964,11 @@ declare global {
       return product !== 1;
     }
 
-    insideNew(point: Vector) {
+    public insideNew(point: Vector) {
       return !!pointInPolygon(this.segments.map((segment: Segment) => [segment.start.x, segment.start.y]), point.x, point.y);
     }
 
-    intersections(segment: Segment) {
+    public intersections(segment: Segment) {
       let list4: Intersection[] = [];
       if (this.segments.length > 1) {
         this.segments.forEach((ownSegment: Segment) => {
@@ -987,7 +987,7 @@ declare global {
       return list4;
     }
 
-    left(list4: Vector[], startIndex: number, endIndex: number) {
+    public left(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
@@ -999,11 +999,11 @@ declare global {
       });
     }
 
-    points() {
+    public points() {
       return this.segments.map((segment: Segment) => segment.start);
     }
 
-    rawSquare() {
+    public rawSquare() {
       let area = 0;
       this.segments.forEach((segment: Segment) => {
         const {
@@ -1015,19 +1015,19 @@ declare global {
       return area / 2;
     }
 
-    remove() {
+    public remove() {
       this.segments.forEach((segment: Segment) => {
         segment.remove();
       });
     }
 
-    reverse() {
+    public reverse() {
       this.segments.reverse();
       this.segments.forEach((segment: Segment) => segment.reverse());
       return this;
     }
 
-    right(list4: Vector[], startIndex: number, endIndex: number) {
+    public right(list4: Vector[], startIndex: number, endIndex: number) {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
@@ -1038,7 +1038,7 @@ declare global {
       this.segments = removedSegments.concat(list5);
     }
 
-    splice(polyline: Polyline, startIndex: number, endIndex: number) {
+    public splice(polyline: Polyline, startIndex: number, endIndex: number) {
       const list4 = this.segments.splice(startIndex, endIndex - startIndex, ...polyline.segments);
       list4.forEach((segment: Segment) => {
         segment.remove();
@@ -1046,7 +1046,7 @@ declare global {
       polyline.commit(this);
     }
 
-    square() {
+    public square() {
       let area = this.rawSquare();
       if (area < 0) {
         {
@@ -1056,14 +1056,14 @@ declare global {
       return area;
     }
 
-    unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
+    public unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
       const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
       this.remove();
       this.segments = removedSegments.concat(polyline.reverse().segments);
       polyline.commit(this);
     }
 
-    updateBounds() {
+    public updateBounds() {
       this.calcSimplify();
       let left = Infinity;
       let right = -Infinity;
@@ -1313,21 +1313,21 @@ declare global {
     return value.toFixed(2);
   }
   class Border {
-    center: Vector;
-    polygon: Polygon;
-    radius: number;
-    constructor(polygon: Polygon, center: Vector, radius: number) {
+    public center: Vector;
+    public polygon: Polygon;
+    public radius: number;
+    public constructor(polygon: Polygon, center: Vector, radius: number) {
       if (!(polygon instanceof Polygon)) {}
       this.polygon = polygon;
       this.radius = radius;
       this.center = center;
     }
 
-    static circular(center: Vector, segments: number, radius: number) {
+    public static circular(center: Vector, segments: number, radius: number) {
       return new Border(new Polygon(createCirclePoints(center, segments, radius)), center, radius);
     }
 
-    intersections(segment: Segment): Intersection[] {
+    public intersections(segment: Segment): Intersection[] {
       {
         if (segment.start.distance2(this.center) < this.radius ** 2 * 0.95 && segment.end.distance2(this.center) < this.radius ** 2 * 0.95) {
           return [];
@@ -1337,14 +1337,14 @@ declare global {
     }
   }
   class Territory {
-    isTrack = false;
+    public isTrack = false;
     // Never populated by any observed code path; element type is not inferable from usage.
-    merges: Polygon[];
-    path = new Path2D();
-    polygon: Polygon;
-    square = 0;
-    unit: Unit;
-    constructor(unit: Unit, points: Vector[]) {
+    public merges: Polygon[];
+    public path = new Path2D();
+    public polygon: Polygon;
+    public square = 0;
+    public unit: Unit;
+    public constructor(unit: Unit, points: Vector[]) {
       this.unit = unit;
       this.merges = [];
       this.polygon = new Polygon(points);
@@ -1353,7 +1353,7 @@ declare global {
       this.polygon.calcPath();
     }
 
-    calcPath() {
+    public calcPath() {
       this.path = new Path2D();
       const {
         segments
@@ -1375,11 +1375,11 @@ declare global {
       return this.path;
     }
 
-    calcSquare() {
+    public calcSquare() {
       this.square = this.polygon.square();
     }
 
-    handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       const {
         point: intersectionPoint,
         segment: intersectionSegment
@@ -1412,7 +1412,7 @@ declare global {
       }
     }
 
-    handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       if (unit === this.unit) {
         this.handleSelfIntersect(intersection, unit, segment);
       } else {
@@ -1420,7 +1420,7 @@ declare global {
       }
     }
 
-    handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
       if (intersection.overlay) {
         return;
       }
@@ -1465,18 +1465,18 @@ declare global {
       }
     }
 
-    remove() {
+    public remove() {
       this.polygon.remove();
     }
   }
   class Trail {
-    intersections: TrailIntersectionRecord[];
-    isTrack: boolean;
-    length: number;
-    polyline: Polyline;
-    simplyline: Vector[];
-    unit: Unit;
-    constructor(unit: Unit) {
+    public intersections: TrailIntersectionRecord[];
+    public isTrack: boolean;
+    public length: number;
+    public polyline: Polyline;
+    public simplyline: Vector[];
+    public unit: Unit;
+    public constructor(unit: Unit) {
       this.polyline = new Polyline(this);
       this.simplyline = [];
       this.unit = unit;
@@ -1485,7 +1485,7 @@ declare global {
       this.isTrack = true;
     }
 
-    add(point: Vector) {
+    public add(point: Vector) {
       if (this.polyline.add2(point)) {
         const length2 = this.polyline.segments.length;
         if (length2 > 0) {
@@ -1511,7 +1511,7 @@ declare global {
       }
     }
 
-    handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment) {
+    public handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment) {
       const game = unit.game;
       if (unit === this.unit) {
         if (intersection.overlay || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
@@ -1524,7 +1524,7 @@ declare global {
       }
     }
 
-    intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
+    public intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
       const existingRecord = this.intersections.find((record: TrailIntersectionRecord) => record.point.equal(intersection.point));
       if (existingRecord) {
         existingRecord.intersections.push({
@@ -1544,7 +1544,7 @@ declare global {
       }
     }
 
-    remove() {
+    public remove() {
       this.polyline.remove();
       this.polyline = new Polyline(this);
       this.length = 0;
@@ -1553,11 +1553,11 @@ declare global {
     }
   }
   class StateMachine {
-    context: BotStateContext;
-    payload: Bot;
-    state: string;
-    states: BotStates;
-    constructor(states: BotStates, initialState: string, payload: Bot) {
+    public context: BotStateContext;
+    public payload: Bot;
+    public state: string;
+    public states: BotStates;
+    public constructor(states: BotStates, initialState: string, payload: Bot) {
       this.states = states;
       this.state = '';
       this.payload = payload;
@@ -1565,7 +1565,7 @@ declare global {
       this.change(initialState);
     }
 
-    change(stateName: string) {
+    public change(stateName: string) {
       const currentState = this.states[this.state];
       if (currentState?.leave) {
         this.context = currentState.leave(this.payload, this.context) || this.context;
@@ -1578,7 +1578,7 @@ declare global {
       }
     }
 
-    update() {
+    public update() {
       const currentState = this.states[this.state];
       const nextStateName = currentState?.update(this.payload, this.context);
       if (nextStateName) {
@@ -1895,18 +1895,18 @@ declare global {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
     // SpawnScoreParticles reassigns them to scalar speeds on already-expiring particles (time===1),
     // So the field type is a union and the vector math below is typeof-guarded.
-    acceleration: null | number | Vector;
-    color: ParticleColor;
-    fn: ((particle: Particle) => void) | null;
-    position: Vector;
-    rotate: number;
-    rotation: number;
-    scale: number;
-    target: null | Unit;
-    time: number;
-    velocity: number | Vector;
-    vscale: number;
-    constructor(target: null | Unit, color: ParticleColor, position: Vector, velocity: number | Vector, acceleration: null | number | Vector, rotate: number, scale: number, vscale: number, time: number, callback?: (particle: Particle) => void) {
+    public acceleration: null | number | Vector;
+    public color: ParticleColor;
+    public fn: ((particle: Particle) => void) | null;
+    public position: Vector;
+    public rotate: number;
+    public rotation: number;
+    public scale: number;
+    public target: null | Unit;
+    public time: number;
+    public velocity: number | Vector;
+    public vscale: number;
+    public constructor(target: null | Unit, color: ParticleColor, position: Vector, velocity: number | Vector, acceleration: null | number | Vector, rotate: number, scale: number, vscale: number, time: number, callback?: (particle: Particle) => void) {
       this.target = target;
       this.color = color;
       this.position = position;
@@ -1920,7 +1920,7 @@ declare global {
       this.fn = callback || null;
     }
 
-    static nom(unit: Unit, segment: Segment, scale: number) {
+    public static nom(unit: Unit, segment: Segment, scale: number) {
       const randomSign = Math.sign(Math.random() - 0.5);
       const scaledMaxScale = unit.skin.container.maxScale * scale;
       const {
@@ -1939,7 +1939,7 @@ declare global {
       return particle;
     }
 
-    draw(context: CanvasRenderingContext2D) {
+    public draw(context: CanvasRenderingContext2D) {
       const {
         x,
         y
@@ -1965,7 +1965,7 @@ declare global {
       context.setTransform(savedTransform);
     }
 
-    update(deltaTimeMilliseconds: number) {
+    public update(deltaTimeMilliseconds: number) {
       const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
       this.time -= deltaTimeMilliseconds;
       if (this.time <= 0) {
@@ -2057,18 +2057,18 @@ declare global {
     achievements?: StoredAchievement[];
   }
   class SchemeCycler {
-    current: number;
-    Schemes: SchemeConstructor[];
-    constructor(...schemeConstructors: SchemeConstructor[]) {
+    public current: number;
+    public Schemes: SchemeConstructor[];
+    public constructor(...schemeConstructors: SchemeConstructor[]) {
       this.Schemes = schemeConstructors;
       this.current = 0;
     }
 
-    getSchemes(unit: Unit): Scoreboard {
+    public getSchemes(unit: Unit): Scoreboard {
       return new Scoreboard(this.Schemes.map((SchemeClass: SchemeConstructor) => new SchemeClass(unit)), this);
     }
 
-    next(): void {
+    public next(): void {
       this.current++;
       if (this.current === this.Schemes.length) {
         this.current = 0;
@@ -2076,92 +2076,92 @@ declare global {
     }
   }
   class Scoreboard {
-    manager: SchemeCycler;
-    schemes: ScoreLabel[];
-    constructor(schemes: ScoreLabel[], manager: SchemeCycler) {
+    public manager: SchemeCycler;
+    public schemes: ScoreLabel[];
+    public constructor(schemes: ScoreLabel[], manager: SchemeCycler) {
       this.schemes = schemes;
       this.manager = manager;
     }
 
-    comeback(info?: ComebackInfo): void {
+    public comeback(info?: ComebackInfo): void {
       this.schemes.forEach((scheme: ScoreLabel, index: number) => {
         scheme.comeback(info, this.manager.current !== index);
       });
     }
 
-    getScheme(name?: string): ScoreLabel {
+    public getScheme(name?: string): ScoreLabel {
       if (name) {
         return ensureNonNullable(this.schemes.find((scheme: ScoreLabel) => scheme.name === name));
       }
       return ensureNonNullable(this.schemes[this.manager.current]);
     }
 
-    kill(killer?: Unit, cause?: number): void {
+    public kill(killer?: Unit, cause?: number): void {
       this.schemes.forEach((scheme: ScoreLabel, index: number) => {
         scheme.kill(killer, cause, this.manager.current !== index);
       });
     }
 
-    out(): void {
+    public out(): void {
       this.schemes.forEach((scheme: ScoreLabel, index: number) => {
         scheme.out(this.manager.current !== index);
       });
     }
 
-    print(score?: number): string {
+    public print(score?: number): string {
       return ensureNonNullable(this.schemes[this.manager.current]).print(score);
     }
 
-    result(): number {
+    public result(): number {
       return ensureNonNullable(this.schemes[this.manager.current]).result();
     }
 
-    scores(): number {
+    public scores(): number {
       return ensureNonNullable(this.schemes[this.manager.current]).scores();
     }
 
-    update(dt?: number): void {
+    public update(dt?: number): void {
       this.schemes.forEach((scheme: ScoreLabel, index: number) => {
         scheme.update(dt, this.manager.current !== index);
       });
     }
   }
   class ScoreLabel {
-    accumulator = 0;
-    name: string;
-    unit: Unit;
-    constructor(unit: Unit, name: string) {
+    public accumulator = 0;
+    public name: string;
+    public unit: Unit;
+    public constructor(unit: Unit, name: string) {
       this.unit = unit;
       this.name = name;
     }
 
-    comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
-    getScheme(): this {
+    public comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
+    public getScheme(): this {
       return this;
     }
 
-    kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
-    out(_isNotCurrent?: boolean): void {}
-    print(_score?: number): string {
+    public kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
+    public out(_isNotCurrent?: boolean): void {}
+    public print(_score?: number): string {
       return formatFixed2(this.scores());
     }
 
-    result(): number {
+    public result(): number {
       return this.scores();
     }
 
-    scores(): number {
+    public scores(): number {
       return 0;
     }
 
-    update(_dt?: number, _isNotCurrent?: boolean): void {}
+    public update(_dt?: number, _isNotCurrent?: boolean): void {}
   }
   class BotScoreLabel extends ScoreLabel {
-    constructor(unit: Unit) {
+    public constructor(unit: Unit) {
       super(unit, 'percent');
     }
 
-    override comeback({
+    public override comeback({
       increment
     }: ComebackInfo, isNotCurrent?: boolean): void {
       if (!isNotCurrent && increment * 100 >= 0.01 && this.unit.isPlayer) {
@@ -2175,7 +2175,7 @@ declare global {
       }
     }
 
-    override kill(killer?: Unit, _cause?: number, isNotCurrent?: boolean): void {
+    public override kill(killer?: Unit, _cause?: number, isNotCurrent?: boolean): void {
       if (!isNotCurrent && this.unit.isPlayer) {
         this.unit.addLabel({
           color: ensureNonNullable(killer).skin.colors.main,
@@ -2187,28 +2187,28 @@ declare global {
       }
     }
 
-    override print(scoreOverride?: number): string {
+    public override print(scoreOverride?: number): string {
       const score = scoreOverride || this.scores();
       return `${formatFixed2(score)}%`;
     }
 
-    override result(): number {
+    public override result(): number {
       return +this.scores().toFixed(2);
     }
 
-    override scores(): number {
+    public override scores(): number {
       return this.unit.percent * 100;
     }
   }
   class Quest {
-    current: number;
-    description: string;
-    image: HTMLImageElement | null;
-    ready: boolean;
-    state: number;
-    states: number[];
-    title: string;
-    constructor(title: string, description: string, imageUrl?: string) {
+    public current: number;
+    public description: string;
+    public image: HTMLImageElement | null;
+    public ready: boolean;
+    public state: number;
+    public states: number[];
+    public title: string;
+    public constructor(title: string, description: string, imageUrl?: string) {
       this.title = title;
       this.description = description;
       this.state = 0;
@@ -2231,7 +2231,7 @@ declare global {
       }
     }
 
-    position(): number {
+    public position(): number {
       switch (this.state) {
         case 0:
           return easeOutCubic(this.current / ensureNonNullable(this.states[0]));
@@ -2244,7 +2244,7 @@ declare global {
       }
     }
 
-    update(amount: number): void {
+    public update(amount: number): void {
       this.current += amount;
       if (this.current > ensureNonNullable(this.states[this.state])) {
         this.state++;
@@ -2253,16 +2253,16 @@ declare global {
     }
   }
   class Achievement {
-    best: number;
-    checker: AchievementChecker | null;
-    description: string;
-    earned: boolean;
-    getChecker: () => AchievementChecker;
-    modes: string[];
-    name: string;
-    onEarned?: (game: Game, achievement: Achievement) => void;
-    url: string;
-    constructor(name: string, modes: string[], getChecker: () => AchievementChecker, description: string, url: string, onEarned?: (game: Game, achievement: Achievement) => void) {
+    public best: number;
+    public checker: AchievementChecker | null;
+    public description: string;
+    public earned: boolean;
+    public getChecker: () => AchievementChecker;
+    public modes: string[];
+    public name: string;
+    public onEarned?: (game: Game, achievement: Achievement) => void;
+    public url: string;
+    public constructor(name: string, modes: string[], getChecker: () => AchievementChecker, description: string, url: string, onEarned?: (game: Game, achievement: Achievement) => void) {
       this.name = name;
       this.modes = modes;
       this.getChecker = getChecker;
@@ -2276,7 +2276,7 @@ declare global {
       this.checker = null;
     }
 
-    success(game: Game): void {
+    public success(game: Game): void {
       this.earned = true;
       if (window.ga) {
         window.ga('send', 'event', 'skins_unlock', this.name);
@@ -2289,14 +2289,14 @@ declare global {
     }
   }
   class AchievementStore {
-    achievements: Achievement[];
-    storageName: string;
-    constructor(achievementConfigs: AchievementConfig[], storageName = 'paper.io.storage') {
+    public achievements: Achievement[];
+    public storageName: string;
+    public constructor(achievementConfigs: AchievementConfig[], storageName = 'paper.io.storage') {
       this.storageName = storageName;
       this.achievements = achievementConfigs.map((achievement: AchievementConfig) => new Achievement(achievement.name, achievement.modes, achievement.getChecker, achievement.description, achievement.url, achievement.onEarned));
     }
 
-    load(): void {
+    public load(): void {
       const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
       const loadChallenge = (challengeKey: string, achievementName: string) => {
         if (challenges[challengeKey]) {
@@ -2322,7 +2322,7 @@ declare global {
       }
     }
 
-    save(): void {
+    public save(): void {
       const storedAchievements: StoredAchievement[] = this.achievements.map((achievement: Achievement) => ({
         best: achievement.best,
         earned: achievement.earned,
@@ -2358,9 +2358,9 @@ declare global {
     }
   }
   class AchievementTracker {
-    achievements: Achievement[] = [];
-    profile: AchievementStore | null;
-    constructor(profile: AchievementStore | null, mode: string) {
+    public achievements: Achievement[] = [];
+    public profile: AchievementStore | null;
+    public constructor(profile: AchievementStore | null, mode: string) {
       this.profile = profile;
       if (!this.profile) {
         return;
@@ -2374,24 +2374,24 @@ declare global {
       });
     }
 
-    finish(): void {
+    public finish(): void {
       this.achievements = [];
       ensureNonNullable(this.profile).save();
     }
 
-    onKill(unit: Unit): void {
+    public onKill(unit: Unit): void {
       this.achievements.forEach((achievement: Achievement) => {
         ensureNonNullable(achievement.checker).onKill(unit);
       });
     }
 
-    onOut(): void {
+    public onOut(): void {
       this.achievements.forEach((achievement: Achievement) => {
         ensureNonNullable(achievement.checker).onOut();
       });
     }
 
-    update(unit: Unit, value: number, game: Game): void {
+    public update(unit: Unit, value: number, game: Game): void {
       this.achievements = this.achievements.filter((achievement: Achievement) => {
         ensureNonNullable(achievement.checker).update(unit, value, game);
         if (ensureNonNullable(achievement.checker).progress > achievement.best) {
@@ -2407,15 +2407,15 @@ declare global {
     }
   }
   class City {
-    capital: boolean;
-    country: string;
-    labels: Label[];
-    name: string;
-    position: Vector;
-    scores: number;
-    skin: null | Skin;
-    unit: null | Unit;
-    constructor(name: string, isCapital: boolean, position: Vector, unit: null | Unit) {
+    public capital: boolean;
+    public country: string;
+    public labels: Label[];
+    public name: string;
+    public position: Vector;
+    public scores: number;
+    public skin: null | Skin;
+    public unit: null | Unit;
+    public constructor(name: string, isCapital: boolean, position: Vector, unit: null | Unit) {
       this.name = name;
       this.capital = isCapital;
       this.position = position;
@@ -2426,7 +2426,7 @@ declare global {
       this.skin = null;
     }
 
-    add(amount: number) {
+    public add(amount: number) {
       const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       let scoreGain = 0;
       if (name === this.country) {
@@ -2439,53 +2439,53 @@ declare global {
     }
   }
   class Unit {
-    achievements: AchievementTracker | null;
-    base: Territory;
-    baseDistance: number;
-    baseNearestPoint: null | Vector;
-    baseNearestPointNormal: null | Vector;
-    baseNearestPointTangent: null | Vector;
-    bestPercent: number;
-    bornTime: number;
-    cities: City[];
-    death: boolean;
-    direction: number;
-    fsm: null | StateMachine;
-    game: Game;
-    in: null | Territory;
-    jitter: number;
-    killer: null | Unit;
-    labels: Label[];
-    lastSquare: number;
-    log: Vector[];
-    name: string;
-    percent: number;
-    position: Vector;
-    respawn: boolean;
-    scale: number;
-    schemes: null | Scoreboard;
-    scores: UnitScores;
-    smoothness: number;
-    statistics: UnitStatistics;
-    target: null | Vector;
-    top: number;
-    track: Trail;
-    type: number;
-    vrange: number;
-    get isPlayer() {
+    public achievements: AchievementTracker | null;
+    public base: Territory;
+    public baseDistance: number;
+    public baseNearestPoint: null | Vector;
+    public baseNearestPointNormal: null | Vector;
+    public baseNearestPointTangent: null | Vector;
+    public bestPercent: number;
+    public bornTime: number;
+    public cities: City[];
+    public death: boolean;
+    public direction: number;
+    public fsm: null | StateMachine;
+    public game: Game;
+    public in: null | Territory;
+    public jitter: number;
+    public killer: null | Unit;
+    public labels: Label[];
+    public lastSquare: number;
+    public log: Vector[];
+    public name: string;
+    public percent: number;
+    public position: Vector;
+    public respawn: boolean;
+    public scale: number;
+    public schemes: null | Scoreboard;
+    public scores: UnitScores;
+    public smoothness: number;
+    public statistics: UnitStatistics;
+    public target: null | Vector;
+    public top: number;
+    public track: Trail;
+    public type: number;
+    public vrange: number;
+    public get isPlayer() {
       return false;
     }
 
-    get skin(): Skin {
+    public get skin(): Skin {
       return ensureNonNullable(this._skin);
     }
 
-    set skin(value: Skin) {
+    public set skin(value: Skin) {
       this._skin = value;
     }
 
     private _skin: null | Skin = null;
-    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
+    public constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       this.killer = null;
       this.achievements = null;
       this.death = false;
@@ -2526,29 +2526,29 @@ declare global {
       this.baseNearestPointNormal = null;
     }
 
-    addLabel(label: Label) {
+    public addLabel(label: Label) {
       if (!label.unit) {
         label.unit = this;
       }
       this.labels.push(label);
     }
 
-    movement() {
+    public movement() {
       return this.target && this.target.clone().sub(this.position).normalize();
     }
 
-    onScoreChanged() {
+    public onScoreChanged() {
       if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
 
-    setSkin(skin: Skin) {
+    public setSkin(skin: Skin) {
       this.skin = skin;
       skin.user = this;
     }
 
-    update(deltaTime: number) {
+    public update(deltaTime: number) {
       this.log.push(this.position);
       if (this.in !== this.base) {
         this.scores.accumulator += this.percent * 100 * deltaTime / 1000;
@@ -2582,18 +2582,18 @@ declare global {
     }
   }
   class Player extends Unit {
-    moveTo?: boolean;
-    win: boolean;
-    override get isPlayer() {
+    public moveTo?: boolean;
+    public win: boolean;
+    public override get isPlayer() {
       return true;
     }
 
-    constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
+    public constructor(game: Game, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
       this.win = false;
     }
 
-    override update(deltaMilliseconds: number) {
+    public override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       if (!this.respawn) {
         this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
@@ -2601,19 +2601,19 @@ declare global {
     }
   }
   class Bot extends Unit {
-    aggro: number;
-    aspect?: string;
-    capSquare = 0;
-    def: number;
-    distanceDanger = 0;
-    greed: number;
-    maxDanger: number;
-    safety: number;
+    public aggro: number;
+    public aspect?: string;
+    public capSquare = 0;
+    public def: number;
+    public distanceDanger = 0;
+    public greed: number;
+    public maxDanger: number;
+    public safety: number;
     // Assigned an empty array in the constructor and never populated by any observed code path.
-    targets: Unit[];
-    unitDanger: null | Unit;
-    unitToTrackDistances: UnitTrackDistance[] = [];
-    constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
+    public targets: Unit[];
+    public unitDanger: null | Unit;
+    public unitToTrackDistances: UnitTrackDistance[] = [];
+    public constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], _unused?: undefined, schemeCycler?: SchemeCycler) {
       super(game, name, position, basePoints, _unused, schemeCycler);
       this.aggro = 0;
       this.greed = 0;
@@ -2628,7 +2628,7 @@ declare global {
       this.fsm = new StateMachine(botStates, 'idle', this);
     }
 
-    override update(deltaMilliseconds: number) {
+    public override update(deltaMilliseconds: number) {
       super.update(deltaMilliseconds);
       this.unitToTrackDistances = [];
       let maxDanger = 0;
@@ -2674,16 +2674,16 @@ declare global {
     }
   }
   class TextParticle {
-    acceleration: Vector;
-    color: string;
-    duration: number;
-    fading: boolean;
-    position: Vector;
-    text: string;
-    time: number;
-    unit: null | Unit;
-    velocity: Vector;
-    constructor(text: string, color: string, unit: null | Unit, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds = 2000, isFading = true) {
+    public acceleration: Vector;
+    public color: string;
+    public duration: number;
+    public fading: boolean;
+    public position: Vector;
+    public text: string;
+    public time: number;
+    public unit: null | Unit;
+    public velocity: Vector;
+    public constructor(text: string, color: string, unit: null | Unit, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds = 2000, isFading = true) {
       this.text = text;
       this.color = color || '#000000';
       this.unit = unit;
@@ -2695,7 +2695,7 @@ declare global {
       this.fading = isFading;
     }
 
-    draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number) {
+    public draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number) {
       const easeOut = (t: number) => 1 + --t * t * t * t * t;
       let alphaHex = Math.floor(easeOut(this.time / this.duration) * 255).toString(16);
       if (alphaHex.length < 2) {
@@ -2715,7 +2715,7 @@ declare global {
       context.restore();
     }
 
-    update(deltaMilliseconds: number) {
+    public update(deltaMilliseconds: number) {
       this.time -= deltaMilliseconds;
       if (this.time > 0) {
         this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
@@ -2725,28 +2725,28 @@ declare global {
   }
   const fromCharCode = String.fromCharCode;
   class NamePool {
-    pool: string[];
-    rng: (seed?: number) => number;
-    constructor(pool: string[], seed: number) {
+    public pool: string[];
+    public rng: (seed?: number) => number;
+    public constructor(pool: string[], seed: number) {
       this.pool = pool;
       this.rng = createRandomGenerator(seed);
     }
 
-    aviable() {
+    public aviable() {
       return true;
     }
 
-    get() {
+    public get() {
       const randomValue = this.rng();
       const name = this.pool[~~(randomValue * this.pool.length)];
       return name;
     }
 
-    release(names: string[]) {
+    public release(names: string[]) {
       this.pool.push(...names);
     }
 
-    request() {}
+    public request() {}
   }
   const ENCODED_EXPECTED_HOST: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
   const ENCODED_REDIRECT_HOST: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
@@ -2959,71 +2959,71 @@ declare global {
   }
   type Shape = Polygon | Polyline;
   class Game {
-    achievementsProfile: AchievementStore;
-    angle = 0;
-    best: null | number;
-    border: Border;
-    bots: number[];
-    botSpawnLimited: boolean;
-    build: number;
-    citiesManager: CitiesManager | null;
-    config: Config;
-    controller: Controller;
-    currMetric: Metric | null;
-    cycle: number;
-    debug: boolean;
-    debugGraph: boolean;
-    debugView: boolean;
-    direction: Vector;
-    events: { kills: number; returns: number };
-    fakeMouse: null | Vector;
-    fpsSequence: number[];
-    gameOverCallback: ((result: GameOverResult) => void) | null;
-    isTest: boolean;
-    keyboard?: null | Partial<PointerState>;
-    labels: TextParticle[];
-    language: LanguageStrings;
-    last: number;
-    leaderboard: Leaderboard | null;
-    level: number;
-    looped: boolean;
-    metrics: Metric[];
-    mouse: Vector;
-    nameManager: NamePool;
-    notifications: Quest[];
-    origin: null | Vector = null;
-    particles: Particle[];
-    player: null | Player;
-    playerDeathCallback: (() => void) | null;
-    qas: Record<string, boolean>;
-    quality: number;
-    recording: null | Recorder;
-    renderer: ((game: Game) => void) | null;
-    replaying?: null | Replayer;
-    rng: (n?: number) => number;
-    scale: number;
-    schemesManager: SchemeCycler;
-    seed: number;
-    skinManager: SkinManager;
-    space: SpatialGrid;
-    spawnSuspend: number;
-    square: number;
-    startTime = 0;
-    stats: { ait: number; fps: number; rt: number; st: number; ut: number };
-    stopped: boolean;
-    tailRecovered: boolean;
-    timeAccumulated: number;
-    timings: { aiEndTime: number; aiStartTime: number; renderEndTime: number; renderStartTime: number; spawnEndTime: number; spawnStartTime: number; updateEndTime: number; updateStartTime: number };
-    topListChanged: boolean;
-    units: Unit[];
-    updateParticlesId: number;
-    view: HTMLCanvasElement;
-    visible: boolean;
-    get renderContext(): RenderContext | undefined {
+    public achievementsProfile: AchievementStore;
+    public angle = 0;
+    public best: null | number;
+    public border: Border;
+    public bots: number[];
+    public botSpawnLimited: boolean;
+    public build: number;
+    public citiesManager: CitiesManager | null;
+    public config: Config;
+    public controller: Controller;
+    public currMetric: Metric | null;
+    public cycle: number;
+    public debug: boolean;
+    public debugGraph: boolean;
+    public debugView: boolean;
+    public direction: Vector;
+    public events: { kills: number; returns: number };
+    public fakeMouse: null | Vector;
+    public fpsSequence: number[];
+    public gameOverCallback: ((result: GameOverResult) => void) | null;
+    public isTest: boolean;
+    public keyboard?: null | Partial<PointerState>;
+    public labels: TextParticle[];
+    public language: LanguageStrings;
+    public last: number;
+    public leaderboard: Leaderboard | null;
+    public level: number;
+    public looped: boolean;
+    public metrics: Metric[];
+    public mouse: Vector;
+    public nameManager: NamePool;
+    public notifications: Quest[];
+    public origin: null | Vector = null;
+    public particles: Particle[];
+    public player: null | Player;
+    public playerDeathCallback: (() => void) | null;
+    public qas: Record<string, boolean>;
+    public quality: number;
+    public recording: null | Recorder;
+    public renderer: ((game: Game) => void) | null;
+    public replaying?: null | Replayer;
+    public rng: (n?: number) => number;
+    public scale: number;
+    public schemesManager: SchemeCycler;
+    public seed: number;
+    public skinManager: SkinManager;
+    public space: SpatialGrid;
+    public spawnSuspend: number;
+    public square: number;
+    public startTime = 0;
+    public stats: { ait: number; fps: number; rt: number; st: number; ut: number };
+    public stopped: boolean;
+    public tailRecovered: boolean;
+    public timeAccumulated: number;
+    public timings: { aiEndTime: number; aiStartTime: number; renderEndTime: number; renderStartTime: number; spawnEndTime: number; spawnStartTime: number; updateEndTime: number; updateStartTime: number };
+    public topListChanged: boolean;
+    public units: Unit[];
+    public updateParticlesId: number;
+    public view: HTMLCanvasElement;
+    public visible: boolean;
+    public get renderContext(): RenderContext | undefined {
       return this.getRenderContext();
     }
 
-    constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
+    public constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
       this.best = null;
       this.isTest = false;
       this.playerDeathCallback = null;
@@ -3114,7 +3114,7 @@ declare global {
       }, 500);
     }
 
-    addCity(unit: Unit) {
+    public addCity(unit: Unit) {
       const name = ensureNonNullable(unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       const city = new City(ensureNonNullable(this.citiesManager).get(name), false, unit.position.clone(), unit);
       if (this.skinManager.isFlagSkinManager) {
@@ -3124,7 +3124,7 @@ declare global {
       unit.cities.push(city);
     }
 
-    addPlayer(player: Player) {
+    public addPlayer(player: Player) {
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
@@ -3141,15 +3141,15 @@ declare global {
       this.debug = player.name === 'dratest';
     }
 
-    addUnit(unit: Unit) {
+    public addUnit(unit: Unit) {
       this.units.push(unit);
     }
 
-    alert(text?: string, color?: string) {
+    public alert(text?: string, color?: string) {
       this.labels.push(new TextParticle(ensureNonNullable(text), color || '#000000', this.player));
     }
 
-    changeShields(): void {
+    public changeShields(): void {
       const {
         countries: leaderboard
       } = ensureNonNullable(this.leaderboard);
@@ -3184,7 +3184,7 @@ declare global {
       }
     }
 
-    checkBaseCommits(): void {
+    public checkBaseCommits(): void {
       this.units.forEach((unit: Unit) => {
         const polygon = unit.base.polygon;
         polygon.segments.forEach((segment: Segment) => {
@@ -3201,7 +3201,7 @@ declare global {
       });
     }
 
-    checkSegments(): void {
+    public checkSegments(): void {
       let totalSegmentCount = 0;
       this.units.forEach((unit: Unit) => {
         totalSegmentCount += unit.base.polygon.segments.length;
@@ -3210,7 +3210,7 @@ declare global {
       this.space.segmentsCount();
     }
 
-    finishPrepare(): void {
+    public finishPrepare(): void {
       const targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
       if (this.cycle < targetCycle) {
         console.log(`skip cycles to: ${targetCycle}`);
@@ -3220,7 +3220,7 @@ declare global {
       }
     }
 
-    gameOver(reason?: number): void {
+    public gameOver(reason?: number): void {
       const player = ensureNonNullable(this.player);
       if (!player.win) {
         let minX = Infinity;
@@ -3296,7 +3296,7 @@ declare global {
       }
     }
 
-    getMovement(deltaMilliseconds: number, unit: Unit): Segment[] {
+    public getMovement(deltaMilliseconds: number, unit: Unit): Segment[] {
       const {
         unitSpeed
       } = this.config;
@@ -3352,7 +3352,7 @@ declare global {
       return list4;
     }
 
-    getRenderContext(): RenderContext | undefined {
+    public getRenderContext(): RenderContext | undefined {
       const {
         view
       } = this;
@@ -3445,7 +3445,7 @@ declare global {
       };
     }
 
-    getSpawnPosition(spawnMode?: 'bounds' | 'center' | 'player' | 'random', unitRadius?: number): undefined | Vector {
+    public getSpawnPosition(spawnMode?: 'bounds' | 'center' | 'player' | 'random', unitRadius?: number): undefined | Vector {
       const {
         center
       } = this.space;
@@ -3510,7 +3510,7 @@ declare global {
       return vector;
     }
 
-    handleReturn(unit: Unit): boolean | undefined {
+    public handleReturn(unit: Unit): boolean | undefined {
       if (unit.death) {
         return;
       }
@@ -3687,7 +3687,7 @@ declare global {
       return undefined;
     }
 
-    handleUnitMovements(deltaMilliseconds?: number) {
+    public handleUnitMovements(deltaMilliseconds?: number) {
       this.units.slice().forEach((unit: Unit) => {
         if (unit.death) {
           return;
@@ -3808,11 +3808,11 @@ declare global {
       });
     }
 
-    isPlayer(unit?: Unit): boolean {
+    public isPlayer(unit?: Unit): boolean {
       return unit === this.player;
     }
 
-    kill(unit?: Unit, unit2?: Unit, reason?: number): void {
+    public kill(unit?: Unit, unit2?: Unit, reason?: number): void {
       assertNonNullable(unit);
       if (unit.death) {
         return;
@@ -3859,7 +3859,7 @@ declare global {
       }
     }
 
-    loop(): void {
+    public loop(): void {
       const currentTime = now();
       if (this.stopped) {
         return;
@@ -3927,7 +3927,7 @@ declare global {
       });
     }
 
-    post(): void {
+    public post(): void {
       const paper2_results = window.paper2_results;
       const scores = paper2_results.scores;
       function getLanguageCode(): string {
@@ -3967,7 +3967,7 @@ declare global {
       });
     }
 
-    prepareAndUpdate(deltaMilliseconds?: number): void {
+    public prepareAndUpdate(deltaMilliseconds?: number): void {
       if (this.preparing()) {
         let prepareAcceleration = this.config.prepareAcceleration;
         while (this.preparing() && prepareAcceleration > 0) {
@@ -3980,11 +3980,11 @@ declare global {
       }
     }
 
-    preparing(): boolean {
+    public preparing(): boolean {
       return this.cycle < this.config.prepareCounter;
     }
 
-    readInput(deltaMilliseconds?: number): void {
+    public readInput(deltaMilliseconds?: number): void {
       if (!this.controller) {
         return;
       }
@@ -4034,7 +4034,7 @@ declare global {
       }
     }
 
-    recoverTail(): void {
+    public recoverTail(): void {
       const player = this.player;
       if (player && player.in == player.base && !player.base.polygon.inside(player.position)) {
         {
@@ -4057,20 +4057,20 @@ declare global {
       }
     }
 
-    render(): void {
+    public render(): void {
       if (this.renderer) {
         this.renderer(this);
       }
     }
 
-    setLeaderboard(leaderboard?: Leaderboard) {
+    public setLeaderboard(leaderboard?: Leaderboard) {
       if (leaderboard) {
         this.leaderboard = leaderboard;
         this.changeShields();
       }
     }
 
-    spawnBot(spawnMode?: 'bounds' | 'center' | 'player' | 'random'): void {
+    public spawnBot(spawnMode?: 'bounds' | 'center' | 'player' | 'random'): void {
       const {
         baseCount,
         baseRadius,
@@ -4119,7 +4119,7 @@ declare global {
       this.bots[botType] = ensureNonNullable(this.bots[botType]) + 1;
     }
 
-    spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
+    public spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {
       const {
         baseCount,
         baseRadius,
@@ -4153,7 +4153,7 @@ declare global {
       this.startTime = now();
     }
 
-    stop(): void {
+    public stop(): void {
       this.stopped = true;
       clearInterval(this.updateParticlesId);
       for (const unit of this.units) {
@@ -4161,7 +4161,7 @@ declare global {
       }
     }
 
-    update(deltaMilliseconds?: number): boolean {
+    public update(deltaMilliseconds?: number): boolean {
       const {
         maxScale,
         minScale,
@@ -4337,7 +4337,7 @@ declare global {
       return true;
     }
 
-    updateMetrics(frameTime: number): void {
+    public updateMetrics(frameTime: number): void {
       const {
         stats,
         timings
@@ -4448,16 +4448,16 @@ declare global {
     unitSpeed: number;
   }
   class KeyboardModeSwitch {
-    mode2: boolean;
-    constructor() {
+    public mode2: boolean;
+    public constructor() {
       this.mode2 = false;
     }
 
-    get(): boolean {
+    public get(): boolean {
       return this.mode2;
     }
 
-    switch(): void {}
+    public switch(): void {}
   }
   interface PointerState {
     x: number;
@@ -4483,20 +4483,20 @@ declare global {
     handler: () => void;
   }
   class Controller {
-    buttons: MouseButtonsState;
-    codes: KeyCodeHandler[];
-    dispose: () => void;
-    down: boolean;
-    keyboardModeSwitch: KeyboardModeSwitch | undefined;
-    lastMouse: null | PointerState;
-    left: boolean;
-    modifiers: ModifiersState;
-    mouse: null | PointerState;
-    pressedButtons: number[];
-    right: boolean;
-    sets: KeyCodeSetHandler[];
-    up: boolean;
-    constructor(element: HTMLElement, keyboardModeSwitch?: KeyboardModeSwitch) {
+    public buttons: MouseButtonsState;
+    public codes: KeyCodeHandler[];
+    public dispose: () => void;
+    public down: boolean;
+    public keyboardModeSwitch: KeyboardModeSwitch | undefined;
+    public lastMouse: null | PointerState;
+    public left: boolean;
+    public modifiers: ModifiersState;
+    public mouse: null | PointerState;
+    public pressedButtons: number[];
+    public right: boolean;
+    public sets: KeyCodeSetHandler[];
+    public up: boolean;
+    public constructor(element: HTMLElement, keyboardModeSwitch?: KeyboardModeSwitch) {
       this.up = false;
       this.down = false;
       this.left = false;
@@ -4599,21 +4599,21 @@ declare global {
       };
     }
 
-    addButton(code: number, handler: () => void) {
+    public addButton(code: number, handler: () => void) {
       this.codes.push({
         code,
         handler
       });
     }
 
-    addSet(codes: number[], handler: () => void) {
+    public addSet(codes: number[], handler: () => void) {
       this.sets.push({
         codes: codes.sort(),
         handler
       });
     }
 
-    onKeyChange(event: KeyboardEvent, isPressed: boolean) {
+    public onKeyChange(event: KeyboardEvent, isPressed: boolean) {
       if (event.target === document.body) {
         let isHandled = true;
         const {
@@ -4673,7 +4673,7 @@ declare global {
       }
     }
 
-    onMouseChange(event: MouseEvent, isPressed: boolean) {
+    public onMouseChange(event: MouseEvent, isPressed: boolean) {
       switch (event.button) {
         case 0:
           this.buttons.left = isPressed;
@@ -4687,7 +4687,7 @@ declare global {
       }
     }
 
-    pressed(): boolean {
+    public pressed(): boolean {
       return this.up || this.down || this.left || this.right;
     }
   }
@@ -4706,22 +4706,22 @@ declare global {
     y?: number;
   }
   class SkinLayer {
-    config: Config;
-    direction: string;
-    image: HTMLCanvasElement | null;
-    level: number;
-    pivot: {
+    public config: Config;
+    public direction: string;
+    public image: HTMLCanvasElement | null;
+    public level: number;
+    public pivot: {
       x: number;
       y: number;
     };
 
-    rotation: number;
-    scale: number;
-    src: HTMLCanvasElement | HTMLImageElement | null;
-    url: string;
-    x: number;
-    y: number;
-    constructor(config: Config, descriptor: SkinLayerDescriptor, onReady?: (skinLayer: SkinLayer) => void) {
+    public rotation: number;
+    public scale: number;
+    public src: HTMLCanvasElement | HTMLImageElement | null;
+    public url: string;
+    public x: number;
+    public y: number;
+    public constructor(config: Config, descriptor: SkinLayerDescriptor, onReady?: (skinLayer: SkinLayer) => void) {
       this.level = 0;
       this.scale = 1;
       this.x = 0;
@@ -4746,7 +4746,7 @@ declare global {
       }
     }
 
-    rescale(scale: number) {
+    public rescale(scale: number) {
       const {
         maxScale,
         trackWidth
@@ -4781,12 +4781,12 @@ declare global {
     url?: string;
   }
   class PatternAsset {
-    pattern: CanvasPattern | null;
-    ready: boolean;
-    scale: number;
-    src: HTMLImageElement | null;
-    url: string;
-    constructor(config: Config, canvas: HTMLCanvasElement, baseUrl: string, source: PatternSource = {}, onReady?: () => void) {
+    public pattern: CanvasPattern | null;
+    public ready: boolean;
+    public scale: number;
+    public src: HTMLImageElement | null;
+    public url: string;
+    public constructor(config: Config, canvas: HTMLCanvasElement, baseUrl: string, source: PatternSource = {}, onReady?: () => void) {
       this.url = baseUrl + source.url;
       this.scale = source.scale || 1;
       this.src = null;
@@ -4843,14 +4843,14 @@ declare global {
     y?: number;
   }
   class Avatar {
-    backLayers: SkinLayer[];
-    frontLayers: SkinLayer[];
-    layers: SkinLayer[];
-    ready: boolean;
-    scale: number;
-    x: number;
-    y: number;
-    constructor(config: Config, baseUrl: string, descriptor: AvatarDescriptor, onReady?: () => void) {
+    public backLayers: SkinLayer[];
+    public frontLayers: SkinLayer[];
+    public layers: SkinLayer[];
+    public ready: boolean;
+    public scale: number;
+    public x: number;
+    public y: number;
+    public constructor(config: Config, baseUrl: string, descriptor: AvatarDescriptor, onReady?: () => void) {
       this.layers = [];
       this.scale = 1;
       this.x = 0;
@@ -4885,32 +4885,32 @@ declare global {
     layer: SkinLayer;
   }
   class DisplayList {
-    backLayers: DisplayLayerEntry[];
-    displays: Avatar[];
-    frontLayers: DisplayLayerEntry[];
-    maxScale: number;
-    get ready(): boolean {
+    public backLayers: DisplayLayerEntry[];
+    public displays: Avatar[];
+    public frontLayers: DisplayLayerEntry[];
+    public maxScale: number;
+    public get ready(): boolean {
       return this.displays.every((display: Avatar) => display.ready);
     }
 
-    constructor() {
+    public constructor() {
       this.displays = [];
       this.frontLayers = [];
       this.backLayers = [];
       this.maxScale = 0;
     }
 
-    add(display: Avatar) {
+    public add(display: Avatar) {
       this.displays.push(display);
       this.sort();
     }
 
-    remove(display: Avatar) {
+    public remove(display: Avatar) {
       this.displays = this.displays.filter((other: Avatar) => other !== display);
       this.sort();
     }
 
-    sort(): void {
+    public sort(): void {
       this.frontLayers = ([] as DisplayLayerEntry[]).concat(...this.displays.map((display: Avatar) =>
         display.frontLayers.map((layer: SkinLayer) => ({
           display,
@@ -6767,14 +6767,14 @@ declare global {
     roundedFlag?: HTMLCanvasElement | HTMLImageElement;
   }
   class Skin {
-    assets: Asset[];
-    colors: SkinColors;
-    config: Config | undefined;
-    container: DisplayList;
-    name: string | undefined;
-    pattern: null | PatternAsset;
-    user: undefined | Unit;
-    constructor() {
+    public assets: Asset[];
+    public colors: SkinColors;
+    public config: Config | undefined;
+    public container: DisplayList;
+    public name: string | undefined;
+    public pattern: null | PatternAsset;
+    public user: undefined | Unit;
+    public constructor() {
       this.config = undefined;
       this.user = undefined;
       this.name = undefined;
@@ -6790,7 +6790,7 @@ declare global {
       this.container = new DisplayList();
     }
 
-    addAsset(asset: Asset) {
+    public addAsset(asset: Asset) {
       if (asset.content.colors) {
         this.colors = asset.content.colors;
       }
@@ -6803,7 +6803,7 @@ declare global {
       this.assets.push(asset);
     }
 
-    removeAsset(asset: Asset) {
+    public removeAsset(asset: Asset) {
       if (asset.content.display) {
         this.container.remove(asset.content.display);
       }
@@ -6821,38 +6821,38 @@ declare global {
     pool: AssetSet;
   }
   class Asset {
-    content: AssetContent;
-    loadingStarted: boolean;
-    name: string;
-    ready: boolean;
-    constructor(name: string) {
+    public content: AssetContent;
+    public loadingStarted: boolean;
+    public name: string;
+    public ready: boolean;
+    public constructor(name: string) {
       this.loadingStarted = false;
       this.name = name;
       this.content = {};
       this.ready = false;
     }
 
-    load(): void {}
+    public load(): void {}
   }
   class SvgAsset extends Asset {
-    override pool: ImageAssetSet;
-    source: SkinColors;
-    constructor(pool: ImageAssetSet, name: string, source: SkinColors) {
+    public override pool: ImageAssetSet;
+    public source: SkinColors;
+    public constructor(pool: ImageAssetSet, name: string, source: SkinColors) {
       super(name);
       this.pool = pool;
       this.source = source;
     }
   }
   class ImageAsset extends Asset {
-    override pool: SvgAssetSet;
-    source: SkinSource;
-    constructor(pool: SvgAssetSet, name: string, source: SkinSource) {
+    public override pool: SvgAssetSet;
+    public source: SkinSource;
+    public constructor(pool: SvgAssetSet, name: string, source: SkinSource) {
       super(name);
       this.pool = pool;
       this.source = source;
     }
 
-    override load(): void {
+    public override load(): void {
       if (this.loadingStarted) {
         return;
       }
@@ -6875,16 +6875,16 @@ declare global {
     }
   }
   class AssetSet {
-    assets: Asset[];
-    config: Config | undefined;
-    name: string;
-    constructor(name: string) {
+    public assets: Asset[];
+    public config: Config | undefined;
+    public name: string;
+    public constructor(name: string) {
       this.config = undefined;
       this.name = name;
       this.assets = [];
     }
 
-    get(name?: string, requireReady?: boolean): Asset | null {
+    public get(name?: string, requireReady?: boolean): Asset | null {
       let asset;
       asset = this.assets.find((asset: Asset) => asset.name === name && (requireReady ? asset.ready : true));
       if (!asset) {
@@ -6895,13 +6895,13 @@ declare global {
     }
   }
   class ImageAssetSet extends AssetSet {
-    constructor(config: Config) {
+    public constructor(config: Config) {
       super('colors');
       this.config = config;
       this.add(COLOR_PALETTE);
     }
 
-    add(colors: string[]) {
+    public add(colors: string[]) {
       const {
         config
       } = this;
@@ -6939,14 +6939,14 @@ declare global {
       }));
     }
 
-    loadAsset<T>(asset: T): T {
+    public loadAsset<T>(asset: T): T {
       return asset;
     }
   }
   class SvgAssetSet extends AssetSet {
-    path: string;
-    view: HTMLCanvasElement;
-    constructor(config: Config, canvas: HTMLCanvasElement, path: string, sources: SkinSource[], shouldPreload = false) {
+    public path: string;
+    public view: HTMLCanvasElement;
+    public constructor(config: Config, canvas: HTMLCanvasElement, path: string, sources: SkinSource[], shouldPreload = false) {
       super('classic');
       this.config = config;
       this.view = canvas;
@@ -6959,7 +6959,7 @@ declare global {
       }
     }
 
-    add(sources: SkinSource[]) {
+    public add(sources: SkinSource[]) {
       this.assets.push(...(sources || []).map((source: SkinSource) => new ImageAsset(this, source.name, source)));
     }
   }
@@ -6982,19 +6982,19 @@ declare global {
   type SkinManagerAssetMap = Record<string, SkinManagerAssetEntry>;
   type SkinManagerUsageMap = Record<string, Skin[]>;
   class SkinManager {
-    assets: SkinManagerAssetMap;
-    game?: Game;
-    rng: (n?: number) => number;
-    unusedAssets: SkinManagerAssetMap;
-    usedBy: SkinManagerUsageMap;
-    constructor(seed?: number) {
+    public assets: SkinManagerAssetMap;
+    public game?: Game;
+    public rng: (n?: number) => number;
+    public unusedAssets: SkinManagerAssetMap;
+    public usedBy: SkinManagerUsageMap;
+    public constructor(seed?: number) {
       this.usedBy = {};
       this.assets = {};
       this.unusedAssets = {};
       this.rng = createRandomGenerator(ensureNonNullable(seed));
     }
 
-    available(tag?: string): number {
+    public available(tag?: string): number {
       const list4 = Object.values(this.unusedAssets);
       if (tag) {
         return list4.filter((entry: SkinManagerAssetEntry) => entry.tag == tag).length;
@@ -7002,7 +7002,7 @@ declare global {
       return list4.length;
     }
 
-    get(name?: string, tag?: string): Skin {
+    public get(name?: string, tag?: string): Skin {
       if (!name) {
         name = this.randomAssetName(tag);
       }
@@ -7017,15 +7017,15 @@ declare global {
       return skin;
     }
 
-    getCitySkin(_name?: string): Skin | undefined {
+    public getCitySkin(_name?: string): Skin | undefined {
       return undefined;
     }
 
-    has(name: string): boolean {
+    public has(name: string): boolean {
       return name in this.unusedAssets;
     }
 
-    randomAssetName(tag?: string, unusedOnly = true): string | undefined {
+    public randomAssetName(tag?: string, unusedOnly = true): string | undefined {
       const assetMap = unusedOnly ? this.unusedAssets : this.assets;
       let list4 = Object.keys(assetMap);
       if (tag) {
@@ -7036,20 +7036,20 @@ declare global {
       return name;
     }
 
-    registerAsset(asset: Asset, tag: string) {
+    public registerAsset(asset: Asset, tag: string) {
       this.unusedAssets[asset.name] = this.assets[asset.name] = {
         asset,
         tag
       };
     }
 
-    registerAssets(assetSet: AssetSet, tag: string) {
+    public registerAssets(assetSet: AssetSet, tag: string) {
       for (const asset of assetSet.assets) {
         this.registerAsset(asset, tag);
       }
     }
 
-    release(skin: Skin) {
+    public release(skin: Skin) {
       const name = ensureNonNullable(skin.name);
       const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin != skin);
       this.usedBy[name] = remaining;
@@ -7059,7 +7059,7 @@ declare global {
       }
     }
 
-    reskin(name: string) {
+    public reskin(name: string) {
       const skins = this.usedBy[name];
       if (skins) {
         for (const skin of skins) {
@@ -7070,19 +7070,19 @@ declare global {
     }
   }
   class GameSkinManager extends SkinManager {
-    constructor(imageAssetSet: ImageAssetSet, svgAssetSet: SvgAssetSet, seed?: number) {
+    public constructor(imageAssetSet: ImageAssetSet, svgAssetSet: SvgAssetSet, seed?: number) {
       super(seed);
       this.registerAssets(imageAssetSet, 'colored');
       this.registerAssets(svgAssetSet, 'classic');
     }
 
-    getBotSkin(): Skin {
+    public getBotSkin(): Skin {
       const tagOrder = this.rng() < 0.25 ? ['colored', 'classic'] : ['classic', 'colored'];
       const name = this.randomAssetName(tagOrder[0], true) || this.randomAssetName(tagOrder[1]);
       return this.get(name);
     }
 
-    override getPlayerSkin(name?: string): Skin {
+    public override getPlayerSkin(name?: string): Skin {
       if (!name) {
         return this.get(undefined, 'colored');
       }
