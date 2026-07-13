@@ -14,24 +14,26 @@ import {
 
 import type {
   Config,
-  LanguagesData,
   SkinSource
 } from './engine.ts';
+import type { LanguagesData } from './i18n.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
 import {
   AchievementStore,
   BotScoreLabel,
-  buildLanguageList,
   createGameApi,
   defaultConfig,
-  findDefaultLanguage,
   GameSkinManager,
   ImageAssetSet,
   NamePool,
   SchemeCycler,
   SvgAssetSet
 } from './engine.ts';
+import {
+  buildLanguageList,
+  findDefaultLanguage
+} from './i18n.ts';
 import { ensureNonNullable } from './type-guards.ts';
 import { App } from './ui.ts';
 // The ad-network integration this offline copy strips out (see `index.html`).

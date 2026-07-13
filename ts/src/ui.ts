@@ -16,15 +16,15 @@ import type {
   Config,
   GameApi,
   GameResults,
-  Language,
   SkinSource
 } from './engine.ts';
+import type { Language } from './i18n.ts';
 
+import { DAYS_IN_YEAR } from './engine.ts';
 import {
-  DAYS_IN_YEAR,
   findDefaultLanguage,
   list3
-} from './engine.ts';
+} from './i18n.ts';
 import {
   assertNonNullable,
   ensureNonNullable
