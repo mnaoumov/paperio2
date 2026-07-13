@@ -6,6 +6,8 @@
  * types. esbuild bundles this plus preact + js-cookie into `dist/app2.js`.
  */
 
+import type { FunctionComponent } from 'preact';
+
 import Cookies from 'js-cookie';
 import {
   createContext,
@@ -5976,10 +5978,11 @@ declare global {
     pattern?: PatternSource;
   }
   const LanguageContext = createContext<Language | undefined>(undefined);
-  const Tips = ({
-    messages
-  }: {
+  interface TipsProps {
     messages: string[];
+  }
+  const Tips: FunctionComponent<TipsProps> = ({
+    messages
   }) => {
     const [tipIndex, setTipIndex] = useState(0);
     useEffect(() => {
@@ -6001,12 +6004,13 @@ declare global {
       }, messages[tipIndex])
     );
   };
-  const ConfigForm = ({
-    apply,
-    config
-  }: {
+  interface ConfigFormProps {
     apply: (event: Event) => void;
     config: Config | null | undefined;
+  }
+  const ConfigForm: FunctionComponent<ConfigFormProps> = ({
+    apply,
+    config
   }) => {
     if (!config) {
       return null;
@@ -6042,16 +6046,17 @@ declare global {
       }, 'Применить')
     );
   };
-  const ConfigScreen = ({
-    api,
-    setPreparing,
-    setState,
-    view
-  }: {
+  interface ConfigScreenProps {
     api: GameApi | null;
     setPreparing: Dispatch<boolean>;
     setState: Dispatch<string>;
     view: Ref<HTMLCanvasElement | null>;
+  }
+  const ConfigScreen: FunctionComponent<ConfigScreenProps> = ({
+    api,
+    setPreparing,
+    setState,
+    view
   }) => {
     const config = api && api.game && api.game.config;
     const applyConfig = (event: Event): void => {
@@ -6093,10 +6098,11 @@ declare global {
       })
     );
   };
-  const LanguageFooter = ({
-    setLanguage
-  }: {
+  interface LanguageFooterProps {
     setLanguage: Dispatch<Language | undefined>;
+  }
+  const LanguageFooter: FunctionComponent<LanguageFooterProps> = ({
+    setLanguage
   }) => {
     const currentLanguage = useContext(LanguageContext);
     const languageItems = list3.map((language: Language, index: number) =>
@@ -6117,14 +6123,7 @@ declare global {
       }, languageItems)
     );
   };
-  const MenuScreen = ({
-    api,
-    nickName,
-    route,
-    setNickName,
-    skin,
-    start
-  }: {
+  interface MenuScreenProps {
     api: GameApi | null;
     nickName: string;
     playable: boolean;
@@ -6133,8 +6132,18 @@ declare global {
     route: Dispatch<string>;
     setLanguage: Dispatch<Language | undefined>;
     setNickName: Dispatch<string>;
+    setState: Dispatch<string>;
     skin: string;
+    skins: SkinSource[];
     start: () => void;
+  }
+  const MenuScreen: FunctionComponent<MenuScreenProps> = ({
+    api,
+    nickName,
+    route,
+    setNickName,
+    skin,
+    start
   }) => {
     const {
       lng
@@ -6225,17 +6234,7 @@ declare global {
       })
     );
   };
-  const GameScreen = ({
-    api,
-    bestScore,
-    lastPercent,
-    nickName,
-    route,
-    setBestScore,
-    setPreparing,
-    setResults,
-    skin
-  }: {
+  interface GameScreenProps {
     api: GameApi | null;
     bestScore: number;
     lastPercent?: number;
@@ -6245,6 +6244,17 @@ declare global {
     setPreparing: Dispatch<boolean>;
     setResults: Dispatch<GameResults | null>;
     skin: string;
+  }
+  const GameScreen: FunctionComponent<GameScreenProps> = ({
+    api,
+    bestScore,
+    lastPercent,
+    nickName,
+    route,
+    setBestScore,
+    setPreparing,
+    setResults,
+    skin
   }) => {
     useEffect(() => {
       const handleGameOver = (results: GameResults): void => {
@@ -6277,17 +6287,18 @@ declare global {
     }, []);
     return null;
   };
-  const ResultsScreen = ({
-    bestScore,
-    results,
-    route
-  }: {
+  interface ResultsScreenProps {
     bestScore: number;
     country?: undefined;
     provider?: undefined;
     results: GameResults;
     route: Dispatch<string>;
     start: () => void;
+  }
+  const ResultsScreen: FunctionComponent<ResultsScreenProps> = ({
+    bestScore,
+    results,
+    route
   }) => {
     const goToMenu = (): void => {
       route('menu');
@@ -6426,10 +6437,11 @@ declare global {
       })
     );
   };
-  const SkinPreview = ({
-    name
-  }: {
+  interface SkinPreviewProps {
     name: string;
+  }
+  const SkinPreview: FunctionComponent<SkinPreviewProps> = ({
+    name
   }) => {
     return createElement(
       'div',
@@ -6448,16 +6460,17 @@ declare global {
       )
     );
   };
-  const SkinCarousel = ({
-    menu,
-    setSkin,
-    skin,
-    skins
-  }: {
+  interface SkinCarouselProps {
     menu: () => void;
     setSkin: Dispatch<string>;
     skin: string;
     skins: SkinSource[];
+  }
+  const SkinCarousel: FunctionComponent<SkinCarouselProps> = ({
+    menu,
+    setSkin,
+    skin,
+    skins
   }) => {
     const {
       lng
@@ -6510,16 +6523,17 @@ declare global {
       )
     );
   };
-  const SkinsScreen = ({
-    route,
-    setSkin,
-    skin,
-    skins
-  }: {
+  interface SkinsScreenProps {
     route: Dispatch<string>;
     setSkin: Dispatch<string>;
     skin: string;
     skins: SkinSource[];
+  }
+  const SkinsScreen: FunctionComponent<SkinsScreenProps> = ({
+    route,
+    setSkin,
+    skin,
+    skins
   }) => {
     const goToMenu = (): void => {
       route('menu');
@@ -6575,18 +6589,19 @@ declare global {
       expires: number;
     }) => void;
   }
-  const App = ({
-    api,
-    provider,
-    skins,
-    storage
-  }: {
+  interface AppProps {
     ads?: undefined;
     api: GameApi | null;
     mode?: string;
     provider?: undefined;
     skins: SkinSource[];
     storage: StorageApi;
+  }
+  const App: FunctionComponent<AppProps> = ({
+    api,
+    provider,
+    skins,
+    storage
   }) => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [playable, setPlayable] = useState(false);
