@@ -4891,15 +4891,66 @@ declare global {
     x?: number;
     y?: number;
   }
+  const PIVOT_DEFAULT = 0.5;
+  const UNIT_NAME_FONT_SIZE = 24;
+  const UNIT_NAME_OUTLINE_WIDTH = 4;
+  const UNIT_NAME_ZOOM_NUDGE = 1.001;
+  const RECORDING_LABEL_BLINK_MODULO = 2;
+  const UNIT_NAME_OFFSET_Y = -12;
+  const UNIT_NAME_LINE_WIDTH_DIVISOR = 4;
+  const UNIT_NAME_NICK_SHADOW_DIVISOR = 3;
+  const UNIT_NAME_SHADOW_OFFSET = 2;
+  const CROWN_BASE_OFFSET = 24;
+  const CROWN_ZOOM_OFFSET = -10;
+  const CROWN_OFFSET_A = -4;
+  const CROWN_OFFSET_B = -12;
+  const DEGREES_TO_RADIANS = 0.0174533;
+  const TRAIL_UNDERLAY_WIDTH_EXTRA = 2;
+  const AVATAR_VIEW_PADDING_FACTOR = 4;
+  const UNIT_NAME_VIEW_PADDING_FACTOR = 20;
+  const TRAIL_ALPHA = 0.6;
+  const ARENA_BORDER_OFFSET_FACTOR = 3;
+  const MINIMAP_CALC_MULT_A = 8;
+  const MINIMAP_CALC_MULT_B = 3;
+  const MINIMAP_STROKE_WIDTH_FACTOR = 3;
+  const LEADERBOARD_ROW_HEIGHT_FACTOR = 1.3;
+  const LEADERBOARD_ROW_COUNT = 8;
+  const LEADERBOARD_BAR_GAP_FACTOR = 0.05;
+  const LEADERBOARD_SHADOW_OFFSET_FACTOR = 3;
+  const LEADERBOARD_FLAG_HEIGHT_FACTOR = 0.8;
+  const LEADERBOARD_FLAG_OFFSET_DIVISOR = 4;
+  const TEXT_BASELINE_NUDGE_FACTOR = 1.1;
+  const LEADERBOARD_PLAYER_ROW_INDEX = 6;
+  const SCORE_BAR_MIN_FILL = 0.25;
+  const SCORE_BAR_FILL_RANGE = 0.75;
+  const KILL_COUNT_Y_OFFSET = 4;
+  const KILL_COUNT_BG_WIDTH_FACTOR = 1.5;
+  const KILL_COUNT_ICON_X_FACTOR = 1.4;
+  const KILL_COUNT_TEXT_X_FACTOR = 1.25;
+  const KILL_COUNT_TEXT_Y_FACTOR = 0.03;
+  const QUEST_NOTIFICATION_PADDING_FACTOR = 5;
+  const QUEST_NOTIFICATION_SHADOW_BLUR = 10;
+  const DEBUG_VIEW_SCALE = 0.5;
+  const DEBUG_OVERLAY_START_Y = 160;
+  const DEBUG_OVERLAY_INDENT_X = 10;
+  const DEBUG_OVERLAY_INDENT_STEP = 20;
+  const DEBUG_OVERLAY_LINE_HEIGHT = 20;
+  const DEBUG_LEVEL_DECIMAL_DIGITS = 3;
+  const DEBUG_GRAPH_WIDTH_DIVISOR = 3;
+  const DEBUG_GRAPH_HEIGHT = 100;
+  const TARGET_FRAME_TIME_MILLISECONDS = 16.67;
+  const DEBUG_GRAPH_HEADROOM_FACTOR = 1.1;
+  const DEBUG_GRAPH_EVENT_LINE_WIDTH = 0.5;
+  interface Pivot {
+    x: number;
+    y: number;
+  }
   class SkinLayer {
     public config: Config;
     public direction: string;
     public image: HTMLCanvasElement | null;
     public level: number;
-    public pivot: {
-      x: number;
-      y: number;
-    };
+    public pivot: Pivot;
 
     public rotation: number;
     public scale: number;
@@ -4919,9 +4970,18 @@ declare global {
       this.image = null;
       this.config = config;
       Object.assign(this, descriptor);
-      this.pivot = { x: 0.5, y: 0.5, ...descriptor.pivot };
-      const imagePromise = this.url ? loadImage(this.url) : this.src ? Promise.resolve(this.src) : null;
+      this.pivot = { x: PIVOT_DEFAULT, y: PIVOT_DEFAULT, ...descriptor.pivot };
+      let imagePromise: null | Promise<HTMLImageElement>;
+      if (this.url) {
+        imagePromise = loadImage(this.url);
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.src is populated by Object.assign above, which the type system does not track.
+      } else if (this.src) {
+        imagePromise = Promise.resolve(this.src);
+      } else {
+        imagePromise = null;
+      }
       if (imagePromise) {
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget image load matching the original engine; the source is applied when it resolves.
         imagePromise.then((image: HTMLImageElement) => {
           this.src = image;
           this.rescale(1);
@@ -4945,8 +5005,8 @@ declare global {
       const sourceWidth = 'naturalWidth' in src ? src.naturalWidth || src.width : src.width;
       const sourceHeight = 'naturalHeight' in src ? src.naturalHeight || src.height : src.height;
       const scaleRatio = baseSize * scale * this.scale / sourceWidth;
-      const targetWidth = ~~(sourceWidth * scaleRatio);
-      const targetHeight = ~~(sourceHeight * scaleRatio);
+      const targetWidth = Math.trunc(sourceWidth * scaleRatio);
+      const targetHeight = Math.trunc(sourceHeight * scaleRatio);
       const scaleX = targetWidth / sourceWidth;
       const scaleY = targetHeight / sourceHeight;
       const element = document.createElement('canvas');
@@ -4973,7 +5033,8 @@ declare global {
     public src: HTMLImageElement | null;
     public url: string;
     public constructor(config: Config, canvas: HTMLCanvasElement, baseUrl: string, source: PatternSource = {}, onReady?: () => void) {
-      this.url = baseUrl + source.url;
+      this.url = baseUrl + String(source.url);
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- a source scale of 0 is degenerate and must fall back to 1, so the falsy-triggering || is intentional.
       this.scale = source.scale || 1;
       this.src = null;
       this.ready = false;
@@ -4981,16 +5042,17 @@ declare global {
       const {
         maxScale
       } = config;
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget image load matching the original engine; the pattern is built when it resolves.
       loadImage(this.url).then((spatialGrid2: HTMLImageElement) => {
         this.src = spatialGrid2;
-        const sourceWidth = ~~(spatialGrid2.naturalWidth || spatialGrid2.width);
-        const sourceHeight = ~~(spatialGrid2.naturalHeight || spatialGrid2.height);
-        const scaleRatio = maxScale * 100 * this.scale / sourceWidth;
-        if (sourceWidth == 0) {
-          console.log(`${this.url} has no width`);
+        const sourceWidth = Math.trunc(spatialGrid2.naturalWidth || spatialGrid2.width);
+        const sourceHeight = Math.trunc(spatialGrid2.naturalHeight || spatialGrid2.height);
+        const scaleRatio = maxScale * PERCENT_MAX * this.scale / sourceWidth;
+        if (sourceWidth === 0) {
+          console.warn(`${this.url} has no width`);
         }
-        if (sourceHeight == 0) {
-          console.log(`${this.url} has no heigth`);
+        if (sourceHeight === 0) {
+          console.warn(`${this.url} has no heigth`);
         }
         const targetWidth = Math.floor(sourceWidth * scaleRatio) || 1;
         const targetHeight = Math.floor(sourceHeight * scaleRatio) || 1;
@@ -5008,11 +5070,9 @@ declare global {
         }
         this.pattern = canvasContext.createPattern(element, 'repeat');
         const inverseScale = 1 / maxScale;
-        if (!svgElement) {
-          svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        }
+        svgElement ??= document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         const transformMatrix = svgElement.createSVGMatrix().scale(inverseScale, inverseScale);
-        if (this.pattern && this.pattern.setTransform) {
+        if (this.pattern?.setTransform) {
           this.pattern.setTransform(transformMatrix);
         }
         this.ready = true;
@@ -5053,7 +5113,7 @@ declare global {
           }
         }
       };
-      const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers || [];
+      const layerDescriptors: SkinLayerDescriptor[] = descriptor.layers ?? [];
       this.layers = layerDescriptors.map((layerDescriptor: SkinLayerDescriptor) => {
         const resolvedDescriptor: SkinLayerDescriptor = { ...layerDescriptor };
         const resolvedUrl = layerDescriptor.url && `${baseUrl}${layerDescriptor.url}`;
@@ -5113,48 +5173,43 @@ declare global {
     }
   }
   let cachedGradient: CanvasGradient | undefined;
-  let cachedTopColor: string | undefined;
-  let cachedBottomColor: string | undefined;
-  let cachedContext: CanvasRenderingContext2D | undefined;
   interface SizedGridLike {
     height: number;
     width: number;
   }
-  const getVerticalGradient = (context: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, topColor: string, bottomColor: string): CanvasGradient | undefined => {
-    if (cachedContext !== context || cachedTopColor !== topColor || cachedBottomColor !== bottomColor) {
-      cachedGradient = context.createLinearGradient(spatialGrid2.width / 2, 0, spatialGrid2.width / 2, spatialGrid2.height);
-      cachedGradient.addColorStop(0, topColor);
-      cachedGradient.addColorStop(1, bottomColor);
-    }
+  function getVerticalGradient(context: CanvasRenderingContext2D, spatialGrid2: SizedGridLike, topColor: string, bottomColor: string): CanvasGradient | undefined {
+    cachedGradient = context.createLinearGradient(spatialGrid2.width / HALF_DIVISOR, 0, spatialGrid2.width / HALF_DIVISOR, spatialGrid2.height);
+    cachedGradient.addColorStop(0, topColor);
+    cachedGradient.addColorStop(1, bottomColor);
     return cachedGradient;
-  };
-  const strokePath = (context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number): void => {
+  }
+  function strokePath(context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number): void {
     context.strokeStyle = strokeColor;
     context.lineWidth = lineWidth;
     context.stroke(path);
-  };
-  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: CanvasPattern | string, trail: Trail, _unused: Vector, lineWidth: number): void => {
+  }
+  function strokeTrail(context: CanvasRenderingContext2D, strokeStyle: CanvasPattern | string, trail: Trail, _unused: Vector, lineWidth: number): void {
     if (trail.polyline.segments.length) {
       context.lineWidth = lineWidth;
       context.strokeStyle = strokeStyle;
       context.stroke(trail.polyline.path);
     }
-  };
-  const drawUnitName = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string): void => {
+  }
+  function drawUnitName(context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string): void {
     const {
       devicePixelRatio
     } = window;
-    const fontSize = scale * 24 / devicePixelRatio;
-    const outlineWidth = scale * 4 / devicePixelRatio;
+    const fontSize = scale * UNIT_NAME_FONT_SIZE / devicePixelRatio;
+    const outlineWidth = scale * UNIT_NAME_OUTLINE_WIDTH / devicePixelRatio;
     context.save();
     context.translate(unit.position.x, unit.position.y);
-    context.scale(1.001 / zoom, 1.001 / zoom);
-    context.font = `${fontSize}px ${fontFamily}`;
+    context.scale(UNIT_NAME_ZOOM_NUDGE / zoom, UNIT_NAME_ZOOM_NUDGE / zoom);
+    context.font = `${String(fontSize)}px ${fontFamily}`;
     context.textAlign = 'center';
     context.textBaseline = 'bottom';
     let name = unit.name;
-    if (unit == unit.game.player) {
-      if (new Date().getSeconds() % 2 == 0) {
+    if (unit === unit.game.player) {
+      if (new Date().getSeconds() % RECORDING_LABEL_BLINK_MODULO === 0) {
         if (unit.game.recording) {
           name = 'Recording';
         } else if (unit.game.replaying) {
@@ -5162,15 +5217,15 @@ declare global {
         }
       }
     }
-    const textOffsetY = ~~(zoom * -12);
+    const textOffsetY = Math.trunc(zoom * UNIT_NAME_OFFSET_Y);
     const outlineColor = '#363331';
-    context.lineWidth = outlineWidth / 4;
+    context.lineWidth = outlineWidth / UNIT_NAME_LINE_WIDTH_DIVISOR;
     context.strokeStyle = outlineColor;
     context.shadowColor = outlineColor;
-    context.shadowBlur = outlineWidth / 2;
+    context.shadowBlur = outlineWidth / HALF_DIVISOR;
     context.strokeText(name, 0, textOffsetY);
     context.fillStyle = outlineColor;
-    context.fillText(name, 2, textOffsetY + 2);
+    context.fillText(name, UNIT_NAME_SHADOW_OFFSET, textOffsetY + UNIT_NAME_SHADOW_OFFSET);
     let nameColor = '#dddddd';
     const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'shields');
     if (shieldAsset) {
@@ -5178,11 +5233,12 @@ declare global {
     }
     context.fillStyle = nameColor;
     context.shadowColor = nameColor;
-    context.shadowBlur = outlineWidth / 3;
+    context.shadowBlur = outlineWidth / UNIT_NAME_NICK_SHADOW_DIVISOR;
     context.fillText(name, 0, textOffsetY);
     context.restore();
-  };
-  const createCrownPath = (): Path2D => {
+  }
+  /* eslint-disable no-magic-numbers, no-implicit-coercion -- crown glyph path geometry: unnameable coordinate data. */
+  function createCrownPath(): Path2D {
     const path2D = new Path2D();
     const size = 5;
     path2D.moveTo(size * -3, size * -3);
@@ -5194,13 +5250,14 @@ declare global {
     path2D.lineTo(size * -2, size * 1);
     path2D.closePath();
     return path2D;
-  };
+  }
+  /* eslint-enable no-magic-numbers, no-implicit-coercion -- crown glyph path geometry: unnameable coordinate data. */
   const crownPath = createCrownPath();
-  const drawCrown = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number): void => {
+  function drawCrown(context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number): void {
     const {
       devicePixelRatio
     } = window;
-    const verticalOffset = scale * 24 / devicePixelRatio;
+    const verticalOffset = scale * CROWN_BASE_OFFSET / devicePixelRatio;
     context.save();
     context.translate(unit.position.x, unit.position.y);
     context.scale(1 / (zoom * devicePixelRatio), 1 / (zoom * devicePixelRatio));
@@ -5208,16 +5265,17 @@ declare global {
     context.strokeStyle = '#ff8800';
     context.lineJoin = 'round';
     context.lineWidth = 1;
-    context.translate(0, zoom * -10 * devicePixelRatio);
+    context.translate(0, zoom * CROWN_ZOOM_OFFSET * devicePixelRatio);
     context.translate(0, -verticalOffset * devicePixelRatio);
     context.scale(scale, scale);
-    context.translate(0, -4);
-    context.translate(0, -12);
+    context.translate(0, CROWN_OFFSET_A);
+    context.translate(0, CROWN_OFFSET_B);
     context.fill(crownPath);
     context.stroke(crownPath);
     context.restore();
-  };
-  const createFacePath = (): Path2D => {
+  }
+  /* eslint-disable no-magic-numbers, no-implicit-coercion -- face glyph path geometry: unnameable coordinate data. */
+  function createFacePath(): Path2D {
     const path2D = new Path2D();
     const size = 1.6;
     path2D.moveTo(size * 0, size * -7);
@@ -5243,23 +5301,24 @@ declare global {
     path2D.lineTo(size * 2, size * 3);
     path2D.closePath();
     return path2D;
-  };
+  }
+  /* eslint-enable no-magic-numbers, no-implicit-coercion -- face glyph path geometry: unnameable coordinate data. */
   const facePath = createFacePath();
-  const drawFaceIcon = (context: CanvasRenderingContext2D, x: number, y: number, scale: number): void => {
+  function drawFaceIcon(context: CanvasRenderingContext2D, x: number, y: number, scale: number): void {
     context.save();
     context.fillStyle = '#ffffffcc';
     context.translate(x, y);
     context.scale(scale, scale);
     context.fill(facePath);
     context.restore();
-  };
+  }
   interface AvatarBearer {
     direction?: number;
     position: Vector;
     skin: Skin;
     target?: null | Vector;
   }
-  const drawSkinLayer = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer): void => {
+  function drawSkinLayer(config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer): void {
     const {
       trackWidth
     } = config;
@@ -5269,19 +5328,19 @@ declare global {
       const imageScale = trackWidth * skinLayer.scale * skinLayer2.scale / imageWidth;
       context.save();
       context.translate(unit.position.x, unit.position.y - config.baseHeight * skinLayer2.level);
-      context.rotate(ensureNonNullable(unit.direction) + Math.PI / 2);
+      context.rotate(ensureNonNullable(unit.direction) + QUARTER_TURN);
       context.translate((skinLayer.x + skinLayer2.x) * trackWidth, (skinLayer.y + skinLayer2.y) * trackWidth);
       let rotation = 0;
       if (skinLayer2.direction === 'target') {
-        const point = (unit.target || new Vector(0, 0)).clone().sub(unit.position);
+        const point = (unit.target ?? new Vector(0, 0)).clone().sub(unit.position);
         const targetAngle = Math.atan2(point.y, point.x);
         rotation += targetAngle - ensureNonNullable(unit.direction);
       }
       if (skinLayer2.direction === 'billboard') {
-        rotation += -ensureNonNullable(unit.direction) - Math.PI / 2;
+        rotation += -ensureNonNullable(unit.direction) - QUARTER_TURN;
       }
       if (skinLayer2.rotation) {
-        rotation += skinLayer2.rotation * 0.0174533;
+        rotation += skinLayer2.rotation * DEGREES_TO_RADIANS;
       }
       if (rotation) {
         context.rotate(rotation);
@@ -5291,14 +5350,14 @@ declare global {
       context.drawImage(skinLayer2.image, 0, 0);
       context.restore();
     }
-  };
-  const drawAvatarLayers = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean): void => {
+  }
+  function drawAvatarLayers(config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean): void {
     const list4 = isFront ? avatar.frontLayers : avatar.backLayers;
     list4.forEach((layerEntry: DisplayLayerEntry) => {
       drawSkinLayer(config, context, unit, layerEntry.display, layerEntry.layer);
     });
-  };
-  const drawRoundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number): void => {
+  }
+  function drawRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number): void {
     const [topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius] = cornerRadii;
     context.beginPath();
     context.moveTo(x + topLeftRadius, y);
@@ -5317,11 +5376,11 @@ declare global {
       context.lineWidth = strokeWidth;
       context.stroke();
     }
-  };
-  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: CanvasPattern | string): void => {
+  }
+  function fillPath(context: CanvasRenderingContext2D, path: Path2D, fillStyle: CanvasPattern | string): void {
     context.fillStyle = fillStyle;
     context.fill(path);
-  };
+  }
   interface Bounds {
     bottom: number;
     left: number;
@@ -5356,7 +5415,7 @@ declare global {
     viewScreenWidth: number;
     viewWidth: number;
   }
-  const drawBaseFills = (renderContext: RenderContext): void => {
+  function drawBaseFills(renderContext: RenderContext): void {
     const {
       boundsInView,
       game
@@ -5367,11 +5426,11 @@ declare global {
     } = game.config;
     game.units.forEach((unit: Unit) => {
       if (boundsInView({ bounds: ensureNonNullable(unit.base.polygon.bounds) }, trackWidth) || game.debugView) {
-        fillPath(ctx, unit.base.polygon.path, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main);
+        fillPath(ctx, unit.base.polygon.path, unit.skin.pattern?.pattern ?? unit.skin.colors.main);
       }
     });
-  };
-  const drawTrailUnderlays = (renderContext: RenderContext): void => {
+  }
+  function drawTrailUnderlays(renderContext: RenderContext): void {
     const {
       boundsInView,
       game
@@ -5393,14 +5452,14 @@ declare global {
           ctx.save();
           ctx.globalCompositeOperation = 'destination-over';
           ctx.clip(unit.base.polygon.path);
-          strokeTrail(ctx, unit.skin.pattern && unit.skin.pattern.pattern || unit.skin.colors.main, unit.track, unit.position, trackWidth + 2);
+          strokeTrail(ctx, unit.skin.pattern?.pattern ?? unit.skin.colors.main, unit.track, unit.position, trackWidth + TRAIL_UNDERLAY_WIDTH_EXTRA);
           ctx.restore();
         }
       }
     });
     ctx.restore();
-  };
-  const drawAvatarFrontLayers = (renderContext: RenderContext): void => {
+  }
+  function drawAvatarFrontLayers(renderContext: RenderContext): void {
     const {
       game,
       pointInView
@@ -5410,12 +5469,12 @@ declare global {
       trackWidth
     } = game.config;
     game.units.forEach((city: Unit) => {
-      if (pointInView(city.position, trackWidth * 4)) {
+      if (pointInView(city.position, trackWidth * AVATAR_VIEW_PADDING_FACTOR)) {
         drawAvatarLayers(game.config, ctx, city, city.skin.container, true);
       }
     });
-  };
-  const drawUnitNames = (renderContext: RenderContext): void => {
+  }
+  function drawUnitNames(renderContext: RenderContext): void {
     const {
       game,
       pointInView,
@@ -5428,12 +5487,12 @@ declare global {
       trackWidth
     } = game.config;
     game.units.forEach((unit: Unit) => {
-      if (pointInView(unit.position, trackWidth * 20) || game.debugView) {
+      if (pointInView(unit.position, trackWidth * UNIT_NAME_VIEW_PADDING_FACTOR) || game.debugView) {
         drawUnitName(ctx, unit, scale, scaler, font);
       }
     });
-  };
-  const drawAvatarBackLayers = (renderContext: RenderContext): void => {
+  }
+  function drawAvatarBackLayers(renderContext: RenderContext): void {
     const {
       game,
       pointInView
@@ -5443,12 +5502,12 @@ declare global {
       trackWidth
     } = game.config;
     game.units.forEach((city: Unit) => {
-      if (pointInView(city.position, trackWidth * 4)) {
+      if (pointInView(city.position, trackWidth * AVATAR_VIEW_PADDING_FACTOR)) {
         drawAvatarLayers(game.config, ctx, city, city.skin.container, false);
       }
     });
-  };
-  const drawTrails = (renderContext: RenderContext): void => {
+  }
+  function drawTrails(renderContext: RenderContext): void {
     const {
       boundsInView,
       game
@@ -5459,17 +5518,17 @@ declare global {
     } = game.config;
     ctx.save();
     ctx.lineCap = 'round';
-    ctx.globalAlpha = 0.6;
+    ctx.globalAlpha = TRAIL_ALPHA;
     game.units.forEach((unit: Unit) => {
       if (unit.in !== unit.base) {
         if (boundsInView(unit.track.polyline, trackWidth)) {
-          strokeTrail(ctx, game.tailRecovered && unit == game.player ? '#f00' : unit.skin.colors.main, unit.track, unit.position, trackWidth);
+          strokeTrail(ctx, game.tailRecovered && unit === game.player ? '#f00' : unit.skin.colors.main, unit.track, unit.position, trackWidth);
         }
       }
     });
     ctx.restore();
-  };
-  const drawBaseBacks = (renderContext: RenderContext): void => {
+  }
+  function drawBaseBacks(renderContext: RenderContext): void {
     const {
       boundsInView,
       game
@@ -5483,8 +5542,8 @@ declare global {
         fillPath(ctx, unit.base.polygon.path, unit.skin.colors.back);
       }
     });
-  };
-  const drawArenaBackground = (renderContext: RenderContext): void => {
+  }
+  function drawArenaBackground(renderContext: RenderContext): void {
     const {
       game,
       viewScreenHeight,
@@ -5499,16 +5558,16 @@ declare global {
       borderColor
     } = game.config;
     fillPath(ctx, game.border.polygon.path, arenaColor);
-    ctx.translate(0, baseHeight * 3);
+    ctx.translate(0, baseHeight * ARENA_BORDER_OFFSET_FACTOR);
     fillPath(ctx, game.border.polygon.path, borderColor);
-    ctx.translate(0, baseHeight * -3);
+    ctx.translate(0, baseHeight * -ARENA_BORDER_OFFSET_FACTOR);
     const backgroundGradient = getVerticalGradient(ctx, game.space, backgroundTopColor, backgroundBottomColor);
     if (backgroundGradient) {
       ctx.fillStyle = backgroundGradient;
     }
-    ctx.fillRect(viewScreenWidth / -2, viewScreenHeight / -2, game.space.width + viewScreenWidth, game.space.height + viewScreenHeight);
-  };
-  const drawParticles = (renderContext: RenderContext): void => {
+    ctx.fillRect(viewScreenWidth / -HALF_DIVISOR, viewScreenHeight / -HALF_DIVISOR, game.space.width + viewScreenWidth, game.space.height + viewScreenHeight);
+  }
+  function drawParticles(renderContext: RenderContext): void {
     const {
       game,
       pointInView
@@ -5518,10 +5577,14 @@ declare global {
       trackWidth
     } = game.config;
     ctx.save();
-    game.particles.forEach((particle: Particle) => particle.time > 0 && pointInView(particle.position, trackWidth) && particle.draw(ctx));
+    game.particles.forEach((particle: Particle) => {
+      if (particle.time > 0 && pointInView(particle.position, trackWidth)) {
+        particle.draw(ctx);
+      }
+    });
     ctx.restore();
-  };
-  const drawLabels = (renderContext: RenderContext): void => {
+  }
+  function drawLabels(renderContext: RenderContext): void {
     const {
       game,
       scale,
@@ -5536,8 +5599,8 @@ declare global {
       label.draw(ctx, font, scale, scaler);
     });
     ctx.scale(scale, scale);
-  };
-  const drawLeaderMarker = (renderContext: RenderContext): void => {
+  }
+  function drawLeaderMarker(renderContext: RenderContext): void {
     const {
       game,
       scale,
@@ -5548,8 +5611,8 @@ declare global {
     if (topUnit) {
       drawCrown(ctx, topUnit, scale, scaler);
     }
-  };
-  const drawMinimap = (renderContext: RenderContext): void => {
+  }
+  function drawMinimap(renderContext: RenderContext): void {
     const {
       calcMult,
       game,
@@ -5560,45 +5623,47 @@ declare global {
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     assertNonNullable(game.player);
-    const minimapSize = viewScreenWidth / calcMult(8, 3);
-    const minimapStrokeWidth = game.space.width / minimapSize * scaler * 3;
+    const minimapSize = viewScreenWidth / calcMult(MINIMAP_CALC_MULT_A, MINIMAP_CALC_MULT_B);
+    const minimapStrokeWidth = game.space.width / minimapSize * scaler * MINIMAP_STROKE_WIDTH_FACTOR;
     ctx.save();
     ctx.translate(viewScreenWidth - padding - minimapSize, viewScreenHeight - padding - minimapSize);
     ctx.scale(minimapSize / game.space.width, minimapSize / game.space.height);
     fillPath(ctx, game.border.polygon.path, '#c2d6cdaa');
     fillPath(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
-    strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / 2);
-    strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / 2);
+    strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / HALF_DIVISOR);
+    strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / HALF_DIVISOR);
     const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === ensureNonNullable(game.player).base) ? '#ff0000' : '#00000099';
     strokePath(ctx, game.border.polygon.path, borderColor, minimapStrokeWidth);
     ctx.beginPath();
-    ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, Math.PI * 2);
+    ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, FULL_TURN);
     ctx.fillStyle = game.player.skin.colors.nick;
     ctx.fill();
-    const flagAsset = game.player.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === 'flags');
+    const flagAsset = game.player.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
     const spatialGrid2 = flagAsset?.content.roundedFlag;
-    if (spatialGrid2 && game.player.cities) {
+    if (spatialGrid2) {
       game.player.cities.forEach((city: City) => {
         ctx.save();
         ctx.translate(city.position.x, city.position.y);
-        ctx.scale(2, 2);
-        ctx.drawImage(spatialGrid2, -spatialGrid2.width / 2, -spatialGrid2.height / 2);
+        ctx.scale(DOUBLE_FACTOR, DOUBLE_FACTOR);
+        ctx.drawImage(spatialGrid2, -spatialGrid2.width / IMAGE_CENTER_DIVISOR, -spatialGrid2.height / IMAGE_CENTER_DIVISOR);
         ctx.restore();
       });
     }
     ctx.restore();
-  };
+  }
   let spatialGrid: HTMLCanvasElement | null = null;
-  window.addEventListener('resize', () => spatialGrid = null, false);
-  const drawLeaderboard = (renderContext: RenderContext): void => {
+  window.addEventListener('resize', () => {
+    spatialGrid = null;
+  }, false);
+  function drawLeaderboard(renderContext: RenderContext): void {
     const {
       devicePixelRatio
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     if (!spatialGrid) {
       spatialGrid = document.createElement('canvas');
-      spatialGrid.width = ~~renderContext.barWidth;
-      spatialGrid.height = ~~(renderContext.barHeight * 1.3 * 8);
+      spatialGrid.width = Math.trunc(renderContext.barWidth);
+      spatialGrid.height = Math.trunc(renderContext.barHeight * LEADERBOARD_ROW_HEIGHT_FACTOR * LEADERBOARD_ROW_COUNT);
     }
     if (renderContext.game.topListChanged) {
       renderContext.game.topListChanged = false;
@@ -5616,8 +5681,8 @@ declare global {
     ctx.resetTransform();
     ctx.drawImage(spatialGrid, ctx.canvas.width - spatialGrid.width, 0);
     ctx.restore();
-  };
-  const drawLeaderboardRows = (context: CanvasRenderingContext2D, renderContext: RenderContext): void => {
+  }
+  function drawLeaderboardRows(context: CanvasRenderingContext2D, renderContext: RenderContext): void {
     const {
       backHeight,
       barHeight,
@@ -5631,46 +5696,10 @@ declare global {
       viewScreenWidth
     } = renderContext;
     let previousBarWidth: number | undefined;
-    const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number): void => {
-      const rowY = padding + rowIndex * (barHeight * 1.3);
-      const score = ensureNonNullable(unit.schemes).scores();
-      let scoreBarWidth = halfBarWidth * (score / maxScore);
-      if (previousBarWidth && scoreBarWidth > previousBarWidth - halfBarWidth * 0.05) {
-        scoreBarWidth = previousBarWidth - halfBarWidth * 0.05;
-      }
-      previousBarWidth = scoreBarWidth;
-      const barRightOffset = halfBarWidth + scoreBarWidth;
-      let barX = viewScreenWidth - barRightOffset;
-      const cornerRadii: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
-      context.fillStyle = '#00000022';
-      drawRoundedRect(context, barX + backHeight, rowY + backHeight * 3, barWidth, barHeight, cornerRadii);
-      context.fillStyle = unit.skin.colors.back;
-      drawRoundedRect(context, barX, rowY + backHeight, barWidth, barHeight, cornerRadii, strokeWidth);
-      context.fillStyle = unit.skin.colors.main;
-      drawRoundedRect(context, barX, rowY, barWidth, barHeight, cornerRadii, strokeWidth);
-      const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool && asset.pool.name === 'flags');
-      const flagImage = flagAsset?.content.roundedFlag;
-      if (flagImage) {
-        const flagHeight = barHeight * 0.8;
-        const flagOffsetX = barHeight / 4;
-        const flagScale = flagHeight / flagImage.height;
-        context.save();
-        context.translate(barX + flagOffsetX, rowY + barHeight / 2);
-        context.scale(flagScale, flagScale);
-        context.drawImage(flagImage, 0, -flagImage.height / 2);
-        context.restore();
-        barX += flagHeight;
-      }
-      context.fillStyle = unit.skin.colors.plate;
-      context.font = uiFont;
-      context.textAlign = 'left';
-      context.textBaseline = 'middle';
-      context.fillText(`${rank} – ${ensureNonNullable(unit.schemes).print()} ${unit.name}`, barX + halfBarHeight, rowY + halfBarHeight * 1.1);
-    };
     const topUnit = game.units[0];
     const topScore = topUnit && ensureNonNullable(topUnit.schemes).scores();
     let isPlayerListed = false;
-    for (let i2 = 0; i2 < 5; i2++) {
+    for (let i2 = 0; i2 < TOP_LIST_RANK_LIMIT; i2++) {
       const unit = game.units[i2];
       if (unit) {
         if (game.isPlayer(unit)) {
@@ -5681,10 +5710,46 @@ declare global {
     }
     if (!isPlayerListed && game.player && !game.player.death) {
       const playerIndex = game.units.findIndex((unit: Unit) => game.isPlayer(unit));
-      drawLeaderboardRow(game.player, playerIndex + 1, 6, ensureNonNullable(topScore));
+      drawLeaderboardRow(game.player, playerIndex + 1, LEADERBOARD_PLAYER_ROW_INDEX, ensureNonNullable(topScore));
     }
-  };
-  const renderScoreBar = (renderContext: RenderContext): void => {
+    function drawLeaderboardRow(unit: Unit, rank: number, rowIndex: number, maxScore: number): void {
+      const rowY = padding + rowIndex * (barHeight * LEADERBOARD_ROW_HEIGHT_FACTOR);
+      const score = ensureNonNullable(unit.schemes).scores();
+      let scoreBarWidth = halfBarWidth * (score / maxScore);
+      if (previousBarWidth && scoreBarWidth > previousBarWidth - halfBarWidth * LEADERBOARD_BAR_GAP_FACTOR) {
+        scoreBarWidth = previousBarWidth - halfBarWidth * LEADERBOARD_BAR_GAP_FACTOR;
+      }
+      previousBarWidth = scoreBarWidth;
+      const barRightOffset = halfBarWidth + scoreBarWidth;
+      let barX = viewScreenWidth - barRightOffset;
+      const cornerRadii: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
+      context.fillStyle = '#00000022';
+      drawRoundedRect(context, barX + backHeight, rowY + backHeight * LEADERBOARD_SHADOW_OFFSET_FACTOR, barWidth, barHeight, cornerRadii);
+      context.fillStyle = unit.skin.colors.back;
+      drawRoundedRect(context, barX, rowY + backHeight, barWidth, barHeight, cornerRadii, strokeWidth);
+      context.fillStyle = unit.skin.colors.main;
+      drawRoundedRect(context, barX, rowY, barWidth, barHeight, cornerRadii, strokeWidth);
+      const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
+      const flagImage = flagAsset?.content.roundedFlag;
+      if (flagImage) {
+        const flagHeight = barHeight * LEADERBOARD_FLAG_HEIGHT_FACTOR;
+        const flagOffsetX = barHeight / LEADERBOARD_FLAG_OFFSET_DIVISOR;
+        const flagScale = flagHeight / flagImage.height;
+        context.save();
+        context.translate(barX + flagOffsetX, rowY + barHeight / HALF_DIVISOR);
+        context.scale(flagScale, flagScale);
+        context.drawImage(flagImage, 0, -flagImage.height / HALF_DIVISOR);
+        context.restore();
+        barX += flagHeight;
+      }
+      context.fillStyle = unit.skin.colors.plate;
+      context.font = uiFont;
+      context.textAlign = 'left';
+      context.textBaseline = 'middle';
+      context.fillText(`${String(rank)} – ${ensureNonNullable(unit.schemes).print()} ${unit.name}`, barX + halfBarHeight, rowY + halfBarHeight * TEXT_BASELINE_NUDGE_FACTOR);
+    }
+  }
+  function renderScoreBar(renderContext: RenderContext): void {
     const {
       backHeight,
       barHeight,
@@ -5701,9 +5766,9 @@ declare global {
     } = game;
     assertNonNullable(player);
     ctx.fillStyle = '#00000022';
-    drawRoundedRect(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, 0]);
+    drawRoundedRect(ctx, 0, padding, barWidth, barHeight + backHeight, [0, (barHeight + backHeight) / HALF_DIVISOR, (barHeight + backHeight) / HALF_DIVISOR, 0]);
     const scoreRatio = game.best ? Math.min(1, ensureNonNullable(player.schemes).scores() / game.best) : 1;
-    const fillWidth = barWidth * (0.25 + scoreRatio * 0.75);
+    const fillWidth = barWidth * (SCORE_BAR_MIN_FILL + scoreRatio * SCORE_BAR_FILL_RANGE);
     ctx.fillStyle = player.skin.colors.back;
     drawRoundedRect(ctx, 0, padding + backHeight, fillWidth, barHeight, [0, halfBarHeight, halfBarHeight, 0], strokeWidth);
     ctx.fillStyle = player.skin.colors.main;
@@ -5712,9 +5777,9 @@ declare global {
     ctx.font = uiFont;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * 1.1);
-  };
-  const renderBestScore = (renderContext: RenderContext): void => {
+    ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * TEXT_BASELINE_NUDGE_FACTOR);
+  }
+  function renderBestScore(renderContext: RenderContext): void {
     const {
       backHeight,
       barHeight,
@@ -5728,9 +5793,9 @@ declare global {
     ctx.textBaseline = 'top';
     const bestText = `${game.language.bestTxt} ${ensureNonNullable(ensureNonNullable(game.player).schemes).print(game.best ?? undefined)}`;
     ctx.fillStyle = '#00000066';
-    ctx.fillText(bestText, padding / 2, padding + barHeight + backHeight + padding / 2);
-  };
-  const renderKillCount = (renderContext: RenderContext): void => {
+    ctx.fillText(bestText, padding / HALF_DIVISOR, padding + barHeight + backHeight + padding / HALF_DIVISOR);
+  }
+  function renderKillCount(renderContext: RenderContext): void {
     const {
       backHeight,
       barHeight,
@@ -5742,18 +5807,18 @@ declare global {
       uiFont
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
-    const killsY = padding + barHeight + backHeight + fontSize + padding / 2 + 4;
+    const killsY = padding + barHeight + backHeight + fontSize + padding / HALF_DIVISOR + KILL_COUNT_Y_OFFSET;
     ctx.font = uiFont;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const killsText = `x${ensureNonNullable(game.player).statistics.kills}`;
+    const killsText = `x${String(ensureNonNullable(game.player).statistics.kills)}`;
     ctx.fillStyle = '#00000088';
-    drawRoundedRect(ctx, 0, killsY, barHeight * 1.5 + ctx.measureText(killsText).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
-    drawFaceIcon(ctx, barHeight * 1.4 / 2, killsY + barHeight / 2, scaler);
+    drawRoundedRect(ctx, 0, killsY, barHeight * KILL_COUNT_BG_WIDTH_FACTOR + ctx.measureText(killsText).width, barHeight, [0, halfBarHeight, halfBarHeight, 0]);
+    drawFaceIcon(ctx, barHeight * KILL_COUNT_ICON_X_FACTOR / HALF_DIVISOR, killsY + barHeight / HALF_DIVISOR, scaler);
     ctx.fillStyle = '#ffffffcc';
-    ctx.fillText(killsText, barHeight * 1.25, killsY + halfBarHeight + barHeight * 0.03);
-  };
-  const renderQuestNotification = (renderContext: RenderContext): void => {
+    ctx.fillText(killsText, barHeight * KILL_COUNT_TEXT_X_FACTOR, killsY + halfBarHeight + barHeight * KILL_COUNT_TEXT_Y_FACTOR);
+  }
+  function renderQuestNotification(renderContext: RenderContext): void {
     const {
       backHeight,
       barHeight,
@@ -5769,34 +5834,34 @@ declare global {
       if (quest.ready) {
         ctx.save();
         ctx.font = uiFont;
-        const notificationHeight = fontSize * 2 + padding;
+        const notificationHeight = fontSize * DOUBLE_FACTOR + padding;
         const notificationY = quest.position() * (notificationHeight + padding) - notificationHeight;
         const textWidth = Math.max(ctx.measureText(quest.title).width, ctx.measureText(quest.description).width);
-        const iconSize = fontSize * 2;
-        const notificationWidth = textWidth + padding * 5 + iconSize;
-        const inset = padding / 2;
+        const iconSize = fontSize * DOUBLE_FACTOR;
+        const notificationWidth = textWidth + padding * QUEST_NOTIFICATION_PADDING_FACTOR + iconSize;
+        const inset = padding / HALF_DIVISOR;
         ctx.fillStyle = '#00000088';
-        drawRoundedRect(ctx, (viewScreenWidth - notificationWidth) / 2, notificationY, notificationWidth, notificationHeight, [(barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2, (barHeight + backHeight) / 2]);
+        drawRoundedRect(ctx, (viewScreenWidth - notificationWidth) / HALF_DIVISOR, notificationY, notificationWidth, notificationHeight, [(barHeight + backHeight) / HALF_DIVISOR, (barHeight + backHeight) / HALF_DIVISOR, (barHeight + backHeight) / HALF_DIVISOR, (barHeight + backHeight) / HALF_DIVISOR]);
         ctx.fillStyle = '#ffffff';
         ctx.shadowColor = '#ffffff';
         ctx.shadowBlur = 1;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(quest.title, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset);
+        ctx.fillText(quest.title, (viewScreenWidth - notificationWidth) / HALF_DIVISOR + notificationWidth / HALF_DIVISOR + iconSize / HALF_DIVISOR, notificationY + inset);
         ctx.fillStyle = '#ffffff88';
         ctx.shadowColor = '#ffffff88';
         ctx.shadowBlur = 1;
         ctx.font = uiFont;
-        ctx.fillText(quest.description, (viewScreenWidth - notificationWidth) / 2 + notificationWidth / 2 + iconSize / 2, notificationY + inset + fontSize);
+        ctx.fillText(quest.description, (viewScreenWidth - notificationWidth) / HALF_DIVISOR + notificationWidth / HALF_DIVISOR + iconSize / HALF_DIVISOR, notificationY + inset + fontSize);
         ctx.shadowColor = '#ffffff';
-        ctx.shadowBlur = 10;
+        ctx.shadowBlur = QUEST_NOTIFICATION_SHADOW_BLUR;
         if (quest.image) {
-          ctx.drawImage(quest.image, (viewScreenWidth - notificationWidth) / 2 + inset, notificationY + inset, iconSize, iconSize);
+          ctx.drawImage(quest.image, (viewScreenWidth - notificationWidth) / HALF_DIVISOR + inset, notificationY + inset, iconSize, iconSize);
         }
         ctx.restore();
       }
     }
-  };
+  }
   function renderGame(game: Game): void {
     const renderContext = game.getRenderContext();
     if (!renderContext) {
@@ -5816,13 +5881,13 @@ declare global {
     } = renderContext;
     const ctx = ensureNonNullable(renderContext.ctx);
     if (game.debugView) {
-      scale = 0.5;
+      scale = DEBUG_VIEW_SCALE;
       origin = game.space.center;
     }
     ctx.resetTransform();
     ctx.clearRect(0, 0, viewWidth, viewHeight);
-    const offsetX = origin.x * scale - viewWidth / 2;
-    const offsetY = origin.y * scale - viewHeight / 2;
+    const offsetX = origin.x * scale - viewWidth / HALF_DIVISOR;
+    const offsetY = origin.y * scale - viewHeight / HALF_DIVISOR;
     ctx.translate(-offsetX, -offsetY);
     ctx.scale(scale, scale);
     ctx.translate(0, -baseHeight);
@@ -5855,10 +5920,7 @@ declare global {
     }
   }
   interface Metric {
-    events: {
-      kills: number;
-      returns: number;
-    };
+    events: MetricEvents;
     frameTime: number;
     renderTime: number;
     updateTime: number;
@@ -5867,36 +5929,27 @@ declare global {
     const {
       view
     } = game;
-    if (!view) {
-      return;
-    }
     const context = view.getContext('2d');
     if (!context) {
       return;
     }
+    const overlayContext = context;
     context.fillStyle = '#000000';
     context.strokeStyle = '#ffffff';
     context.textAlign = 'left';
     context.textBaseline = 'top';
-    let lineY = game.quality * 160;
-    const drawStatLine = (text = '', indentLevel = 0): void => {
-      if (text) {
-        context.strokeText(text, 10 + indentLevel * 20, lineY);
-        context.fillText(text, 10 + indentLevel * 20, lineY);
-      }
-      lineY += game.quality * 20;
-    };
+    let lineY = game.quality * DEBUG_OVERLAY_START_Y;
     drawStatLine(`Update time: ${game.stats.ut.toFixed(1)}`);
     drawStatLine(`AI time: ${game.stats.ait.toFixed(1)}`, 1);
     drawStatLine(`Spawn time: ${game.stats.st.toFixed(1)}`, 1);
     drawStatLine(`Render time: ${game.stats.rt.toFixed(1)}`);
-    drawStatLine(`FPS: ${Math.round(game.stats.fps)}`);
-    drawStatLine(`Quality: ${game.quality}`);
+    drawStatLine(`FPS: ${String(Math.round(game.stats.fps))}`);
+    drawStatLine(`Quality: ${String(game.quality)}`);
     drawStatLine();
-    drawStatLine(`Units: ${game.units.length}`);
-    drawStatLine(`Level: ${game.level.toFixed(3)}`);
+    drawStatLine(`Units: ${String(game.units.length)}`);
+    drawStatLine(`Level: ${game.level.toFixed(DEBUG_LEVEL_DECIMAL_DIGITS)}`);
     drawStatLine();
-    drawStatLine(`Particles: ${game.particles.length}`);
+    drawStatLine(`Particles: ${String(game.particles.length)}`);
     drawStatLine();
     if (game.recording) {
       drawStatLine(`Recording: ${game.recording.duration().toFixed(1)} s`);
@@ -5905,22 +5958,22 @@ declare global {
       drawStatLine(`Replaying: ${game.replaying.currentlyPlaying().toFixed(1)}/${game.replaying.duration().toFixed(1)} s`);
     }
     if (game.debugGraph) {
-      const graphWidth = view.width / 3;
-      const graphHeight = 100;
+      const graphWidth = view.width / DEBUG_GRAPH_WIDTH_DIVISOR;
+      const graphHeight = DEBUG_GRAPH_HEIGHT;
       const path2D = new Path2D();
       const path2D2 = new Path2D();
       const path2D3 = new Path2D();
       const path2D4 = new Path2D();
       path2D4.moveTo(0, 0);
-      let maxFrameTime = 16.67;
+      let maxFrameTime = TARGET_FRAME_TIME_MILLISECONDS;
       game.metrics.forEach((metric: Metric) => {
         maxFrameTime = Math.max(maxFrameTime, metric.frameTime);
       });
-      maxFrameTime *= 1.1;
+      maxFrameTime *= DEBUG_GRAPH_HEADROOM_FACTOR;
       const xStep = graphWidth / (MAX_METRICS_SAMPLES - 1);
       const yScale = graphHeight / maxFrameTime;
       context.save();
-      context.translate((view.width - graphWidth) / 2, graphHeight);
+      context.translate((view.width - graphWidth) / HALF_DIVISOR, graphHeight);
       context.fillStyle = '#00000033';
       context.fillRect(0, -graphHeight, graphWidth, graphHeight);
       game.metrics.forEach((metric: Metric, index: number) => {
@@ -5931,7 +5984,7 @@ declare global {
       });
       path2D4.lineTo(xStep * (game.metrics.length - 1), 0);
       context.lineWidth = 1;
-      const targetFrameTimeY = yScale * 16.67;
+      const targetFrameTimeY = yScale * TARGET_FRAME_TIME_MILLISECONDS;
       context.strokeStyle = 'red';
       context.beginPath();
       context.moveTo(0, -targetFrameTimeY);
@@ -5945,7 +5998,7 @@ declare global {
       context.stroke(path2D2);
       context.strokeStyle = '#0000ffcc';
       context.stroke(path2D3);
-      context.lineWidth = 0.5;
+      context.lineWidth = DEBUG_GRAPH_EVENT_LINE_WIDTH;
       game.metrics.forEach((metric: Metric, index: number) => {
         const {
           kills,
@@ -5964,6 +6017,13 @@ declare global {
         }
       });
       context.restore();
+    }
+    function drawStatLine(text = '', indentLevel = 0): void {
+      if (text) {
+        overlayContext.strokeText(text, DEBUG_OVERLAY_INDENT_X + indentLevel * DEBUG_OVERLAY_INDENT_STEP, lineY);
+        overlayContext.fillText(text, DEBUG_OVERLAY_INDENT_X + indentLevel * DEBUG_OVERLAY_INDENT_STEP, lineY);
+      }
+      lineY += game.quality * DEBUG_OVERLAY_LINE_HEIGHT;
     }
   }
   interface LanguageStrings {
