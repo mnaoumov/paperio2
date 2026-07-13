@@ -24,6 +24,37 @@ import {
 
 import { BOT_NAMES } from './bot-names.ts';
 import {
+  brighten,
+  hexToRgb,
+  hsvToHex,
+  rgbToHsv,
+  scaleValue,
+  setValue
+} from './shared/color-utils.ts';
+import {
+  EPSILON,
+  FIXED_DECIMAL_DIGITS,
+  HEX_CHANNEL_DIGITS,
+  HEX_RADIX,
+  PERCENT_MAX,
+  RGB_CHANNEL_MAX
+} from './shared/constants.ts';
+import { generateId } from './shared/ids.ts';
+import {
+  clamp,
+  cross,
+  easeOutCubic,
+  formatFixed2,
+  intervalOverlap,
+  isBetween,
+  isNearlyEqual,
+  isNearlyZero,
+  lerp,
+  now,
+  pointInPolygon
+} from './shared/math-utils.ts';
+import { createRandomGenerator } from './shared/random.ts';
+import {
   assertNonNullable,
   ensureNonNullable
 } from './type-guards.ts';
@@ -148,16 +179,6 @@ declare global {
     intersections: TrailCrossing[];
     point: Vector;
   }
-  interface Rgb {
-    b: number;
-    g: number;
-    r: number;
-  }
-  interface Hsv {
-    h: number;
-    s: number;
-    v: number;
-  }
   interface BotStateContext {
     exitPoint?: Vector;
     minDistance?: number;
@@ -190,96 +211,6 @@ declare global {
     unit?: null | Unit;
   }
   type ParticleColor = HTMLCanvasElement | HTMLImageElement | string;
-
-  // eslint-disable-next-line no-magic-numbers -- EPSILON is 2^-26, the engine's fixed geometric tolerance.
-  const EPSILON = 2 ** -26;
-  const POLYGON_POINT_OUTSIDE = 0;
-  const POLYGON_POINT_ON_EDGE = 1;
-  const POLYGON_POINT_INSIDE = 2;
-
-  function isNearlyZero(value: number): boolean {
-    return Math.abs(value) <= EPSILON;
-  }
-
-  function isNearlyEqual(a: number, b: number): boolean {
-    return Math.abs(a - b) <= EPSILON;
-  }
-
-  function lerp(start: number, end: number, t: number): number {
-    return start + (end - start) * t;
-  }
-
-  function easeOutCubic(t: number): number {
-    return --t * t * t + 1;
-  }
-
-  function clamp(min: number, max: number, value: number): number {
-    if (value < min) {
-      return min;
-    }
-    if (value > max) {
-      return max;
-    }
-    return value;
-  }
-
-  function cross(ax: number, ay: number, bx: number, by: number): number {
-    return ax * by - ay * bx;
-  }
-
-  function isBetween(bound1: number, bound2: number, value: number): boolean {
-    return Math.min(bound1, bound2) - EPSILON <= value && value <= Math.max(bound1, bound2) + EPSILON;
-  }
-
-  function intervalOverlap(aStart: number, aEnd: number, bStart: number, bEnd: number): number {
-    if (aStart > aEnd) {
-      [aStart, aEnd] = [aEnd, aStart];
-    }
-    if (bStart > bEnd) {
-      [bStart, bEnd] = [bEnd, bStart];
-    }
-    return Math.min(aEnd, bEnd) - Math.max(aStart, bStart);
-  }
-
-  function pointInPolygon(list4: number[][], x: number, y: number): number {
-    let isInside = false;
-    const length = list4.length;
-    for (let i2 = 0, previousIndex = length - 1; i2 < length; previousIndex = i2++) {
-      const currentPoint = ensureNonNullable(list4[i2]);
-      const previousPoint = ensureNonNullable(list4[previousIndex]);
-      const currentX = ensureNonNullable(currentPoint[0]);
-      const currentY = ensureNonNullable(currentPoint[1]);
-      const previousX = ensureNonNullable(previousPoint[0]);
-      const previousY = ensureNonNullable(previousPoint[1]);
-      if (isPointOnSegment(x, y, currentX, currentY, previousX, previousY)) {
-        return POLYGON_POINT_ON_EDGE;
-      }
-      const isCrossing = (currentY > y) !== (previousY > y) && x < (previousX - currentX) * (y - currentY) / (previousY - currentY) + currentX;
-      if (isCrossing) {
-        isInside = !isInside;
-      }
-    }
-    if (isInside) {
-      return POLYGON_POINT_INSIDE;
-    }
-    return POLYGON_POINT_OUTSIDE;
-  }
-
-  function isPointOnSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): boolean {
-    const dx1 = x1 - px;
-    const dy1 = y1 - py;
-    const dx2 = x2 - px;
-    const dy2 = y2 - py;
-    const crossProduct = dx1 * dy2 - dy1 * dx2;
-    const dot = dx1 * dx2 + dy1 * dy2;
-    return crossProduct === 0 && dot <= 0;
-  }
-
-  let nextId = 1;
-
-  function generateId(): number {
-    return nextId++;
-  }
 
   function firstMatchingPoint(target: Vector, candidates: Vector[]): Vector {
     for (const candidate of candidates) {
@@ -1096,19 +1027,6 @@ declare global {
       };
     }
   }
-  const timeSource = typeof performance === 'undefined' ? Date : performance;
-  const now = timeSource.now.bind(timeSource);
-  const RGB_CHANNEL_MAX = 255;
-  const HUE_DEGREES_MAX = 360;
-  const PERCENT_MAX = 100;
-  const HEX_RADIX = 16;
-  const HEX_CHANNEL_DIGITS = 2;
-  const HSV_SECTOR_DEGREES = 60;
-  const HSV_SECTOR_COUNT = 6;
-  const LCG_MULTIPLIER = 69069;
-  const LCG_MODULUS = 2147483648;
-  const RANDOM_INT_RANGE = 1000000000;
-  const FIXED_DECIMAL_DIGITS = 2;
   function createCirclePoints(point: Vector, segmentCount: number, radius: number): Vector[] {
     if (typeof point.x !== 'number') {
       throw Error('circle');
@@ -1122,158 +1040,6 @@ declare global {
     }
     return list4;
   }
-  function hexToRgb(hex: string): Rgb {
-    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the red channel is chars 1-3.
-    const red = parseInt(hex.substring(1, 3), HEX_RADIX);
-    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the green channel is chars 3-5.
-    const green = parseInt(hex.substring(3, 5), HEX_RADIX);
-    // eslint-disable-next-line no-magic-numbers -- #RRGGBB: the blue channel is chars 5-7.
-    const blue = parseInt(hex.substring(5, 7), HEX_RADIX);
-    return {
-      b: blue,
-      g: green,
-      r: red
-    };
-  }
-  function rgbToHsv({
-    b,
-    g,
-    r
-  }: Rgb): Hsv {
-    const normRed = r / RGB_CHANNEL_MAX;
-    const normGreen = g / RGB_CHANNEL_MAX;
-    const normBlue = b / RGB_CHANNEL_MAX;
-    const max = Math.max(normRed, normGreen, normBlue);
-    const delta = max - Math.min(normRed, normGreen, normBlue);
-    let hue = 0;
-    let saturation = 0;
-    if (delta !== 0) {
-      saturation = delta / max;
-      const redHueComponent = computeHueComponent(normRed);
-      const greenHueComponent = computeHueComponent(normGreen);
-      const blueHueComponent = computeHueComponent(normBlue);
-      if (normRed === max) {
-        hue = blueHueComponent - greenHueComponent;
-      } else if (normGreen === max) {
-        // eslint-disable-next-line no-magic-numbers -- green-max hue starts 1/3 of the way around the wheel.
-        hue = 1 / 3 + redHueComponent - blueHueComponent;
-      } else if (normBlue === max) {
-        // eslint-disable-next-line no-magic-numbers -- blue-max hue starts 2/3 of the way around the wheel.
-        hue = 2 / 3 + greenHueComponent - redHueComponent;
-      }
-      if (hue < 0) {
-        hue += 1;
-      } else if (hue > 1) {
-        hue -= 1;
-      }
-    }
-    return {
-      h: Math.round(hue * HUE_DEGREES_MAX),
-      s: round2(saturation * PERCENT_MAX),
-      v: round2(max * PERCENT_MAX)
-    };
-    function computeHueComponent(channelValue: number): number {
-      // eslint-disable-next-line no-magic-numbers -- HSV hue-component interpolation: the 1/2 phase offset.
-      return (max - channelValue) / HSV_SECTOR_COUNT / delta + 1 / 2;
-    }
-    function round2(value: number): number {
-      // eslint-disable-next-line no-magic-numbers -- round to 2 decimal places (10^2).
-      return Math.round(value * 100) / 100;
-    }
-  }
-  function rgbToHex({
-    b,
-    g,
-    r
-  }: Rgb): string {
-    return `#${channelToHex(r)}${channelToHex(g)}${channelToHex(b)}`;
-    function channelToHex(channel: number): string {
-      const hex = channel.toString(HEX_RADIX);
-      if (hex.length < HEX_CHANNEL_DIGITS) {
-        return `0${hex}`;
-      }
-      return hex;
-    }
-  }
-  function hsvToRgb({
-    h,
-    s,
-    v
-  }: Hsv): Rgb {
-    h = Math.max(0, Math.min(HUE_DEGREES_MAX, h));
-    s = Math.max(0, Math.min(PERCENT_MAX, s)) / PERCENT_MAX;
-    v = Math.max(0, Math.min(PERCENT_MAX, v)) / PERCENT_MAX;
-    let red;
-    let green;
-    let blue;
-    if (s === 0) {
-      red = v;
-      green = v;
-      blue = v;
-    } else {
-      h /= HSV_SECTOR_DEGREES;
-      const sector = Math.floor(h);
-      const fraction = h - sector;
-      const p = v * (1 - s);
-      const q = v * (1 - s * fraction);
-      const t = v * (1 - s * (1 - fraction));
-      switch (sector) {
-        case 0:
-          red = v;
-          green = t;
-          blue = p;
-          break;
-        case 1:
-          red = q;
-          green = v;
-          blue = p;
-          break;
-        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
-        case 2:
-          red = p;
-          green = v;
-          blue = t;
-          break;
-        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
-        case 3:
-          red = p;
-          green = q;
-          blue = v;
-          break;
-        // eslint-disable-next-line no-magic-numbers -- HSV hue sector index.
-        case 4:
-          red = t;
-          green = p;
-          blue = v;
-          break;
-        default:
-          red = v;
-          green = p;
-          blue = q;
-      }
-    }
-    return {
-      b: Math.round(blue * RGB_CHANNEL_MAX),
-      g: Math.round(green * RGB_CHANNEL_MAX),
-      r: Math.round(red * RGB_CHANNEL_MAX)
-    };
-  }
-  function hsvToHex(hsv: Hsv): string {
-    return rgbToHex(hsvToRgb(hsv));
-  }
-  function createRandomGenerator(seed: number): (max?: number) => number {
-    if (seed > 0 && seed < 1) {
-      seed = Math.floor(seed * RANDOM_INT_RANGE);
-    }
-    return random;
-    function nextInt(bound: number): number {
-      seed = (seed * LCG_MULTIPLIER + 1) % LCG_MODULUS;
-      return seed % bound;
-    }
-    function random(max?: number): number {
-      return max === undefined ? nextInt(RANDOM_INT_RANGE) / RANDOM_INT_RANGE : nextInt(max);
-    }
-  }
   function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise<HTMLImageElement>((resolve: (value: HTMLImageElement) => void) => {
       const element = document.createElement('img');
@@ -1282,47 +1048,6 @@ declare global {
         resolve(element);
       };
     });
-  }
-  function scaleValue(hsv: Hsv, factor: number): Hsv {
-    const {
-      h,
-      s,
-      v
-    } = hsv;
-    return {
-      h,
-      s,
-      v: v * factor
-    };
-  }
-  function brighten(hsv: Hsv, factor: number): Hsv {
-    const {
-      h,
-      s,
-      v
-    } = hsv;
-    const headroom = PERCENT_MAX - v;
-    // eslint-disable-next-line no-magic-numbers -- brighten adds up to a quarter of the remaining headroom.
-    const brightenedValue = Math.max(v * factor, v + factor * headroom / 4);
-    return {
-      h,
-      s,
-      v: brightenedValue
-    };
-  }
-  function setValue(hsv: Hsv, value: number): Hsv {
-    const {
-      h,
-      s
-    } = hsv;
-    return {
-      h,
-      s,
-      v: value
-    };
-  }
-  function formatFixed2(value: number): string {
-    return value.toFixed(FIXED_DECIMAL_DIGITS);
   }
   class Border {
     public center: Vector;

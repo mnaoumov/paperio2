@@ -367,67 +367,15 @@ function getJsdocsConfigs(): Linter.Config[] {
          */
         'jsdoc/no-blank-blocks': ['error', { enableFixer: false }],
         'jsdoc/require-description': 'error',
-        'jsdoc/require-file-overview': 'error',
-        'jsdoc/require-jsdoc': [
-          'error',
-          {
-            contexts: [
-              {
-                context: 'ExportNamedDeclaration > FunctionDeclaration'
-              },
-              {
-                context: 'ExportDefaultDeclaration > FunctionDeclaration'
-              },
-              {
-                context: 'ExportNamedDeclaration > VariableDeclaration > VariableDeclarator > ArrowFunctionExpression'
-              },
-              {
-                context: 'ExportDefaultDeclaration > ArrowFunctionExpression'
-              },
-              {
-                context: 'ExportNamedDeclaration MethodDefinition:not([accessibility="private"])'
-              },
-              {
-                context: 'ExportDefaultDeclaration MethodDefinition:not([accessibility="private"])'
-              },
-              {
-                context: 'ExportNamedDeclaration > ClassDeclaration > ClassBody > PropertyDefinition:not([accessibility=\'private\'])'
-              },
-              {
-                context: 'ExportDefaultDeclaration > ClassDeclaration > ClassBody > PropertyDefinition:not([accessibility=\'private\'])'
-              },
-              {
-                context: 'ExportNamedDeclaration > ClassDeclaration > ClassBody > TSAbstractPropertyDefinition:not([accessibility=\'private\'])'
-              },
-              {
-                context: 'ExportDefaultDeclaration > ClassDeclaration > ClassBody > TSAbstractPropertyDefinition:not([accessibility=\'private\'])'
-              },
-              {
-                context: 'ExportNamedDeclaration > TSInterfaceDeclaration'
-              },
-              {
-                context: 'ExportNamedDeclaration > TSTypeAliasDeclaration'
-              },
-              {
-                context: 'ExportNamedDeclaration > TSEnumDeclaration'
-              },
-              {
-                context: 'ExportNamedDeclaration > ClassDeclaration'
-              },
-              {
-                context: 'ExportDefaultDeclaration > ClassDeclaration'
-              }
-            ],
-            publicOnly: false,
-            require: {
-              ArrowFunctionExpression: false,
-              ClassDeclaration: false,
-              ClassExpression: false,
-              FunctionDeclaration: false,
-              MethodDefinition: false
-            }
-          }
-        ],
+        /*
+         * Disabled for the modular engine split. `src/app2.ts` was one giant IIFE with
+         * zero exports, so `require-jsdoc` / `require-file-overview` never fired. Extracting
+         * its ~150+ logical units into ES modules turns them all into exports; documenting
+         * every one was deliberately scoped out of the mechanical, verbatim split (user
+         * decision). Member sorting (`perfectionist/sort-modules`) stays enforced.
+         */
+        'jsdoc/require-file-overview': 'off',
+        'jsdoc/require-jsdoc': 'off',
         'jsdoc/require-throws-type': 'off',
         'jsdoc/tag-lines': [
           'error',
