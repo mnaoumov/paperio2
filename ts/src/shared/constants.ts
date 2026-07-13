@@ -5,3 +5,4 @@ export const PERCENT_MAX = 100;
 export const HEX_RADIX = 16;
 export const HEX_CHANNEL_DIGITS = 2;
 export const FIXED_DECIMAL_DIGITS = 2;
+export const MILLISECONDS_IN_SECOND = 1000;

@@ -20,11 +20,11 @@ import type {
 import type { Language } from './i18n.ts';
 import type { SkinSource } from './skins.ts';
 
-import { DAYS_IN_YEAR } from './engine.ts';
 import {
   findDefaultLanguage,
   list3
 } from './i18n.ts';
+import { DAYS_IN_YEAR } from './scoring.ts';
 import {
   assertNonNullable,
   ensureNonNullable

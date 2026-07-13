@@ -18,17 +18,19 @@ import type { SkinSource } from './skins.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
 import {
-  AchievementStore,
-  BotScoreLabel,
   createGameApi,
   defaultConfig,
-  NamePool,
-  SchemeCycler
+  NamePool
 } from './engine.ts';
 import {
   buildLanguageList,
   findDefaultLanguage
 } from './i18n.ts';
+import {
+  AchievementStore,
+  BotScoreLabel,
+  SchemeCycler
+} from './scoring.ts';
 import {
   GameSkinManager,
   ImageAssetSet,
