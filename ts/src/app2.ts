@@ -2190,6 +2190,9 @@ declare global {
       });
     }
   }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- the shared no-op used by overridable defaults.
+  function noop(): void {}
+  const MIN_LABEL_INCREMENT_PERCENT = 0.01;
   class ScoreLabel {
     public accumulator = 0;
     public name: string;
@@ -2199,13 +2202,22 @@ declare global {
       this.name = name;
     }
 
-    public comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {}
+    public comeback(_info?: ComebackInfo, _isNotCurrent?: boolean): void {
+      noop();
+    }
+
     public getScheme(): this {
       return this;
     }
 
-    public kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {}
-    public out(_isNotCurrent?: boolean): void {}
+    public kill(_killer?: Unit, _cause?: number, _isNotCurrent?: boolean): void {
+      noop();
+    }
+
+    public out(_isNotCurrent?: boolean): void {
+      noop();
+    }
+
     public print(_score?: number): string {
       return formatFixed2(this.scores());
     }
@@ -2218,7 +2230,9 @@ declare global {
       return 0;
     }
 
-    public update(_dt?: number, _isNotCurrent?: boolean): void {}
+    public update(_dt?: number, _isNotCurrent?: boolean): void {
+      noop();
+    }
   }
   class BotScoreLabel extends ScoreLabel {
     public constructor(unit: Unit) {
@@ -2228,12 +2242,12 @@ declare global {
     public override comeback({
       increment
     }: ComebackInfo, isNotCurrent?: boolean): void {
-      if (!isNotCurrent && increment * 100 >= 0.01 && this.unit.isPlayer) {
+      if (!isNotCurrent && increment * PERCENT_MAX >= MIN_LABEL_INCREMENT_PERCENT && this.unit.isPlayer) {
         this.unit.addLabel({
           color: this.unit.skin.colors.nick,
           fading: true,
-          text: `+${(increment * 100).toFixed(2)}%`,
-          time: 1000,
+          text: `+${(increment * PERCENT_MAX).toFixed(FIXED_DECIMAL_DIGITS)}%`,
+          time: MILLISECONDS_IN_SECOND,
           unit: this.unit
         });
       }
@@ -2245,23 +2259,24 @@ declare global {
           color: ensureNonNullable(killer).skin.colors.main,
           fading: true,
           text: this.unit.game.language.killText,
-          time: 1000,
+          time: MILLISECONDS_IN_SECOND,
           unit: this.unit
         });
       }
     }
 
     public override print(scoreOverride?: number): string {
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- a 0 override should fall through to the live score, matching the original.
       const score = scoreOverride || this.scores();
       return `${formatFixed2(score)}%`;
     }
 
     public override result(): number {
-      return +this.scores().toFixed(2);
+      return Number(this.scores().toFixed(FIXED_DECIMAL_DIGITS));
     }
 
     public override scores(): number {
-      return this.unit.percent * 100;
+      return this.unit.percent * PERCENT_MAX;
     }
   }
   class Quest {
