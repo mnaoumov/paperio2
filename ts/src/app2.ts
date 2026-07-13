@@ -874,7 +874,7 @@ declare global {
       this.updateBounds();
     }
 
-    public calcPath() {
+    public calcPath(): void {
       const path2D = new Path2D();
       const {
         segments
@@ -897,7 +897,7 @@ declare global {
       this.updateBounds();
     }
 
-    public calcSimplify() {
+    public calcSimplify(): void {
       this.simplify = [];
       let i2 = 0;
       this.segments.forEach((segment: Segment) => {
@@ -919,23 +919,23 @@ declare global {
       });
     }
 
-    public commit(owner?: ShapeOwner) {
+    public commit(owner?: ShapeOwner): void {
       if (owner) {
         this.owner = owner;
       }
       this.segments.forEach((segment: Segment) => segment.commit(this));
     }
 
-    public findSegment(point: Vector) {
+    public findSegment(point: Vector): number {
       const index = this.segments.findIndex((segment: Segment) => segment.start === point);
       return index;
     }
 
-    public hasPoint(point: Vector) {
+    public hasPoint(point: Vector): boolean {
       return this.segments.some((segment: Segment) => segment.has(point));
     }
 
-    public insert(segment: Segment, point: Vector) {
+    public insert(segment: Segment, point: Vector): void {
       if (!segment.has(point)) {
         const index = this.segments.findIndex((candidateSegment: Segment) => candidateSegment === segment);
         const firstSegment = new Segment(segment.start, point).commit(this);
@@ -945,7 +945,7 @@ declare global {
       }
     }
 
-    public inside(point: Vector) {
+    public inside(point: Vector): boolean {
       const {
         length
       } = this.segments;
@@ -964,11 +964,11 @@ declare global {
       return product !== 1;
     }
 
-    public insideNew(point: Vector) {
+    public insideNew(point: Vector): boolean {
       return !!pointInPolygon(this.segments.map((segment: Segment) => [segment.start.x, segment.start.y]), point.x, point.y);
     }
 
-    public intersections(segment: Segment) {
+    public intersections(segment: Segment): Intersection[] {
       let list4: Intersection[] = [];
       if (this.segments.length > 1) {
         this.segments.forEach((ownSegment: Segment) => {
@@ -987,7 +987,7 @@ declare global {
       return list4;
     }
 
-    public left(list4: Vector[], startIndex: number, endIndex: number) {
+    public left(list4: Vector[], startIndex: number, endIndex: number): void {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
@@ -999,11 +999,11 @@ declare global {
       });
     }
 
-    public points() {
+    public points(): Vector[] {
       return this.segments.map((segment: Segment) => segment.start);
     }
 
-    public rawSquare() {
+    public rawSquare(): number {
       let area = 0;
       this.segments.forEach((segment: Segment) => {
         const {
@@ -1015,19 +1015,19 @@ declare global {
       return area / 2;
     }
 
-    public remove() {
+    public remove(): void {
       this.segments.forEach((segment: Segment) => {
         segment.remove();
       });
     }
 
-    public reverse() {
+    public reverse(): this {
       this.segments.reverse();
       this.segments.forEach((segment: Segment) => segment.reverse());
       return this;
     }
 
-    public right(list4: Vector[], startIndex: number, endIndex: number) {
+    public right(list4: Vector[], startIndex: number, endIndex: number): void {
       const list5: Segment[] = [];
       for (let i2 = 0; i2 < list4.length - 1; i2++) {
         list5.push(new Segment(ensureNonNullable(list4[i2]), ensureNonNullable(list4[i2 + 1])));
@@ -1038,7 +1038,7 @@ declare global {
       this.segments = removedSegments.concat(list5);
     }
 
-    public splice(polyline: Polyline, startIndex: number, endIndex: number) {
+    public splice(polyline: Polyline, startIndex: number, endIndex: number): void {
       const list4 = this.segments.splice(startIndex, endIndex - startIndex, ...polyline.segments);
       list4.forEach((segment: Segment) => {
         segment.remove();
@@ -1046,7 +1046,7 @@ declare global {
       polyline.commit(this);
     }
 
-    public square() {
+    public square(): number {
       let area = this.rawSquare();
       if (area < 0) {
         {
@@ -1056,14 +1056,14 @@ declare global {
       return area;
     }
 
-    public unsplice(polyline: Polyline, startIndex: number, endIndex: number) {
+    public unsplice(polyline: Polyline, startIndex: number, endIndex: number): void {
       const removedSegments = this.segments.splice(startIndex, endIndex - startIndex);
       this.remove();
       this.segments = removedSegments.concat(polyline.reverse().segments);
       polyline.commit(this);
     }
 
-    public updateBounds() {
+    public updateBounds(): void {
       this.calcSimplify();
       let left = Infinity;
       let right = -Infinity;
@@ -1093,7 +1093,7 @@ declare global {
   }
   const timeSource = typeof performance !== 'undefined' ? performance : Date;
   const now = timeSource.now.bind(timeSource);
-  const createCirclePoints = (point: Vector, segmentCount: number, radius: number) => {
+  const createCirclePoints = (point: Vector, segmentCount: number, radius: number): Vector[] => {
     if (typeof point.x !== 'number') {
       throw Error('circle');
     }
@@ -1137,8 +1137,8 @@ declare global {
     normBlue = b / 255;
     max = Math.max(normRed, normGreen, normBlue);
     delta = max - Math.min(normRed, normGreen, normBlue);
-    computeHueComponent = (channelValue: number) => (max - channelValue) / 6 / delta + 1 / 2;
-    round2 = (value: number) => Math.round(value * 100) / 100;
+    computeHueComponent = (channelValue: number): number => (max - channelValue) / 6 / delta + 1 / 2;
+    round2 = (value: number): number => Math.round(value * 100) / 100;
     if (delta == 0) {
       hue = saturation = 0;
     } else {
@@ -1170,7 +1170,7 @@ declare global {
     g,
     r
   }: Rgb): string => {
-    const channelToHex = (channel: number) => {
+    const channelToHex = (channel: number): string => {
       const hex = channel.toString(16);
       if (hex.length < 2) {
         return `0${hex}`;
@@ -1248,23 +1248,23 @@ declare global {
       r: Math.round(red * 255)
     };
   };
-  const hsvToHex = (hsv: Hsv) => rgbToHex(hsvToRgb(hsv));
-  function createRandomGenerator(seed: number) {
+  const hsvToHex = (hsv: Hsv): string => rgbToHex(hsvToRgb(hsv));
+  function createRandomGenerator(seed: number): (max?: number) => number {
     if (seed > 0 && seed < 1) {
       seed = Math.floor(seed * 1000000000);
     }
-    const nextInt = (bound: number) => {
+    const nextInt = (bound: number): number => {
       seed = (seed * 69069 + 1) % 2147483648;
       return seed % bound;
     };
-    const random = (max?: number) => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
+    const random = (max?: number): number => max == null ? nextInt(1000000000) / 1000000000 : nextInt(max);
     return random;
   }
-  function loadImage(src: string) {
+  function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise<HTMLImageElement>((resolve: (value: HTMLImageElement) => void) => {
       const element = document.createElement('img');
       element.src = src;
-      element.onload = function () {
+      element.onload = function (): void {
         resolve(element);
       };
     });
@@ -1309,7 +1309,7 @@ declare global {
       v
     };
   }
-  function formatFixed2(value: number) {
+  function formatFixed2(value: number): string {
     return value.toFixed(2);
   }
   class Border {
@@ -1323,7 +1323,7 @@ declare global {
       this.center = center;
     }
 
-    public static circular(center: Vector, segments: number, radius: number) {
+    public static circular(center: Vector, segments: number, radius: number): Border {
       return new Border(new Polygon(createCirclePoints(center, segments, radius)), center, radius);
     }
 
@@ -1353,7 +1353,7 @@ declare global {
       this.polygon.calcPath();
     }
 
-    public calcPath() {
+    public calcPath(): Path2D {
       this.path = new Path2D();
       const {
         segments
@@ -1375,11 +1375,11 @@ declare global {
       return this.path;
     }
 
-    public calcSquare() {
+    public calcSquare(): void {
       this.square = this.polygon.square();
     }
 
-    public handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleEnemyIntersect(intersection: Intersection, unit: Unit, segment: Segment): void {
       const {
         point: intersectionPoint,
         segment: intersectionSegment
@@ -1412,7 +1412,7 @@ declare global {
       }
     }
 
-    public handleIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleIntersect(intersection: Intersection, unit: Unit, segment: Segment): void {
       if (unit === this.unit) {
         this.handleSelfIntersect(intersection, unit, segment);
       } else {
@@ -1420,7 +1420,7 @@ declare global {
       }
     }
 
-    public handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment) {
+    public handleSelfIntersect(intersection: Intersection, unit: Unit, segment: Segment): void {
       if (intersection.overlay) {
         return;
       }
@@ -1465,7 +1465,7 @@ declare global {
       }
     }
 
-    public remove() {
+    public remove(): void {
       this.polygon.remove();
     }
   }
@@ -1485,7 +1485,7 @@ declare global {
       this.isTrack = true;
     }
 
-    public add(point: Vector) {
+    public add(point: Vector): void {
       if (this.polyline.add2(point)) {
         const length2 = this.polyline.segments.length;
         if (length2 > 0) {
@@ -1511,7 +1511,7 @@ declare global {
       }
     }
 
-    public handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment) {
+    public handleIntersect(intersection: Intersection, unit: Unit, _segment: Segment): void {
       const game = unit.game;
       if (unit === this.unit) {
         if (intersection.overlay || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
@@ -1524,7 +1524,7 @@ declare global {
       }
     }
 
-    public intersect(intersection: Intersection, base: ShapeOwner, enter: boolean) {
+    public intersect(intersection: Intersection, base: ShapeOwner, enter: boolean): void {
       const existingRecord = this.intersections.find((record: TrailIntersectionRecord) => record.point.equal(intersection.point));
       if (existingRecord) {
         existingRecord.intersections.push({
@@ -1544,7 +1544,7 @@ declare global {
       }
     }
 
-    public remove() {
+    public remove(): void {
       this.polyline.remove();
       this.polyline = new Polyline(this);
       this.length = 0;
@@ -1565,7 +1565,7 @@ declare global {
       this.change(initialState);
     }
 
-    public change(stateName: string) {
+    public change(stateName: string): void {
       const currentState = this.states[this.state];
       if (currentState?.leave) {
         this.context = currentState.leave(this.payload, this.context) || this.context;
@@ -1578,7 +1578,7 @@ declare global {
       }
     }
 
-    public update() {
+    public update(): void {
       const currentState = this.states[this.state];
       const nextStateName = currentState?.update(this.payload, this.context);
       if (nextStateName) {
@@ -1586,7 +1586,7 @@ declare global {
       }
     }
   }
-  const isPlayerTrailInRange = (unit: Bot) => {
+  const isPlayerTrailInRange = (unit: Bot): boolean => {
     const {
       player
     } = unit.game;
@@ -1604,7 +1604,7 @@ declare global {
     }
     return false;
   };
-  const isBotInDanger = (unit: Bot) => {
+  const isBotInDanger = (unit: Bot): boolean => {
     if (unit.in === unit.base) {
       return false;
     }
@@ -1880,7 +1880,7 @@ declare global {
       }
     }
   };
-  const createParticleSquarePath = () => {
+  const createParticleSquarePath = (): Path2D => {
     const path2D = new Path2D();
     const halfSize = 1;
     path2D.moveTo(-halfSize, -halfSize);
@@ -1920,7 +1920,7 @@ declare global {
       this.fn = callback || null;
     }
 
-    public static nom(unit: Unit, segment: Segment, scale: number) {
+    public static nom(unit: Unit, segment: Segment, scale: number): Particle {
       const randomSign = Math.sign(Math.random() - 0.5);
       const scaledMaxScale = unit.skin.container.maxScale * scale;
       const {
@@ -1939,7 +1939,7 @@ declare global {
       return particle;
     }
 
-    public draw(context: CanvasRenderingContext2D) {
+    public draw(context: CanvasRenderingContext2D): void {
       const {
         x,
         y
@@ -1965,7 +1965,7 @@ declare global {
       context.setTransform(savedTransform);
     }
 
-    public update(deltaTimeMilliseconds: number) {
+    public update(deltaTimeMilliseconds: number): void {
       const deltaTimeSeconds = deltaTimeMilliseconds / 1000;
       this.time -= deltaTimeMilliseconds;
       if (this.time <= 0) {
@@ -1986,7 +1986,7 @@ declare global {
       this.scale += this.vscale * deltaTimeSeconds;
     }
   }
-  function spawnScoreParticles(unit: Unit, scoreCollector: null | Unit, list4: Segment[], shouldTransferScore?: boolean) {
+  function spawnScoreParticles(unit: Unit, scoreCollector: null | Unit, list4: Segment[], shouldTransferScore?: boolean): void {
     const game = unit.game;
     if (game.visible) {
       const totalScores = ensureNonNullable(unit.schemes).scores();
@@ -2010,7 +2010,7 @@ declare global {
               particle2.time = 1;
               particle2.velocity = typeof particle2.velocity === 'number' ? particle2.velocity : particle2.velocity.magnitude();
               particle2.acceleration = (1.5 + Math.random() * 0.5) * game.config.unitSpeed;
-              particle2.fn = () => {
+              particle2.fn = (): void => {
                 if (shouldTransferScore) {
                   ensureNonNullable(scoreCollector.schemes).getScheme().accumulator += scorePerParticle;
                 }
@@ -2218,11 +2218,11 @@ declare global {
       if (imageUrl) {
         this.ready = false;
         const image = new Image();
-        image.onload = () => {
+        image.onload = (): void => {
           this.ready = true;
           this.image = image;
         };
-        image.onerror = () => {
+        image.onerror = (): void => {
           this.ready = true;
         };
         image.src = imageUrl;
@@ -2298,7 +2298,7 @@ declare global {
 
     public load(): void {
       const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
-      const loadChallenge = (challengeKey: string, achievementName: string) => {
+      const loadChallenge = (challengeKey: string, achievementName: string): void => {
         if (challenges[challengeKey]) {
           const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
           if (achievement) {
@@ -2335,7 +2335,7 @@ declare global {
       };
       Cookies.set(this.storageName, profile, cookieOptions);
       const challenges: StoredChallenges = Cookies.getJSON('paperio_challenges') || {};
-      const saveChallenge = (challengeKey: string, achievementName: string) => {
+      const saveChallenge = (challengeKey: string, achievementName: string): void => {
         const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
         if (achievement?.earned) {
           challenges[challengeKey] = true;
@@ -2426,7 +2426,7 @@ declare global {
       this.skin = null;
     }
 
-    public add(amount: number) {
+    public add(amount: number): number {
       const name = ensureNonNullable(ensureNonNullable(this.unit).skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       let scoreGain = 0;
       if (name === this.country) {
@@ -2472,7 +2472,7 @@ declare global {
     public track: Trail;
     public type: number;
     public vrange: number;
-    public get isPlayer() {
+    public get isPlayer(): boolean {
       return false;
     }
 
@@ -2526,29 +2526,29 @@ declare global {
       this.baseNearestPointNormal = null;
     }
 
-    public addLabel(label: Label) {
+    public addLabel(label: Label): void {
       if (!label.unit) {
         label.unit = this;
       }
       this.labels.push(label);
     }
 
-    public movement() {
+    public movement(): null | Vector {
       return this.target && this.target.clone().sub(this.position).normalize();
     }
 
-    public onScoreChanged() {
+    public onScoreChanged(): void {
       if (this.game.units.indexOf(this) <= 5 || this.isPlayer) {
         this.game.topListChanged = true;
       }
     }
 
-    public setSkin(skin: Skin) {
+    public setSkin(skin: Skin): void {
       this.skin = skin;
       skin.user = this;
     }
 
-    public update(deltaTime: number) {
+    public update(deltaTime: number): void {
       this.log.push(this.position);
       if (this.in !== this.base) {
         this.scores.accumulator += this.percent * 100 * deltaTime / 1000;
@@ -2584,7 +2584,7 @@ declare global {
   class Player extends Unit {
     public moveTo?: boolean;
     public win: boolean;
-    public override get isPlayer() {
+    public override get isPlayer(): boolean {
       return true;
     }
 
@@ -2593,7 +2593,7 @@ declare global {
       this.win = false;
     }
 
-    public override update(deltaMilliseconds: number) {
+    public override update(deltaMilliseconds: number): void {
       super.update(deltaMilliseconds);
       if (!this.respawn) {
         this.target = new Vector(1, 0).rotate(this.game.angle * Math.PI / 127).mulScalar(50).add(this.position);
@@ -2628,7 +2628,7 @@ declare global {
       this.fsm = new StateMachine(botStates, 'idle', this);
     }
 
-    public override update(deltaMilliseconds: number) {
+    public override update(deltaMilliseconds: number): void {
       super.update(deltaMilliseconds);
       this.unitToTrackDistances = [];
       let maxDanger = 0;
@@ -2695,8 +2695,8 @@ declare global {
       this.fading = isFading;
     }
 
-    public draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number) {
-      const easeOut = (t: number) => 1 + --t * t * t * t * t;
+    public draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number): void {
+      const easeOut = (t: number): number => 1 + --t * t * t * t * t;
       let alphaHex = Math.floor(easeOut(this.time / this.duration) * 255).toString(16);
       if (alphaHex.length < 2) {
         alphaHex = `0${alphaHex}`;
@@ -2715,7 +2715,7 @@ declare global {
       context.restore();
     }
 
-    public update(deltaMilliseconds: number) {
+    public update(deltaMilliseconds: number): void {
       this.time -= deltaMilliseconds;
       if (this.time > 0) {
         this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
@@ -2732,26 +2732,26 @@ declare global {
       this.rng = createRandomGenerator(seed);
     }
 
-    public aviable() {
+    public aviable(): boolean {
       return true;
     }
 
-    public get() {
+    public get(): string | undefined {
       const randomValue = this.rng();
       const name = this.pool[~~(randomValue * this.pool.length)];
       return name;
     }
 
-    public release(names: string[]) {
+    public release(names: string[]): void {
       this.pool.push(...names);
     }
 
-    public request() {}
+    public request(): void {}
   }
   const ENCODED_EXPECTED_HOST: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
   const ENCODED_REDIRECT_HOST: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
   {
-    const decodeString = (encoded: [number, number[], number[]]) =>
+    const decodeString = (encoded: [number, number[], number[]]): string =>
       fromCharCode.apply(
         null,
         encoded[2].map((charIndex: number) =>
@@ -2766,7 +2766,7 @@ declare global {
     const expectedHost = decodeString(ENCODED_EXPECTED_HOST);
     const redirectHost = decodeString(ENCODED_REDIRECT_HOST);
     const list4: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
-    const decodePropertyName = (charIndices: number[]) =>
+    const decodePropertyName = (charIndices: number[]): string =>
       fromCharCode.apply(
         null,
         charIndices.map((charIndex: number) =>
@@ -2801,7 +2801,7 @@ declare global {
   const baseCos = Math.cos(0);
   const baseSin = Math.sin(0);
   const MAX_METRICS_SAMPLES = 240;
-  const angleToVector = (angle: number) => {
+  const angleToVector = (angle: number): Vector => {
     const cosAngle = Math.cos(angle);
     const sinAngle = Math.sin(angle);
     const x = baseCos * cosAngle - baseSin * sinAngle;
@@ -3085,7 +3085,7 @@ declare global {
         q9: true
       };
       if (canvas) {
-        const onResize = () => {};
+        const onResize = (): void => {};
         window.addEventListener('resize', onResize, false);
       }
       this.stats = {
@@ -3114,7 +3114,7 @@ declare global {
       }, 500);
     }
 
-    public addCity(unit: Unit) {
+    public addCity(unit: Unit): void {
       const name = ensureNonNullable(unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags')).name;
       const city = new City(ensureNonNullable(this.citiesManager).get(name), false, unit.position.clone(), unit);
       if (this.skinManager.isFlagSkinManager) {
@@ -3124,7 +3124,7 @@ declare global {
       unit.cities.push(city);
     }
 
-    public addPlayer(player: Player) {
+    public addPlayer(player: Player): void {
       this.quality = 1;
       this.fpsSequence = [];
       if (this.achievementsProfile) {
@@ -3141,11 +3141,11 @@ declare global {
       this.debug = player.name === 'dratest';
     }
 
-    public addUnit(unit: Unit) {
+    public addUnit(unit: Unit): void {
       this.units.push(unit);
     }
 
-    public alert(text?: string, color?: string) {
+    public alert(text?: string, color?: string): void {
       this.labels.push(new TextParticle(ensureNonNullable(text), color || '#000000', this.player));
     }
 
@@ -3398,9 +3398,9 @@ declare global {
       const right = vector.x + viewWidth / 2 / scale;
       const top = vector.y - viewHeight / 2 / scale;
       const bottom = vector.y + viewHeight / 2 / scale;
-      const pointInView = (point: Vector, margin = 0) => isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
-      const boundsInView = (boundsObject: { bounds: Bounds }, margin = 0) => intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
-      const calcMult = (a: number, b: number) => {
+      const pointInView = (point: Vector, margin = 0): boolean => isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
+      const boundsInView = (boundsObject: { bounds: Bounds }, margin = 0): boolean => intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
+      const calcMult = (a: number, b: number): number => {
         const landscapeAspectRatio = 16 / 9;
         const portraitAspectRatio = 9 / 16;
         const clampedAspectRatio = clamp(portraitAspectRatio, landscapeAspectRatio, viewScreenWidth / viewScreenHeight);
@@ -3592,7 +3592,7 @@ declare global {
             if (list8.length) {
               const enterIntersection = ensureNonNullable(list8[0]);
               const leaveIntersection = ensureNonNullable(list7.find((intersection: ShapeOwnerIntersection) => intersection.owner === enterIntersection.owner));
-              const mergeComeback = (params: ComebackMergeParams) => {
+              const mergeComeback = (params: ComebackMergeParams): void => {
                 const {
                   endPoint,
                   endT,
@@ -3687,7 +3687,7 @@ declare global {
       return undefined;
     }
 
-    public handleUnitMovements(deltaMilliseconds?: number) {
+    public handleUnitMovements(deltaMilliseconds?: number): void {
       this.units.slice().forEach((unit: Unit) => {
         if (unit.death) {
           return;
@@ -4063,7 +4063,7 @@ declare global {
       }
     }
 
-    public setLeaderboard(leaderboard?: Leaderboard) {
+    public setLeaderboard(leaderboard?: Leaderboard): void {
       if (leaderboard) {
         this.leaderboard = leaderboard;
         this.changeShields();
@@ -4127,7 +4127,7 @@ declare global {
         maxScale,
         minScale
       } = this.config;
-      const killUnitToMakeRoom = () => {
+      const killUnitToMakeRoom = (): void => {
         if (this.units.length) {
           this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_SYSTEM);
         }
@@ -4518,10 +4518,10 @@ declare global {
       this.sets = [];
       this.keyboardModeSwitch = keyboardModeSwitch;
       this.pressedButtons = [];
-      const onKeyDown = (event: KeyboardEvent) => {
+      const onKeyDown = (event: KeyboardEvent): void => {
         this.onKeyChange(event, true);
       };
-      const onKeyUp = (event: KeyboardEvent) => {
+      const onKeyUp = (event: KeyboardEvent): void => {
         this.onKeyChange(event, false);
       };
       if (keyboardModeSwitch) {
@@ -4529,29 +4529,29 @@ declare global {
         window.addEventListener('keydown', onKeyDown, false);
         window.addEventListener('keyup', onKeyUp, false);
       }
-      const onContextMenu = (event: Event) => {
+      const onContextMenu = (event: Event): void => {
         event.preventDefault();
       };
       element.addEventListener('contextmenu', onContextMenu, false);
-      const onMouseDown = (event: MouseEvent) => {
+      const onMouseDown = (event: MouseEvent): void => {
         this.onMouseChange(event, true);
       };
-      const onMouseUp = (event: MouseEvent) => {
+      const onMouseUp = (event: MouseEvent): void => {
         this.onMouseChange(event, false);
       };
-      const onMouseLeave = (event: MouseEvent) => {
+      const onMouseLeave = (event: MouseEvent): void => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const onMouseMove = (event: MouseEvent) => {
+      const onMouseMove = (event: MouseEvent): void => {
         this.mouse = {
           x: event.pageX,
           y: event.pageY
         };
         event.preventDefault();
       };
-      const onMouseEnter = (event: MouseEvent) => {
+      const onMouseEnter = (event: MouseEvent): void => {
         onMouseMove(event);
         const {
           buttons
@@ -4568,12 +4568,12 @@ declare global {
       element.addEventListener('mouseleave', onMouseLeave, false);
       element.addEventListener('mousedown', onMouseDown, false);
       element.addEventListener('mouseup', onMouseUp, false);
-      const onTouchEnd = (event: TouchEvent) => {
+      const onTouchEnd = (event: TouchEvent): void => {
         this.lastMouse = this.mouse;
         this.mouse = null;
         event.preventDefault();
       };
-      const onTouchMove = (event: TouchEvent) => {
+      const onTouchMove = (event: TouchEvent): void => {
         const event2 = ensureNonNullable(event.changedTouches[0]);
         this.mouse = {
           x: event2.clientX,
@@ -4585,7 +4585,7 @@ declare global {
       element.addEventListener('touchmove', onTouchMove, false);
       element.addEventListener('touchend', onTouchEnd, false);
       element.addEventListener('touchcancel', onTouchEnd, false);
-      this.dispose = () => {
+      this.dispose = (): void => {
         element.removeEventListener('contextmenu', onContextMenu, false);
         if (keyboardModeSwitch) {
           window.removeEventListener('keydown', onKeyDown, false);
@@ -4599,21 +4599,21 @@ declare global {
       };
     }
 
-    public addButton(code: number, handler: () => void) {
+    public addButton(code: number, handler: () => void): void {
       this.codes.push({
         code,
         handler
       });
     }
 
-    public addSet(codes: number[], handler: () => void) {
+    public addSet(codes: number[], handler: () => void): void {
       this.sets.push({
         codes: codes.sort(),
         handler
       });
     }
 
-    public onKeyChange(event: KeyboardEvent, isPressed: boolean) {
+    public onKeyChange(event: KeyboardEvent, isPressed: boolean): void {
       if (event.target === document.body) {
         let isHandled = true;
         const {
@@ -4673,7 +4673,7 @@ declare global {
       }
     }
 
-    public onMouseChange(event: MouseEvent, isPressed: boolean) {
+    public onMouseChange(event: MouseEvent, isPressed: boolean): void {
       switch (event.button) {
         case 0:
           this.buttons.left = isPressed;
@@ -4746,7 +4746,7 @@ declare global {
       }
     }
 
-    public rescale(scale: number) {
+    public rescale(scale: number): void {
       const {
         maxScale,
         trackWidth
@@ -4858,7 +4858,7 @@ declare global {
       this.ready = false;
       Object.assign(this, descriptor);
       let i2 = 0;
-      const onLayerReady = (layer: SkinLayer) => {
+      const onLayerReady = (layer: SkinLayer): void => {
         layer.rescale(this.scale);
         if (this.layers.length === ++i2) {
           this.ready = true;
@@ -4900,12 +4900,12 @@ declare global {
       this.maxScale = 0;
     }
 
-    public add(display: Avatar) {
+    public add(display: Avatar): void {
       this.displays.push(display);
       this.sort();
     }
 
-    public remove(display: Avatar) {
+    public remove(display: Avatar): void {
       this.displays = this.displays.filter((other: Avatar) => other !== display);
       this.sort();
     }
@@ -4942,19 +4942,19 @@ declare global {
     }
     return cachedGradient;
   };
-  const strokePath = (context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number) => {
+  const strokePath = (context: CanvasRenderingContext2D, path: Path2D, strokeColor: string, lineWidth: number): void => {
     context.strokeStyle = strokeColor;
     context.lineWidth = lineWidth;
     context.stroke(path);
   };
-  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: CanvasPattern | string, trail: Trail, _unused: Vector, lineWidth: number) => {
+  const strokeTrail = (context: CanvasRenderingContext2D, strokeStyle: CanvasPattern | string, trail: Trail, _unused: Vector, lineWidth: number): void => {
     if (trail.polyline.segments.length) {
       context.lineWidth = lineWidth;
       context.strokeStyle = strokeStyle;
       context.stroke(trail.polyline.path);
     }
   };
-  const drawUnitName = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string) => {
+  const drawUnitName = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string): void => {
     const {
       devicePixelRatio
     } = window;
@@ -4996,7 +4996,7 @@ declare global {
     context.fillText(name, 0, textOffsetY);
     context.restore();
   };
-  const createCrownPath = () => {
+  const createCrownPath = (): Path2D => {
     const path2D = new Path2D();
     const size = 5;
     path2D.moveTo(size * -3, size * -3);
@@ -5010,7 +5010,7 @@ declare global {
     return path2D;
   };
   const crownPath = createCrownPath();
-  const drawCrown = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number) => {
+  const drawCrown = (context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number): void => {
     const {
       devicePixelRatio
     } = window;
@@ -5031,7 +5031,7 @@ declare global {
     context.stroke(crownPath);
     context.restore();
   };
-  const createFacePath = () => {
+  const createFacePath = (): Path2D => {
     const path2D = new Path2D();
     const size = 1.6;
     path2D.moveTo(size * 0, size * -7);
@@ -5059,7 +5059,7 @@ declare global {
     return path2D;
   };
   const facePath = createFacePath();
-  const drawFaceIcon = (context: CanvasRenderingContext2D, x: number, y: number, scale: number) => {
+  const drawFaceIcon = (context: CanvasRenderingContext2D, x: number, y: number, scale: number): void => {
     context.save();
     context.fillStyle = '#ffffffcc';
     context.translate(x, y);
@@ -5073,7 +5073,7 @@ declare global {
     skin: Skin;
     target?: null | Vector;
   }
-  const drawSkinLayer = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer) => {
+  const drawSkinLayer = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, skinLayer: Avatar, skinLayer2: SkinLayer): void => {
     const {
       trackWidth
     } = config;
@@ -5106,13 +5106,13 @@ declare global {
       context.restore();
     }
   };
-  const drawAvatarLayers = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean) => {
+  const drawAvatarLayers = (config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean): void => {
     const list4 = isFront ? avatar.frontLayers : avatar.backLayers;
     list4.forEach((layerEntry: DisplayLayerEntry) => {
       drawSkinLayer(config, context, unit, layerEntry.display, layerEntry.layer);
     });
   };
-  const drawRoundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number) => {
+  const drawRoundedRect = (context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, cornerRadii: [number, number, number, number], strokeWidth?: number): void => {
     const [topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius] = cornerRadii;
     context.beginPath();
     context.moveTo(x + topLeftRadius, y);
@@ -5132,7 +5132,7 @@ declare global {
       context.stroke();
     }
   };
-  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: CanvasPattern | string) => {
+  const fillPath = (context: CanvasRenderingContext2D, path: Path2D, fillStyle: CanvasPattern | string): void => {
     context.fillStyle = fillStyle;
     context.fill(path);
   };
@@ -5170,7 +5170,7 @@ declare global {
     viewScreenWidth: number;
     viewWidth: number;
   }
-  const drawBaseFills = (renderContext: RenderContext) => {
+  const drawBaseFills = (renderContext: RenderContext): void => {
     const {
       boundsInView,
       game
@@ -5185,7 +5185,7 @@ declare global {
       }
     });
   };
-  const drawTrailUnderlays = (renderContext: RenderContext) => {
+  const drawTrailUnderlays = (renderContext: RenderContext): void => {
     const {
       boundsInView,
       game
@@ -5214,7 +5214,7 @@ declare global {
     });
     ctx.restore();
   };
-  const drawAvatarFrontLayers = (renderContext: RenderContext) => {
+  const drawAvatarFrontLayers = (renderContext: RenderContext): void => {
     const {
       game,
       pointInView
@@ -5229,7 +5229,7 @@ declare global {
       }
     });
   };
-  const drawUnitNames = (renderContext: RenderContext) => {
+  const drawUnitNames = (renderContext: RenderContext): void => {
     const {
       game,
       pointInView,
@@ -5247,7 +5247,7 @@ declare global {
       }
     });
   };
-  const drawAvatarBackLayers = (renderContext: RenderContext) => {
+  const drawAvatarBackLayers = (renderContext: RenderContext): void => {
     const {
       game,
       pointInView
@@ -5262,7 +5262,7 @@ declare global {
       }
     });
   };
-  const drawTrails = (renderContext: RenderContext) => {
+  const drawTrails = (renderContext: RenderContext): void => {
     const {
       boundsInView,
       game
@@ -5283,7 +5283,7 @@ declare global {
     });
     ctx.restore();
   };
-  const drawBaseBacks = (renderContext: RenderContext) => {
+  const drawBaseBacks = (renderContext: RenderContext): void => {
     const {
       boundsInView,
       game
@@ -5298,7 +5298,7 @@ declare global {
       }
     });
   };
-  const drawArenaBackground = (renderContext: RenderContext) => {
+  const drawArenaBackground = (renderContext: RenderContext): void => {
     const {
       game,
       viewScreenHeight,
@@ -5322,7 +5322,7 @@ declare global {
     }
     ctx.fillRect(viewScreenWidth / -2, viewScreenHeight / -2, game.space.width + viewScreenWidth, game.space.height + viewScreenHeight);
   };
-  const drawParticles = (renderContext: RenderContext) => {
+  const drawParticles = (renderContext: RenderContext): void => {
     const {
       game,
       pointInView
@@ -5335,7 +5335,7 @@ declare global {
     game.particles.forEach((particle: Particle) => particle.time > 0 && pointInView(particle.position, trackWidth) && particle.draw(ctx));
     ctx.restore();
   };
-  const drawLabels = (renderContext: RenderContext) => {
+  const drawLabels = (renderContext: RenderContext): void => {
     const {
       game,
       scale,
@@ -5351,7 +5351,7 @@ declare global {
     });
     ctx.scale(scale, scale);
   };
-  const drawLeaderMarker = (renderContext: RenderContext) => {
+  const drawLeaderMarker = (renderContext: RenderContext): void => {
     const {
       game,
       scale,
@@ -5363,7 +5363,7 @@ declare global {
       drawCrown(ctx, topUnit, scale, scaler);
     }
   };
-  const drawMinimap = (renderContext: RenderContext) => {
+  const drawMinimap = (renderContext: RenderContext): void => {
     const {
       calcMult,
       game,
@@ -5404,7 +5404,7 @@ declare global {
   };
   let spatialGrid: HTMLCanvasElement | null = null;
   window.addEventListener('resize', () => spatialGrid = null, false);
-  const drawLeaderboard = (renderContext: RenderContext) => {
+  const drawLeaderboard = (renderContext: RenderContext): void => {
     const {
       devicePixelRatio
     } = renderContext;
@@ -5431,7 +5431,7 @@ declare global {
     ctx.drawImage(spatialGrid, ctx.canvas.width - spatialGrid.width, 0);
     ctx.restore();
   };
-  const drawLeaderboardRows = (context: CanvasRenderingContext2D, renderContext: RenderContext) => {
+  const drawLeaderboardRows = (context: CanvasRenderingContext2D, renderContext: RenderContext): void => {
     const {
       backHeight,
       barHeight,
@@ -5445,7 +5445,7 @@ declare global {
       viewScreenWidth
     } = renderContext;
     let previousBarWidth: number | undefined;
-    const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number) => {
+    const drawLeaderboardRow = (unit: Unit, rank: number, rowIndex: number, maxScore: number): void => {
       const rowY = padding + rowIndex * (barHeight * 1.3);
       const score = ensureNonNullable(unit.schemes).scores();
       let scoreBarWidth = halfBarWidth * (score / maxScore);
@@ -5498,7 +5498,7 @@ declare global {
       drawLeaderboardRow(game.player, playerIndex + 1, 6, ensureNonNullable(topScore));
     }
   };
-  const renderScoreBar = (renderContext: RenderContext) => {
+  const renderScoreBar = (renderContext: RenderContext): void => {
     const {
       backHeight,
       barHeight,
@@ -5528,7 +5528,7 @@ declare global {
     ctx.textBaseline = 'middle';
     ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * 1.1);
   };
-  const renderBestScore = (renderContext: RenderContext) => {
+  const renderBestScore = (renderContext: RenderContext): void => {
     const {
       backHeight,
       barHeight,
@@ -5544,7 +5544,7 @@ declare global {
     ctx.fillStyle = '#00000066';
     ctx.fillText(bestText, padding / 2, padding + barHeight + backHeight + padding / 2);
   };
-  const renderKillCount = (renderContext: RenderContext) => {
+  const renderKillCount = (renderContext: RenderContext): void => {
     const {
       backHeight,
       barHeight,
@@ -5567,7 +5567,7 @@ declare global {
     ctx.fillStyle = '#ffffffcc';
     ctx.fillText(killsText, barHeight * 1.25, killsY + halfBarHeight + barHeight * 0.03);
   };
-  const renderQuestNotification = (renderContext: RenderContext) => {
+  const renderQuestNotification = (renderContext: RenderContext): void => {
     const {
       backHeight,
       barHeight,
@@ -5611,7 +5611,7 @@ declare global {
       }
     }
   };
-  function renderGame(game: Game) {
+  function renderGame(game: Game): void {
     const renderContext = game.getRenderContext();
     if (!renderContext) {
       return;
@@ -5677,7 +5677,7 @@ declare global {
     renderTime: number;
     updateTime: number;
   }
-  function renderDebugOverlay(game: Game) {
+  function renderDebugOverlay(game: Game): void {
     const {
       view
     } = game;
@@ -5693,7 +5693,7 @@ declare global {
     context.textAlign = 'left';
     context.textBaseline = 'top';
     let lineY = game.quality * 160;
-    const drawStatLine = (text = '', indentLevel = 0) => {
+    const drawStatLine = (text = '', indentLevel = 0): void => {
       if (text) {
         context.strokeText(text, 10 + indentLevel * 20, lineY);
         context.fillText(text, 10 + indentLevel * 20, lineY);
@@ -5842,7 +5842,7 @@ declare global {
   const createGameApi = (config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null => {
     const gameApi = {} as GameApi;
     if (Path2D) {
-      gameApi.create = (view: HTMLCanvasElement) => {
+      gameApi.create = (view: HTMLCanvasElement): void => {
         const {
           arenaSize,
           borderPoints,
@@ -5868,7 +5868,7 @@ declare global {
       gameApi.preparing = true;
       let i2 = 0;
       let prepareIntervalId: number | undefined;
-      const runPrepareBatch = () => {
+      const runPrepareBatch = (): void => {
         const {
           prepareMult
         } = config;
@@ -5880,7 +5880,7 @@ declare global {
           i2++;
         }
       };
-      gameApi.prepare = (onPrepared?: () => void) => {
+      gameApi.prepare = (onPrepared?: () => void): void => {
         const {
           game: gameApi2
         } = gameApi;
@@ -5901,7 +5901,7 @@ declare global {
           }
         }, 0);
       };
-      gameApi.start = (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => {
+      gameApi.start = (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number): void => {
         const game = gameApi.game;
         if (gameApi.preparing) {
           clearInterval(prepareIntervalId);
@@ -5945,7 +5945,7 @@ declare global {
 
   type LanguagesData = Record<string, Partial<LanguageStrings>>;
   const list3: Language[] = [];
-  const buildLanguageList = (languagesData: LanguagesData) => {
+  const buildLanguageList = (languagesData: LanguagesData): void => {
     const {
       en
     } = languagesData;
@@ -5986,7 +5986,7 @@ declare global {
       const intervalId = setInterval(() => {
         setTipIndex((previousIndex: number) => (previousIndex + 1) % messages.length);
       }, 3000);
-      return () => {
+      return (): void => {
         clearInterval(intervalId);
       };
     }, []);
@@ -6054,7 +6054,7 @@ declare global {
     view: Ref<HTMLCanvasElement | null>;
   }) => {
     const config = api && api.game && api.game.config;
-    const applyConfig = (event: Event) => {
+    const applyConfig = (event: Event): void => {
       event.preventDefault();
       assertNonNullable(api);
       assertNonNullable(config);
@@ -6140,11 +6140,11 @@ declare global {
       lng
     } = ensureNonNullable(useContext(LanguageContext));
     const isSupported = !!api;
-    const handleNickNameInput = (event: Event) => {
+    const handleNickNameInput = (event: Event): void => {
       setNickName((event.target as HTMLInputElement).value);
     };
     const canPlay = isSupported;
-    const handlePlay = (event: Event) => {
+    const handlePlay = (event: Event): void => {
       event.preventDefault();
       if (canPlay) {
         start();
@@ -6247,7 +6247,7 @@ declare global {
     skin: string;
   }) => {
     useEffect(() => {
-      const handleGameOver = (results: GameResults) => {
+      const handleGameOver = (results: GameResults): void => {
         if (results.newBest) {
           setBestScore(results.score);
         }
@@ -6289,7 +6289,7 @@ declare global {
     route: Dispatch<string>;
     start: () => void;
   }) => {
-    const goToMenu = () => {
+    const goToMenu = (): void => {
       route('menu');
     };
     const {
@@ -6464,7 +6464,7 @@ declare global {
     } = ensureNonNullable(useContext(LanguageContext));
     const currentSkinIndex = skins.findIndex((skinSource: SkinSource) => skinSource.name === skin);
     const [skinIndex, setSkinIndex] = useState(currentSkinIndex > 0 ? currentSkinIndex : 0);
-    const selectSkin = (index: number) => {
+    const selectSkin = (index: number): void => {
       if (index >= 0 && index < skins.length) {
         setSkinIndex(index);
         setSkin(ensureNonNullable(skins[index]).name);
@@ -6521,7 +6521,7 @@ declare global {
     skin: string;
     skins: SkinSource[];
   }) => {
-    const goToMenu = () => {
+    const goToMenu = (): void => {
       route('menu');
     };
     useEffect(() => {
@@ -6618,7 +6618,7 @@ declare global {
         setPlayable(true);
       }
     }, []);
-    ensureNonNullable(api).startGame = () => {
+    ensureNonNullable(api).startGame = (): void => {
       const element = document.getElementById('overlay');
       if (element) {
         element.style.display = 'none';
@@ -6628,7 +6628,7 @@ declare global {
       }
       setRoute('game');
     };
-    const start = () => {
+    const start = (): void => {
       const element = document.getElementById('overlay');
       if (element) {
         element.style.display = 'block';
@@ -6639,7 +6639,7 @@ declare global {
       }
       ensureNonNullable(window.ShowPreroll)();
     };
-    const setCanvasRef = (element: EventTarget | null) => {
+    const setCanvasRef = (element: EventTarget | null): void => {
       canvasRef.current = element instanceof HTMLCanvasElement ? element : null;
     };
     return createElement(
@@ -6790,7 +6790,7 @@ declare global {
       this.container = new DisplayList();
     }
 
-    public addAsset(asset: Asset) {
+    public addAsset(asset: Asset): void {
       if (asset.content.colors) {
         this.colors = asset.content.colors;
       }
@@ -6803,7 +6803,7 @@ declare global {
       this.assets.push(asset);
     }
 
-    public removeAsset(asset: Asset) {
+    public removeAsset(asset: Asset): void {
       if (asset.content.display) {
         this.container.remove(asset.content.display);
       }
@@ -6857,7 +6857,7 @@ declare global {
         return;
       }
       this.loadingStarted = true;
-      const updateReady = () => {
+      const updateReady = (): void => {
         this.ready = !!this.content.display && this.content.display.ready && (this.content.pattern ? this.content.pattern.ready : true);
       };
       const {
@@ -6901,7 +6901,7 @@ declare global {
       this.add(COLOR_PALETTE);
     }
 
-    public add(colors: string[]) {
+    public add(colors: string[]): void {
       const {
         config
       } = this;
@@ -6959,7 +6959,7 @@ declare global {
       }
     }
 
-    public add(sources: SkinSource[]) {
+    public add(sources: SkinSource[]): void {
       this.assets.push(...(sources || []).map((source: SkinSource) => new ImageAsset(this, source.name, source)));
     }
   }
@@ -7036,20 +7036,20 @@ declare global {
       return name;
     }
 
-    public registerAsset(asset: Asset, tag: string) {
+    public registerAsset(asset: Asset, tag: string): void {
       this.unusedAssets[asset.name] = this.assets[asset.name] = {
         asset,
         tag
       };
     }
 
-    public registerAssets(assetSet: AssetSet, tag: string) {
+    public registerAssets(assetSet: AssetSet, tag: string): void {
       for (const asset of assetSet.assets) {
         this.registerAsset(asset, tag);
       }
     }
 
-    public release(skin: Skin) {
+    public release(skin: Skin): void {
       const name = ensureNonNullable(skin.name);
       const remaining = ensureNonNullable(this.usedBy[name]).filter((usedSkin: Skin) => usedSkin != skin);
       this.usedBy[name] = remaining;
@@ -7059,7 +7059,7 @@ declare global {
       }
     }
 
-    public reskin(name: string) {
+    public reskin(name: string): void {
       const skins = this.usedBy[name];
       if (skins) {
         for (const skin of skins) {
@@ -7111,7 +7111,7 @@ declare global {
     assertLoadedAssets(loadedAssets);
     const [languages, skins] = loadedAssets;
     buildLanguageList(languages);
-    const createSkinManager = (config: Config, canvas: HTMLCanvasElement) => {
+    const createSkinManager = (config: Config, canvas: HTMLCanvasElement): GameSkinManager => {
       const imageAssetSet = new ImageAssetSet(config);
       const svgAssetSet = new SvgAssetSet(config, canvas, 'assets/skins/', skins);
       const gameSkinManager = new GameSkinManager(imageAssetSet, svgAssetSet, 1);
