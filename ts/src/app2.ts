@@ -1578,12 +1578,12 @@ declare global {
     public change(stateName: string): void {
       const currentState = this.states[this.state];
       if (currentState?.leave) {
-        this.context = currentState.leave(this.payload, this.context) || this.context;
+        this.context = currentState.leave(this.payload, this.context) ?? this.context;
       }
       const nextState = this.states[stateName];
       if (nextState) {
         this.state = stateName;
-        this.context = nextState.enter?.(this.payload, this.context) || this.context;
+        this.context = nextState.enter?.(this.payload, this.context) ?? this.context;
         this.update();
       }
     }
@@ -1596,13 +1596,20 @@ declare global {
       }
     }
   }
-  const isPlayerTrailInRange = (unit: Bot): boolean => {
+  const AGGRO_RANGE_FACTOR = 0.75;
+  const DANGER_DEF_FACTOR = 0.8;
+  const BACK_SMOOTHNESS_FACTOR = 4;
+  const BORDER_SLOWDOWN_DISTANCE = 20;
+  const BORDER_EXIT_MARGIN = 10;
+  const EXIT_SPEED_DECAY = 0.75;
+  const CUT_PROBABILITY = 0.25;
+  function isPlayerTrailInRange(unit: Bot): boolean {
     const {
       player
     } = unit.game;
     if (player) {
       const maxVrange = Math.max(unit.vrange, player.vrange);
-      const aggroRange = maxVrange * unit.aggro * 0.75;
+      const aggroRange = maxVrange * unit.aggro * AGGRO_RANGE_FACTOR;
       const {
         simplyline
       } = player.track;
@@ -1613,13 +1620,13 @@ declare global {
       }
     }
     return false;
-  };
-  const isBotInDanger = (unit: Bot): boolean => {
+  }
+  function isBotInDanger(unit: Bot): boolean {
     if (unit.in === unit.base) {
       return false;
     }
-    return unit.maxDanger > unit.def * 0.8;
-  };
+    return unit.maxDanger > unit.def * DANGER_DEF_FACTOR;
+  }
   const botStates: BotStates = {
     attack: {
       enter: () => ({}),
@@ -1653,14 +1660,13 @@ declare global {
       }
     },
     back: {
-      enter(_unit, _context) {},
       update(unit, _context) {
         if (unit.in === unit.base) {
           return 'idle';
         }
-        unit.smoothness = lerp(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * 4)), Math.max(1, unit.maxDanger));
+        unit.smoothness = lerp(1, Math.max(1, Math.max(1, Math.min(unit.def, unit.greed) * BACK_SMOOTHNESS_FACTOR)), Math.max(1, unit.maxDanger));
         const distanceToBorder = unit.game.border.radius - unit.position.distance(unit.game.space.center);
-        if (distanceToBorder < 20) {
+        if (distanceToBorder < BORDER_SLOWDOWN_DISTANCE) {
           unit.smoothness = 1;
         }
         unit.target = unit.baseNearestPoint;
@@ -1793,13 +1799,9 @@ declare global {
     cut: {
       enter(unit) {
         const vector = unit.position.clone().sub(unit.game.space.center);
-        const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + 10).add(unit.game.space.center));
+        const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + BORDER_EXIT_MARGIN).add(unit.game.space.center));
         const list4 = unit.base.polygon.intersections(segment);
         const context: BotStateContext = {};
-        if (!list4.length) {
-          console.log('bot.position', unit.position.x, unit.position.y);
-          console.log('intersections', list4);
-        }
         list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
         const first = list4[0];
         if (first) {
@@ -1832,7 +1834,7 @@ declare global {
         context.minDistance = unitSpeed;
         while (bestIndex === undefined) {
           for (let i2 = 0; i2 < 1; i2++) {
-            const segmentIndex = ~~(unit.game.rng() * length);
+            const segmentIndex = Math.trunc(unit.game.rng() * length);
             const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
             const distance = start.distance(unit.position);
             if (distance < nearestDistance && distance > unitSpeed) {
@@ -1840,14 +1842,13 @@ declare global {
               bestIndex = segmentIndex;
             }
           }
-          unitSpeed *= 0.75;
+          unitSpeed *= EXIT_SPEED_DECAY;
         }
         context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
         return context;
       },
       update(unit, context) {
         if (unit.in !== unit.base) {
-          context = {};
           return 'capture';
         }
         if (isPlayerTrailInRange(unit)) {
@@ -1857,14 +1858,14 @@ declare global {
           length
         } = unit.base.polygon.segments;
         const minDistance = ensureNonNullable(context.minDistance);
-        const segmentIndex = ~~(unit.game.rng() * length);
+        const segmentIndex = Math.trunc(unit.game.rng() * length);
         const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
         const distance = start.distance(unit.position);
         const exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
         if (distance > minDistance && distance < exitPointDistance) {
           context.exitPoint = start;
         } else {
-          if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment && segment.shape === unit.base.polygon)) {
+          if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment.shape === unit.base.polygon)) {
             context.exitPoint = start;
           }
           if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
@@ -1881,7 +1882,7 @@ declare global {
       },
       update(unit, _context) {
         if (unit.in === unit.base) {
-          if (unit.game.rng() < 0.25) {
+          if (unit.game.rng() < CUT_PROBABILITY) {
             return 'cut';
           }
           return 'exit';
@@ -1890,7 +1891,7 @@ declare global {
       }
     }
   };
-  const createParticleSquarePath = (): Path2D => {
+  function createParticleSquarePath(): Path2D {
     const path2D = new Path2D();
     const halfSize = 1;
     path2D.moveTo(-halfSize, -halfSize);
@@ -1899,7 +1900,7 @@ declare global {
     path2D.lineTo(-halfSize, halfSize);
     path2D.closePath();
     return path2D;
-  };
+  }
   const particleSquarePath = createParticleSquarePath();
   class Particle {
     // `velocity`/`acceleration` are normally Vectors, but the score-collection path in
