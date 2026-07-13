@@ -4633,6 +4633,21 @@ declare global {
     trackWidth: number;
     unitSpeed: number;
   }
+  const KEY_ARROW_LEFT = 37;
+  const KEY_ARROW_UP = 38;
+  const KEY_ARROW_RIGHT = 39;
+  const KEY_ARROW_DOWN = 40;
+  const KEY_A = 65;
+  const KEY_C = 67;
+  const KEY_D = 68;
+  const KEY_S = 83;
+  const KEY_W = 87;
+  const MOUSE_BUTTON_RIGHT = 2;
+  const MOUSE_BUTTONS_RIGHT_FLAG = 2;
+  const MOUSE_BUTTONS_MIDDLE_FLAG = 4;
+  function preventEventDefault(event: Event): void {
+    event.preventDefault();
+  }
   class KeyboardModeSwitch {
     public mode2: boolean;
     public constructor() {
@@ -4643,7 +4658,9 @@ declare global {
       return this.mode2;
     }
 
-    public switch(): void {}
+    public switch(): void {
+      noop();
+    }
   }
   interface PointerState {
     x: number;
@@ -4715,10 +4732,7 @@ declare global {
         window.addEventListener('keydown', onKeyDown, false);
         window.addEventListener('keyup', onKeyUp, false);
       }
-      const onContextMenu = (event: Event): void => {
-        event.preventDefault();
-      };
-      element.addEventListener('contextmenu', onContextMenu, false);
+      element.addEventListener('contextmenu', preventEventDefault, false);
       const onMouseDown = (event: MouseEvent): void => {
         this.onMouseChange(event, true);
       };
@@ -4743,9 +4757,12 @@ declare global {
           buttons
         } = event;
         this.buttons = {
+          // eslint-disable-next-line no-bitwise -- MouseEvent.buttons is a bitmask (bit 0 = left).
           left: !!(buttons & 1),
-          middle: !!(buttons & 4),
-          right: !!(buttons & 2)
+          // eslint-disable-next-line no-bitwise -- MouseEvent.buttons bitmask (middle button bit).
+          middle: !!(buttons & MOUSE_BUTTONS_MIDDLE_FLAG),
+          // eslint-disable-next-line no-bitwise -- MouseEvent.buttons bitmask (right button bit).
+          right: !!(buttons & MOUSE_BUTTONS_RIGHT_FLAG)
         };
         event.preventDefault();
       };
@@ -4772,7 +4789,7 @@ declare global {
       element.addEventListener('touchend', onTouchEnd, false);
       element.addEventListener('touchcancel', onTouchEnd, false);
       this.dispose = (): void => {
-        element.removeEventListener('contextmenu', onContextMenu, false);
+        element.removeEventListener('contextmenu', preventEventDefault, false);
         if (keyboardModeSwitch) {
           window.removeEventListener('keydown', onKeyDown, false);
           window.removeEventListener('keyup', onKeyUp, false);
@@ -4803,6 +4820,7 @@ declare global {
       if (event.target === document.body) {
         let isHandled = true;
         const {
+          // eslint-disable-next-line @typescript-eslint/no-deprecated -- the engine's key handling is keyed by keyCode (documented input contract).
           keyCode
         } = event;
         const pressedIndex = this.pressedButtons.indexOf(keyCode);
@@ -4824,23 +4842,23 @@ declare global {
           }
         }
         switch (keyCode) {
-          case 37:
-          case 65:
+          case KEY_A:
+          case KEY_ARROW_LEFT:
             this.left = isPressed;
             break;
-          case 38:
-          case 87:
-            this.up = isPressed;
-            break;
-          case 39:
-          case 68:
-            this.right = isPressed;
-            break;
-          case 40:
-          case 83:
+          case KEY_ARROW_DOWN:
+          case KEY_S:
             this.down = isPressed;
             break;
-          case 67:
+          case KEY_ARROW_RIGHT:
+          case KEY_D:
+            this.right = isPressed;
+            break;
+          case KEY_ARROW_UP:
+          case KEY_W:
+            this.up = isPressed;
+            break;
+          case KEY_C:
             if (!isPressed && this.keyboardModeSwitch) {
               this.keyboardModeSwitch.switch();
             }
@@ -4867,8 +4885,10 @@ declare global {
         case 1:
           this.buttons.middle = isPressed;
           break;
-        case 2:
+        case MOUSE_BUTTON_RIGHT:
           this.buttons.right = isPressed;
+          break;
+        default:
           break;
       }
     }
@@ -4877,13 +4897,14 @@ declare global {
       return this.up || this.down || this.left || this.right;
     }
   }
+  interface SkinLayerPivot {
+    x?: number;
+    y?: number;
+  }
   interface SkinLayerDescriptor {
     direction?: string;
     level?: number;
-    pivot?: {
-      x?: number;
-      y?: number;
-    };
+    pivot?: SkinLayerPivot;
     rotation?: number;
     scale?: number;
     src?: HTMLCanvasElement | HTMLImageElement;
