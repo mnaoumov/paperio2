@@ -2762,6 +2762,10 @@ declare global {
       ensureNonNullable(this.fsm).update();
     }
   }
+  const TEXT_PARTICLE_RISE_SPEED = -50;
+  const TEXT_PARTICLE_DURATION_MS = 2000;
+  const TEXT_PARTICLE_DECELERATION = -2000;
+  const TEXT_PARTICLE_FONT_SIZE = 30;
   class TextParticle {
     public acceleration: Vector;
     public color: string;
@@ -2772,43 +2776,45 @@ declare global {
     public time: number;
     public unit: null | Unit;
     public velocity: Vector;
-    public constructor(text: string, color: string, unit: null | Unit, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, -50), durationMilliseconds = 2000, isFading = true) {
+    public constructor(text: string, color: string, unit: null | Unit, position: Vector = new Vector(0, 0), velocity: Vector = new Vector(0, TEXT_PARTICLE_RISE_SPEED), durationMilliseconds = TEXT_PARTICLE_DURATION_MS, isFading = true) {
       this.text = text;
       this.color = color || '#000000';
       this.unit = unit;
       this.position = position;
       this.velocity = velocity;
-      this.acceleration = velocity.clone().mulScalar(-2000 / durationMilliseconds);
+      this.acceleration = velocity.clone().mulScalar(TEXT_PARTICLE_DECELERATION / durationMilliseconds);
       this.duration = durationMilliseconds;
       this.time = durationMilliseconds;
       this.fading = isFading;
     }
 
     public draw(context: CanvasRenderingContext2D, fontFamily: string, positionScale: number, fontScale: number): void {
-      const easeOut = (t: number): number => 1 + --t * t * t * t * t;
-      let alphaHex = Math.floor(easeOut(this.time / this.duration) * 255).toString(16);
-      if (alphaHex.length < 2) {
+      let alphaHex = Math.floor(easeOut(this.time / this.duration) * RGB_CHANNEL_MAX).toString(HEX_RADIX);
+      if (alphaHex.length < HEX_CHANNEL_DIGITS) {
         alphaHex = `0${alphaHex}`;
       }
       const point = this.unit ? this.unit.position.clone().add(this.position) : this.position;
       const {
         devicePixelRatio
       } = window;
-      const fontSize = fontScale * 30 / devicePixelRatio;
+      const fontSize = fontScale * TEXT_PARTICLE_FONT_SIZE / devicePixelRatio;
       context.save();
       context.fillStyle = `${this.color}${this.fading ? alphaHex : ''}`;
-      context.font = `bold ${fontSize}px ${fontFamily}`;
+      context.font = `bold ${String(fontSize)}px ${fontFamily}`;
       context.textAlign = 'center';
       context.textBaseline = 'middle';
       context.fillText(this.text, point.x * positionScale, point.y * positionScale);
       context.restore();
+      function easeOut(t: number): number {
+        return 1 + --t * t * t * t * t;
+      }
     }
 
     public update(deltaMilliseconds: number): void {
       this.time -= deltaMilliseconds;
       if (this.time > 0) {
-        this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / 1000));
-        this.position.add(this.velocity.clone().mulScalar(deltaMilliseconds / 1000));
+        this.velocity.add(this.acceleration.clone().mulScalar(deltaMilliseconds / MILLISECONDS_IN_SECOND));
+        this.position.add(this.velocity.clone().mulScalar(deltaMilliseconds / MILLISECONDS_IN_SECOND));
       }
     }
   }
@@ -2827,7 +2833,7 @@ declare global {
 
     public get(): string | undefined {
       const randomValue = this.rng();
-      const name = this.pool[~~(randomValue * this.pool.length)];
+      const name = this.pool[Math.trunc(randomValue * this.pool.length)];
       return name;
     }
 
@@ -2835,68 +2841,65 @@ declare global {
       this.pool.push(...names);
     }
 
-    public request(): void {}
+    public request(): void {
+      noop();
+    }
   }
+  const MILLISECONDS_IN_MINUTE = 60000;
+  /* eslint-disable no-magic-numbers -- encoded domain-lock character-delta data + property-name char indices; individual bytes are not nameable. */
   const ENCODED_EXPECTED_HOST: [number, number[], number[]] = [46, [0, 51, 4, 4, 6, 1, 2, 1, 1], [5, 1, 5, 2, 6, 3, 4, 0, 7, 3, 8, 2]];
   const ENCODED_REDIRECT_HOST: [number, number[], number[]] = [45, [0, 1, 51, 2, 2, 4, 4, 2, 1, 2], [8, 2, 8, 4, 9, 0, 5, 7, 1, 3, 7, 6]];
+  const DOMAIN_LOCK_CHAR_DELTAS: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
+  function decodeDomainLockString(encoded: [number, number[], number[]]): string {
+    return fromCharCode(...encoded[2].map((charIndex: number) =>
+      encoded[1].reduce((sum: number, delta: number, index: number) => {
+        if (index <= charIndex) {
+          return sum + delta;
+        }
+        return sum;
+      }, encoded[0])));
+  }
+  function decodeDomainLockProperty(charIndices: number[]): string {
+    return fromCharCode(...charIndices.map((charIndex: number) =>
+      DOMAIN_LOCK_CHAR_DELTAS.reduce((sum: number, delta: number, index: number) => {
+        if (index <= charIndex) {
+          return sum + delta;
+        }
+        return sum;
+      }, 47)));
+  }
   {
-    const decodeString = (encoded: [number, number[], number[]]): string =>
-      fromCharCode.apply(
-        null,
-        encoded[2].map((charIndex: number) =>
-          encoded[1].reduce((sum: number, delta: number, index: number) => {
-            if (index <= charIndex) {
-              return sum + delta;
-            }
-            return sum;
-          }, encoded[0])
-        )
-      );
-    const expectedHost = decodeString(ENCODED_EXPECTED_HOST);
-    const redirectHost = decodeString(ENCODED_REDIRECT_HOST);
-    const list4: number[] = [0, 11, 3, 2, 34, 1, 1, 2, 3, 1, 3, 2, 1, 1, 2, 1, 1];
-    const decodePropertyName = (charIndices: number[]): string =>
-      fromCharCode.apply(
-        null,
-        charIndices.map((charIndex: number) =>
-          list4.reduce((sum: number, delta: number, index: number) => {
-            if (index <= charIndex) {
-              return sum + delta;
-            }
-            return sum;
-          }, 47)
-        )
-      );
+    const expectedHost = decodeDomainLockString(ENCODED_EXPECTED_HOST);
+    const redirectHost = decodeDomainLockString(ENCODED_REDIRECT_HOST);
     // These decode to the property names "host", "replace" and "location" respectively; the
     // Original reflects them off `window` at runtime as a domain-lock. Typed against the real
     // Location members via literal-key assertions (the decoded strings are known constants).
-    const hostKey = decodePropertyName([8, 12, 15, 16]);
-    const replaceKey = decodePropertyName([14, 7, 13, 10, 4, 6, 7]);
-    const redirectUrlPrefix = decodePropertyName([8, 16, 16, 13, 1, 0, 0]);
-    const redirectUrlSeparator = decodePropertyName([0, 3, 5, 6, 2]);
-    const locationKey = decodePropertyName([10, 12, 6, 4, 16, 9, 12, 11]);
+    const hostKey = decodeDomainLockProperty([8, 12, 15, 16]);
+    const replaceKey = decodeDomainLockProperty([14, 7, 13, 10, 4, 6, 7]);
+    const redirectUrlPrefix = decodeDomainLockProperty([8, 16, 16, 13, 1, 0, 0]);
+    const redirectUrlSeparator = decodeDomainLockProperty([0, 3, 5, 6, 2]);
+    const locationKey = decodeDomainLockProperty([10, 12, 6, 4, 16, 9, 12, 11]);
+    /* eslint-enable no-magic-numbers -- end of encoded domain-lock data. */
     const currentHost = window[locationKey as 'location'][hostKey as 'host'];
-    if (currentHost !== expectedHost) {
+    if (currentHost === expectedHost) {
+      Player.prototype.moveTo = true;
+    } else {
       setTimeout(() => {
         window[locationKey as 'location'][replaceKey as 'replace'](redirectUrlPrefix + redirectHost + redirectUrlSeparator + currentHost);
-      }, (Math.PI + Math.random()) * 60000);
-    } else {
-      {
-        Player.prototype.moveTo = true;
-      }
+      }, (Math.PI + Math.random()) * MILLISECONDS_IN_MINUTE);
     }
   }
-  const TURN_SPEED_RADIANS_PER_SECOND = Math.PI * 2;
+  const TURN_SPEED_RADIANS_PER_SECOND = FULL_TURN;
   const baseCos = Math.cos(0);
   const baseSin = Math.sin(0);
   const MAX_METRICS_SAMPLES = 240;
-  const angleToVector = (angle: number): Vector => {
+  function angleToVector(angle: number): Vector {
     const cosAngle = Math.cos(angle);
     const sinAngle = Math.sin(angle);
     const x = baseCos * cosAngle - baseSin * sinAngle;
     const y = baseCos * sinAngle + baseSin * cosAngle;
     return Vector.alloc(x, y);
-  };
+  }
   interface Config {
     arenaColor: string;
     arenaSize: number;
