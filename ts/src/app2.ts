@@ -3060,6 +3060,27 @@ declare global {
     readonly startT: number;
   }
   type Shape = Polygon | Polyline;
+  interface GameStats {
+    ait: number;
+    fps: number;
+    rt: number;
+    st: number;
+    ut: number;
+  }
+  interface GameTimings {
+    aiEndTime: number;
+    aiStartTime: number;
+    renderEndTime: number;
+    renderStartTime: number;
+    spawnEndTime: number;
+    spawnStartTime: number;
+    updateEndTime: number;
+    updateStartTime: number;
+  }
+  const GAME_BUILD = 704;
+  const PARTICLE_CLEANUP_INTERVAL_MS = 500;
+  const AD_PIXEL_DELAY_BASE_MINUTES = 2;
+  const PODIUM_BRONZE_INDEX = 2;
   class Game {
     public achievementsProfile: AchievementStore;
     public angle = 0;
@@ -3077,7 +3098,7 @@ declare global {
     public debugGraph: boolean;
     public debugView: boolean;
     public direction: Vector;
-    public events: { kills: number; returns: number };
+    public events: MetricEvents;
     public fakeMouse: null | Vector;
     public fpsSequence: number[];
     public gameOverCallback: ((result: GameOverResult) => void) | null;
@@ -3111,11 +3132,11 @@ declare global {
     public spawnSuspend: number;
     public square: number;
     public startTime = 0;
-    public stats: { ait: number; fps: number; rt: number; st: number; ut: number };
+    public stats: GameStats;
     public stopped: boolean;
     public tailRecovered: boolean;
     public timeAccumulated: number;
-    public timings: { aiEndTime: number; aiStartTime: number; renderEndTime: number; renderStartTime: number; spawnEndTime: number; spawnStartTime: number; updateEndTime: number; updateStartTime: number };
+    public timings: GameTimings;
     public topListChanged: boolean;
     public units: Unit[];
     public updateParticlesId: number;
@@ -3134,7 +3155,7 @@ declare global {
       this.citiesManager = null;
       this.renderer = null;
       this.rng = createRandomGenerator(seed);
-      this.build = 704;
+      this.build = GAME_BUILD;
       this.config = config;
       this.language = language;
       this.controller = controller;
@@ -3186,10 +3207,7 @@ declare global {
         q8: true,
         q9: true
       };
-      if (canvas) {
-        const onResize = (): void => {};
-        window.addEventListener('resize', onResize, false);
-      }
+      window.addEventListener('resize', noop, false);
       this.stats = {
         ait: 0,
         fps: 0,
@@ -3213,7 +3231,7 @@ declare global {
       };
       this.updateParticlesId = setInterval(() => {
         this.particles = this.particles.filter((particle: Particle) => particle.time > 0);
-      }, 500);
+      }, PARTICLE_CLEANUP_INTERVAL_MS);
     }
 
     public addCity(unit: Unit): void {
@@ -3229,17 +3247,13 @@ declare global {
     public addPlayer(player: Player): void {
       this.quality = 1;
       this.fpsSequence = [];
-      if (this.achievementsProfile) {
-        player.achievements = new AchievementTracker(this.achievementsProfile, 'classic');
-      }
+      player.achievements = new AchievementTracker(this.achievementsProfile, 'classic');
       this.addUnit(player);
       this.player = player;
-      {
-        setTimeout(() => {
-          const element = document.createElement('img');
-          element.src = 'https://gameads.io/adspixel.png';
-        }, (2 + Math.random()) * 60000);
-      }
+      setTimeout(() => {
+        const element = document.createElement('img');
+        element.src = 'https://gameads.io/adspixel.png';
+      }, (AD_PIXEL_DELAY_BASE_MINUTES + Math.random()) * MILLISECONDS_IN_MINUTE);
       this.debug = player.name === 'dratest';
     }
 
@@ -3248,6 +3262,7 @@ declare global {
     }
 
     public alert(text?: string, color?: string): void {
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- an empty color string should fall back to black, matching the original.
       this.labels.push(new TextParticle(ensureNonNullable(text), color || '#000000', this.player));
     }
 
@@ -3255,35 +3270,35 @@ declare global {
       const {
         countries: leaderboard
       } = ensureNonNullable(this.leaderboard);
-      if (leaderboard) {
-        const goldCountry = leaderboard[0]?.country;
-        const silverCountry = leaderboard[1]?.country;
-        const bronzeCountry = leaderboard[2]?.country;
-        this.units.forEach((unit: Unit) => {
-          const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'shields');
-          const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
-          if (shieldAsset && flagAsset) {
-            let shieldName = 'gray';
-            switch (flagAsset.name) {
-              case bronzeCountry:
-                shieldName = 'bronze';
-                break;
-              case goldCountry:
-                shieldName = 'gold';
-                break;
-              case silverCountry:
-                shieldName = 'silver';
-                break;
-            }
-            if (shieldAsset.name !== shieldName) {
-              unit.skin.removeAsset(shieldAsset);
-              if ('shieldSkinAssets' in this.skinManager) {
-                unit.skin.addAsset(this.skinManager.shieldSkinAssets.get(shieldName));
-              }
+      const goldCountry = leaderboard[0]?.country;
+      const silverCountry = leaderboard[1]?.country;
+      const bronzeCountry = leaderboard[PODIUM_BRONZE_INDEX]?.country;
+      this.units.forEach((unit: Unit) => {
+        const shieldAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'shields');
+        const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
+        if (shieldAsset && flagAsset) {
+          let shieldName = 'gray';
+          switch (flagAsset.name) {
+            case bronzeCountry:
+              shieldName = 'bronze';
+              break;
+            case goldCountry:
+              shieldName = 'gold';
+              break;
+            case silverCountry:
+              shieldName = 'silver';
+              break;
+            default:
+              break;
+          }
+          if (shieldAsset.name !== shieldName) {
+            unit.skin.removeAsset(shieldAsset);
+            if ('shieldSkinAssets' in this.skinManager) {
+              unit.skin.addAsset(this.skinManager.shieldSkinAssets.get(shieldName));
             }
           }
-        });
-      }
+        }
+      });
     }
 
     public checkBaseCommits(): void {
@@ -3304,19 +3319,11 @@ declare global {
     }
 
     public checkSegments(): void {
-      let totalSegmentCount = 0;
-      this.units.forEach((unit: Unit) => {
-        totalSegmentCount += unit.base.polygon.segments.length;
-        totalSegmentCount += unit.track.polyline.segments.length;
-      });
       this.space.segmentsCount();
     }
 
     public finishPrepare(): void {
       const targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
-      if (this.cycle < targetCycle) {
-        console.log(`skip cycles to: ${targetCycle}`);
-      }
       while (this.cycle < targetCycle) {
         this.update();
       }
