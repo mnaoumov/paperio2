@@ -2857,7 +2857,8 @@ declare global {
           return sum + delta;
         }
         return sum;
-      }, encoded[0])));
+      }, encoded[0])
+    ));
   }
   function decodeDomainLockProperty(charIndices: number[]): string {
     return fromCharCode(...charIndices.map((charIndex: number) =>
@@ -2866,7 +2867,8 @@ declare global {
           return sum + delta;
         }
         return sum;
-      }, 47)));
+      }, 47)
+    ));
   }
   {
     const expectedHost = decodeDomainLockString(ENCODED_EXPECTED_HOST);
@@ -3081,6 +3083,70 @@ declare global {
   const PARTICLE_CLEANUP_INTERVAL_MS = 500;
   const AD_PIXEL_DELAY_BASE_MINUTES = 2;
   const PODIUM_BRONZE_INDEX = 2;
+  const HALF_DIVISOR = 2;
+  const DOUBLE_FACTOR = 2;
+  const SCORE_PREVIEW_MARGIN_FACTOR = 0.95;
+  const SCORE_PREVIEW_OUTLINE_OFFSET_FACTOR = -2;
+  const BORDER_DOUBLE_INTERSECTION_COUNT = 2;
+  const REFERENCE_DIAGONAL_SQUARED = 2455780;
+  const CAMERA_FOLLOW_STEP_DIVISOR = 30;
+  const LANDSCAPE_ASPECT_WIDTH = 16;
+  const LANDSCAPE_ASPECT_HEIGHT = 9;
+  const FONT_SIZE_CALC_A = 20;
+  const FONT_SIZE_CALC_B = 30;
+  const BACK_HEIGHT_FACTOR = 4;
+  const PADDING_FACTOR = 16;
+  const HALF_BAR_HEIGHT_FACTOR = 0.75;
+  const BAR_WIDTH_CALC_A = 4;
+  const BAR_WIDTH_CALC_B = 2.25;
+  const SPAWN_SPACING_MULT_MAX = 3;
+  const SPAWN_SPACING_MULT_DEFAULT = 2;
+  const BOUNDS_SPAWN_OUTER_FACTOR = 10;
+  const BOUNDS_SPAWN_INNER_FACTOR = 4;
+  const CENTER_SPAWN_RADIUS_DIVISOR = 3;
+  const PLAYER_SPAWN_MIN_FACTOR = 12;
+  const PLAYER_SPAWN_MAX_FACTOR = 16;
+  const PLAYER_AUTO_RETURN_CHANCE = 0.0005;
+  const MAX_DELTA_MILLISECONDS = 10000;
+  const REPLAY_PREPARE_EXTRA_FRAMES = 120;
+  const REPLAY_MAX_DELTA_MILLISECONDS = 100;
+  const FRAME_SNAP_LOWER_FACTOR = 0.9;
+  const FRAME_SNAP_UPPER_FACTOR = 1.1;
+  const MAX_ACCUMULATED_FRAMES = 10;
+  const LANGUAGE_CODE_LENGTH = 2;
+  const BEST_PERCENT_SCALE = 10000;
+  const XOR_ENCODE_KEY = 42;
+  const MAX_SPAWN_ATTEMPTS = 50;
+  const SCALE_QUANTIZATION_STEPS = 20;
+  const UPDATE_JITTER_FACTOR = 0.01;
+  const ANGLE_QUANTIZATION_SCALE = 127;
+  const ANGLE_QUANTIZATION_OFFSET = 254;
+  const VRANGE_FACTOR = 0.8;
+  const LABEL_STACK_OFFSET_Y = -35;
+  const LABEL_SPACING_Y = -10;
+  const QUEST_STATE_COMPLETE = 3;
+  const BOT_TYPE_2 = 2;
+  const BOT_TYPE_3 = 3;
+  const BOT1_AGGRO_MULT = 1.25;
+  const BOT2_GREED_MIN_MULT = 2;
+  const BOT_GREED_MAX_MULT = 1.1;
+  const BOT2_SAFETY_MULT = 0.75;
+  const BOT3_AGGRO_MULT = 0.75;
+  const BOT3_GREED_MIN_MULT = 4;
+  const BOT3_SAFETY_MULT = 0.5;
+  const BOT3_DEF_MULT = 2;
+  const SCALE_LERP_DIVISOR = 400;
+  const WIN_PERCENT_THRESHOLD = 0.9999;
+  const BOUNDS_SPAWN_CHANCE = 0.3;
+  const QUALITY_STEP = 0.1;
+  const QUALITY_QUANTIZATION_STEPS = 10;
+  interface BoundsCarrier {
+    bounds: Bounds;
+  }
+  interface TerritoryVictim {
+    base: Territory;
+    poly: Polygon;
+  }
   class Game {
     public achievementsProfile: AchievementStore;
     public angle = 0;
@@ -3349,10 +3415,10 @@ declare global {
         const width = maxX - minX;
         const height = maxY - minY;
         const maxDimension = Math.max(width, height);
-        const vector = new Vector(minX + width / 2, minY + height / 2);
+        const vector = new Vector(minX + width / HALF_DIVISOR, minY + height / HALF_DIVISOR);
         const canvasSize = 500;
-        const scale = canvasSize * 0.95 / maxDimension;
-        const sizeUnit = canvasSize / 100;
+        const scale = canvasSize * SCORE_PREVIEW_MARGIN_FACTOR / maxDimension;
+        const sizeUnit = canvasSize / PERCENT_MAX;
         let dataUrl: string | undefined;
         if (typeof document !== 'undefined') {
           const element = document.createElement('canvas');
@@ -3360,12 +3426,12 @@ declare global {
           element.height = canvasSize;
           const context = ensureNonNullable(element.getContext('2d'));
           context.scale(scale, scale);
-          context.translate(canvasSize / 2 / scale - vector.x, canvasSize / 2 / scale - vector.y);
+          context.translate(canvasSize / HALF_DIVISOR / scale - vector.x, canvasSize / HALF_DIVISOR / scale - vector.y);
           context.translate(0, sizeUnit / scale);
           context.fillStyle = player.skin.colors.back;
           context.fill(player.base.polygon.path);
-          context.translate(0, sizeUnit * -2 / scale);
-          context.fillStyle = player.skin.pattern && player.skin.pattern.pattern || player.skin.colors.main;
+          context.translate(0, sizeUnit * SCORE_PREVIEW_OUTLINE_OFFSET_FACTOR / scale);
+          context.fillStyle = player.skin.pattern?.pattern ?? player.skin.colors.main;
           context.fill(player.base.polygon.path);
           dataUrl = element.toDataURL('image/png');
         }
@@ -3414,23 +3480,23 @@ declare global {
       if (!vector) {
         return list4;
       }
-      vector.mulScalar(unitSpeed * deltaMilliseconds / 1000);
+      vector.mulScalar(unitSpeed * deltaMilliseconds / MILLISECONDS_IN_SECOND);
       const vector2 = angleToVector(unit.direction);
       let turnAngle = Math.atan2(vector2.x * vector.y - vector.x * vector2.y, vector2.dot(vector));
       vector2.release();
-      const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * deltaMilliseconds / 1000 / (unit.smoothness || 1);
+      const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * deltaMilliseconds / MILLISECONDS_IN_SECOND / (unit.smoothness || 1);
       if (Math.abs(turnAngle) > maxTurnThisFrame) {
         turnAngle = maxTurnThisFrame * Math.sign(turnAngle);
       }
       unit.direction += turnAngle;
-      const displacement = angleToVector(unit.direction).mulScalar(unitSpeed * deltaMilliseconds / 1000);
+      const displacement = angleToVector(unit.direction).mulScalar(unitSpeed * deltaMilliseconds / MILLISECONDS_IN_SECOND);
       let segment = new Segment(unit.position, unit.position.clone().add(displacement));
       displacement.release();
       let list5: Intersection[] = this.border.intersections(segment);
       while (list5.length) {
         let intersection: Intersection;
         const vector3 = ensureNonNullable(segment.vector);
-        if (list5.length === 2) {
+        if (list5.length === BORDER_DOUBLE_INTERSECTION_COUNT) {
           const vector6 = ensureNonNullable(ensureNonNullable(list5[0]).segment.vector);
           const angle = Math.atan2(vector3.x * vector6.y - vector6.x * vector3.y, vector3.dot(vector6));
           intersection = angle > 0 ? ensureNonNullable(list5[0]) : ensureNonNullable(list5[1]);
@@ -3465,17 +3531,14 @@ declare global {
       const {
         view
       } = this;
-      if (!view) {
-        return;
-      }
       const {
         font
       } = this.config;
       const context = view.getContext('2d');
       const clientWidth = view.clientWidth;
       const clientHeight = view.clientHeight;
-      const viewWidth = ~~(clientWidth * this.quality);
-      const viewHeight = ~~(clientHeight * this.quality);
+      const viewWidth = Math.trunc(clientWidth * this.quality);
+      const viewHeight = Math.trunc(clientHeight * this.quality);
       if (view.width !== viewWidth || view.height !== viewHeight) {
         view.width = viewWidth;
         view.height = viewHeight;
@@ -3485,7 +3548,7 @@ declare global {
       } = window;
       const viewScreenWidth = viewWidth * devicePixelRatio;
       const viewScreenHeight = viewHeight * devicePixelRatio;
-      const scaler = Math.sqrt(viewScreenWidth * viewScreenWidth + viewScreenHeight * viewScreenHeight) / Math.sqrt(2455780);
+      const scaler = Math.sqrt(viewScreenWidth * viewScreenWidth + viewScreenHeight * viewScreenHeight) / Math.sqrt(REFERENCE_DIAGONAL_SQUARED);
       const scale = this.scale * scaler / devicePixelRatio;
       let vector: Vector;
       if (this.player) {
@@ -3498,35 +3561,24 @@ declare global {
       }
       if (this.origin && (!this.player || this.player.killer)) {
         const distance = this.origin.distance(vector);
-        const stepDistance = distance / 30;
+        const stepDistance = distance / CAMERA_FOLLOW_STEP_DIVISOR;
         const offset = vector.clone().sub(this.origin).normalize().mulScalar(stepDistance);
         vector = this.origin.add(offset);
       }
       this.origin = vector.clone();
-      const left = vector.x - viewWidth / 2 / scale;
-      const right = vector.x + viewWidth / 2 / scale;
-      const top = vector.y - viewHeight / 2 / scale;
-      const bottom = vector.y + viewHeight / 2 / scale;
-      const pointInView = (point: Vector, margin = 0): boolean => isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
-      const boundsInView = (boundsObject: { bounds: Bounds }, margin = 0): boolean => intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
-      const calcMult = (a: number, b: number): number => {
-        const landscapeAspectRatio = 16 / 9;
-        const portraitAspectRatio = 9 / 16;
-        const clampedAspectRatio = clamp(portraitAspectRatio, landscapeAspectRatio, viewScreenWidth / viewScreenHeight);
-        const delta = a - b;
-        const aspectSpan = portraitAspectRatio - landscapeAspectRatio;
-        const offset = -(delta * landscapeAspectRatio + aspectSpan * a);
-        return -(offset + delta * clampedAspectRatio) / aspectSpan;
-      };
-      const fontSize = ~~(calcMult(20, 30) * scaler);
+      const left = vector.x - viewWidth / HALF_DIVISOR / scale;
+      const right = vector.x + viewWidth / HALF_DIVISOR / scale;
+      const top = vector.y - viewHeight / HALF_DIVISOR / scale;
+      const bottom = vector.y + viewHeight / HALF_DIVISOR / scale;
+      const fontSize = Math.trunc(calcMult(FONT_SIZE_CALC_A, FONT_SIZE_CALC_B) * scaler);
       const strokeWidth = this.config.platesStrokeWidth * scaler;
-      const backHeight = ~~(scaler * 4);
-      const uiFont = `${fontSize}px ${font}`;
-      const padding = ~~(scaler * 16);
-      const halfBarHeight = ~~(fontSize * 0.75);
-      const barHeight = halfBarHeight * 2;
-      const barWidth = ~~(viewScreenWidth / calcMult(4, 2.25));
-      const halfBarWidth = ~~(barWidth / 2);
+      const backHeight = Math.trunc(scaler * BACK_HEIGHT_FACTOR);
+      const uiFont = `${String(fontSize)}px ${font}`;
+      const padding = Math.trunc(scaler * PADDING_FACTOR);
+      const halfBarHeight = Math.trunc(fontSize * HALF_BAR_HEIGHT_FACTOR);
+      const barHeight = halfBarHeight * DOUBLE_FACTOR;
+      const barWidth = Math.trunc(viewScreenWidth / calcMult(BAR_WIDTH_CALC_A, BAR_WIDTH_CALC_B));
+      const halfBarWidth = Math.trunc(barWidth / HALF_DIVISOR);
       return {
         backHeight,
         barHeight,
@@ -3552,6 +3604,21 @@ declare global {
         viewScreenWidth,
         viewWidth
       };
+      function pointInView(point: Vector, margin = 0): boolean {
+        return isBetween(left - margin, right + margin, point.x) && isBetween(top - margin, bottom + margin, point.y);
+      }
+      function boundsInView(boundsObject: BoundsCarrier, margin = 0): boolean {
+        return intervalOverlap(boundsObject.bounds.left - margin, boundsObject.bounds.right + margin, left, right) > 0 && intervalOverlap(boundsObject.bounds.top - margin, boundsObject.bounds.bottom + margin, top, bottom) > 0;
+      }
+      function calcMult(a: number, b: number): number {
+        const landscapeAspectRatio = LANDSCAPE_ASPECT_WIDTH / LANDSCAPE_ASPECT_HEIGHT;
+        const portraitAspectRatio = LANDSCAPE_ASPECT_HEIGHT / LANDSCAPE_ASPECT_WIDTH;
+        const clampedAspectRatio = clamp(portraitAspectRatio, landscapeAspectRatio, viewScreenWidth / viewScreenHeight);
+        const delta = a - b;
+        const aspectSpan = portraitAspectRatio - landscapeAspectRatio;
+        const offset = -(delta * landscapeAspectRatio + aspectSpan * a);
+        return -(offset + delta * clampedAspectRatio) / aspectSpan;
+      }
     }
 
     public getSpawnPosition(spawnMode?: 'bounds' | 'center' | 'player' | 'random', unitRadius?: number): undefined | Vector {
@@ -3568,36 +3635,36 @@ declare global {
       if (spawnMode === 'player' && !this.player) {
         return;
       }
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- a 0 radius is degenerate and must fall through to baseRadius, so the falsy `||` fallback is intentional.
       unitRadius = unitRadius || baseRadius;
-      const spacingMultiplier = this.player ? lerp(3, 1, this.player.percent) : 2;
-      const minDistance = unitRadius + baseRadius * 2;
+      const spacingMultiplier = this.player ? lerp(SPAWN_SPACING_MULT_MAX, 1, this.player.percent) : SPAWN_SPACING_MULT_DEFAULT;
+      const minDistance = unitRadius + baseRadius * DOUBLE_FACTOR;
       const minDistanceSquared = minDistance * minDistance;
-      const trailDistance = unitRadius + baseRadius * 2 * spacingMultiplier;
+      const trailDistance = unitRadius + baseRadius * DOUBLE_FACTOR * spacingMultiplier;
       const trailDistanceSquared = trailDistance * trailDistance;
       let spawnDistance;
       switch (spawnMode) {
         case 'bounds':
-          spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * 10)), Math.max(0, radius - (unitRadius + baseRadius * 4)), Math.random());
+          spawnDistance = lerp(Math.max(0, radius - (unitRadius + baseRadius * BOUNDS_SPAWN_OUTER_FACTOR)), Math.max(0, radius - (unitRadius + baseRadius * BOUNDS_SPAWN_INNER_FACTOR)), Math.random());
           break;
         case 'center':
-          spawnDistance = lerp(0, radius / 3, Math.random());
+          spawnDistance = lerp(0, radius / CENTER_SPAWN_RADIUS_DIVISOR, Math.random());
           break;
         case 'player':
-          spawnDistance = lerp(baseRadius * 12, baseRadius * 16, Math.random());
+          spawnDistance = lerp(baseRadius * PLAYER_SPAWN_MIN_FACTOR, baseRadius * PLAYER_SPAWN_MAX_FACTOR, Math.random());
           center2 = ensureNonNullable(this.player).position;
           break;
         default:
           spawnDistance = lerp(0, Math.max(0, radius - (unitRadius + baseRadius)), Math.random());
           break;
       }
-      const offset = Vector.alloc(0, spawnDistance).rotate(Math.random() * Math.PI * 2);
+      const offset = Vector.alloc(0, spawnDistance).rotate(Math.random() * FULL_TURN);
       const vector = center2.clone().add(offset);
       offset.release();
       if (vector.distance(center) > radius - (unitRadius + baseRadius)) {
         return;
       }
-      for (let i2 = 0; i2 < this.units.length; i2++) {
-        const unit = ensureNonNullable(this.units[i2]);
+      for (const unit of this.units) {
         if (unit.base.polygon.inside(vector)) {
           return;
         }
@@ -3661,7 +3728,7 @@ declare global {
           if (unit3.track.polyline.start && polygon3.inside(unit3.track.polyline.start)) {
             this.kill(unit3, unit, KILL_REASON_EXIT_POINT);
           }
-          if (unit3.cities?.[0] && polygon3.inside(unit3.cities[0].position)) {
+          if (unit3.cities[0] && polygon3.inside(unit3.cities[0].position)) {
             this.kill(unit3, unit, KILL_REASON_CAPITAL_SURROUNDED);
           }
         }
@@ -3669,7 +3736,7 @@ declare global {
       let list5: ShapeOwnerIntersection[] = [];
       const segments = unit.track.polyline.segments;
       const length = segments.length;
-      const list6: { base: Territory; poly: Polygon }[] = [];
+      const list6: TerritoryVictim[] = [];
       for (let i2 = 0; i2 <= length; i2++) {
         const point = i2 === length ? ensureNonNullable(segments[i2 - 1]).end : ensureNonNullable(segments[i2]).start;
         const crossingSegments = point.segments.filter((segment: Segment) => ensureNonNullable(segment.shape).owner !== unit.track && ensureNonNullable(segment.shape).owner !== unit.base && segment.start === point);
@@ -3680,7 +3747,7 @@ declare global {
             point,
             segment
           }));
-          if (!list5.length) {
+          if (list5.length === 0) {
             const intersectionRecord = unit.track.intersections.find((record: TrailIntersectionRecord) => record.point.equal(point));
             if (!intersectionRecord) {
               return false;
@@ -3725,24 +3792,24 @@ declare global {
                 const points = unit.track.polyline.points().splice(startT, endT - startT + 1);
                 const enterIndex = owner.polygon.segments.findIndex((segment: Segment) => segment === enter);
                 const leaveIndex = owner.polygon.segments.findIndex((segment: Segment) => segment === leave);
-                const startIndex = Math.min(leaveIndex, enterIndex);
-                const endIndex = Math.max(leaveIndex, enterIndex);
-                if (startIndex !== enterIndex) {
+                const mergeStartIndex = Math.min(leaveIndex, enterIndex);
+                const mergeEndIndex = Math.max(leaveIndex, enterIndex);
+                if (mergeStartIndex !== enterIndex) {
                   points.reverse();
                 }
                 const list10 = owner.polygon.points();
-                const list11 = list10.splice(startIndex, endIndex - startIndex + 1, ...points);
+                const list11 = list10.splice(mergeStartIndex, mergeEndIndex - mergeStartIndex + 1, ...points);
                 list11.shift();
                 list11.pop();
                 list11.push(...points.slice().reverse());
                 const polygon4 = new Polygon(list11);
                 const polygon5 = new Polygon(list10);
                 let polygon6: Polygon;
-                if (owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position) || owner.unit.in !== owner.unit.base && polygon4.inside(ensureNonNullable(owner.unit.track.polyline.start))) {
-                  owner.polygon.right(points, startIndex, endIndex);
+                if ((owner.unit.in === owner.unit.base && polygon4.inside(owner.unit.position)) || (owner.unit.in !== owner.unit.base && polygon4.inside(ensureNonNullable(owner.unit.track.polyline.start)))) {
+                  owner.polygon.right(points, mergeStartIndex, mergeEndIndex);
                   polygon6 = polygon5;
                 } else {
-                  owner.polygon.left(points, startIndex, endIndex);
+                  owner.polygon.left(points, mergeStartIndex, mergeEndIndex);
                   polygon6 = polygon4;
                 }
                 owner.square -= polygon6.square();
@@ -3802,12 +3869,11 @@ declare global {
           return;
         }
         const list4 = this.getMovement(ensureNonNullable(deltaMilliseconds), unit);
-        {
-          if (unit === this.player && !this.player.moveTo && unit.in === null && Math.random() < 0.0005) {
-            unit.in = unit.base;
-          }
+        if (unit === this.player && !this.player.moveTo && unit.in === null && Math.random() < PLAYER_AUTO_RETURN_CHANCE) {
+          unit.in = unit.base;
         }
         while (list4.length) {
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- unit.death may be set to true by kill() via handleIntersect in a prior loop iteration; TS control-flow narrowing from the top-of-function guard is stale.
           if (unit.death) {
             return;
           }
@@ -3829,9 +3895,6 @@ declare global {
                     throw new Error('Бывает ли такое?');
                   } else {
                     group.point = intersection.point;
-                    group.intersections.forEach((intersection: Intersection) => {
-                      intersection.point = intersection.point;
-                    });
                   }
                 } else {
                   intersection.point = group.point;
@@ -3899,6 +3962,7 @@ declare global {
               }
             }
           });
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- unit.death may be set to true by kill() via handleIntersect above; TS control-flow narrowing from the top-of-function guard is stale.
           if (unit.death) {
             return;
           }
@@ -3926,15 +3990,9 @@ declare global {
       if (unit.death) {
         return;
       }
-      if (this.isTest) {
-        const deathReasons: string[] = ['выигрыш', 'самопересечение', 'убит об стену', 'убит пересечением трека', 'убит захватом точки выхода', 'убит окружением', 'удален системой', 'убит откружением столицы', 'убит разделением со столицей'];
-        console.log(`${unit.name} убит${unit2 ? ` ${unit2.name}` : ''} (${deathReasons[ensureNonNullable(reason)]})`);
-      }
       this.events.kills++;
       unit.death = true;
-      if (this.skinManager) {
-        this.skinManager.release(unit.skin);
-      }
+      this.skinManager.release(unit.skin);
       this.units.forEach((otherUnit: Unit) => {
         if (otherUnit !== unit && otherUnit.in === unit.base) {
           otherUnit.in = null;
@@ -3954,7 +4012,7 @@ declare global {
         if (unit2.schemes) {
           unit2.schemes.kill(unit, reason);
         }
-        if (unit2 && unit2.achievements) {
+        if (unit2.achievements) {
           unit2.achievements.onKill(unit);
         }
         unit2.statistics.kills++;
@@ -3975,7 +4033,7 @@ declare global {
       }
       if (!this.debugView && (this.visible || this.cycle < this.config.prepareCounter)) {
         this.looped = true;
-        if (this.last == 0) {
+        if (this.last === 0) {
           this.last = currentTime;
         }
         let deltaMilliseconds = currentTime - this.last;
@@ -3983,46 +4041,11 @@ declare global {
           deltaMilliseconds = 1;
         }
         this.updateMetrics(deltaMilliseconds);
-        if (deltaMilliseconds > 10000) {
-          deltaMilliseconds = 10000;
+        if (deltaMilliseconds > MAX_DELTA_MILLISECONDS) {
+          deltaMilliseconds = MAX_DELTA_MILLISECONDS;
         }
         this.timings.updateStartTime = now();
-        if (this.replaying || this.recording) {
-          if (this.cycle < this.config.prepareCounter + 120 && deltaMilliseconds > 100) {
-            deltaMilliseconds = 100;
-          }
-          if (deltaMilliseconds > FRAME_DURATION_MILLISECONDS * 0.9 && deltaMilliseconds < FRAME_DURATION_MILLISECONDS * 1.1) {
-            deltaMilliseconds = FRAME_DURATION_MILLISECONDS;
-          }
-          this.timeAccumulated += deltaMilliseconds;
-          if (this.preparing()) {
-            this.prepareAndUpdate(FRAME_DURATION_MILLISECONDS);
-            this.timeAccumulated = 0;
-          } else if (this.replaying && this.replaying.skip && this.replaying.skipping()) {
-            let prepareAcceleration = this.config.prepareAcceleration;
-            while (this.replaying && this.replaying.skipping() && prepareAcceleration-- > 0) {
-              this.update(FRAME_DURATION_MILLISECONDS);
-            }
-            this.timeAccumulated = 0;
-          } else {
-            if (this.timeAccumulated > FRAME_DURATION_MILLISECONDS * 10) {
-              this.timeAccumulated = FRAME_DURATION_MILLISECONDS * 10;
-            }
-            while (this.timeAccumulated >= FRAME_DURATION_MILLISECONDS) {
-              this.timeAccumulated -= FRAME_DURATION_MILLISECONDS;
-              this.update(FRAME_DURATION_MILLISECONDS);
-            }
-          }
-        } else if (this.visible) {
-          const maxStepMilliseconds = FRAME_DURATION_MILLISECONDS * 2;
-          while (deltaMilliseconds > 0) {
-            const stepMilliseconds = deltaMilliseconds <= maxStepMilliseconds ? deltaMilliseconds : deltaMilliseconds < maxStepMilliseconds * 2 ? deltaMilliseconds / 2 + Math.random() : maxStepMilliseconds + Math.random();
-            this.update(stepMilliseconds);
-            deltaMilliseconds -= stepMilliseconds;
-          }
-        } else {
-          this.prepareAndUpdate(deltaMilliseconds);
-        }
+        this.stepSimulation(deltaMilliseconds);
         this.timings.updateEndTime = now();
       }
       this.timings.renderStartTime = now();
@@ -4037,43 +4060,47 @@ declare global {
     }
 
     public post(): void {
-      const paper2_results = window.paper2_results;
-      const scores = paper2_results.scores;
-      function getLanguageCode(): string {
-        return (navigator.languages?.[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').substr(0, 2).toUpperCase();
-      }
+      const paper2Results = window.paper2_results;
+      const scores = paper2Results.scores;
       const payload = {
-        best: paper2_results.bestPercent && Math.round(paper2_results.bestPercent * 10000) || 0,
-        build: paper2_results.build || 0,
-        kills: paper2_results.kills,
+        best: (paper2Results.bestPercent && Math.round(paper2Results.bestPercent * BEST_PERCENT_SCALE)) ?? 0,
+        build: paper2Results.build ?? 0,
+        kills: paper2Results.kills,
         lng: getLanguageCode(),
         name: ensureNonNullable(this.player).name,
-        persent: Math.round(paper2_results.score * 100),
-        player: window.playerId || 0,
-        reason: paper2_results.reason || 0,
+        persent: Math.round(paper2Results.score * PERCENT_MAX),
+        player: window.playerId ?? 0,
+        reason: paper2Results.reason ?? 0,
         scores: {
-          accumulator: scores?.accumulator || 0,
-          kills: scores?.kills || 0
+          accumulator: scores?.accumulator ?? 0,
+          kills: scores?.kills ?? 0
         },
-        time: Math.round(paper2_results.time / 1000),
-        top: paper2_results.top || 0
+        time: Math.round(paper2Results.time / MILLISECONDS_IN_SECOND),
+        top: paper2Results.top ?? 0
       };
-      function xorEncode(text: string): string {
-        let encoded = '';
-        for (let i2 = 0; i2 < text.length; i2++) {
-          const charCode = text.charCodeAt(i2);
-          const encodedCharCode = charCode ^ 42;
-          encoded += String.fromCharCode(encodedCharCode);
-        }
-        return encoded;
-      }
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises -- fire-and-forget POST matching the original engine; the offline build has no results endpoint, so the promise is intentionally unobserved.
       fetch('/newpaperio/ajax/results.php', {
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- escape() is the exact legacy encoding the original server protocol expects; a modern replacement would change the transmitted bytes.
         body: xorEncode(escape(JSON.stringify(payload))),
         headers: {
           'Content-Type': 'application/json'
         },
         method: 'POST'
       });
+      function getLanguageCode(): string {
+        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- an empty-string language code must fall through to the next candidate, so `||` (falsy fallback) is intentional here.
+        return (navigator.languages[0] || navigator.userLanguage || navigator.language || navigator.browserLanguage || 'en').slice(0, LANGUAGE_CODE_LENGTH).toUpperCase();
+      }
+      function xorEncode(text: string): string {
+        let encoded = '';
+        for (let i2 = 0; i2 < text.length; i2++) {
+          const charCode = text.charCodeAt(i2);
+          // eslint-disable-next-line no-bitwise -- XOR cipher is the intended encoding; bitwise is required.
+          const encodedCharCode = charCode ^ XOR_ENCODE_KEY;
+          encoded += String.fromCharCode(encodedCharCode);
+        }
+        return encoded;
+      }
     }
 
     public prepareAndUpdate(deltaMilliseconds?: number): void {
@@ -4084,7 +4111,6 @@ declare global {
           prepareAcceleration--;
         }
       } else {
-        console.log(deltaMilliseconds);
         this.update(deltaMilliseconds);
       }
     }
@@ -4094,12 +4120,9 @@ declare global {
     }
 
     public readInput(deltaMilliseconds?: number): void {
-      if (!this.controller) {
-        return;
-      }
       if (this.controller.pressed()) {
         this.keyboard = { ...this.controller.mouse };
-        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * ensureNonNullable(deltaMilliseconds) / 1000;
+        const maxTurnThisFrame = TURN_SPEED_RADIANS_PER_SECOND * ensureNonNullable(deltaMilliseconds) / MILLISECONDS_IN_SECOND;
         if (ensureNonNullable(this.controller.keyboardModeSwitch).mode2) {
           let horizontalInput = 0;
           if (this.controller.left) {
@@ -4134,22 +4157,20 @@ declare global {
           }
         }
       } else if (this.controller.mouse) {
-        if (!this.keyboard || this.keyboard.x !== this.controller.mouse.x && this.keyboard.y !== this.controller.mouse.y) {
+        if (!this.keyboard || (this.keyboard.x !== this.controller.mouse.x && this.keyboard.y !== this.controller.mouse.y)) {
           this.keyboard = null;
-          this.direction = new Vector(this.controller.mouse.x, this.controller.mouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+          this.direction = new Vector(this.controller.mouse.x, this.controller.mouse.y).sub(new Vector(this.view.clientWidth / HALF_DIVISOR, this.view.clientHeight / HALF_DIVISOR)).normalize();
         }
       } else if (!this.keyboard && this.controller.lastMouse) {
-        this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / 2, this.view.clientHeight / 2)).normalize();
+        this.direction = new Vector(this.controller.lastMouse.x, this.controller.lastMouse.y).sub(new Vector(this.view.clientWidth / HALF_DIVISOR, this.view.clientHeight / HALF_DIVISOR)).normalize();
       }
     }
 
     public recoverTail(): void {
       const player = this.player;
-      if (player && player.in == player.base && !player.base.polygon.inside(player.position)) {
-        {
-          if (!player.moveTo) {
-            return;
-          }
+      if (player && player.in === player.base && !player.base.polygon.inside(player.position)) {
+        if (!player.moveTo) {
+          return;
         }
         const nearestSegment = player.base.polygon.segments.reduce((closest: Segment, segment: Segment) => closest.start.distance2(player.position) < segment.start.distance2(player.position) ? closest : segment);
         const vector = nearestSegment.start.clone().sub(player.position);
@@ -4158,7 +4179,6 @@ declare global {
         player.track.remove();
         if (this.debug) {
           player.game.alert('Tail is recovered');
-          console.log(`Recovering tail, cycle: ${this.cycle}`);
           this.tailRecovered = true;
         } else if (window.ga) {
           window.ga('send', 'event', 'error', 'tailRecovered');
@@ -4195,10 +4215,10 @@ declare global {
       if (this.units.length - (this.player ? 1 : 0) >= botsCount) {
         return;
       }
-      if (!this.nameManager?.aviable()) {
+      if (!this.nameManager.aviable()) {
         return;
       }
-      if (!this.skinManager?.available()) {
+      if (!this.skinManager.available()) {
         return;
       }
       const spawnPosition = this.getSpawnPosition(spawnMode);
@@ -4206,13 +4226,14 @@ declare global {
         return;
       }
       const botTypeCounts: number[] = [0, 0, 0, 0];
+      // eslint-disable-next-line no-magic-numbers -- bot-type distribution weight tables: each row is a fixed weighted bag of bot-type ids selected by game level; the individual cells are not separately nameable.
       const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
       this.units.forEach((unit: Unit) => {
         if (unit !== this.player) {
           botTypeCounts[unit.type] = ensureNonNullable(botTypeCounts[unit.type]) + 1;
         }
       });
-      this.bots = { ...botTypeCounts };
+      this.bots = [...botTypeCounts];
       const typeDistribution = ensureNonNullable(list4[Math.round(this.level * (list4.length - 1))]);
       let distributionIndex = -1;
       while (ensureNonNullable(botTypeCounts[ensureNonNullable(typeDistribution[++distributionIndex])]) > 0) {
@@ -4238,7 +4259,7 @@ declare global {
       } = this.config;
       const killUnitToMakeRoom = (): void => {
         if (this.units.length) {
-          this.kill(this.units[~~(this.units.length / 2)], undefined, KILL_REASON_SYSTEM);
+          this.kill(this.units[Math.trunc(this.units.length / HALF_DIVISOR)], undefined, KILL_REASON_SYSTEM);
         }
       };
       if (this.units.length && this.units.length >= botsCount) {
@@ -4248,18 +4269,66 @@ declare global {
       let i2 = 0;
       const spawnRadius = areaPercent ? Math.sqrt(this.square * areaPercent / Math.PI) : baseRadius;
       while (!spawnPosition) {
-        if (i2++ > 50) {
+        if (i2++ > MAX_SPAWN_ATTEMPTS) {
           i2 = 0;
           killUnitToMakeRoom();
         }
         spawnPosition = this.getSpawnPosition('random', spawnRadius);
       }
+      // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- an empty player name must fall through to the default name, so the falsy `||` fallback is intentional.
       const player = new Player(this, playerName || this.language.defaultPlayerName, spawnPosition, createCirclePoints(spawnPosition, baseCount, spawnRadius), undefined, this.schemesManager);
       const playerSkin = this.skinManager.getPlayerSkin(skinName);
       player.setSkin(playerSkin);
       this.addPlayer(player);
-      this.scale = maxScale - ~~(player.base.square / this.square * 20) / 20 * (maxScale - minScale);
+      this.scale = maxScale - Math.trunc(player.base.square / this.square * SCALE_QUANTIZATION_STEPS) / SCALE_QUANTIZATION_STEPS * (maxScale - minScale);
       this.startTime = now();
+    }
+
+    public stepSimulation(deltaMilliseconds: number): void {
+      if (this.replaying || this.recording) {
+        if (this.cycle < this.config.prepareCounter + REPLAY_PREPARE_EXTRA_FRAMES && deltaMilliseconds > REPLAY_MAX_DELTA_MILLISECONDS) {
+          deltaMilliseconds = REPLAY_MAX_DELTA_MILLISECONDS;
+        }
+        if (deltaMilliseconds > FRAME_DURATION_MILLISECONDS * FRAME_SNAP_LOWER_FACTOR && deltaMilliseconds < FRAME_DURATION_MILLISECONDS * FRAME_SNAP_UPPER_FACTOR) {
+          deltaMilliseconds = FRAME_DURATION_MILLISECONDS;
+        }
+        this.timeAccumulated += deltaMilliseconds;
+        if (this.preparing()) {
+          this.prepareAndUpdate(FRAME_DURATION_MILLISECONDS);
+          this.timeAccumulated = 0;
+        } else if (this.replaying && this.replaying.skip && this.replaying.skipping()) {
+          let prepareAcceleration = this.config.prepareAcceleration;
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- this.replaying may be cleared by update() during the loop; TS narrowing from the enclosing guard is stale.
+          while (this.replaying && this.replaying.skipping() && prepareAcceleration-- > 0) {
+            this.update(FRAME_DURATION_MILLISECONDS);
+          }
+          this.timeAccumulated = 0;
+        } else {
+          if (this.timeAccumulated > FRAME_DURATION_MILLISECONDS * MAX_ACCUMULATED_FRAMES) {
+            this.timeAccumulated = FRAME_DURATION_MILLISECONDS * MAX_ACCUMULATED_FRAMES;
+          }
+          while (this.timeAccumulated >= FRAME_DURATION_MILLISECONDS) {
+            this.timeAccumulated -= FRAME_DURATION_MILLISECONDS;
+            this.update(FRAME_DURATION_MILLISECONDS);
+          }
+        }
+      } else if (this.visible) {
+        const maxStepMilliseconds = FRAME_DURATION_MILLISECONDS * DOUBLE_FACTOR;
+        while (deltaMilliseconds > 0) {
+          let stepMilliseconds: number;
+          if (deltaMilliseconds <= maxStepMilliseconds) {
+            stepMilliseconds = deltaMilliseconds;
+          } else if (deltaMilliseconds < maxStepMilliseconds * DOUBLE_FACTOR) {
+            stepMilliseconds = deltaMilliseconds / HALF_DIVISOR + Math.random();
+          } else {
+            stepMilliseconds = maxStepMilliseconds + Math.random();
+          }
+          this.update(stepMilliseconds);
+          deltaMilliseconds -= stepMilliseconds;
+        }
+      } else {
+        this.prepareAndUpdate(deltaMilliseconds);
+      }
     }
 
     public stop(): void {
@@ -4280,16 +4349,13 @@ declare global {
         return false;
       }
       Vector.space = this.space;
-      if (deltaMilliseconds == null) {
-        deltaMilliseconds = 1000 / 60;
-      }
-      deltaMilliseconds += this.rng() * 0.01;
+      deltaMilliseconds ??= FRAME_DURATION_MILLISECONDS;
+      deltaMilliseconds += this.rng() * UPDATE_JITTER_FACTOR;
       this.spawnSuspend -= deltaMilliseconds;
       if (!this.isTest) {
         this.readInput(deltaMilliseconds);
       }
-      this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * 127 + 254) % 254;
-      console.assert(this.angle >= 0 && this.angle < 256);
+      this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * ANGLE_QUANTIZATION_SCALE + ANGLE_QUANTIZATION_OFFSET) % ANGLE_QUANTIZATION_OFFSET;
       if (this.replaying) {
         if (!this.replaying.read()) {
           delete this.replaying;
@@ -4317,15 +4383,15 @@ declare global {
         const percent = unit.base.square / this.square;
         unit.percent = percent;
         unit.bestPercent = Math.max(unit.bestPercent, percent);
-        unit.scale = lerp(maxScale, minScale, easeOutCubic(~~(percent * 20) / 20));
-        unit.vrange = Math.sqrt(2455780) / 2 / unit.scale * 0.8;
+        unit.scale = lerp(maxScale, minScale, easeOutCubic(Math.trunc(percent * SCALE_QUANTIZATION_STEPS) / SCALE_QUANTIZATION_STEPS));
+        unit.vrange = Math.sqrt(REFERENCE_DIAGONAL_SQUARED) / HALF_DIVISOR / unit.scale * VRANGE_FACTOR;
         if (unit.schemes) {
           unit.schemes.update(deltaMilliseconds);
         }
         if (unit.labels.length) {
-          let vector = new Vector(0, -35);
-          const vector2 = new Vector(0, -10);
-          const vector3 = new Vector(0, -10);
+          let vector = new Vector(0, LABEL_STACK_OFFSET_Y);
+          const vector2 = new Vector(0, LABEL_SPACING_Y);
+          const vector3 = new Vector(0, LABEL_SPACING_Y);
           unit.labels.forEach((textParticle: Label) => {
             this.labels.push(new TextParticle(textParticle.text, textParticle.color, ensureNonNullable(textParticle.unit), vector, vector2, textParticle.time, textParticle.fading));
             vector = vector.clone().add(vector3);
@@ -4341,15 +4407,7 @@ declare global {
         particle.update(deltaMilliseconds);
         return particle.time > 0;
       });
-      if (this.notifications.length) {
-        const quest = ensureNonNullable(this.notifications[0]);
-        if (quest.ready) {
-          quest.update(deltaMilliseconds);
-          if (quest.state > 3) {
-            this.notifications.shift();
-          }
-        }
-      }
+      this.updateNotifications(deltaMilliseconds);
       this.particles.forEach((particle: Particle) => {
         particle.update(deltaMilliseconds);
       });
@@ -4376,24 +4434,26 @@ declare global {
           } = this.config;
           switch (bot.type) {
             case 1:
-              botAggroMin *= 1.25;
-              botAggroMax *= 1.25;
+              botAggroMin *= BOT1_AGGRO_MULT;
+              botAggroMax *= BOT1_AGGRO_MULT;
               break;
-            case 2:
-              botGreedMin *= 2;
-              botGreedMax *= 1.1;
-              botSafetyMin *= 0.75;
-              botSafetyMax *= 0.75;
+            case BOT_TYPE_2:
+              botGreedMin *= BOT2_GREED_MIN_MULT;
+              botGreedMax *= BOT_GREED_MAX_MULT;
+              botSafetyMin *= BOT2_SAFETY_MULT;
+              botSafetyMax *= BOT2_SAFETY_MULT;
               break;
-            case 3:
-              botAggroMin *= 0.75;
-              botAggroMax *= 0.75;
-              botGreedMin *= 4;
-              botGreedMax *= 1.1;
-              botSafetyMin *= 0.5;
-              botSafetyMax *= 0.5;
-              botDefMin *= 2;
-              botDefMax *= 2;
+            case BOT_TYPE_3:
+              botAggroMin *= BOT3_AGGRO_MULT;
+              botAggroMax *= BOT3_AGGRO_MULT;
+              botGreedMin *= BOT3_GREED_MIN_MULT;
+              botGreedMax *= BOT_GREED_MAX_MULT;
+              botSafetyMin *= BOT3_SAFETY_MULT;
+              botSafetyMax *= BOT3_SAFETY_MULT;
+              botDefMin *= BOT3_DEF_MULT;
+              botDefMax *= BOT3_DEF_MULT;
+              break;
+            default:
               break;
           }
           bot.aggro = lerp(botAggroMin, botAggroMax, clampedLevel);
@@ -4402,36 +4462,14 @@ declare global {
           bot.def = lerp(botDefMin, botDefMax, clampedLevel);
         }
       });
-      if (this.player && this.player.achievements) {
+      if (this.player?.achievements) {
         this.player.achievements.update(this.player, deltaMilliseconds, this);
       }
-      if (player && player.track.length > this.config.botAttackTrackLength) {
-        let closestBot: Bot | null = null;
-        let closestDistance = Infinity;
-        for (const unit of this.units) {
-          if (unit instanceof Bot) {
-            let minDistance = Infinity;
-            player.track.simplyline.forEach((trackPoint: Vector) => {
-              const distanceSquared = trackPoint.distance2(unit.position);
-              if (distanceSquared < minDistance) {
-                minDistance = distanceSquared;
-              }
-            });
-            minDistance = Math.sqrt(minDistance);
-            if (minDistance < closestDistance) {
-              closestBot = unit;
-              closestDistance = minDistance;
-            }
-          }
-        }
-        if (closestBot) {
-          ensureNonNullable(closestBot.fsm).change('attack');
-        }
-      }
+      this.updateClosestBotAttack(player);
       const targetScale = player ? player.scale : observerScale;
       const scaleDelta = targetScale - this.scale;
-      this.scale += scaleDelta * deltaMilliseconds / 400;
-      if (player && player.percent > 0.9999) {
+      this.scale += scaleDelta * deltaMilliseconds / SCALE_LERP_DIVISOR;
+      if (player && player.percent > WIN_PERCENT_THRESHOLD) {
         player.percent = 1;
         this.gameOver(KILL_REASON_WIN);
       }
@@ -4440,10 +4478,37 @@ declare global {
         this.spawnBot('player');
       }
       this.spawnBot('center');
-      this.spawnBot(this.rng() > 0.3 ? 'bounds' : 'random');
+      this.spawnBot(this.rng() > BOUNDS_SPAWN_CHANCE ? 'bounds' : 'random');
       this.timings.spawnEndTime = now();
       this.cycle++;
       return true;
+    }
+
+    public updateClosestBotAttack(player: null | Player): void {
+      if (!player || player.track.length <= this.config.botAttackTrackLength) {
+        return;
+      }
+      let closestBot: Bot | null = null;
+      let closestDistance = Infinity;
+      for (const unit of this.units) {
+        if (unit instanceof Bot) {
+          let minDistance = Infinity;
+          player.track.simplyline.forEach((trackPoint: Vector) => {
+            const distanceSquared = trackPoint.distance2(unit.position);
+            if (distanceSquared < minDistance) {
+              minDistance = distanceSquared;
+            }
+          });
+          minDistance = Math.sqrt(minDistance);
+          if (minDistance < closestDistance) {
+            closestBot = unit;
+            closestDistance = minDistance;
+          }
+        }
+      }
+      if (closestBot) {
+        ensureNonNullable(closestBot.fsm).change('attack');
+      }
     }
 
     public updateMetrics(frameTime: number): void {
@@ -4462,7 +4527,7 @@ declare global {
         this.metrics.shift();
       }
       const smoothingFactor = 0.05;
-      stats.fps = lerp(stats.fps, 1000 / frameTime, smoothingFactor);
+      stats.fps = lerp(stats.fps, MILLISECONDS_IN_SECOND / frameTime, smoothingFactor);
       stats.ut = lerp(stats.ut, timings.updateEndTime - timings.updateStartTime, smoothingFactor);
       stats.ait = lerp(stats.ait, timings.aiEndTime - timings.aiStartTime, smoothingFactor);
       stats.st = lerp(stats.st, timings.spawnEndTime - timings.spawnStartTime, smoothingFactor);
@@ -4475,26 +4540,26 @@ declare global {
       const minQuality = 0.5;
       if (this.fpsSequence.length > fpsSampleSize) {
         this.fpsSequence.sort();
-        const medianFps = ensureNonNullable(this.fpsSequence[~~(fpsSampleSize / 2)]);
+        const medianFps = ensureNonNullable(this.fpsSequence[Math.trunc(fpsSampleSize / HALF_DIVISOR)]);
         if (medianFps < lowFpsThreshold) {
-          this.quality -= 0.1;
+          this.quality -= QUALITY_STEP;
         }
         if (medianFps < criticalFpsThreshold) {
-          this.quality -= 0.1;
+          this.quality -= QUALITY_STEP;
         }
         if (this.quality < minQuality) {
           this.quality = minQuality;
         }
         if (medianFps > highFpsThreshold) {
-          this.quality += 0.1;
+          this.quality += QUALITY_STEP;
         }
         if (this.quality > 1) {
           this.quality = 1;
         }
-        const qualityLevel = Math.round(this.quality * 10);
-        this.quality = qualityLevel / 10;
-        if (qualityLevel < 10) {
-          const qualityKey = `q${qualityLevel}`;
+        const qualityLevel = Math.round(this.quality * QUALITY_QUANTIZATION_STEPS);
+        this.quality = qualityLevel / QUALITY_QUANTIZATION_STEPS;
+        if (qualityLevel < QUALITY_QUANTIZATION_STEPS) {
+          const qualityKey = `q${String(qualityLevel)}`;
           if (this.qas[qualityKey]) {
             this.qas[qualityKey] = false;
             if (window.ga) {
@@ -4508,6 +4573,18 @@ declare global {
         kills: 0,
         returns: 0
       };
+    }
+
+    public updateNotifications(deltaMilliseconds: number): void {
+      if (this.notifications.length) {
+        const quest = ensureNonNullable(this.notifications[0]);
+        if (quest.ready) {
+          quest.update(deltaMilliseconds);
+          if (quest.state > QUEST_STATE_COMPLETE) {
+            this.notifications.shift();
+          }
+        }
+      }
     }
   }
   interface Config {
