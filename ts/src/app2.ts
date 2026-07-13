@@ -22,7 +22,7 @@ import {
   useState
 } from 'preact/hooks';
 
-import { BOT_NAMES_TEXT } from './bot-names.ts';
+import { BOT_NAMES } from './bot-names.ts';
 import {
   assertNonNullable,
   ensureNonNullable
@@ -7414,7 +7414,9 @@ declare global {
       return this.get(name);
     }
   }
-  const botNames = BOT_NAMES_TEXT.split('\n');
+  // `NamePool.release` mutates its pool (pushes names back), so hand it a fresh
+  // Copy each game rather than the shared exported constant.
+  const botNames = [...BOT_NAMES];
   const GAME_ENEMY_KILL_DELAY_MS = 2000;
   const GAME_SELF_KILL_DELAY_MS = 1000;
   const gameConfig = { ...defaultConfig, enemyKillDelay: GAME_ENEMY_KILL_DELAY_MS, followKiller: true, selfKillDelay: GAME_SELF_KILL_DELAY_MS };
