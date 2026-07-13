@@ -1603,6 +1603,30 @@ declare global {
   const BORDER_EXIT_MARGIN = 10;
   const EXIT_SPEED_DECAY = 0.75;
   const CUT_PROBABILITY = 0.25;
+  const RETREAT_DISTANCE_FACTOR = 0.8;
+  const MAX_RATIO_APPROACH_THRESHOLD = 0.75;
+  // eslint-disable-next-line no-magic-numbers -- 90° in radians.
+  const QUARTER_TURN = Math.PI / 2;
+  // eslint-disable-next-line no-magic-numbers -- 45° in radians.
+  const EIGHTH_TURN = Math.PI / 4;
+  // eslint-disable-next-line no-magic-numbers -- 22.5° in radians.
+  const SIXTEENTH_TURN = Math.PI / 8;
+  // eslint-disable-next-line no-magic-numbers -- a full turn is 2π radians (circumference = 2πr).
+  const FULL_TURN = Math.PI * 2;
+  const CAPTURE_RETURN_SPEED_DIVISOR = 4;
+  const CAPTURE_RETURN_TRACK_FACTOR = 2;
+  const CAPTURE_RETURN_BORDER_MARGIN = 10;
+  const STEP_HALVING_DIVISOR = 2;
+  const SHOELACE_DIVISOR = 2;
+  const SAFE_DISTANCE_RECKLESS_FACTOR = 3;
+  const SAFE_DISTANCE_CAUTIOUS_FACTOR = 0.7;
+  const MIN_TRACK_DISTANCE_FACTOR = 0.8;
+  const PASS_SMOOTHNESS_DANGER_FACTOR = 3;
+  const BORDER_BAND_OUTER_FACTOR = 2;
+  const BORDER_BAND_INNER_DIVISOR = 4;
+  const ANGLE_REFLECT_FACTOR = 2;
+  const BORDER_OVERSHOOT_FACTOR = 0.75;
+  const CHORD_DENOMINATOR_FACTOR = 2;
   function isPlayerTrailInRange(unit: Bot): boolean {
     const {
       player
@@ -1701,19 +1725,19 @@ declare global {
         } = unit.game.border;
         const distanceToCenter = unit.position.distance(center);
         const distanceToBorder = radius - distanceToCenter;
-        if (unit.baseDistance < unitSpeed / 4 && unit.track.length > unitSpeed * 2 && distanceToBorder > 10) {
+        if (unit.baseDistance < unitSpeed / CAPTURE_RETURN_SPEED_DIVISOR && unit.track.length > unitSpeed * CAPTURE_RETURN_TRACK_FACTOR && distanceToBorder > CAPTURE_RETURN_BORDER_MARGIN) {
           return 'back';
         }
         const stepDistance = 25;
-        const halfStep = stepDistance / 2;
+        const halfStep = stepDistance / STEP_HALVING_DIVISOR;
         const halfStepSquared = halfStep * halfStep;
         if (unit.position.distance2(ensureNonNullable(unit.target)) < halfStepSquared && distanceToBorder > stepDistance) {
           return;
         }
         let signedArea = 0;
-        for (let i = 1, length = unit.track.simplyline.length; i < length; i++) {
-          const point2 = ensureNonNullable(unit.track.simplyline[i - 1]);
-          const point3 = ensureNonNullable(unit.track.simplyline[i]);
+        for (let length = unit.track.simplyline.length, segmentIndex = 1; segmentIndex < length; segmentIndex++) {
+          const point2 = ensureNonNullable(unit.track.simplyline[segmentIndex - 1]);
+          const point3 = ensureNonNullable(unit.track.simplyline[segmentIndex]);
           signedArea += (point2.x + point3.x) * (point3.y - point2.y);
         }
         let point = ensureNonNullable(unit.track.simplyline[unit.track.simplyline.length - 1]);
@@ -1723,20 +1747,20 @@ declare global {
         baseNearestPoint = ensureNonNullable(unit.track.simplyline[0]);
         signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
         const windingSign = Math.sign(signedArea);
-        signedArea = Math.abs(signedArea / 2);
+        signedArea = Math.abs(signedArea / SHOELACE_DIVISOR);
         unit.capSquare = signedArea;
         const {
           def,
           greed,
           safety
         } = unit;
-        const circumference = Math.PI * 2 * unit.vrange * greed;
+        const circumference = FULL_TURN * unit.vrange * greed;
         const lengthRatio = unit.track.length / circumference;
         const areaThreshold = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
         const areaRatio = unit.capSquare / areaThreshold;
-        const safeDistance = unit.vrange * lerp(3, 0.7, safety);
+        const safeDistance = unit.vrange * lerp(SAFE_DISTANCE_RECKLESS_FACTOR, SAFE_DISTANCE_CAUTIOUS_FACTOR, safety);
         const startDistanceRatio = unit.position.distance(ensureNonNullable(unit.track.polyline.start)) / safeDistance;
-        const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * 0.8 * def;
+        const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * MIN_TRACK_DISTANCE_FACTOR * def;
         const baseDistanceRatio = unit.baseDistance / minTrackDistance;
         const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
         if (maxRatio > 1) {
@@ -1744,28 +1768,28 @@ declare global {
         }
         const greedDistance = unit.vrange * greed;
         const approachDistance = greedDistance;
-        const retreatDistance = approachDistance * 0.8;
+        const retreatDistance = approachDistance * RETREAT_DISTANCE_FACTOR;
         const toTarget = ensureNonNullable(unit.target).clone().sub(unit.position);
         let steerVector;
-        if (unit.baseDistance > approachDistance || maxRatio > 0.75) {
+        if (unit.baseDistance > approachDistance || maxRatio > MAX_RATIO_APPROACH_THRESHOLD) {
           unit.aspect = 'приближение';
-          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 + Math.PI / 4) * windingSign);
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN + EIGHTH_TURN) * windingSign);
         } else if (unit.baseDistance < retreatDistance) {
           unit.aspect = 'отдаление';
-          let angle = Math.PI / 4;
+          let angle = EIGHTH_TURN;
           const trackRatio = unit.track.length / retreatDistance;
           if (trackRatio < 1) {
             unit.aspect = 'отстрел';
-            angle = lerp(Math.PI / 2 * greed, 0, trackRatio);
+            angle = lerp(QUARTER_TURN * greed, 0, trackRatio);
           }
-          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((Math.PI / 2 - angle) * windingSign);
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN - angle) * windingSign);
         } else {
           unit.aspect = 'проход';
-          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(Math.PI / 2 * windingSign);
-          unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 3;
+          steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(QUARTER_TURN * windingSign);
+          unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * PASS_SMOOTHNESS_DANGER_FACTOR;
         }
         unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 1;
-        if (distanceToBorder < stepDistance * 2 && distanceToBorder > stepDistance / 4 && distanceToBorder < unit.position.clone().add(steerVector).distance(center)) {
+        if (distanceToBorder < stepDistance * BORDER_BAND_OUTER_FACTOR && distanceToBorder > stepDistance / BORDER_BAND_INNER_DIVISOR && distanceToBorder < unit.position.clone().add(steerVector).distance(center)) {
           const fromCenter = unit.position.clone().sub(center);
           const targetAngle = fromCenter.angle(toTarget);
           const targetAngleSign = Math.sign(targetAngle);
@@ -1774,25 +1798,25 @@ declare global {
           if (targetAngleSign !== steerAngleSign) {
             steerAngle *= -1;
             steerAngleSign *= -1;
-            steerVector.rotate(steerAngle * 2);
+            steerVector.rotate(steerAngle * ANGLE_REFLECT_FACTOR);
           }
           const steerAngleAbs = Math.abs(steerAngle);
-          if (steerAngleAbs < Math.PI / 4) {
-            steerVector.rotate((Math.PI / 4 - steerAngleAbs) * steerAngleSign);
+          if (steerAngleAbs < EIGHTH_TURN) {
+            steerVector.rotate((EIGHTH_TURN - steerAngleAbs) * steerAngleSign);
           }
         }
         unit.target = unit.position.clone().add(steerVector);
-        if (unit.target.distance(center) > radius + stepDistance * 0.75) {
+        if (unit.target.distance(center) > radius + stepDistance * BORDER_OVERSHOOT_FACTOR) {
           const fromCenter2 = unit.position.clone().sub(center);
           const targetAngle2 = fromCenter2.angle(toTarget);
           const centerDistance = distanceToCenter;
-          const chordProjection = (radius * radius - stepDistance * stepDistance + centerDistance * centerDistance) / (centerDistance * 2);
+          const chordProjection = (radius * radius - stepDistance * stepDistance + centerDistance * centerDistance) / (centerDistance * CHORD_DENOMINATOR_FACTOR);
           const chordHalfLength = Math.sqrt(radius * radius - chordProjection * chordProjection);
           const centerDirection = unit.position.clone().sub(center).normalize();
           const projectionPoint = center.clone().add(centerDirection.clone().mulScalar(chordProjection));
-          steerVector = centerDirection.clone().rotate(Math.PI / 2 * targetAngle2).rotate(Math.PI / 8 * -targetAngle2).mulScalar(chordHalfLength);
+          steerVector = centerDirection.clone().rotate(QUARTER_TURN * targetAngle2).rotate(SIXTEENTH_TURN * -targetAngle2).mulScalar(chordHalfLength);
           unit.target = projectionPoint.clone().add(steerVector);
-        } else if (unit.target.distance(center) > radius && unit.target.distance(center) < radius + stepDistance * 0.5) {}
+        }
         return undefined;
       }
     },
