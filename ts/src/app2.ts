@@ -718,6 +718,8 @@ declare global {
   const MIN_POINT_DISTANCE = 25;
   const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
   const SIMPLIFY_LOOKBACK_COUNT = 2;
+  const BORDER_FAST_REJECT_FACTOR = 0.95;
+  const WALL_PROXIMITY_THRESHOLD = 5;
   const KILL_REASON_WIN = 0;
   const KILL_REASON_SELF_INTERSECTION = 1;
   const KILL_REASON_WALL = 2;
@@ -1326,7 +1328,6 @@ declare global {
     public polygon: Polygon;
     public radius: number;
     public constructor(polygon: Polygon, center: Vector, radius: number) {
-      if (!(polygon instanceof Polygon)) {}
       this.polygon = polygon;
       this.radius = radius;
       this.center = center;
@@ -1337,10 +1338,10 @@ declare global {
     }
 
     public intersections(segment: Segment): Intersection[] {
-      {
-        if (segment.start.distance2(this.center) < this.radius ** 2 * 0.95 && segment.end.distance2(this.center) < this.radius ** 2 * 0.95) {
-          return [];
-        }
+      // eslint-disable-next-line no-magic-numbers -- squared radius, compared against squared point distances.
+      const fastRejectThresholdSquared = this.radius ** 2 * BORDER_FAST_REJECT_FACTOR;
+      if (segment.start.distance2(this.center) < fastRejectThresholdSquared && segment.end.distance2(this.center) < fastRejectThresholdSquared) {
+        return [];
       }
       return this.polygon.intersections(segment).filter((intersection: Intersection) => !intersection.overlay);
     }
@@ -1374,10 +1375,10 @@ declare global {
         start
       } = ensureNonNullable(segments[0]);
       this.path.moveTo(start.x, start.y);
-      for (let i = 1; i < length; i++) {
+      for (let segmentIndex = 1; segmentIndex < length; segmentIndex++) {
         const {
           start: point
-        } = ensureNonNullable(segments[i]);
+        } = ensureNonNullable(segments[segmentIndex]);
         this.path.lineTo(point.x, point.y);
       }
       this.path.closePath();
@@ -1507,8 +1508,8 @@ declare global {
         const {
           length
         } = simplyline;
-        if (length > 2) {
-          const previousPoint = ensureNonNullable(simplyline[length - 2]);
+        if (length > SIMPLIFY_LOOKBACK_COUNT) {
+          const previousPoint = ensureNonNullable(simplyline[length - SIMPLIFY_LOOKBACK_COUNT]);
           if (point.distance2(previousPoint) < MIN_POINT_DISTANCE_SQUARED) {
             simplyline[length - 1] = point;
           } else {
@@ -1525,7 +1526,7 @@ declare global {
       if (unit === this.unit) {
         if (intersection.overlay || intersection.point !== ensureNonNullable(this.polyline.segments[this.polyline.segments.length - 1]).end) {
           this.unit.position = intersection.point;
-          const killReason = game.border.radius - unit.position.distance(game.space.center) < 5 ? KILL_REASON_WALL : KILL_REASON_SELF_INTERSECTION;
+          const killReason = game.border.radius - unit.position.distance(game.space.center) < WALL_PROXIMITY_THRESHOLD ? KILL_REASON_WALL : KILL_REASON_SELF_INTERSECTION;
           game.kill(this.unit, undefined, killReason);
         }
       } else {
