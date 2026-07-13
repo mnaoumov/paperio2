@@ -19,9 +19,9 @@ import type { SkinSource } from './skins.ts';
 import { BOT_NAMES } from './bot-names.ts';
 import {
   createGameApi,
-  defaultConfig,
-  NamePool
+  defaultConfig
 } from './engine.ts';
+import { NamePool } from './entities.ts';
 import {
   buildLanguageList,
   findDefaultLanguage

@@ -1,4 +1,4 @@
-import type { Unit } from './engine.ts';
+import type { Unit } from './entities.ts';
 
 import {
   Segment,

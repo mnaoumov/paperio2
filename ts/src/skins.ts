@@ -1,8 +1,8 @@
 import type {
   Config,
-  Game,
-  Unit
+  Game
 } from './engine.ts';
+import type { Unit } from './entities.ts';
 import type { ParticleColor } from './particles.ts';
 
 import {

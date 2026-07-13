@@ -1,11 +1,11 @@
 import Cookies from 'js-cookie';
 
+import type { Game } from './engine.ts';
 import type {
   ComebackInfo,
-  Game,
   SchemeConstructor,
   Unit
-} from './engine.ts';
+} from './entities.ts';
 
 import {
   FIXED_DECIMAL_DIGITS,

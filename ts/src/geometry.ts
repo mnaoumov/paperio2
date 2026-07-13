@@ -1,7 +1,7 @@
 import type {
   ShapeOwner,
   Trail
-} from './engine.ts';
+} from './entities.ts';
 
 import { EPSILON } from './shared/constants.ts';
 import { generateId } from './shared/ids.ts';
@@ -869,4 +869,13 @@ export class Border {
     }
     return this.polygon.intersections(segment).filter((intersection: Intersection) => !intersection.overlay);
   }
+}
+export const baseCos = Math.cos(0);
+export const baseSin = Math.sin(0);
+export function angleToVector(angle: number): Vector {
+  const cosAngle = Math.cos(angle);
+  const sinAngle = Math.sin(angle);
+  const x = baseCos * cosAngle - baseSin * sinAngle;
+  const y = baseCos * sinAngle + baseSin * cosAngle;
+  return Vector.alloc(x, y);
 }
