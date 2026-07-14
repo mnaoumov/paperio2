@@ -27,7 +27,7 @@ import {
   MAX_METRICS_SAMPLES
 } from './engine.ts';
 import { TOP_LIST_RANK_LIMIT } from './entities.ts';
-import { Vector } from './geometry.ts';
+import { Vector } from './geometry/vector.ts';
 import {
   FULL_TURN,
   IMAGE_CENTER_DIVISOR,

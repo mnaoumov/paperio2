@@ -1,19 +1,21 @@
 import type {
   ShapeOwner,
   Trail
-} from './entities.ts';
+} from '../entities.ts';
 
-import { EPSILON } from './shared/constants.ts';
-import { generateId } from './shared/ids.ts';
+import { EPSILON } from '../shared/constants.ts';
 import {
   cross,
   intervalOverlap,
   isBetween,
-  isNearlyEqual,
   isNearlyZero,
   pointInPolygon
-} from './shared/math-utils.ts';
-import { ensureNonNullable } from './type-guards.ts';
+} from '../shared/math-utils.ts';
+import { ensureNonNullable } from '../type-guards.ts';
+import {
+  firstMatchingPoint,
+  Vector
+} from './vector.ts';
 
 export interface Bounds {
   bottom: number;
@@ -29,16 +31,6 @@ export interface Intersection {
   zn: number;
 }
 
-export function firstMatchingPoint(target: Vector, candidates: Vector[]): Vector {
-  for (const candidate of candidates) {
-    if (candidate.equal(target)) {
-      return candidate;
-    }
-  }
-  return target;
-}
-
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class Segment {
   public a = 0;
   public b = 0;
@@ -181,290 +173,7 @@ export class Segment {
     return cross(a2, b2, a, b);
   }
 }
-export const CELL_MARGIN = 1;
-export class ContourPoints {
-  public points: Vector[];
-  public x: number;
-  public y: number;
-  public constructor(x: number, y: number) {
-    this.points = [];
-    this.x = x;
-    this.y = y;
-  }
 
-  public commit(point: Vector): void {
-    this.points.push(point);
-    point.cell = this;
-  }
-
-  public remove(point: Vector): void {
-    const {
-      points
-    } = this;
-    const index = points.indexOf(point);
-    if (index !== -1) {
-      points.splice(index, 1);
-      point.cell = null;
-    }
-  }
-}
-export class SpatialGrid {
-  public cells: ContourPoints[];
-  public center: Vector;
-  public h: number;
-  public height: number;
-  public size: number;
-  public w: number;
-  public width: number;
-  public constructor(width: number, height: number, cellSize: number) {
-    this.width = width;
-    this.height = height;
-    // eslint-disable-next-line no-magic-numbers -- center is the play-area midpoint (width/2, height/2).
-    this.center = new Vector(width / 2, height / 2);
-    this.size = cellSize;
-    this.w = Math.ceil(width / cellSize);
-    this.h = Math.ceil(height / cellSize);
-    this.cells = [];
-    for (let i2 = 0; i2 < this.h; i2++) {
-      for (let i3 = 0; i3 < this.w; i3++) {
-        this.cells.push(new ContourPoints(i3, i2));
-      }
-    }
-    Vector.space = this;
-  }
-
-  public cell(point: Vector): ContourPoints {
-    return this.getCell(Math.floor(point.x / this.size) % this.w, Math.floor(point.y / this.size) % this.h);
-  }
-
-  public checkPoint(point: Vector): Vector {
-    const cell = this.cell(point);
-    return cell.points.find((existingPoint: Vector) => existingPoint.equal(point)) ?? point;
-  }
-
-  public clear(): void {
-    this.cells = [];
-  }
-
-  public count(): number {
-    let total = 0;
-    this.cells.forEach((cell: ContourPoints) => {
-      total += cell.points.length;
-    });
-    return total;
-  }
-
-  public getCell(col: number, row: number): ContourPoints {
-    return ensureNonNullable(this.cells[col + row * this.w]);
-  }
-
-  public intersections(segment: Segment): Intersection[] {
-    const point = this.cell(segment.start);
-    const point2 = this.cell(segment.end);
-    const minCol = Math.max(0, Math.min(point.x, point2.x) - CELL_MARGIN);
-    const maxCol = Math.min(this.w - 1, Math.max(point.x, point2.x) + CELL_MARGIN);
-    const minRow = Math.max(0, Math.min(point.y, point2.y) - CELL_MARGIN);
-    const maxRow = Math.min(this.h - 1, Math.max(point.y, point2.y) + CELL_MARGIN);
-    const mark = generateId();
-    const list4: Intersection[] = [];
-    for (let row = minRow; row <= maxRow; row++) {
-      for (let col = minCol; col <= maxCol; col++) {
-        this.getCell(col, row).points.forEach((cellPoint: Vector) => {
-          cellPoint.segments.forEach((segment2: Segment) => {
-            if (segment2.mark !== mark) {
-              const intersection = segment2.intersect(segment);
-              if (intersection) {
-                list4.push(intersection);
-              }
-              segment2.mark = mark;
-            }
-          });
-        });
-      }
-    }
-    return list4;
-  }
-
-  public segmentsCount(): Record<number, Segment> {
-    const segmentsById: Record<number, Segment> = {};
-    for (let i2 = 0; i2 < this.h; i2++) {
-      for (let i3 = 0; i3 < this.w; i3++) {
-        this.getCell(i3, i2).points.forEach((point: Vector) => {
-          point.segments.forEach((segment: Segment) => {
-            segmentsById[segment.id ?? 0] = segment;
-          });
-        });
-      }
-    }
-    return segmentsById;
-  }
-}
-export const VECTOR_POOL_SIZE = 30000;
-export const vectorPool: Vector[] = Array.from({
-  length: VECTOR_POOL_SIZE
-});
-let i = 0;
-export class Vector {
-  public static space: null | SpatialGrid;
-  public cell: ContourPoints | null;
-  public segments: Segment[];
-  public x = 0;
-  public y = 0;
-  public constructor(x?: number, y?: number) {
-    this.cell = null;
-    this.segments = [];
-    this.set(x, y);
-  }
-
-  public static alloc(x?: number, y?: number): Vector {
-    if (i) {
-      const vector = ensureNonNullable(vectorPool[--i]).set(x, y);
-      return vector;
-    }
-    return new Vector(x, y);
-  }
-
-  public static clone(point: Vector): Vector {
-    return Vector.alloc(point.x, point.y);
-  }
-
-  public static poolLength(): number {
-    return i;
-  }
-
-  public static release(vector: Vector): void {
-    if (i < VECTOR_POOL_SIZE) {
-      vector.set();
-      vectorPool[i++] = vector;
-    }
-  }
-
-  public add(point: Vector): this {
-    this.x += point.x;
-    this.y += point.y;
-    return this;
-  }
-
-  public angle(point: Vector): number {
-    return Math.atan2(this.cross(point), this.dot(point));
-  }
-
-  public clone(): Vector {
-    return new Vector(this.x, this.y);
-  }
-
-  public commit(segment: Segment): void {
-    if (!this.segments.includes(segment)) {
-      this.segments.push(segment);
-    }
-    if (!this.cell) {
-      const cell = ensureNonNullable(Vector.space).cell(this);
-      cell.commit(this);
-    }
-  }
-
-  public copy(point: Vector): this {
-    this.x = point.x;
-    this.y = point.y;
-    return this;
-  }
-
-  public cross(point: Vector): number {
-    return this.x * point.y - this.y * point.x;
-  }
-
-  public distance(point: Vector): number {
-    return Math.sqrt(this.distance2(point));
-  }
-
-  public distance2(point: Vector): number {
-    const dx = this.x - point.x;
-    const dy = this.y - point.y;
-    return dx * dx + dy * dy;
-  }
-
-  public dot(point: Vector): number {
-    return this.x * point.x + this.y * point.y;
-  }
-
-  public equal(point: Vector): boolean {
-    return isNearlyEqual(this.x, point.x) && isNearlyEqual(this.y, point.y);
-  }
-
-  public invert(): this {
-    return this.mulScalar(-1);
-  }
-
-  public magnitude(): number {
-    const {
-      x,
-      y
-    } = this;
-    return Math.sqrt(x * x + y * y);
-  }
-
-  public mul(point: Vector): this {
-    this.x *= point.x;
-    this.y *= point.y;
-    return this;
-  }
-
-  public mulScalar(scalar: number): this {
-    this.x *= scalar;
-    this.y *= scalar;
-    return this;
-  }
-
-  public normalize(): this {
-    const magnitude = this.magnitude();
-    if (magnitude) {
-      this.mulScalar(1 / magnitude);
-    }
-    return this;
-  }
-
-  public release(): void {
-    Vector.release(this);
-  }
-
-  public remove(segment: Segment): void {
-    const index = this.segments.indexOf(segment);
-    this.segments.splice(index, 1);
-    if (this.cell && !this.segments.length) {
-      this.cell.remove(this);
-    }
-  }
-
-  public rotate(angle: number): this {
-    const {
-      x,
-      y
-    } = this;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    this.x = x * cos - y * sin;
-    this.y = x * sin + y * cos;
-    return this;
-  }
-
-  public set(x?: number, y?: number): this {
-    this.x = x ?? 0;
-    this.y = y ?? this.x;
-    return this;
-  }
-
-  public sub(point: Vector): this {
-    this.x -= point.x;
-    this.y -= point.y;
-    return this;
-  }
-
-  public toString(): string {
-    // eslint-disable-next-line no-magic-numbers -- 4-digit coordinate precision for the debug string.
-    return `[${this.x.toFixed(4)},${this.y.toFixed(4)}]`;
-  }
-}
-Vector.space = null;
 export const MIN_POINT_DISTANCE = 25;
 export const MIN_POINT_DISTANCE_SQUARED = MIN_POINT_DISTANCE * MIN_POINT_DISTANCE;
 export const SIMPLIFY_LOOKBACK_COUNT = 2;
@@ -831,51 +540,4 @@ export class Polygon {
       top
     };
   }
-}
-export function createCirclePoints(point: Vector, segmentCount: number, radius: number): Vector[] {
-  if (typeof point.x !== 'number') {
-    throw Error('circle');
-  }
-  // eslint-disable-next-line no-magic-numbers -- a full circle spans 2π radians.
-  const fullCircleAngle = Math.PI * 2;
-  const angleStep = fullCircleAngle / segmentCount;
-  const list4: Vector[] = [];
-  for (let angle = 0; angle < fullCircleAngle - EPSILON; angle += angleStep) {
-    list4.push(new Vector(point.x + Math.cos(angle) * radius, point.y + Math.sin(angle) * radius));
-  }
-  return list4;
-}
-
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
-export class Border {
-  public center: Vector;
-  public polygon: Polygon;
-  public radius: number;
-  public constructor(polygon: Polygon, center: Vector, radius: number) {
-    this.polygon = polygon;
-    this.radius = radius;
-    this.center = center;
-  }
-
-  public static circular(center: Vector, segments: number, radius: number): Border {
-    return new Border(new Polygon(createCirclePoints(center, segments, radius)), center, radius);
-  }
-
-  public intersections(segment: Segment): Intersection[] {
-    // eslint-disable-next-line no-magic-numbers -- squared radius, compared against squared point distances.
-    const fastRejectThresholdSquared = this.radius ** 2 * BORDER_FAST_REJECT_FACTOR;
-    if (segment.start.distance2(this.center) < fastRejectThresholdSquared && segment.end.distance2(this.center) < fastRejectThresholdSquared) {
-      return [];
-    }
-    return this.polygon.intersections(segment).filter((intersection: Intersection) => !intersection.overlay);
-  }
-}
-export const baseCos = Math.cos(0);
-export const baseSin = Math.sin(0);
-export function angleToVector(angle: number): Vector {
-  const cosAngle = Math.cos(angle);
-  const sinAngle = Math.sin(angle);
-  const x = baseCos * cosAngle - baseSin * sinAngle;
-  const y = baseCos * sinAngle + baseSin * cosAngle;
-  return Vector.alloc(x, y);
 }

@@ -27,16 +27,18 @@ import {
   Player,
   Territory
 } from './entities.ts';
+import { Border } from './geometry/border.ts';
 import {
-  angleToVector,
-  Border,
-  createCirclePoints,
   Polygon,
   Polyline,
-  Segment,
-  SpatialGrid,
+  Segment
+} from './geometry/shapes.ts';
+import { SpatialGrid } from './geometry/spatial-grid.ts';
+import {
+  angleToVector,
+  createCirclePoints,
   Vector
-} from './geometry.ts';
+} from './geometry/vector.ts';
 import { LANGUAGE_CODE_LENGTH } from './i18n.ts';
 import {
   Particle,

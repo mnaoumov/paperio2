@@ -1,5 +1,5 @@
 import type { Game } from './engine.ts';
-import type { Intersection } from './geometry.ts';
+import type { Intersection } from './geometry/shapes.ts';
 import type {
   AchievementTracker,
   SchemeCycler,
@@ -17,9 +17,9 @@ import {
   Polyline,
   Segment,
   SIMPLIFY_LOOKBACK_COUNT,
-  Vector,
   WALL_PROXIMITY_THRESHOLD
-} from './geometry.ts';
+} from './geometry/shapes.ts';
+import { Vector } from './geometry/vector.ts';
 import {
   EIGHTH_TURN,
   FULL_TURN,

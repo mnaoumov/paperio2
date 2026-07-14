@@ -1,9 +1,7 @@
 import type { Unit } from './entities.ts';
 
-import {
-  Segment,
-  Vector
-} from './geometry.ts';
+import { Segment } from './geometry/shapes.ts';
+import { Vector } from './geometry/vector.ts';
 import {
   FULL_TURN,
   HEX_CHANNEL_DIGITS,

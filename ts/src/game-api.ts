@@ -20,11 +20,9 @@ import {
   HALF_DIVISOR
 } from './engine.ts';
 import { renderGame } from './game-render.ts';
-import {
-  Border,
-  SpatialGrid,
-  Vector
-} from './geometry.ts';
+import { Border } from './geometry/border.ts';
+import { SpatialGrid } from './geometry/spatial-grid.ts';
+import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
 import { now } from './shared/math-utils.ts';
 import { ensureNonNullable } from './type-guards.ts';
