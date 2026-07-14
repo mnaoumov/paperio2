@@ -7,7 +7,7 @@
   "bugs": "https://github.com/mnaoumov/paperio2/issues",
   "repository": "git+https://github.com/mnaoumov/paperio2.git",
   "type": "module",
-  "main": "src/app2.ts",
+  "main": "src/main.ts",
   "scripts": {
     "build": "node build.mjs",
     "commit": "jiti scripts/commit.ts",

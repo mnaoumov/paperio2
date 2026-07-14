@@ -5,7 +5,7 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['src/app2.ts'],
+  entryPoints: ['src/main.ts'],
   bundle: true,
   format: 'iife',
   target: 'es2020',
