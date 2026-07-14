@@ -6,10 +6,8 @@ import type {
   Scoreboard,
   ScoreLabel
 } from '../scoring.ts';
-import type {
-  Asset,
-  Skin
-} from '../skins.ts';
+import type { Asset } from '../skins/asset.ts';
+import type { Skin } from '../skins/skin.ts';
 
 import { Vector } from '../geometry/vector.ts';
 import {

@@ -16,7 +16,7 @@ import {
 
 import type { Config } from './engine.ts';
 import type { LanguagesData } from './i18n.ts';
-import type { SkinSource } from './skins.ts';
+import type { SkinSource } from './skins/skin.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
 import { defaultConfig } from './engine.ts';
@@ -32,10 +32,10 @@ import {
   SchemeCycler
 } from './scoring.ts';
 import {
-  GameSkinManager,
   ImageAssetSet,
   SvgAssetSet
-} from './skins.ts';
+} from './skins/asset.ts';
+import { GameSkinManager } from './skins/manager.ts';
 import { ensureNonNullable } from './type-guards.ts';
 import { App } from './ui.ts';
 

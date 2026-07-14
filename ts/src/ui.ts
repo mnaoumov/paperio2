@@ -18,7 +18,7 @@ import type {
 } from './engine.ts';
 import type { GameApi } from './game-api.ts';
 import type { Language } from './i18n.ts';
-import type { SkinSource } from './skins.ts';
+import type { SkinSource } from './skins/skin.ts';
 
 import {
   findDefaultLanguage,

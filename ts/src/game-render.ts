@@ -12,14 +12,14 @@ import type {
   Particle,
   TextParticle
 } from './particles.ts';
+import type { Asset } from './skins/asset.ts';
 import type {
-  Asset,
   Avatar,
   DisplayLayerEntry,
   DisplayList,
-  Skin,
   SkinLayer
-} from './skins.ts';
+} from './skins/layers.ts';
+import type { Skin } from './skins/skin.ts';
 
 import {
   DOUBLE_FACTOR,

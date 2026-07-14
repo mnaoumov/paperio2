@@ -15,10 +15,8 @@ import type {
   Quest,
   SchemeCycler
 } from './scoring.ts';
-import type {
-  Asset,
-  SkinManager
-} from './skins.ts';
+import type { Asset } from './skins/asset.ts';
+import type { SkinManager } from './skins/manager.ts';
 
 import { Controller } from './controller.ts';
 import { Territory } from './entities/territory-trail.ts';

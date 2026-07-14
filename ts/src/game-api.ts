@@ -8,7 +8,7 @@ import type {
   AchievementStore,
   SchemeCycler
 } from './scoring.ts';
-import type { GameSkinManager } from './skins.ts';
+import type { GameSkinManager } from './skins/manager.ts';
 
 import {
   Controller,
