@@ -5,7 +5,7 @@ import type {
   ComebackInfo,
   SchemeConstructor,
   Unit
-} from './entities.ts';
+} from './entities/units.ts';
 
 import {
   FIXED_DECIMAL_DIGITS,

@@ -20,7 +20,7 @@ import type { SkinSource } from './skins.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
 import { defaultConfig } from './engine.ts';
-import { NamePool } from './entities.ts';
+import { NamePool } from './entities/units.ts';
 import { createGameApi } from './game-api.ts';
 import {
   buildLanguageList,

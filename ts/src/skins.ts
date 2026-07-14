@@ -2,7 +2,7 @@ import type {
   Config,
   Game
 } from './engine.ts';
-import type { Unit } from './entities.ts';
+import type { Unit } from './entities/units.ts';
 import type { ParticleColor } from './particles.ts';
 
 import {

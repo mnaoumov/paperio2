@@ -1,12 +1,14 @@
 import type { PointerState } from './controller.ts';
 import type {
-  Label,
-  NamePool,
   ShapeOwner,
   TrailCrossing,
-  TrailIntersectionRecord,
+  TrailIntersectionRecord
+} from './entities/territory-trail.ts';
+import type {
+  Label,
+  NamePool,
   Unit
-} from './entities.ts';
+} from './entities/units.ts';
 import type { LanguageStrings } from './i18n.ts';
 import type {
   AchievementStore,
@@ -19,14 +21,14 @@ import type {
 } from './skins.ts';
 
 import { Controller } from './controller.ts';
+import { Territory } from './entities/territory-trail.ts';
 import {
   Bot,
   City,
   fromCharCode,
   MILLISECONDS_IN_MINUTE,
-  Player,
-  Territory
-} from './entities.ts';
+  Player
+} from './entities/units.ts';
 import { Border } from './geometry/border.ts';
 import {
   Polygon,

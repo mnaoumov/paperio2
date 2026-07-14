@@ -1,4 +1,4 @@
-import type { Unit } from './entities.ts';
+import type { Unit } from './entities/units.ts';
 
 import { Segment } from './geometry/shapes.ts';
 import { Vector } from './geometry/vector.ts';

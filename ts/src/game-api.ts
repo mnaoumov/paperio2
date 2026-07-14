@@ -2,7 +2,7 @@ import type {
   Config,
   GameResults
 } from './engine.ts';
-import type { NamePool } from './entities.ts';
+import type { NamePool } from './entities/units.ts';
 import type { Language } from './i18n.ts';
 import type {
   AchievementStore,

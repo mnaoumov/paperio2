@@ -1,7 +1,7 @@
 import type {
   ShapeOwner,
   Trail
-} from '../entities.ts';
+} from '../entities/territory-trail.ts';
 
 import { EPSILON } from '../shared/constants.ts';
 import {

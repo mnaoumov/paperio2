@@ -3,11 +3,11 @@ import type {
   Game,
   MetricEvents
 } from './engine.ts';
+import type { Trail } from './entities/territory-trail.ts';
 import type {
   City,
-  Trail,
   Unit
-} from './entities.ts';
+} from './entities/units.ts';
 import type {
   Particle,
   TextParticle
@@ -26,7 +26,7 @@ import {
   HALF_DIVISOR,
   MAX_METRICS_SAMPLES
 } from './engine.ts';
-import { TOP_LIST_RANK_LIMIT } from './entities.ts';
+import { TOP_LIST_RANK_LIMIT } from './entities/units.ts';
 import { Vector } from './geometry/vector.ts';
 import {
   FULL_TURN,
