@@ -1216,6 +1216,11 @@ export class Game {
     if (unit.death) {
       return;
     }
+    if (this.isTest) {
+      const deathReasons: string[] = ['выигрыш', 'самопересечение', 'убит об стену', 'убит пересечением трека', 'убит захватом точки выхода', 'убит окружением', 'удален системой', 'убит откружением столицы', 'убит разделением со столицей'];
+      // eslint-disable-next-line no-console -- test-mode death-reason logging, restored verbatim from the original app2.js; `isTest` is never enabled at runtime.
+      console.log(`${unit.name} убит${unit2 ? ` ${unit2.name}` : ''} (${ensureNonNullable(deathReasons[ensureNonNullable(reason)])})`);
+    }
     this.events.kills++;
     unit.death = true;
     this.skinManager.release(unit.skin);
@@ -1337,6 +1342,8 @@ export class Game {
         prepareAcceleration--;
       }
     } else {
+      // eslint-disable-next-line no-console -- prepare-phase frame-delta debug logging, restored verbatim from the original app2.js.
+      console.log(deltaMilliseconds);
       this.update(deltaMilliseconds);
     }
   }
@@ -1405,6 +1412,8 @@ export class Game {
       player.track.remove();
       if (this.debug) {
         player.game.alert('Tail is recovered');
+        // eslint-disable-next-line no-console -- tail-recovery debug logging (only when `this.debug`), restored verbatim from the original app2.js.
+        console.log(`Recovering tail, cycle: ${String(this.cycle)}`);
         this.tailRecovered = true;
       } else if (window.ga) {
         window.ga('send', 'event', 'error', 'tailRecovered');
