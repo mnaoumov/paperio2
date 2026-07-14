@@ -17,11 +17,9 @@ import type { LanguagesData } from './i18n.ts';
 import type { SkinSource } from './skins.ts';
 
 import { BOT_NAMES } from './bot-names.ts';
-import {
-  createGameApi,
-  defaultConfig
-} from './engine.ts';
+import { defaultConfig } from './engine.ts';
 import { NamePool } from './entities.ts';
+import { createGameApi } from './game-api.ts';
 import {
   buildLanguageList,
   findDefaultLanguage

@@ -14,9 +14,9 @@ import {
 
 import type {
   Config,
-  GameApi,
   GameResults
 } from './engine.ts';
+import type { GameApi } from './game-api.ts';
 import type { Language } from './i18n.ts';
 import type { SkinSource } from './skins.ts';
 
