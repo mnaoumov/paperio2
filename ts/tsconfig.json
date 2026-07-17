@@ -1,17 +1,23 @@
 {
   "extends": "@tsconfig/strictest/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2024",
-    "lib": ["ES2024", "DOM"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "paths": {
-      "preact": ["./node_modules/preact/src/index.d.ts"],
-      "preact/hooks": ["./node_modules/preact/hooks/src/index.d.ts"]
-    },
+    "allowArbitraryExtensions": true,
+    "allowImportingTsExtensions": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "lib": ["ES2024"],
     "libReplacement": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "noEmit": true,
-    "types": ["@total-typescript/ts-reset", "js-cookie"]
+    "target": "ES2024",
+    "types": ["@total-typescript/ts-reset", "node"],
+    "verbatimModuleSyntax": true
   },
-  "include": ["src"]
+  "include": [
+    "commitlint.config.ts",
+    "eslint.config.mts",
+    "scripts/**/*.ts",
+    "vitest.config.ts"
+  ]
 }

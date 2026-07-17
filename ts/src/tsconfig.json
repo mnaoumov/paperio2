@@ -1,0 +1,18 @@
+{
+  "extends": "@tsconfig/strictest/tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "target": "ES2024",
+    "lib": ["ES2024", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "preact": ["../node_modules/preact/src/index.d.ts"],
+      "preact/hooks": ["../node_modules/preact/hooks/src/index.d.ts"]
+    },
+    "libReplacement": true,
+    "noEmit": true,
+    "types": ["@total-typescript/ts-reset", "js-cookie"]
+  },
+  "include": ["**/*.ts"]
+}

@@ -5,11 +5,11 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['src/app2.ts'],
+  entryPoints: ['src/main.ts'],
   bundle: true,
   format: 'iife',
   target: 'es2020',
   outfile: 'dist/app2.js',
   legalComments: 'none',
-  logLevel: 'info',
+  logLevel: 'info'
 });

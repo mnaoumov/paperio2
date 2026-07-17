@@ -1,2 +1,6 @@
 .claude/settings.local.json
 research/
+
+# Local headless-boot harness for the ts/ bundle (not part of the shipped game)
+__boot-test.html
+.__chrome_profile/
