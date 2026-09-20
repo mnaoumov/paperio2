@@ -4,8 +4,14 @@
  * Nano-staged configuration for pre-commit hooks.
  */
 
-import { existsSync } from 'node:fs';
 import process from 'node:process';
+
+import {
+  isEnvVariableOff,
+  loadEnvFileIfExists
+} from './helpers/env-toggle.ts';
+
+const NANO_STAGED_ENV_VARIABLE = 'NANO_STAGED';
 
 const tasks: Record<string, string[]> = {
   '*': [
@@ -17,35 +23,51 @@ const tasks: Record<string, string[]> = {
   ],
   '*.md': [
     'npm run lint:md:fix --'
+  ],
+  /*
+   * The vendored ESLint rule sources, which are hand-copies of `obsidian-dev-utils`' and are supposed to be
+   * the same bytes. `lint:fix` and `format` above rewrite a staged copy in place, which is one of the three
+   * ways these files drift, so this check has to read what is about to be committed — and where its key
+   * sits cannot buy that. **nano-staged builds one task group per pattern and runs the groups with
+   * `Promise.all`** (measured against nano-staged 1.0.2, 2026-09-19), so this group RACES `lint:fix` rather
+   * than following it; sequencing exists within a single key's command list and nowhere else, which is why
+   * `lint:fix` then `format` under one key really is ordered. Key order here is only what perfectionist
+   * sorts it to, and says nothing about when anything runs.
+   *
+   * So the ordering is not enforced, it is made IRRELEVANT: the gate reads its subject out of the git index
+   * rather than off disk (`scripts/helpers/git-content.ts`), which is the same bytes whether `lint:fix` has
+   * run or not. Moving this key, or letting a future nano-staged order the groups differently, changes
+   * nothing.
+   *
+   * It takes no filenames: the glob is only what decides whether it runs at all, so an ordinary commit
+   * touching no vendored file fetches nothing.
+   */
+  '**/eslint-rules/*.ts': [
+    'npm run check:vendored-eslint-rules --'
   ]
 };
-
-const NANO_STAGED_OFF_VALUES: ReadonlySet<string> = new Set(['0', 'false', 'no', 'off']);
 
 /**
  * The nano-staged task configuration, resolved with a per-developer opt-out.
  *
- * Loads a gitignored `.env` if present (via Node's own `process.loadEnvFile`, so it behaves the same
- * on every platform and shell), then — when `NANO_STAGED` is set to an off value (`0`, `false`, `off`,
- * or `no`) — prints a notice and exits the process successfully so the pre-commit checks are skipped.
- * This mirrors husky's own `HUSKY=0` switch, but scoped to the nano-staged step (so the commit-msg
- * hook still runs). Otherwise it resolves to {@link tasks}.
+ * Loads a gitignored `.env` if present, then — when `NANO_STAGED` is set to an off value (`0`, `false`,
+ * `off`, or `no`) — prints a notice and exits the process successfully so the pre-commit checks are skipped.
+ * This mirrors husky's own `HUSKY=0` switch, but scoped to the nano-staged step (so the commit-msg hook
+ * still runs). Otherwise it resolves to {@link tasks}.
+ *
+ * `NANO_STAGED` is not an npm script, so it carries its own switch rather than the script-name-derived one
+ * that an npm script gets from `helpers/env-toggle.ts` — but both share the same notion of an off value, via
+ * {@link isEnvVariableOff}.
  */
 export const config = getNanoStagedConfig();
 
 function getNanoStagedConfig(): Record<string, string[]> {
-  if (existsSync('.env')) {
-    process.loadEnvFile('.env');
-  }
+  loadEnvFileIfExists();
 
-  if (isNanoStagedDisabled(process.env['NANO_STAGED'])) {
-    process.stdout.write('nano-staged: skipped (NANO_STAGED is off).\n');
+  if (isEnvVariableOff(NANO_STAGED_ENV_VARIABLE)) {
+    process.stdout.write(`nano-staged: skipped (${NANO_STAGED_ENV_VARIABLE} is off).\n`);
     process.exit(0);
   }
 
   return tasks;
-}
-
-function isNanoStagedDisabled(value: string | undefined): boolean {
-  return NANO_STAGED_OFF_VALUES.has((value ?? '').trim().toLowerCase());
 }

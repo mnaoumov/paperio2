@@ -10,6 +10,7 @@
   "main": "src/main.ts",
   "scripts": {
     "build": "node build.mjs",
+    "check:vendored-eslint-rules": "jiti scripts/check-vendored-eslint-rules.ts",
     "commit": "jiti scripts/commit.ts",
     "format": "jiti scripts/format.ts",
     "format:check": "jiti scripts/format-check.ts",
