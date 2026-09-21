@@ -192,22 +192,43 @@ function execString(command: string, options: ExecOption = {}, rawArgs?: string[
   });
 }
 
+/*
+ * Each batch is run with `shouldIncludeDetails` forced on so the aggregate can report the FIRST failing
+ * batch's exit code and signal. Returning a hard-coded `exitCode: 0` here - as this did until the caller
+ * started classifying ESLint's exit codes - reports a batched command as successful however its batches
+ * ended, which is the one answer a caller asking for details can never recover from. The non-details path
+ * is unchanged: `execString` still rejects on a failing batch unless `shouldIgnoreExitCode` is set.
+ */
 async function executeBatches(baseCommand: string, batches: string[][], options: ExecOption): Promise<ExecResult | string> {
-  const results: string[] = [];
+  const stdoutParts: string[] = [];
+  const stderrParts: string[] = [];
+  let failure: ExecResult | undefined;
 
   for (const batch of batches) {
     const batchCommand = `${baseCommand} ${batch.join(' ')}`;
-    const result = await execString(batchCommand, options);
+    const result = await execString(batchCommand, { ...options, shouldIncludeDetails: true });
     if (typeof result === 'string') {
-      results.push(result);
+      stdoutParts.push(result);
+      continue;
+    }
+
+    stdoutParts.push(result.stdout);
+    stderrParts.push(result.stderr);
+    if (!failure && result.exitCode !== 0) {
+      failure = result;
     }
   }
 
-  if (options.shouldIncludeDetails) {
-    return { exitCode: 0, exitSignal: null, stderr: '', stdout: results.join('\n') };
+  if (!options.shouldIncludeDetails) {
+    return stdoutParts.join('\n');
   }
 
-  return results.join('\n');
+  return {
+    exitCode: failure?.exitCode ?? 0,
+    exitSignal: failure?.exitSignal ?? null,
+    stderr: stderrParts.join('\n'),
+    stdout: stdoutParts.join('\n')
+  };
 }
 
 function getMaxCommandLength(): number {
