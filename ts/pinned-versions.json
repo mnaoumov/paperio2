@@ -1,0 +1,36 @@
+{
+  "comment": [
+    "Release conditions for every exact-pinned version in package.json. An exact pin is invisible to a caret",
+    "dependency sweep - that kind of sweep upgrades ranges and skips exact versions - so nothing would ever remind",
+    "you a pin is stale. This file is what makes that check happen: run each `check` and compare its trimmed stdout",
+    "to `expect`. Equal means the pin is still required; different means the condition that justified it has changed",
+    "and the pin must be re-examined. `check: null` means no mechanical test exists - that pin is reported for manual",
+    "review on every run instead of going quiet. Every exact pin must have an entry here, and every entry must name a",
+    "real pin.",
+    "The two `overrides` entries in package.json are deliberately NOT recorded here: `eslint-plugin-import` is an",
+    "alias onto eslint-plugin-import-x at a caret range and `type-fest` is the `$type-fest` shorthand, so neither is",
+    "an exact pin nor advisory-driven, which are the two kinds this file tracks.",
+    "Prose rationale lives in the repo-root AGENTS.md, under the `ts/` tooling section."
+  ],
+  "pins": {
+    "js-cookie": {
+      "section": "dependencies",
+      "why": "HELD AT 2.2.1 WITH A HIGH ADVISORY OPEN, DELIBERATELY. GHSA-qjx8-664m-686j (per-instance prototype hijack in assign() enabling cookie-attribute injection) covers <=3.0.5 and is fixed only in 3.0.8, a semver major. `ts/` is a reconstruction of the shipped, obfuscated `app2.js`, which inlined js-cookie 2.2.x - the original bundle literally contains `getJSON`, an API 3.x REMOVED - so floating to 3.x would stop the reconstruction reconstructing, which is the one thing this project is for. The break is not theoretical and not all of it is loud: `src/scoring.ts` has three 2.x-dependent call sites. `Cookies.getJSON` (readCookieJson) is gone in 3.x and fails to compile, so that one is loud; but 2.2.1 set() JSON.stringifies a non-string value while 3.x default write converter is a bare encodeURIComponent(value), so the two object-valued `Cookies.set` calls (the achievement profile and `paperio_challenges`) would SILENTLY write `[object Object]` and lose the save data. The advisory is accepted rather than merely deferred: the hijack needs attacker-controlled ATTRIBUTES reaching 2.2.1 extend(), and both `set` call sites pass the same local literal `{ expires: DAYS_IN_YEAR }`, so no hostile value reaches it. Nor is the vulnerable code served - the site runs the original root `app2.js`, which carries its own inlined copy this pin does not govern; `ts/dist/app2.js` is a study aid. Settled 2026-09-23: of the two options weighed - hold at 2.2.1 and record why, or float to 3.x and adapt the call sites - the first was taken.",
+      "check": "node -e \"const s=require('node:fs').readFileSync('src/scoring.ts','utf8');process.stdout.write(String(s.split('Cookies.').length-1))\"",
+      "expect": "3",
+      "manualCheck": "The check counts the 2.x-dependent call sites that make the float a rewrite rather than a bump; it is a re-examination trigger, not proof. A different count means the cookie call sites moved and the cost of floating must be re-derived - it does NOT by itself make the pin stale, because the faithfulness argument stands on its own. The pin can only be lifted by a decision to let the reconstruction differ from `app2.js` in one dependency, which was weighed and declined; taking it means rewriting `readCookieJson` onto `Cookies.get` + `JSON.parse`, giving both object-valued `set` calls an explicit `JSON.stringify`, and saying so in AGENTS.md. Verify any change by booting the esbuild bundle and confirming an achievement still round-trips through the cookie, since neither the type-checker nor the unit suite covers that path."
+    },
+    "preact": {
+      "section": "dependencies",
+      "why": "Same faithfulness argument as js-cookie, and the pin predates it: the original `app2.js` inlined preact somewhere in 10.4.2-10.5.4 and this reconstruction treats it as 10.5.4, so the version is a property of the artifact being reconstructed rather than a version to keep fresh. Floating it would silently change the component semantics the reconstruction is asserting. It is also load-bearing for the build: 10.5.4 exports map has no `types` condition, so `src/tsconfig.json` carries an explicit `paths` mapping of `preact`/`preact/hooks` onto its shipped `.d.ts`, and a float would move or invalidate those paths.",
+      "check": null,
+      "manualCheck": "No mechanical test exists - the condition is which preact the original bundle inlined, a fixed historical fact about a frozen file rather than anything a registry query can answer. Re-examine only if the reconstruction is deliberately re-based onto a newer preact, in which case the `paths` mapping in `src/tsconfig.json` must be re-checked against the new package exports map and the bundle re-booted in a browser (16 units, 0 console errors) to confirm the UI still renders."
+    },
+    "typescript": {
+      "section": "devDependencies",
+      "why": "typescript-eslint peer-requires `>=4.8.4 <6.1.0`, so type-aware ESLint cannot run on a TypeScript outside that range. The exact pin keeps a dependency sweep from drifting it past the ceiling. Mirrors the identical pin and reason in obsidian-dev-utils and in the `typescript-template` reference this tooling was ported from, which pins the same 6.0.3.",
+      "check": "node -e \"process.stdout.write(require('typescript-eslint/package.json').peerDependencies.typescript)\"",
+      "expect": ">=4.8.4 <6.1.0"
+    }
+  }
+}
