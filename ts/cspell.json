@@ -4,7 +4,6 @@
     ".husky",
     "coverage",
     "dist",
-    "scripts/helpers/@types/markdownlint-cli2-config-schema.d.ts",
     "src/bot-names.ts"
   ],
   "words": [

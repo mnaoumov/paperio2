@@ -1,6 +1,6 @@
-import type { ExecResult } from './exec.ts';
+import type { ExecResult } from '@mnaoumov/typescript-dev-toolkit/exec';
 
-import { execFromRoot } from './root.ts';
+import { execFromRoot } from '@mnaoumov/typescript-dev-toolkit/root';
 
 /**
  * ESLint's exit-code contract: `0` is clean, `1` means it finished and reported lint problems, and every other
@@ -93,7 +93,7 @@ export function describeFailureToLint(result: ExecResult): string {
 
 export async function lint(options: LintOptions = {}): Promise<void> {
   const targets = options.paths?.length ? options.paths : ['.'];
-  const result = await execFromRoot(['npx', 'eslint', ...(options.shouldFix ? ['--fix'] : []), { batchedArgs: targets }], {
+  const result = await execFromRoot(['npx', 'eslint', ...(options.shouldFix ? ['--fix'] : []), { batchedArguments: targets }], {
     shouldIgnoreExitCode: true,
     shouldIncludeDetails: true
   });
