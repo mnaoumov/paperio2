@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { Game } from '../engine.ts';
 import type { Polygon } from '../geometry/shapes.ts';
 import type {
@@ -42,7 +43,6 @@ export interface UnitTrackDistance {
   unit: Unit;
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface Label {
   color: string;
   fading?: boolean;
@@ -53,7 +53,6 @@ export interface Label {
 
 export type SchemeConstructor = new (unit: Unit) => ScoreLabel;
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface ComebackInfo {
   game: Game;
   increment: number;
@@ -359,3 +358,4 @@ export class NamePool {
   }
 }
 export const MILLISECONDS_IN_MINUTE = 60000;
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

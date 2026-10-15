@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type {
   Config,
   Game,
@@ -110,7 +111,6 @@ export function strokeTrail(context: CanvasRenderingContext2D, strokeStyle: Canv
     context.stroke(trail.polyline.path);
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawUnitName(context: CanvasRenderingContext2D, unit: Unit, zoom: number, scale: number, fontFamily: string): void {
   const {
     devicePixelRatio
@@ -154,7 +154,6 @@ export function drawUnitName(context: CanvasRenderingContext2D, unit: Unit, zoom
   context.restore();
 }
 /* eslint-disable no-magic-numbers, no-implicit-coercion -- crown glyph path geometry: unnameable coordinate data. */
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function createCrownPath(): Path2D {
   const path2D = new Path2D();
   const size = 5;
@@ -192,7 +191,6 @@ export function drawCrown(context: CanvasRenderingContext2D, unit: Unit, zoom: n
   context.restore();
 }
 /* eslint-disable no-magic-numbers, no-implicit-coercion -- face glyph path geometry: unnameable coordinate data. */
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function createFacePath(): Path2D {
   const path2D = new Path2D();
   const size = 1.6;
@@ -230,7 +228,6 @@ export function drawFaceIcon(context: CanvasRenderingContext2D, x: number, y: nu
   context.fill(facePath);
   context.restore();
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface AvatarBearer {
   direction?: number;
   position: Vector;
@@ -270,7 +267,6 @@ export function drawSkinLayer(config: Config, context: CanvasRenderingContext2D,
     context.restore();
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawAvatarLayers(config: Config, context: CanvasRenderingContext2D, unit: AvatarBearer, avatar: DisplayList, isFront: boolean): void {
   const list4 = isFront ? avatar.frontLayers : avatar.backLayers;
   list4.forEach((layerEntry: DisplayLayerEntry) => {
@@ -301,14 +297,12 @@ export function fillPath(context: CanvasRenderingContext2D, path: Path2D, fillSt
   context.fillStyle = fillStyle;
   context.fill(path);
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 interface Bounds {
   bottom: number;
   left: number;
   right: number;
   top: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface HasBounds {
   bounds: Bounds;
 }
@@ -381,7 +375,6 @@ export function drawTrailUnderlays(renderContext: RenderContext): void {
   });
   ctx.restore();
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawAvatarFrontLayers(renderContext: RenderContext): void {
   const {
     game,
@@ -415,7 +408,6 @@ export function drawUnitNames(renderContext: RenderContext): void {
     }
   });
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawAvatarBackLayers(renderContext: RenderContext): void {
   const {
     game,
@@ -452,7 +444,6 @@ export function drawTrails(renderContext: RenderContext): void {
   });
   ctx.restore();
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawBaseBacks(renderContext: RenderContext): void {
   const {
     boundsInView,
@@ -468,7 +459,6 @@ export function drawBaseBacks(renderContext: RenderContext): void {
     }
   });
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawArenaBackground(renderContext: RenderContext): void {
   const {
     game,
@@ -510,7 +500,6 @@ export function drawParticles(renderContext: RenderContext): void {
   });
   ctx.restore();
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function drawLabels(renderContext: RenderContext): void {
   const {
     game,
@@ -706,7 +695,6 @@ export function renderScoreBar(renderContext: RenderContext): void {
   ctx.textBaseline = 'middle';
   ctx.fillText(ensureNonNullable(player.schemes).print(), halfBarHeight, padding + halfBarHeight * TEXT_BASELINE_NUDGE_FACTOR);
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function renderBestScore(renderContext: RenderContext): void {
   const {
     backHeight,
@@ -790,7 +778,6 @@ export function renderQuestNotification(renderContext: RenderContext): void {
     }
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function renderGame(game: Game): void {
   const renderContext = game.getRenderContext();
   if (!renderContext) {
@@ -848,7 +835,6 @@ export function renderGame(game: Game): void {
     renderDebugOverlay(game);
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 interface Metric {
   events: MetricEvents;
   frameTime: number;
@@ -956,3 +942,4 @@ export function renderDebugOverlay(game: Game): void {
     lineY += game.quality * DEBUG_OVERLAY_LINE_HEIGHT;
   }
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { Config } from '../engine.ts';
 
 import { PERCENT_MAX } from '../shared/constants.ts';
@@ -12,13 +13,11 @@ export function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface SkinLayerPivot {
   x?: number;
   y?: number;
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface SkinLayerDescriptor {
   direction?: string;
   level?: number;
@@ -174,7 +173,6 @@ export class PatternAsset {
   }
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface AvatarDescriptor {
   layers?: SkinLayerDescriptor[];
   scale?: number;
@@ -220,7 +218,6 @@ export class Avatar {
   }
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface DisplayLayerEntry {
   display: Avatar;
   layer: SkinLayer;
@@ -267,3 +264,4 @@ export class DisplayList {
     this.maxScale = Math.max(...this.frontLayers.map((entry: DisplayLayerEntry) => entry.display.scale * entry.layer.scale));
   }
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { Game } from '../engine.ts';
 import type {
   Asset,
@@ -34,7 +35,7 @@ export type SkinManagerUsageMap = Record<string, Skin[]>;
 // `__publicField`), which would make that guard always true and crash; the
 // Project bans `declare` class properties, so an interface merge is the only
 // Way to keep these two members type-only.
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging, perfectionist/sort-modules -- see the comment above: these two members must stay type-only, unachievable as class fields under this build; declaration order is kept dependency-ordered.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging -- see the comment above: these two members must stay type-only, unachievable as class fields under this build; declaration order is kept dependency-ordered.
 export interface SkinManager {
   isFlagSkinManager?: boolean;
   shieldSkinAssets?: ShieldSkinAssets;
@@ -159,3 +160,4 @@ export class GameSkinManager extends SkinManager {
     return this.get(name);
   }
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

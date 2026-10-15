@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { Config } from '../engine.ts';
 import type {
   AssetContent,
@@ -59,7 +60,6 @@ export class SvgAsset extends Asset {
   }
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class ImageAsset extends Asset {
   public override pool: SvgAssetSet;
   public source: SkinSource;
@@ -92,7 +92,6 @@ export class ImageAsset extends Asset {
   }
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class AssetSet {
   public assets: Asset[];
   public config: Config | undefined;
@@ -117,7 +116,6 @@ export const NICK_VALUE_SCALE = 0.5;
 export const DARK_PLATE_BRIGHTEN_FACTOR = 2;
 export const PLATE_VALUE_THRESHOLD = 50;
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class ImageAssetSet extends AssetSet {
   public constructor(config: Config) {
     super('colors');
@@ -170,7 +168,6 @@ export class ImageAssetSet extends AssetSet {
   }
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class SvgAssetSet extends AssetSet {
   public path: string;
   public view: HTMLCanvasElement;
@@ -206,3 +203,4 @@ export function createColorTile(mainColor: string, backColor: string): HTMLCanva
   context.fillRect(COLOR_TILE_INSET, COLOR_TILE_INSET, COLOR_TILE_INNER_SIZE, COLOR_TILE_INNER_SIZE);
   return element;
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */
