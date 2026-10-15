@@ -25,6 +25,7 @@
   },
   "overrides": {
     "eslint-plugin-import": "npm:eslint-plugin-import-x@^4.17.1",
+    "smol-toml": "^1.9.1",
     "type-fest": "$type-fest"
   },
   "dependencies": {
