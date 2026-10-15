@@ -1,6 +1,5 @@
+import { execFromRoot } from '@mnaoumov/typescript-dev-toolkit/root';
 import process from 'node:process';
-
-import { execFromRoot } from './helpers/root.ts';
 
 async function main(): Promise<void> {
   const [, , ...paths] = process.argv;
@@ -12,7 +11,7 @@ async function spellcheck(paths: string[] = []): Promise<void> {
     paths = ['.'];
   }
 
-  await execFromRoot(['npx', 'cspell', '--no-progress', '--no-must-find-files', { batchedArgs: paths }]);
+  await execFromRoot(['npx', 'cspell', '--no-progress', '--no-must-find-files', { batchedArguments: paths }]);
 }
 
 await main();

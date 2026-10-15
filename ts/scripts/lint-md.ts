@@ -1,6 +1,5 @@
+import { lint } from '@mnaoumov/typescript-dev-toolkit/linters/markdownlint';
 import process from 'node:process';
-
-import { lint } from './helpers/markdownlint.ts';
 
 const [, , ...paths] = process.argv;
 

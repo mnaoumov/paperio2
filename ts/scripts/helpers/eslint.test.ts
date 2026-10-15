@@ -1,10 +1,10 @@
+import type { ExecResult } from '@mnaoumov/typescript-dev-toolkit/exec';
+
 import {
   describe,
   expect,
   it
 } from 'vitest';
-
-import type { ExecResult } from './exec.ts';
 
 import {
   classifyEslintExit,

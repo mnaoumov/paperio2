@@ -1,14 +1,13 @@
-import { join } from 'node:path/posix';
-
 import {
   checkProjectTypes,
   parseTsConfig,
   toCanonical
-} from './helpers/check-project-types.ts';
+} from '@mnaoumov/typescript-dev-toolkit/check-project-types';
 import {
   execFromRoot,
   getRootFolder
-} from './helpers/root.ts';
+} from '@mnaoumov/typescript-dev-toolkit/root';
+import { join } from 'node:path/posix';
 
 const NODE_MODULES_SEGMENT = '/node_modules/';
 
