@@ -33,8 +33,9 @@ export const config = defineConfig({
         /*
          * The scripts tree, which `unit-tests` excludes outright: without this project a test file under
          * `scripts/` ran nowhere and `npm test` stayed green while proving nothing.
-         * `scripts/helpers/eslint.test.ts` is the reason it exists. Its shape (name included) is the one
-         * `typescript-template` uses, so the two configs stay comparable.
+         * No test lives there today, so it runs empty, but a test added there later is picked up rather than
+         * silently skipped. Its shape (name included) is the one `typescript-template` uses, so the two configs
+         * stay comparable.
          */
         test: {
           environment: 'node',
