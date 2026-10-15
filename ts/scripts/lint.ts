@@ -1,6 +1,5 @@
+import { lint } from '@mnaoumov/typescript-dev-toolkit/linters/eslint';
 import process from 'node:process';
-
-import { lint } from './helpers/eslint.ts';
 
 const [, , ...paths] = process.argv;
 
