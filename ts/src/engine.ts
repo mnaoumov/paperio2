@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { PointerState } from './controller.ts';
 import type {
   ShapeOwner,
@@ -98,7 +99,6 @@ export function decodeDomainLockString(encoded: [number, number[], number[]]): s
     }, encoded[0])
   ));
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function decodeDomainLockProperty(charIndices: number[]): string {
   return fromCharCode(...charIndices.map((charIndex: number) =>
     DOMAIN_LOCK_CHAR_DELTAS.reduce((sum: number, delta: number, index: number) => {
@@ -174,14 +174,12 @@ export interface Config {
   trackWidth: number;
   unitSpeed: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface CitiesManager {
   get(countryCode: string): string;
 }
 export interface LeaderboardCountryEntry {
   country: string;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface Leaderboard {
   countries: LeaderboardCountryEntry[];
 }
@@ -197,7 +195,6 @@ export interface Replayer {
   skipping(): boolean;
   start: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface MetricEvents {
   kills: number;
   returns: number;
@@ -209,7 +206,6 @@ interface Metric {
   renderTime: number;
   updateTime: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface GameOverResult {
   readonly best: null | number;
   readonly bestPercent: number;
@@ -232,7 +228,6 @@ interface Bounds {
   right: number;
   top: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface BoundedShape {
   bounds: Bounds;
 }
@@ -261,7 +256,6 @@ interface RenderContext {
   viewScreenWidth: number;
   viewWidth: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface Intersection {
   distance: number;
   overlay: boolean;
@@ -279,7 +273,6 @@ export interface ShapeOwnerIntersection {
   point: Vector;
   segment: Segment;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface ComebackMergeParams {
   readonly endPoint: Vector;
   readonly endT: number;
@@ -290,7 +283,6 @@ export interface ComebackMergeParams {
   readonly startT: number;
 }
 export type Shape = Polygon | Polyline;
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface GameStats {
   ait: number;
   fps: number;
@@ -1824,7 +1816,7 @@ export class Game {
     }
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules, import-x/export -- engine declarations kept in dependency order; `Config` is a valid TypeScript declaration merge (adds the config-form index signature) that import-x false-positives as a duplicate export.
+// eslint-disable-next-line import-x/export -- engine declarations kept in dependency order; `Config` is a valid TypeScript declaration merge (adds the config-form index signature) that import-x false-positives as a duplicate export.
 export interface Config {
   // Every field is a `string | number | boolean`; the index signature lets the
   // Config-editing form write fields back by their dynamic string key (its
@@ -1871,7 +1863,6 @@ export interface Config {
   trackWidth: number;
   unitSpeed: number;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface GameResults {
   kills: number;
   newBest: boolean;
@@ -1929,3 +1920,4 @@ export const defaultConfig = {
   unitSpeed: 90
 };
 /* eslint-enable no-magic-numbers -- end of the default game-config data table. */
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

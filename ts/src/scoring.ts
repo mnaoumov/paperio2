@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import Cookies from 'js-cookie';
 
 import type { Game } from './engine.ts';
@@ -21,7 +22,6 @@ import { ensureNonNullable } from './type-guards.ts';
 
 type StoredChallenges = Record<string, boolean>;
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface AchievementChecker {
   check(unit: Unit, dt: number, game: Game): boolean;
   onKill(unit: Unit): void;
@@ -116,7 +116,6 @@ export class Scoreboard {
   }
 }
 export const MIN_LABEL_INCREMENT_PERCENT = 0.01;
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class ScoreLabel {
   public accumulator = 0;
   public name: string;
@@ -260,7 +259,6 @@ export class Quest {
     }
   }
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class Achievement {
   public best: number;
   public checker: AchievementChecker | null;
@@ -303,7 +301,6 @@ export function readCookieJson<T>(name: string): T | undefined {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return -- js-cookie's deprecated getJSON is typed `any`.
   return Cookies.getJSON(name);
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export class AchievementStore {
   public achievements: Achievement[];
   public storageName: string;
@@ -423,3 +420,4 @@ export class AchievementTracker {
     });
   }
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 import type { Vector } from '../geometry/vector.ts';
 import type { Bot } from './units.ts';
 
@@ -99,7 +100,6 @@ export function isPlayerTrailInRange(unit: Bot): boolean {
   return false;
 }
 
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export function isBotInDanger(unit: Bot): boolean {
   if (unit.in === unit.base) {
     return false;
@@ -370,3 +370,4 @@ export const botStates: BotStates = {
     }
   }
 };
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

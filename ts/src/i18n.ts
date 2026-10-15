@@ -1,3 +1,4 @@
+/* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
 export const LANGUAGE_CODE_LENGTH = 2;
 
 export interface LanguageStrings {
@@ -19,7 +20,6 @@ export interface LanguageStrings {
   timePlayed: string;
   yourScore: string;
 }
-// eslint-disable-next-line perfectionist/sort-modules -- engine declarations kept in original dependency order; alphabetical module sort would reorder extends subclasses before their base classes and break runtime init.
 export interface Language {
   lng: LanguageStrings;
   name: string;
@@ -66,3 +66,4 @@ export const browserLanguageCode = ((navigator.languages && navigator.languages.
 export function findDefaultLanguage(): Language | undefined {
   return list3.find((language: Language) => language.name === browserLanguageCode) ?? list3.find((language: Language) => language.name === 'en');
 }
+/* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */
