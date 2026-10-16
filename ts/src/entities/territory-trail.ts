@@ -1,3 +1,5 @@
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import type {
   Intersection,
   Segment
@@ -17,7 +19,6 @@ import {
   KILL_REASON_TRAIL,
   KILL_REASON_WALL
 } from '../shared/constants.ts';
-import { ensureNonNullable } from '../type-guards.ts';
 
 export type ShapeOwner = Territory | Trail;
 export interface TrailCrossing {

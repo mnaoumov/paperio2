@@ -1,10 +1,11 @@
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import type { ContourPoints } from './contour-points.ts';
 import type { Segment } from './shapes.ts';
 import type { SpatialGrid } from './spatial-grid.ts';
 
 import { EPSILON } from '../shared/constants.ts';
 import { isNearlyEqual } from '../shared/math-utils.ts';
-import { ensureNonNullable } from '../type-guards.ts';
 
 export function firstMatchingPoint(target: Vector, candidates: Vector[]): Vector {
   for (const candidate of candidates) {

@@ -1,10 +1,11 @@
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import type {
   Intersection,
   Segment
 } from './shapes.ts';
 
 import { generateId } from '../shared/ids.ts';
-import { ensureNonNullable } from '../type-guards.ts';
 import {
   CELL_MARGIN,
   ContourPoints

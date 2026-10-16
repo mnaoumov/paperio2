@@ -1,6 +1,7 @@
 /* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import { noop } from './shared/noop.ts';
-import { ensureNonNullable } from './type-guards.ts';
 
 export const KEY_ARROW_LEFT = 37;
 export const KEY_ARROW_UP = 38;
