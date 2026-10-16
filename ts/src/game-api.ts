@@ -1,3 +1,5 @@
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import type {
   Config,
   GameResults
@@ -25,7 +27,6 @@ import { SpatialGrid } from './geometry/spatial-grid.ts';
 import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
 import { now } from './shared/math-utils.ts';
-import { ensureNonNullable } from './type-guards.ts';
 
 export interface GameApi {
   create: (view: HTMLCanvasElement) => void;

@@ -1,3 +1,5 @@
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import type { Unit } from './entities/units.ts';
 
 import { Segment } from './geometry/shapes.ts';
@@ -11,7 +13,6 @@ import {
   QUARTER_TURN,
   RGB_CHANNEL_MAX
 } from './shared/constants.ts';
-import { ensureNonNullable } from './type-guards.ts';
 
 export type ParticleColor = HTMLCanvasElement | HTMLImageElement | string;
 

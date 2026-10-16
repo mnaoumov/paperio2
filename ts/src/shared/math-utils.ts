@@ -1,4 +1,5 @@
-import { ensureNonNullable } from '../type-guards.ts';
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
+
 import {
   EPSILON,
   FIXED_DECIMAL_DIGITS

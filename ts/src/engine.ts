@@ -1,4 +1,9 @@
 /* eslint-disable perfectionist/sort-modules -- engine declarations are kept in the original bundle's dependency order: an alphabetical module sort would reorder `extends` subclasses before their base classes (breaking class init at runtime) and split `no-magic-numbers` disable blocks. Per-line disables cannot be kept stable since perfectionist 5.12 pins each disabled node and re-sorts the rest around it. */
+import {
+  assertNonNullable,
+  ensureNonNullable
+} from '@mnaoumov/typescript-lib/type-guards';
+
 import type { PointerState } from './controller.ts';
 import type {
   ShapeOwner,
@@ -71,10 +76,6 @@ import {
 } from './shared/math-utils.ts';
 import { noop } from './shared/noop.ts';
 import { createRandomGenerator } from './shared/random.ts';
-import {
-  assertNonNullable,
-  ensureNonNullable
-} from './type-guards.ts';
 
 // --- shared structural types inferred from usage across the engine ---
 

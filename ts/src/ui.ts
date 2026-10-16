@@ -2,6 +2,10 @@
 import type { VNode } from 'preact';
 
 import {
+  assertNonNullable,
+  ensureNonNullable
+} from '@mnaoumov/typescript-lib/type-guards';
+import {
   createContext,
   createElement,
   Fragment
@@ -26,10 +30,6 @@ import {
   list3
 } from './i18n.ts';
 import { DAYS_IN_YEAR } from './scoring.ts';
-import {
-  assertNonNullable,
-  ensureNonNullable
-} from './type-guards.ts';
 
 export type Dispatch<T> = (action: ((prevState: T) => T) | T) => void;
 

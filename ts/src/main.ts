@@ -8,6 +8,7 @@
  * augmentations live in `global.d.ts`.
  */
 
+import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 import Cookies from 'js-cookie';
 import {
   createElement,
@@ -36,7 +37,6 @@ import {
   SvgAssetSet
 } from './skins/asset.ts';
 import { GameSkinManager } from './skins/manager.ts';
-import { ensureNonNullable } from './type-guards.ts';
 import { App } from './ui.ts';
 
 // `NamePool.release` mutates its pool (pushes names back), so hand it a fresh
