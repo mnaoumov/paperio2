@@ -9,8 +9,8 @@
  *
  * Frames here are exactly 16 ms rather than 1000/60 ms, so every virtual time is an integer and a 10-minute pause
  * subtracts out exactly: with a fractional frame the paused run's clock reads the same game time to within a
- * rounding error, which would change a frame delta in its last bit. The page claims to be `paperio.site`, because on
- * any other host the original's domain lock schedules a redirect a few minutes in, which a 10-minute pause reaches.
+ * rounding error, which would change a frame delta in its last bit. The page claims to be `paperio.site`, where the
+ * domain lock arms no redirect timer at all; elsewhere the page's shim defuses it.
  */
 
 import type {
