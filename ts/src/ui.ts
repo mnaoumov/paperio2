@@ -537,7 +537,7 @@ export function GameScreen({
       skin2 = '';
     }
     const startedApi = ensureNonNullable(api);
-    startedApi.start(nickName, skin2, bestScore, handleGameOver, lastPercent);
+    startedApi.start(nickName, skin2, bestScore, handleGameOver, lastPercent, pendingLoad !== null || practiceMode);
     const { game } = startedApi;
     game.practice = null;
     if (pendingLoad || practiceMode) {
@@ -914,7 +914,7 @@ export function PracticeControl({
 }
 function addCheckpoint(practice: Practice): void {
   if (!practice.add()) {
-    practice.onMessage?.('No checkpoint while the player is out of play');
+    practice.onMessage?.(practice.game.preparing() ? 'No checkpoint while the game is still starting' : 'No checkpoint while the player is out of play');
   }
 }
 function saveGame(practice: Practice, onSaved: () => void): void {

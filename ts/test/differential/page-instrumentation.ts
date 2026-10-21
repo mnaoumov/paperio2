@@ -84,6 +84,50 @@ export interface InstallDeterminismParams {
   readonly seed: number;
 }
 
+export interface PageConfig {
+  readonly botsCount: number;
+  readonly prepareCounter: number;
+}
+
+export interface PageGridCell {
+  readonly points: readonly PagePoint[];
+}
+
+export interface PagePoint {
+  readonly segments: readonly PageSegment[];
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface PagePolygon {
+  inside(point: PagePoint): boolean;
+  readonly segments: readonly PageSegment[];
+}
+
+export interface PagePractice {
+  readonly checkpoints: readonly unknown[];
+  readonly deaths: number;
+}
+
+export interface PageSegment {
+  readonly start: PagePoint;
+}
+
+export interface PageSpatialGrid {
+  cell(point: PagePoint): PageGridCell;
+}
+
+export interface PageTerritory {
+  readonly polygon: PagePolygon;
+  readonly square: number;
+}
+
+export interface PageUnit {
+  readonly base: PageTerritory;
+  readonly in: unknown;
+  readonly position: PagePoint;
+}
+
 /**
  * What the harness touches on the game's own `window.paperio2api`: `startGame`, which the shim's Play button
  * calls, and the live game, which the pause test reads.
@@ -98,11 +142,16 @@ export interface PaperIo2PageApi {
   startGame: () => void;
 }
 
-/** The game fields the pause test reads. `paused` exists only in the reconstruction. */
+/** The game fields the pause, practice and domain-lock tests read. `paused` and `practice` exist only in the reconstruction. */
 export interface PaperIo2PageGame {
+  readonly config: PageConfig;
+  readonly cycle: number;
+  kill(unit: PageUnit | undefined, killer: undefined, reason: number): void;
   readonly paused: boolean;
-  readonly player: unknown;
-  readonly units: readonly unknown[];
+  readonly player: null | PageUnit;
+  readonly practice?: null | PagePractice;
+  readonly space: PageSpatialGrid;
+  readonly units: readonly PageUnit[];
 }
 
 export function installDeterminism(params: InstallDeterminismParams): void {
