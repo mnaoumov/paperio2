@@ -1,5 +1,5 @@
-/* Floating on-screen joystick (created by joystick.js on touch/mobile-sized
-   sessions). Position is set by JS on each touch; it is centered on the touch
+/* Floating on-screen joystick (created by joystick.js; active while the player
+   has it shown, by default on touch/mobile-sized sessions). Position is set by JS on each touch; it is centered on the touch
    point via the transform below, and hidden (display:none) when idle. */
 
 #joystick {
@@ -39,4 +39,48 @@
        overwrites the transform every frame so easing is imperceptible. */
     transition: transform 0.08s ease-out;
     pointer-events: none;
+}
+
+/* Show/hide toggle (created by joystick.js on every session). Bottom-left,
+   clear of the game's bottom-right minimap and raised above the menu's
+   bottom-left language bar. Dim when the joystick is hidden, bright when it
+   is shown. */
+
+#joystick-toggle {
+    position: fixed;
+    left: 12px;
+    bottom: 44px;
+    width: 40px;
+    height: 40px;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    background: rgba(30, 34, 40, 0.35);
+    color: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+    opacity: 0.6;
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#joystick-toggle[aria-pressed='true'] {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(30, 34, 40, 0.6);
+    opacity: 0.9;
+}
+
+#joystick-toggle:hover {
+    opacity: 1;
+}
+
+#joystick-toggle svg {
+    width: 24px;
+    height: 24px;
 }

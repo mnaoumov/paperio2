@@ -14,6 +14,11 @@
 // already sits bottom-right). Instead it materializes centered on wherever the
 // player first touches, so it lands under the thumb for either hand, and hides
 // on release. Touches on menu/HUD controls are ignored.
+//
+// The player can show or hide it on demand: a small toggle button in the
+// bottom-left corner, or the J key. The choice is remembered in localStorage.
+// With no stored choice it is shown on touch / mobile-sized sessions and hidden
+// on desktop, where a mouse drag can then summon it just like a touch.
 
 (function () {
     'use strict';
@@ -53,8 +58,22 @@
     // Selectors for menu / HUD controls that should not start the joystick.
     const NON_GAME_TARGET_SELECTOR = 'button, input, a, select, textarea, .uibox, #about, #lng';
 
+    // Where the show/hide choice is remembered, and its two stored values.
+    const STORAGE_KEY = 'paperio2.joystick';
+    const STORED_SHOWN = 'shown';
+    const STORED_HIDDEN = 'hidden';
+
+    // The J key toggles the joystick. The engine does not use it (it reads
+    // arrows/WASD, C, G and a Shift+Alt+Q+B+M debug combo).
+    const TOGGLE_KEY_CODE = 'KeyJ';
+
+    // Targets where a J keypress is typing, not a shortcut.
+    const TEXT_ENTRY_SELECTOR = 'input, textarea, select, [contenteditable]';
+
     let baseElement = null;
     let knobElement = null;
+    let toggleElement = null;
+    let isEnabled = false;
     let activePointerId = null;
     const heldKeys = new Set();
     let centerX = 0;
@@ -64,15 +83,95 @@
     init();
 
     function init() {
-        const isTouchLikely =
+        createJoystick();
+        createToggle();
+        const stored = readStoredChoice();
+        setEnabled(stored === null ? isTouchLikely() : stored === STORED_SHOWN);
+        window.addEventListener('keydown', onToggleKeyDown);
+    }
+
+    function isTouchLikely() {
+        return (
             window.matchMedia('(pointer: coarse)').matches ||
             'ontouchstart' in window ||
             navigator.maxTouchPoints > 0 ||
-            window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
-        if (!isTouchLikely) {
+            window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches
+        );
+    }
+
+    // localStorage can be missing or throw (private mode, blocked site data), so
+    // every access is guarded: without it the default simply applies each visit.
+    function readStoredChoice() {
+        try {
+            const value = window.localStorage.getItem(STORAGE_KEY);
+            return value === STORED_SHOWN || value === STORED_HIDDEN ? value : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function writeStoredChoice(value) {
+        try {
+            window.localStorage.setItem(STORAGE_KEY, value);
+        } catch {
+            // Not persisted; the choice still holds for this visit.
+        }
+    }
+
+    function setEnabled(enabled) {
+        isEnabled = enabled;
+        if (!enabled) {
+            releasePointer();
+        }
+        toggleElement.setAttribute('aria-pressed', String(enabled));
+        const label = enabled ? 'Hide joystick (J)' : 'Show joystick (J)';
+        toggleElement.title = label;
+        toggleElement.setAttribute('aria-label', label);
+    }
+
+    function toggle() {
+        setEnabled(!isEnabled);
+        writeStoredChoice(isEnabled ? STORED_SHOWN : STORED_HIDDEN);
+    }
+
+    function createToggle() {
+        toggleElement = document.createElement('button');
+        toggleElement.id = 'joystick-toggle';
+        toggleElement.type = 'button';
+        // A stick-and-base glyph; currentColor follows the CSS on/off state.
+        toggleElement.innerHTML =
+            '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+            '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/>' +
+            '<circle cx="12" cy="12" r="4" fill="currentColor"/></svg>';
+
+        // The engine reads keys only when event.target === document.body, so a
+        // focused button would silently swallow arrow steering. Never take focus.
+        toggleElement.tabIndex = -1;
+        toggleElement.addEventListener('pointerdown', (event) => {
+            event.preventDefault();
+        });
+        toggleElement.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+        });
+        toggleElement.addEventListener('click', () => {
+            toggle();
+            toggleElement.blur();
+        });
+
+        document.body.appendChild(toggleElement);
+    }
+
+    function onToggleKeyDown(event) {
+        if (event.code !== TOGGLE_KEY_CODE || event.repeat) {
             return;
         }
-        createJoystick();
+        if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) {
+            return;
+        }
+        if (event.target.closest && event.target.closest(TEXT_ENTRY_SELECTOR)) {
+            return;
+        }
+        toggle();
     }
 
     function createJoystick() {
@@ -95,7 +194,11 @@
     }
 
     function onPointerDown(event) {
-        if (activePointerId !== null) {
+        if (!isEnabled || activePointerId !== null) {
+            return;
+        }
+        // On desktop only the main (left) button summons the stick.
+        if (event.pointerType === 'mouse' && event.button !== 0) {
             return;
         }
         if (event.target.closest && event.target.closest(NON_GAME_TARGET_SELECTOR)) {
@@ -127,6 +230,10 @@
         if (event.pointerId !== activePointerId) {
             return;
         }
+        releasePointer();
+    }
+
+    function releasePointer() {
         activePointerId = null;
         baseElement.style.display = 'none';
         resetKnob();
