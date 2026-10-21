@@ -10,7 +10,10 @@ Live demo (GitHub Pages): **https://mnaoumov.dev/paperio2/**
 
 On phones and other touch devices, an on-screen joystick appears — touch
 anywhere in the play area to summon it under your thumb and steer in 8
-directions.
+directions. The round button in the bottom-left corner (or the `J` key) shows
+or hides it on any device, desktop included, where a mouse drag then summons it.
+The choice is remembered in the browser; with none stored it is shown on touch
+devices and hidden on desktop.
 
 ## Running it locally
 
@@ -43,6 +46,8 @@ Then open the printed URL (e.g. http://localhost:8777/).
   mobile-sized sessions (not part of the original). It materializes centered on
   the first touch and drives the engine's existing keyboard steering, giving
   full 8-way control; it hides on release and ignores taps on menu/HUD controls.
+  A bottom-left toggle button and the `J` key show or hide it, remembered in
+  `localStorage`.
 
 ## Structure
 
