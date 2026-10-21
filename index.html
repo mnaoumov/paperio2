@@ -57,6 +57,32 @@
             window.ShowPreroll = function () {
                 StartGame();
             };
+
+            // Domain lock guard. On any host but paperio.site the engine, while its script is
+            // still evaluating, arms setTimeout(() => location.replace('http://paper-io.com/?' +
+            // host), (Math.PI + Math.random()) * 60000), which throws the player off the game 3-4
+            // minutes in. location and its members cannot be patched, so the timer itself is
+            // defused instead: it keeps its delay and its id, and only its callback becomes a
+            // no-op. Both engines arm it the same way, so they stay identical to each other.
+            (function () {
+                var minDelay = Math.PI * 60000;
+                var maxDelay = (Math.PI + 1) * 60000;
+                var setTimeoutBefore = window.setTimeout;
+
+                function isEngineScript(script) {
+                    return !!script && /(?:^|\/)app2\.js(?:[?#]|$)/.test(script.src || '');
+                }
+
+                window.setTimeout = function (handler, delay) {
+                    if (isEngineScript(document.currentScript) && delay >= minDelay && delay < maxDelay) {
+                        window.paperio2domainLockDefused = (window.paperio2domainLockDefused || 0) + 1;
+                        var args = Array.prototype.slice.call(arguments);
+                        args[0] = function () {};
+                        return setTimeoutBefore.apply(this, args);
+                    }
+                    return setTimeoutBefore.apply(this, arguments);
+                };
+            })();
         </script>
 
         <script type="text/javascript">

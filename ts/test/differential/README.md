@@ -99,12 +99,24 @@ Every frame after each resume must make the same canvas calls as the unpaused ru
 Its frames are exactly 16 ms instead of 1000/60 ms, so every virtual time is an integer and the 10 minutes subtract
 out exactly. With fractional frames the paused run reads the same game time only to within a rounding error, and
 that would change a frame delta in its last bit. It runs on `paperio.site` because on any other host the
-original's domain lock schedules a redirect a few minutes in, which a 10-minute pause reaches. A removed unit's
+original's domain lock arms a redirect timer a few minutes in. The page's shim defuses that timer (see the domain
+lock test below), so the host is kept for the lock's other branch rather than out of necessity. A removed unit's
 `frame` is left out of its snapshots, because it counts the page's steps and each pause adds one. The per-frame
 call comparison pins the frame each unit dies on anyway.
 
 It fails when any one of the loop's frame delta, the death delay or the playtime is put back on real time. That was
 checked before it was committed.
+
+## The domain lock test
+
+`domain-lock.integration.test.ts` proves `index.html`'s domain lock guard holds. Off `paperio.site`, both engines
+arm `setTimeout(() => location.replace('http://paper-io.com/?bc=' + host), (Math.PI + Math.random()) * 60000)` while
+their script evaluates. `location` cannot be patched, so the shim wraps `setTimeout` and gives that one timer a no-op
+callback: same delay, same id, same `Math.random` draw. Both engines are defused alike, so the differential test
+above still compares like with like. The test plays each engine for 5 virtual minutes on `paperio2.test` and fails
+on any main-frame navigation request, and it checks that the shim defused exactly one timer there and none on
+`paperio.site`. With the guard disabled it fails on both engines with `https://paper-io.com/?bc=paperio2.test`
+and `http://paper-io.com/?bc=paperio2.test`. That was checked before it was committed.
 
 ## The checkpoint test
 

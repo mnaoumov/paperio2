@@ -61,6 +61,10 @@ back to the original `app2.js` and says so in the browser console. Add
   analytics (Google gtag, Yandex.Metrika) scripts. The game only needs
   `window.ShowPreroll()` to exist and calls `window.paperio2api.startGame()` to
   begin, so the offline shim just starts the game immediately (no pre-roll ad).
+- The engine's domain lock sends any host but `paperio.site` to `paper-io.com`
+  3-4 minutes in. The shim in `index.html` defuses that timer for both engines,
+  so the game stays put on localhost and on the live demo. `app2.js` itself is
+  untouched.
 - Version query strings (`app2.js?v7`, `style3.css?v50`) were dropped.
 - `index.html` loads the engine through a switch: the `ts/` reconstruction by
   default, the original `app2.js` with `?original`.
