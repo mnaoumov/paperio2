@@ -664,7 +664,8 @@ export class Game {
         image: dataUrl,
         kills: player.statistics.kills,
         name: player.name,
-        newBest: ensureNonNullable(player.schemes).result() > (this.best ?? 0),
+        // The original compared against an unset est (`result > undefined`, always false); `null` stands for unset here.
+        newBest: this.best !== null && ensureNonNullable(player.schemes).result() > this.best,
         percent: player.percent,
         reason: ensureNonNullable(reason),
         score: ensureNonNullable(player.schemes).result(),

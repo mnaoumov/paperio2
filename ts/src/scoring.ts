@@ -310,7 +310,8 @@ export class AchievementStore {
   }
 
   public load(): void {
-    const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') ?? {};
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- js-cookie returns whatever the cookie parses to, so a corrupted cookie can hold a falsy primitive; the original's `||` falls back to `{}` for it and `??` would not.
+    const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') || {};
     const loadChallenge = (challengeKey: string, achievementName: string): void => {
       if (challenges[challengeKey]) {
         const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
@@ -323,7 +324,8 @@ export class AchievementStore {
     loadChallenge('c22', 'capAmerica');
     loadChallenge('c22', 'thanos');
     loadChallenge('geraldquest1', 'geralt');
-    const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) ?? {};
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- js-cookie returns whatever the cookie parses to, so a corrupted cookie can hold a falsy primitive; the original's `||` falls back to `{}` for it and `??` would not.
+    const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) || {};
     if (profile.achievements) {
       profile.achievements.forEach((achievement: StoredAchievement) => {
         const achievement2 = this.achievements.find((candidate: Achievement) => candidate.name === achievement.name);
@@ -341,13 +343,15 @@ export class AchievementStore {
       earned: achievement.earned,
       name: achievement.name
     }));
-    const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) ?? {};
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- js-cookie returns whatever the cookie parses to, so a corrupted cookie can hold a falsy primitive; the original's `||` falls back to `{}` for it and `??` would not.
+    const profile: StoredProfile = readCookieJson<StoredProfile>(this.storageName) || {};
     profile.achievements = storedAchievements;
     const cookieOptions = {
       expires: DAYS_IN_YEAR
     };
     Cookies.set(this.storageName, profile, cookieOptions);
-    const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') ?? {};
+    // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- js-cookie returns whatever the cookie parses to, so a corrupted cookie can hold a falsy primitive; the original's `||` falls back to `{}` for it and `??` would not.
+    const challenges: StoredChallenges = readCookieJson<StoredChallenges>('paperio_challenges') || {};
     const saveChallenge = (challengeKey: string, achievementName: string): void => {
       const achievement = this.achievements.find((candidate: Achievement) => candidate.name === achievementName);
       if (achievement?.earned) {

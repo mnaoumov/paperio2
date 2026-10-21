@@ -42,6 +42,8 @@ import { App } from './ui.ts';
 // `NamePool.release` mutates its pool (pushes names back), so hand it a fresh
 // Copy each game rather than the shared exported constant.
 const botNames = [...BOT_NAMES];
+// eslint-disable-next-line no-console -- the original bundle logs its build stamp at this point of its bootstrap.
+console.log('Version: A6 2020-10-14T10:51:36.392Z');
 const GAME_ENEMY_KILL_DELAY_MS = 2000;
 const GAME_SELF_KILL_DELAY_MS = 1000;
 const gameConfig = { ...defaultConfig, enemyKillDelay: GAME_ENEMY_KILL_DELAY_MS, followKiller: true, selfKillDelay: GAME_SELF_KILL_DELAY_MS };
