@@ -83,11 +83,15 @@ export class Practice {
    * Adds a checkpoint now. Call it between frames.
    *
    * @param isAuto - Whether the timer took it rather than the player.
-   * @returns The checkpoint, or `null` while one cannot be taken: no player in play, or a death delay running.
+   * @returns The checkpoint, or `null` while one cannot be taken: no player in play, a death delay running, or the
+   * game still preparing.
    */
   public add(isAuto = false): Checkpoint | null {
     const { player } = this.game;
-    if (this.ended || !player || !this.game.units.includes(player) || !canCaptureSnapshot(this.game)) {
+    // Play pressed before the menu's prepare phase is through leaves the game fast-forwarding, at up to
+    // `prepareAcceleration` updates a frame, until it reaches `prepareCounter`. A checkpoint from then would replay that
+    // Fast-forward on every respawn and throw the player off its base.
+    if (this.ended || !player || !this.game.units.includes(player) || this.game.preparing() || !canCaptureSnapshot(this.game)) {
       return null;
     }
     const snapshot = captureSnapshot(this.game);
@@ -113,14 +117,15 @@ export class Practice {
     if (this.ended || this.respawnPending || !player || player.in !== player.base) {
       return;
     }
-    if (game.clock.now() - this.lastAutoTime >= this.options.autoIntervalMilliseconds) {
+    if (this.checkpoints.length === 0 || game.clock.now() - this.lastAutoTime >= this.options.autoIntervalMilliseconds) {
       this.add(true);
     }
   }
 
   /**
    * Starts the run: the player's achievements stop being tracked, and the first checkpoint is taken where they
-   * spawned.
+   * spawned. If the game is still preparing, `afterFrame` takes it instead, on the first frame after the preparation
+   * that finds the player in its base.
    */
   public begin(): void {
     const { player } = this.game;

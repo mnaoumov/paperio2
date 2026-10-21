@@ -86,6 +86,28 @@
                     return setTimeoutBefore.apply(this, arguments);
                 };
             })();
+
+            // The lock's second half. Only on paperio.site does the engine set
+            // Player.prototype.moveTo = true. Without it, every movement step of a player outside
+            // its base has a 1-in-2000 chance to mark it as back inside. The trail then never
+            // closes, so the territory never grows, and recoverTail is switched off as well. The
+            // flag lives on a class neither engine exposes, so an Object.prototype accessor
+            // answers true for the player (isPlayer === true) and undefined for everything else.
+            // Its setter makes a plain own property, which is what an assignment would have made.
+            (function () {
+                if (window.location.host === 'paperio.site') {
+                    return;
+                }
+                Object.defineProperty(Object.prototype, 'moveTo', {
+                    configurable: true,
+                    get: function () {
+                        return this.isPlayer === true ? true : undefined;
+                    },
+                    set: function (value) {
+                        Object.defineProperty(this, 'moveTo', { configurable: true, enumerable: true, value: value, writable: true });
+                    }
+                });
+            })();
         </script>
 
         <script type="text/javascript">

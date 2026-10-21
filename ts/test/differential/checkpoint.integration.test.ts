@@ -273,6 +273,81 @@ async function playPractice(browser: Browser): Promise<void> {
   }
 }
 
+const DEATHS_IN_A_ROW = 4;
+const KILL_REASON_SELF_INTERSECTION = 1;
+const MAX_RESPAWN_FRAMES = 300;
+const FRAMES_AFTER_RESPAWN = 60;
+
+interface RespawnView {
+  readonly baseInGrid: boolean;
+  readonly baseSquare: number;
+  readonly cycle: number;
+  readonly deaths: number;
+  readonly inBase: boolean;
+  readonly inBaseMatchesPosition: boolean;
+  readonly unitCount: number;
+}
+
+const MAX_FIRST_CHECKPOINT_FRAMES = 600;
+
+/** Play pressed on the first frame, long before the menu's prepare phase is through. */
+const EARLY_START_SCENARIO: Scenario = { ...PRACTICE_SCENARIO, keys: [], name: 'practice started mid-prepare', startFrame: 1 };
+
+// Death after death on a host that is not paperio.site: after each respawn the game keeps stepping, the units are
+// The checkpoint's, and the player's base is a real territory, registered in the spatial grid and holding the player.
+// No checkpoint comes from the prepare phase, whose fast-forward would throw the player off its base on each respawn.
+async function playDeathsInARow(browser: Browser, scenario: Scenario, startsMidPrepare: boolean): Promise<void> {
+  const page = await openVariant(browser, 'reconstruction', scenario);
+  try {
+    await clickById(page, 'practice-toggle');
+    if (startsMidPrepare) {
+      // `start` finishes the prepare phase within `maxPreparingTime` of real time, which never passes inside one of
+      // The harness's frozen-clock steps. A negative budget stops it after one batch, as a slow machine would.
+      await page.evaluate(() => Reflect.set(window.paperio2api.game.config, 'maxPreparingTime', -1));
+    }
+    for (let frame = 0; frame <= scenario.startFrame + MAX_FIRST_CHECKPOINT_FRAMES; frame++) {
+      if (startsMidPrepare && frame === scenario.startFrame) {
+        const { cycle, prepareCounter } = await page.evaluate(() => ({ cycle: window.paperio2api.game.cycle, prepareCounter: window.paperio2api.game.config.prepareCounter }));
+        expect(cycle, 'Play is pressed mid-prepare').toBeLessThan(prepareCounter);
+      }
+      await applyFrameInput(page, scenario, frame);
+      await stepPage(page);
+      if (frame > scenario.startFrame && await page.evaluate(() => (window.paperio2api.game.practice?.checkpoints.length ?? 0) > 0)) {
+        break;
+      }
+    }
+    const { botsCount, prepareCounter } = await page.evaluate(() => window.paperio2api.game.config);
+    for (let death = 1; death <= DEATHS_IN_A_ROW; death++) {
+      await page.evaluate((reason: number) => {
+        const { game } = window.paperio2api;
+        game.kill(game.player ?? undefined, undefined, reason);
+      }, KILL_REASON_SELF_INTERSECTION);
+      let frames = 0;
+      while (!(await practiceView(page)).inPlay && frames < MAX_RESPAWN_FRAMES) {
+        await stepPage(page);
+        frames++;
+      }
+      expect((await practiceView(page)).inPlay, `death ${String(death)} respawns within ${String(MAX_RESPAWN_FRAMES)} frames`).toBe(true);
+      const atRespawn = await respawnView(page);
+      for (let step = 0; step < FRAMES_AFTER_RESPAWN; step++) {
+        await stepPage(page);
+      }
+      const later = await respawnView(page);
+      expect(later.cycle, `the game steps after respawn ${String(death)}`).toBeGreaterThan(atRespawn.cycle);
+      expect(atRespawn.deaths).toBe(death);
+      expect(atRespawn.cycle, 'the checkpoint comes after the prepare phase').toBeGreaterThanOrEqual(prepareCounter);
+      expect(atRespawn.inBase, 'an automatic checkpoint puts the player back in its base').toBe(true);
+      expect(atRespawn.unitCount, 'the checkpoint holds the player and its bots').toBeLessThanOrEqual(botsCount + 1);
+      expect(atRespawn.baseSquare, 'the player has a territory').toBeGreaterThan(0);
+      expect(atRespawn.baseInGrid, 'the territory is in the spatial grid').toBe(true);
+      expect(atRespawn.inBaseMatchesPosition, 'the player is in its territory exactly when it stands inside it').toBe(true);
+      expect((await practiceView(page)).results, 'no results screen').toBe(false);
+    }
+  } finally {
+    await page.browserContext().close();
+  }
+}
+
 async function practiceView(page: Page): Promise<PracticeView> {
   return page.evaluate(() => {
     const { player, units } = window.paperio2api.game;
@@ -284,6 +359,27 @@ async function pressCode(page: Page, code: string): Promise<void> {
   await page.evaluate((keyCode: string) => {
     document.body.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, cancelable: true, code: keyCode }));
   }, code);
+}
+
+async function respawnView(page: Page): Promise<RespawnView> {
+  return page.evaluate(() => {
+    const { game } = window.paperio2api;
+    const player = game.player;
+    if (!player) {
+      throw new Error('No player');
+    }
+    const { segments } = player.base.polygon;
+    const baseInGrid = segments.every((segment) => game.space.cell(segment.start).points.includes(segment.start) && segment.start.segments.includes(segment));
+    return {
+      baseInGrid,
+      baseSquare: player.base.square,
+      cycle: game.cycle,
+      deaths: game.practice?.deaths ?? 0,
+      inBase: player.in === player.base,
+      inBaseMatchesPosition: (player.in === player.base) === player.base.polygon.inside(player.position),
+      unitCount: game.units.length
+    };
+  });
 }
 
 describe('restoring a snapshot of the reconstruction', () => {
@@ -317,5 +413,19 @@ describe('restoring a snapshot of the reconstruction', () => {
       throw new Error('The browser did not start');
     }
     await playPractice(browser);
+  }, TIMEOUT_MILLISECONDS);
+
+  it(`keeps a practice run stepping, with a real territory, through ${String(DEATHS_IN_A_ROW)} deaths in a row`, async () => {
+    if (!browser) {
+      throw new Error('The browser did not start');
+    }
+    await playDeathsInARow(browser, PRACTICE_SCENARIO, false);
+  }, TIMEOUT_MILLISECONDS);
+
+  it('does the same when Play is pressed before the prepare phase is through', async () => {
+    if (!browser) {
+      throw new Error('The browser did not start');
+    }
+    await playDeathsInARow(browser, EARLY_START_SCENARIO, true);
   }, TIMEOUT_MILLISECONDS);
 });

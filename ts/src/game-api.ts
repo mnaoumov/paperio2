@@ -50,7 +50,8 @@ export interface GameApi {
   preparing: boolean;
   /** Puts the live game back to a snapshot of it, between frames. */
   restoreSnapshot: (snapshot: GameSnapshot) => void;
-  start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
+  /** `completePreparation` finishes the prepare phase before the player spawns, however long it takes. */
+  start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number, completePreparation?: boolean) => void;
   startGame?: () => void;
 }
 export const BORDER_RADIUS_FACTOR = 0.95;
@@ -126,14 +127,16 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         }
       }, 0);
     };
-    gameApi.start = (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number): void => {
+    gameApi.start = (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number, completePreparation = false): void => {
       const game = gameApi.game;
       if (gameApi.preparing) {
         clearInterval(prepareIntervalId);
         const startTime = now();
         while (i2 < config.prepareCounter) {
           runPrepareBatch();
-          if (now() - startTime > config.maxPreparingTime) {
+          // Past the budget the loop fast-forwards the rest with the player already in play. A practice run cannot
+          // Afford that: the player would leave its base before its first checkpoint, so it prepares in full.
+          if (!completePreparation && now() - startTime > config.maxPreparingTime) {
             break;
           }
         }

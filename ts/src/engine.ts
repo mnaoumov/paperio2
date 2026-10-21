@@ -395,6 +395,8 @@ export class Game {
   public events: MetricEvents;
   public fakeMouse: null | Vector;
   public fpsSequence: number[];
+  /** How many frames have thrown; the loop survives each one. */
+  public frameErrors = 0;
   public gameOverCallback: ((result: GameOverResult) => void) | null;
   public isTest: boolean;
   public keyboard?: null | Partial<PointerState>;
@@ -447,6 +449,9 @@ export class Game {
   public get renderContext(): RenderContext | undefined {
     return this.getRenderContext();
   }
+
+  /** The last error a frame threw, so `reportFrameError` logs each distinct one once. */
+  private lastFrameError: null | string = null;
 
   /** Set when `loop` found the game paused and let its animation-frame chain end, so `resume` restarts it. */
   private loopParked = false;
@@ -1292,30 +1297,14 @@ export class Game {
       this.loopParked = true;
       return;
     }
-    if (!this.debugView && (this.visible || this.cycle < this.config.prepareCounter)) {
-      this.looped = true;
-      if (this.last === 0) {
-        this.last = currentTime;
-      }
-      let deltaMilliseconds = currentTime - this.last;
-      if (deltaMilliseconds < 1) {
-        deltaMilliseconds = 1;
-      }
-      this.updateMetrics(deltaMilliseconds);
-      if (deltaMilliseconds > MAX_DELTA_MILLISECONDS) {
-        deltaMilliseconds = MAX_DELTA_MILLISECONDS;
-      }
-      this.timings.updateStartTime = now();
-      this.stepSimulation(deltaMilliseconds);
-      this.timings.updateEndTime = now();
+    try {
+      this.runFrame(currentTime);
+    } catch (error) {
+      // The original lets a throwing frame escape the rAF callback, which ends the chain and freezes the game for
+      // Good with nothing on screen. Here the error is reported and the next frame steps again.
+      this.reportFrameError(error);
+      this.last = currentTime;
     }
-    this.timings.renderStartTime = now();
-    if (this.visible) {
-      this.render();
-    }
-    this.timings.renderEndTime = now();
-    this.last = currentTime;
-    this.practice?.afterFrame();
     requestAnimationFrame(() => {
       this.loop();
     });
@@ -1473,6 +1462,21 @@ export class Game {
   }
 
   /**
+   * Reports a frame that threw, once per distinct error in a row, so a step that throws every frame does not flood
+   * the console.
+   *
+   * @param error - What the frame threw.
+   */
+  public reportFrameError(error: unknown): void {
+    this.frameErrors++;
+    const description = error instanceof Error ? (error.stack ?? error.message) : String(error);
+    if (description !== this.lastFrameError) {
+      this.lastFrameError = description;
+      console.error(`A game frame threw at cycle ${String(this.cycle)}; the game keeps running.`, error);
+    }
+  }
+
+  /**
    * Resumes a paused game where it stopped. A loop that parked itself is restarted on the next animation frame,
    * the same point a running loop takes its frames at.
    *
@@ -1491,6 +1495,38 @@ export class Game {
     }
     this.onPauseChange?.(false);
     return true;
+  }
+
+  /**
+   * One frame of the loop: the step, the render and the practice hook.
+   *
+   * @param currentTime - The game clock's time at the start of the frame.
+   */
+  public runFrame(currentTime: number): void {
+    if (!this.debugView && (this.visible || this.cycle < this.config.prepareCounter)) {
+      this.looped = true;
+      if (this.last === 0) {
+        this.last = currentTime;
+      }
+      let deltaMilliseconds = currentTime - this.last;
+      if (deltaMilliseconds < 1) {
+        deltaMilliseconds = 1;
+      }
+      this.updateMetrics(deltaMilliseconds);
+      if (deltaMilliseconds > MAX_DELTA_MILLISECONDS) {
+        deltaMilliseconds = MAX_DELTA_MILLISECONDS;
+      }
+      this.timings.updateStartTime = now();
+      this.stepSimulation(deltaMilliseconds);
+      this.timings.updateEndTime = now();
+    }
+    this.timings.renderStartTime = now();
+    if (this.visible) {
+      this.render();
+    }
+    this.timings.renderEndTime = now();
+    this.last = currentTime;
+    this.practice?.afterFrame();
   }
 
   public setLeaderboard(leaderboard?: Leaderboard): void {

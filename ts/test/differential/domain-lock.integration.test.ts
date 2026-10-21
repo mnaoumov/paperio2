@@ -40,8 +40,25 @@ const STEP_MILLISECONDS = 1000;
 const PLAYED_MILLISECONDS = 300_000;
 const START_STEP = 2;
 
+interface MoveToFlags {
+  readonly bot: string;
+  readonly plain: string;
+  readonly player: string;
+}
+
 async function defusedTimers(page: Page): Promise<unknown> {
   return page.evaluate(() => Reflect.get(window, 'paperio2domainLockDefused') ?? 0);
+}
+
+// Off paperio.site the engine never sets `Player.prototype.moveTo`, and without it a player outside its base is
+// Marked now and then as back inside, so its trail never captures. The shim answers the flag for the player only.
+async function moveToFlags(page: Page): Promise<MoveToFlags> {
+  return page.evaluate(() => {
+    const { player, units } = window.paperio2api.game;
+    const bot = units.find((unit) => unit !== player);
+    // `undefined` does not survive the trip out of the page, so each flag is reduced to a string.
+    return { bot: String(Reflect.get(bot ?? {}, 'moveTo')), plain: String(Reflect.get({}, 'moveTo')), player: String(Reflect.get(player ?? {}, 'moveTo')) };
+  });
 }
 
 function scenarioOn(host: string): Scenario {
@@ -84,6 +101,9 @@ describe('the domain lock guard', () => {
             });
           }
           await stepPage(page, STEP_MILLISECONDS);
+          if (step === START_STEP) {
+            expect(await moveToFlags(page), 'the lock\'s moveTo flag is on for the player only').toEqual({ bot: 'undefined', plain: 'undefined', player: 'true' });
+          }
         } catch (error) {
           // A navigation destroys the page's context mid-step; the assertion below names where it went.
           if (!hasLeft()) {
@@ -105,6 +125,7 @@ describe('the domain lock guard', () => {
     const page = await openVariant(browser, variant, scenarioOn('paperio.site'));
     try {
       expect(await defusedTimers(page)).toBe(0);
+      expect(await page.evaluate(() => Object.getOwnPropertyDescriptor(Object.prototype, 'moveTo')), 'no moveTo accessor on the real host').toBeUndefined();
     } finally {
       await page.browserContext().close();
     }
