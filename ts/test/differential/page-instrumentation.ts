@@ -62,6 +62,8 @@ export interface DifferentialSnapshot {
   readonly removed: readonly DifferentialRemovedUnit[];
   readonly stopped: boolean;
   readonly units: readonly DifferentialUnitSnapshot[];
+  /** Bots that joined the game with no type, which the engine spawns once its bag of bot types is used up. */
+  readonly untypedBotSpawns: number;
 }
 
 export interface DifferentialUnitSnapshot {
@@ -73,6 +75,7 @@ export interface DifferentialUnitSnapshot {
   readonly name: string;
   readonly percent: number;
   readonly trailSegments: number;
+  readonly type: unknown;
   readonly x: number;
   readonly y: number;
 }
@@ -436,6 +439,7 @@ export function installDeterminism(params: InstallDeterminismParams): void {
   let previousPlayer: unknown = null;
   let previousPlayerSquare: null | number = null;
   let playerCaptures = 0;
+  let untypedBotSpawns = 0;
   function primitive(value: unknown): unknown {
     return typeof value === 'object' || typeof value === 'function' || value === undefined ? null : value;
   }
@@ -456,6 +460,11 @@ export function installDeterminism(params: InstallDeterminismParams): void {
       }
     }
     const player = read(game, 'player');
+    for (const unit of current) {
+      if (!previousUnits.has(unit) && unit !== player && read(unit, 'type') === null) {
+        untypedBotSpawns++;
+      }
+    }
     const playerSquare = player !== null && current.has(player) ? Number(read(player, 'base', 'square')) : null;
     if (player === previousPlayer && playerSquare !== null && previousPlayerSquare !== null && playerSquare > previousPlayerSquare) {
       playerCaptures++;
@@ -485,10 +494,12 @@ export function installDeterminism(params: InstallDeterminismParams): void {
           name: String(read(unit, 'name')),
           percent: Number(read(unit, 'percent')),
           trailSegments: count(unit, 'track', 'polyline', 'segments'),
+          type: primitive(read(unit, 'type')),
           x: Number(read(unit, 'position', 'x')),
           y: Number(read(unit, 'position', 'y'))
         }))
-        : []
+        : [],
+      untypedBotSpawns
     };
   }
 

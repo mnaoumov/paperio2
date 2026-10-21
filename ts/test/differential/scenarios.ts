@@ -121,6 +121,18 @@ export const SCENARIOS: readonly Scenario[] = [
     name: 'random walk on paperio.site',
     seed: 18,
     startFrame: START_FRAME
+  },
+  {
+    // The capture loop on the real host, where the player dies near frame 1000 with 15 bots alive. During the death
+    // Delay the spawn guard still discounts the player, so a 16th bot spawns past the end of the bag of bot types,
+    // With no type.
+    expectedCoverage: { playerDeaths: 1, untypedBotSpawns: 1 },
+    frames: 1500,
+    host: 'paperio.site',
+    keys: route(FIRST_INPUT_FRAME, [[[KEY_RIGHT], 90], [[KEY_UP], 90], [[KEY_LEFT], 115], [[KEY_DOWN], 90], [[KEY_RIGHT], 60], [[KEY_UP], 630]]),
+    name: 'capture loop on paperio.site, a 16th bot',
+    seed: 9,
+    startFrame: START_FRAME
   }
 ];
 /* eslint-enable no-magic-numbers -- end of the scripted routes. */

@@ -132,7 +132,8 @@ export class Unit {
   public target: null | Vector;
   public top: number;
   public track: Trail;
-  public type: number;
+  /** A bot's type; `undefined` for the player, and for a bot spawned once the type bag is used up. */
+  public type: number | undefined;
   public vrange: number;
   public get skin(): Skin {
     return ensureNonNullable(this._skin);
@@ -149,7 +150,7 @@ export class Unit {
     this.death = false;
     this.jitter = 0;
     this.smoothness = 0;
-    this.type = 0;
+    this.type = undefined;
     this.fsm = null;
     this.game = game;
     this.name = name;
@@ -273,7 +274,7 @@ export class Bot extends Unit {
   public targets: Unit[];
   public unitDanger: null | Unit;
   public unitToTrackDistances: UnitTrackDistance[] = [];
-  public constructor(game: Game, type: number, name: string, position: Vector, basePoints: Vector[], unused?: undefined, schemeCycler?: SchemeCycler) {
+  public constructor(game: Game, type: number | undefined, name: string, position: Vector, basePoints: Vector[], unused?: undefined, schemeCycler?: SchemeCycler) {
     super(game, name, position, basePoints, unused, schemeCycler);
     this.aggro = 0;
     this.greed = 0;

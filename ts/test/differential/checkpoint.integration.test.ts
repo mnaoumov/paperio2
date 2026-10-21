@@ -65,10 +65,9 @@ const MAX_SAVE_CHARACTERS = 4_000_000;
 
 const SCENARIO: Scenario = {
   expectedCoverage: {},
-  // The scenario's own player dies near frame 1000, and both pages then throw in `spawnBot` on the same frame: with
-  // 15 bots alive during the death delay the strict conversion's bot-type lookup runs past its table, where the
-  // Original spawns a 16th bot. The run stops short of that until the engine follows the original there.
-  frames: 960,
+  // The scenario's own player dies near frame 1000, and with 15 bots alive during the death delay a 16th bot spawns
+  // With no type, as in the original. The run goes on past that, through the death delay to the results screen.
+  frames: 1500,
   host: 'paperio.site',
   keys: route(FIRST_INPUT_FRAME, [[[KEY_RIGHT], 90], [[KEY_UP], 90], [[KEY_LEFT], 115], [[KEY_DOWN], 90], [[KEY_RIGHT], 60], [[KEY_UP], 630]]),
   name: 'checkpoint',

@@ -75,6 +75,7 @@ export interface Coverage {
   readonly playerCaptures: number;
   readonly playerDeaths: number;
   readonly playerKilledByBots: number;
+  readonly untypedBotSpawns: number;
 }
 
 export interface Divergence {
@@ -105,7 +106,7 @@ export interface Scenario {
   readonly startFrame: number;
 }
 
-export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots'];
+export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface ScenarioResult {
   readonly coverage: Coverage;
@@ -267,7 +268,8 @@ function coverageOf(snapshot: DifferentialSnapshot | undefined): Coverage {
     botKillsByBots: bots.filter((unit) => unit.killer !== null && unit.killer !== unit.name && !playerNames.has(unit.killer) && unit.killer !== snapshot?.player).length,
     playerCaptures: snapshot?.playerCaptures ?? 0,
     playerDeaths: removed.length - bots.length,
-    playerKilledByBots: removed.filter((unit) => unit.isPlayer && unit.killer !== null && unit.killer !== unit.name).length
+    playerKilledByBots: removed.filter((unit) => unit.isPlayer && unit.killer !== null && unit.killer !== unit.name).length,
+    untypedBotSpawns: snapshot?.untypedBotSpawns ?? 0
   };
 }
 
