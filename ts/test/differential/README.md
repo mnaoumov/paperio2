@@ -1,12 +1,19 @@
 # Differential test: the reconstruction against the original `app2.js`
 
 `npm run test:integration` proves that `ts/` behaves like the shipped game, rather than only that it boots. It
-plays every recorded scenario on two pages at once: one loads the repository's untouched root `app2.js`, the other
-loads `ts/dist/app2.js` (built from the current source by the test itself). Both pages are compared after every
-frame, and the test fails on the first difference. It reports the frame, what differed and both values.
+plays every recorded scenario on two pages at once, both the real `index.html` and its engine switch: one opened
+with `?original`, which loads the repository's untouched root `app2.js`, the other opened plain, which loads
+`ts/dist/app2.js` (built from the current source by the test itself). Both pages are compared after every frame, and
+the test fails on the first difference. It reports the frame, what differed and both values. Each page must report
+the engine it was opened for (`window.paperio2engine`), because the switch falls back to the original when the
+bundle fails to load, and a test comparing the original with itself would pass.
 
 CI runs it on every change to `ts/`, `app2.js`, `index.html` or `assets/`, in the runner's preinstalled Chrome.
 Locally it needs Chrome's stable channel, or `CHROME_PATH` pointing at a Chrome or Chromium binary.
+
+It serves the repository root, or the directory `DIFFERENTIAL_SITE_ROOT` names. The Pages workflow
+(`.github/workflows/pages.yml`) sets it to the assembled site, so the scenarios are played on the exact files it
+then deploys.
 
 ## How the two runs are made identical
 

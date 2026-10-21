@@ -1,0 +1,73 @@
+name: Pages
+
+# Publishes the game to GitHub Pages. The page serves the reconstruction built from ts/ (ts/dist/app2.js); the
+# shipped original app2.js is published beside it, byte for byte, and loads with ?original.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ts/.nvmrc
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ts
+        run: npm ci
+
+      - name: Build the reconstruction
+        working-directory: ts
+        run: npm run build
+
+      # Every tracked file except the ts/ project and the workflows, plus the built engine at the path index.html
+      # loads it from.
+      - name: Assemble the site
+        run: |
+          mkdir _site
+          git archive HEAD -- . ':!ts' ':!.github' | tar -x -C _site
+          mkdir -p _site/ts/dist
+          cp ts/dist/app2.js _site/ts/dist/app2.js
+          cmp app2.js _site/app2.js
+
+      # The same scenarios as CI, played against the assembled artifact rather than the repository.
+      - name: Differential test against the site artifact
+        working-directory: ts
+        env:
+          DIFFERENTIAL_SITE_ROOT: ${{ github.workspace }}/_site
+        run: npm run test:integration
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

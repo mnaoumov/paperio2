@@ -59,7 +59,43 @@
             };
         </script>
 
-        <script type="text/javascript" src="app2.js"></script>
+        <script type="text/javascript">
+            // Engine switch. The served engine is the readable reconstruction built from ts/
+            // (`npm run build` there writes ts/dist/app2.js). The shipped original app2.js is kept
+            // byte for byte and loads instead with ?original in the URL. document.write keeps the
+            // engine a parser-inserted script, so it runs in order exactly like a plain <script> tag.
+            // A local serve with no ts/ build falls back to the original rather than a blank page.
+            (function () {
+                var original = 'app2.js';
+                var reconstruction = 'ts/dist/app2.js';
+                var useOriginal = /[?&]original(?:[=&]|$)/.test(window.location.search);
+
+                function writeEngine(engine, src) {
+                    window.paperio2engine = engine;
+                    document.write('<script type="text/javascript" src="' + src + '"'
+                        + (engine === 'reconstruction' ? ' onerror="paperio2engineFallback()"' : '')
+                        + '><\/script>');
+                }
+
+                window.paperio2engineFallback = function () {
+                    console.warn('The reconstruction ' + reconstruction + ' did not load (run `npm run build` in ts/); falling back to the original ' + original + '.');
+                    if (document.readyState === 'loading') {
+                        writeEngine('original', original);
+                        return;
+                    }
+                    window.paperio2engine = 'original';
+                    var script = document.createElement('script');
+                    script.src = original;
+                    document.body.appendChild(script);
+                };
+
+                if (useOriginal) {
+                    writeEngine('original', original);
+                } else {
+                    writeEngine('reconstruction', reconstruction);
+                }
+            })();
+        </script>
         <script type="text/javascript" src="joystick.js"></script>
     </body>
 </html>

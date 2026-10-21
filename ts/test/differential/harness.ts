@@ -1,9 +1,11 @@
 /**
  * @file
  *
- * The Node half of the differential test: serves the repository root twice, once as shipped and once with
- * `app2.js` swapped for the reconstruction's `ts/dist/app2.js`, then drives one page of each in lockstep through
- * the same scenario and reports the first frame on which they differ.
+ * The Node half of the differential test: opens the site's `index.html` twice, once with `?original` (the
+ * shipped `app2.js`) and once plain (the reconstruction's `ts/dist/app2.js`, which the page serves by default),
+ * then drives one page of each in lockstep through the same scenario and reports the first frame on which they
+ * differ. It serves the repository root, or the directory `DIFFERENTIAL_SITE_ROOT` names, such as the assembled
+ * GitHub Pages artifact.
  */
 
 import type {
@@ -39,8 +41,7 @@ export type Variant = 'original' | 'reconstruction';
 export const VARIANTS: readonly Variant[] = ['original', 'reconstruction'];
 
 export const TS_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const REPO_ROOT = resolve(TS_ROOT, '..');
-const RECONSTRUCTION_BUNDLE = join(TS_ROOT, 'dist', 'app2.js');
+const SITE_ROOT = resolve(process.env['DIFFERENTIAL_SITE_ROOT'] ?? resolve(TS_ROOT, '..'));
 const MILLISECONDS_PER_SECOND = 1000;
 const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
@@ -276,7 +277,7 @@ async function openVariant(browser: Browser, variant: Variant, scenario: Scenari
   await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
   const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
   await interceptHost(page, pageOrigin);
-  await page.goto(`${pageOrigin}/${variant}/index.html`, { waitUntil: 'load' });
+  await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });
   // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
   // Has frozen, so the boot wait polls from Node instead.
   const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;
@@ -292,6 +293,12 @@ async function openVariant(browser: Browser, variant: Variant, scenario: Scenari
   if (errors.length > 0) {
     throw new Error(`${variant} raised page errors while booting:\n${errors.join('\n')}`);
   }
+  // The page falls back to the original when the reconstruction fails to load, which would compare the original
+  // With itself and pass, so the engine that actually ran is checked.
+  const engine = await page.evaluate(() => window.paperio2engine);
+  if (engine !== variant) {
+    throw new Error(`The ${variant} page ran the ${String(engine)} engine.`);
+  }
   return page;
 }
 
@@ -302,7 +309,7 @@ async function serveFile(url: string): Promise<ServedFile> {
   if ((variant !== 'original' && variant !== 'reconstruction') || relativePath.startsWith('..')) {
     return { body: Buffer.from('not found'), status: HTTP_NOT_FOUND, type: 'text/plain' };
   }
-  const filePath = variant === 'reconstruction' && relativePath === 'app2.js' ? RECONSTRUCTION_BUNDLE : join(REPO_ROOT, relativePath);
+  const filePath = join(SITE_ROOT, relativePath);
   return { body: await readFile(filePath), status: HTTP_OK, type: CONTENT_TYPES[extname(filePath)] ?? 'application/octet-stream' };
 }
 

@@ -8,6 +8,11 @@ server-side game logic**, so it works fully offline.
 
 Live demo (GitHub Pages): **https://mnaoumov.dev/paperio2/**
 
+The page runs a readable reconstruction of the engine, built from the `ts/`
+project, which is proven to play frame for frame like the original. The
+shipped original engine is kept unmodified and runs instead with `?original`:
+**https://mnaoumov.dev/paperio2/?original**
+
 On phones and other touch devices, an on-screen joystick appears — touch
 anywhere in the play area to summon it under your thumb and steer in 8
 directions. The round button in the bottom-left corner (or the `J` key) shows
@@ -30,6 +35,11 @@ npx http-server -p 8777
 
 Then open the printed URL (e.g. http://localhost:8777/).
 
+The page loads the reconstruction from `ts/dist/app2.js`, so build it first
+(`cd ts && npm install && npm run build`). Without that build the page falls
+back to the original `app2.js` and says so in the browser console. Add
+`?original` to the URL to run the original on purpose.
+
 ## What was changed from the original
 
 - `index.html` was rewritten to remove third-party ad (AdinPlay / GameAds) and
@@ -37,6 +47,8 @@ Then open the printed URL (e.g. http://localhost:8777/).
   `window.ShowPreroll()` to exist and calls `window.paperio2api.startGame()` to
   begin, so the offline shim just starts the game immediately (no pre-roll ad).
 - Version query strings (`app2.js?v7`, `style3.css?v50`) were dropped.
+- `index.html` loads the engine through a switch: the `ts/` reconstruction by
+  default, the original `app2.js` with `?original`.
 - The Google Fonts stylesheet (`PT Sans Caption`) and its `.woff2` files were
   downloaded into `assets/fonts/` and referenced locally.
 
@@ -51,7 +63,12 @@ Then open the printed URL (e.g. http://localhost:8777/).
 
 ## Structure
 
-- `app2.js` — the entire game engine (unmodified, obfuscated/minified original).
+- `app2.js` — the entire game engine (unmodified, obfuscated/minified original),
+  preserved byte for byte and served with `?original`.
+- `ts/` — the readable TypeScript reconstruction of the engine; its build
+  `ts/dist/app2.js` is what the page serves. GitHub Pages is deployed by
+  `.github/workflows/pages.yml`, which builds it and checks it against the
+  original before publishing.
 - `joystick.js` + `joystick.css` — on-screen touch joystick (added by this repo).
 - `style3.css` — game UI styles (unmodified original).
 - `manifest.json` — PWA manifest (unmodified original).
