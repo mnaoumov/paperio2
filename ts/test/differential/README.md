@@ -24,6 +24,12 @@ nondeterminism the engine reads:
   the page asked for them, so asset timing cannot decide whether a skin is drawn on a given frame.
 - The viewport is 1280x720 at a device pixel ratio of 1, and each page gets a fresh browser context with no
   cookies, so no saved profile or best score leaks in.
+- No request touches the network. The page is opened at `http://paperio2.test/` (or `http://paperio.site/`), and
+  puppeteer's request interception answers every request from the repository files inside the browser, aborting
+  any request to another host. An earlier version served the files from a real local HTTP server. On a machine
+  running a desktop ad blocker, the blocker injected a userscript into that page, and its single `Math.random`
+  call shifted the seeded stream. Both builds still matched each other, but every scenario played differently
+  from CI, and the scenario minimums were tuned to that polluted stream.
 
 The original matches itself under this regime, frame for frame. That is the precondition for any comparison, and
 it was checked before the first one was trusted.
@@ -52,19 +58,21 @@ makes, and the first key goes down at frame 150.
 
 | Scenario | Seed | Frames | Must reach |
 | --- | --- | --- | --- |
-| Capture loop, then the wall | 2 | 2400 | 2 territory captures by the player, 1 bot killed by a bot |
+| Capture loop | 9 | 2400 | 2 territory captures by the player, 1 bot killed by a bot |
 | Killed by a bot, bots play on | 1 | 2400 | the player killed by a bot, 1 bot killed by a bot |
-| Back over its own path, then along the wall | 7 | 1200 | 1 bot death |
-| Random walk (8 directions plus the pointer fallback) | 11 | 3000 | the player's death, 1 bot killed by a bot |
-| Random walk on `paperio.site` | 11 | 1800 | 1 bot killed by a bot |
+| Back across its own trail | 7 | 1200 | the player's death (no killer), 1 bot killed by a bot |
+| Random walk (8 directions plus the pointer fallback) | 18 | 2400 | 1 capture, the player's death, 1 bot killed by a bot |
+| Random walk on `paperio.site` | 18 | 1800 | the player's death, 1 bot killed by a bot |
 
-Together they run 10800 frames of play, plus about 6000 updates per scenario of the pre-game warm-up the engine
-simulates before it starts, in about two minutes.
+Together they run 10200 frames of play, plus about 6000 updates per scenario of the pre-game warm-up the engine
+simulates before it starts, in under two minutes. Random walks cross their own trails within a few hundred frames
+whatever the seed; seed 18 was chosen because it survives longest and captures on the way.
 
-The last scenario is served as `http://paperio.site/` through request interception, from the same files, and every
-request to any other host is aborted. The engine's domain lock takes its real-host branch there and sets
+The last scenario runs on `http://paperio.site/`, where the engine's domain lock takes its real-host branch and sets
 `Player.prototype.moveTo`. That turns off the anti-piracy glitch, and with it one `Math.random` call per frame, and
-turns on tail recovery. Localhost never takes that branch. The coverage minimums are there
+turns on tail recovery. No other host takes that branch. When a coverage miss fails a scenario, the message carries
+the player's path every 150 frames, its deaths, and the page's environment and `Math.random` count at the start. The
+coverage minimums are there
 so a scenario fails when it stops reaching what it was written for, for example when a changed spawn means the
 route no longer steers into a bot. Without them it would keep passing on frames in which nothing happens.
 
@@ -85,7 +93,7 @@ factor, `0.95` to `0.951`) fails it at frame 1 with
   `maxPreparingTime` cut-off, and the warm-up's batching.
 - **Timers measured in minutes.** The ad-pixel request and the two other minutes-long `setTimeout`s in `engine.ts`
   fall due after any recorded scenario ends.
-- **Network-dependent paths.** The results POST to `/newpaperio/ajax/results.php` gets a 404 from the test server,
+- **Network-dependent paths.** The results POST to `/newpaperio/ajax/results.php` gets a 404 from the interception,
   and its reply is not awaited deterministically. Nothing the scenarios compare depends on it.
 - **Rarely-reached branches.** Whatever the five routes do not reach is not compared: an extra life, the
   capital-surrounded kill, the debug views. That is what the audit below is for.
@@ -104,7 +112,7 @@ with its strings inlined and its operators and structure untouched. It is git-ig
 | Where | What the reconstruction did | Fix | Pinned by |
 | --- | --- | --- | --- |
 | `Polygon.path`, `Territory.path` | A `new Path2D()` field default the original never had | Start `null`, set in `calcPath`, readers assert | Every scenario, frame 1 |
-| `Player.moveTo` | A declared field is an own `undefined` under define semantics, which hid the domain lock's `Player.prototype.moveTo = true` on the real host: no tail recovery, and the glitch stayed on | `declare` (type-only) | `random walk on paperio.site`, which diverged at frame 318 before the fix |
+| `Player.moveTo` | A declared field is an own `undefined` under define semantics, which hid the domain lock's `Player.prototype.moveTo = true` on the real host: no tail recovery, and the glitch stayed on | `declare` (type-only) | `random walk on paperio.site`, which diverges at frame 182 without the fix |
 | `Game.best` / `newBest` | `best ?? null` compared as `result > (best ?? 0)`, so a `start()` with no best score reported a new best. The original compared `result > undefined`, which is false | `best !== null && result > best` | Audit only. The UI always passes a number |
 | `AchievementStore.save` (twice) | `readCookieJson(...) ?? {}`: a cookie that parses to `0`, `false` or `''` was kept, and `profile.achievements = ...` then threw inside `gameOver()` | Back to the original `\|\| {}` | Audit only. Needs a corrupted cookie |
 | Bootstrap | The original's `console.log('Version: A6 2020-10-14T10:51:36.392Z')` was dropped | Restored at the same point of the bootstrap | Console only |

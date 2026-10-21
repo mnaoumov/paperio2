@@ -6,8 +6,6 @@
  * the same scenario and reports the first frame on which they differ.
  */
 
-import type { Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import type {
   Browser,
   HTTPRequest,
@@ -18,7 +16,6 @@ import {
   readFile,
   writeFile
 } from 'node:fs/promises';
-import { createServer } from 'node:http';
 import {
   extname,
   join,
@@ -55,6 +52,8 @@ const BOOT_POLL_MILLISECONDS = 50;
 const HTTP_NOT_FOUND = 404;
 const HTTP_OK = 200;
 const SNAPSHOT_INTERVAL_FRAMES = 30;
+const DEFAULT_HOST = 'paperio2.test';
+const PLAYER_PATH_INTERVAL_FRAMES = 150;
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
@@ -95,8 +94,8 @@ export interface Scenario {
   readonly expectedCoverage: Partial<Coverage>;
   readonly frames: number;
   /**
-   * The host the page believes it is on. Left out, it is the local test server; `paperio.site` is served from the same
-   * files through request interception, so the engine's domain lock takes its real-host branch.
+   * The host the page believes it is on, `paperio2.test` when left out. `paperio.site` makes the engine's domain lock
+   * take its real-host branch.
    */
   readonly host?: string;
   readonly keys: readonly KeyEvent[];
@@ -113,11 +112,10 @@ export interface ScenarioResult {
   readonly drawCalls: number;
   readonly framesCompared: number;
   readonly playerDeaths: readonly DifferentialRemovedUnit[];
-}
-
-export interface StaticServer {
-  close: () => Promise<void>;
-  readonly origin: string;
+  /** The player's position and territory every 150 frames, from the original's run, for a coverage failure. */
+  readonly playerPath: readonly string[];
+  /** The original page's environment and `Math.random` call count when the game starts, for a coverage failure. */
+  readonly startFacts: string;
 }
 
 interface ServedFile {
@@ -135,19 +133,24 @@ export async function launchBrowser(): Promise<Browser> {
     ...executablePath ? { executablePath } : { channel: 'chrome' }
   });
 }
-export async function runScenario(browser: Browser, origin: string, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
-  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, origin, variant, scenario)));
+export async function runScenario(browser: Browser, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
+  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, variant, scenario)));
   const [original, reconstruction] = pages;
   if (!original || !reconstruction) {
     throw new Error('Expected one page per variant');
   }
   let lastSnapshot: DifferentialSnapshot | undefined;
+  const playerPath: string[] = [];
+  let startFacts = '';
   let drawCalls = 0;
   function result(divergence: Divergence | null, framesCompared: number): ScenarioResult {
-    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [] };
+    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [], playerPath, startFacts };
   }
   try {
     for (let frame = 0; frame < scenario.frames; frame++) {
+      if (frame === scenario.startFrame) {
+        startFacts = await original.evaluate(() => window.__differential.facts());
+      }
       await Promise.all(pages.map(async (page) => applyFrameInput(page, scenario, frame)));
       const [originalFrame, reconstructionFrame] = await Promise.all(pages.map(async (page) => stepPage(page)));
       if (!originalFrame || !reconstructionFrame) {
@@ -166,6 +169,10 @@ export async function runScenario(browser: Browser, origin: string, scenario: Sc
         }
         if (originalSnapshot) {
           lastSnapshot = originalSnapshot;
+          if (frame % PLAYER_PATH_INTERVAL_FRAMES === 0) {
+            const playerUnit = originalSnapshot.units.find((unit) => unit.isPlayer);
+            playerPath.push(playerUnit ? `${String(frame)}:${playerUnit.x.toFixed(0)},${playerUnit.y.toFixed(0)} area ${playerUnit.baseSquare.toFixed(0)}` : `${String(frame)}:-`);
+          }
         }
       }
     }
@@ -177,26 +184,6 @@ export async function runScenario(browser: Browser, origin: string, scenario: Sc
   } finally {
     await Promise.all(pages.map(async (page) => page.browserContext().close()));
   }
-}
-
-export async function startStaticServer(): Promise<StaticServer> {
-  const server = createServer((request, response) => {
-    serveFile(request.url ?? '/').then(({ body, status, type }) => {
-      response.writeHead(status, { 'content-type': type });
-      response.end(body);
-    }).catch((error: unknown) => {
-      response.writeHead(HTTP_NOT_FOUND, { 'content-type': 'text/plain' });
-      response.end(String(error));
-    });
-  });
-  await new Promise<void>((resolvePromise) => {
-    server.listen(0, '127.0.0.1', resolvePromise);
-  });
-  const { port } = server.address() as AddressInfo;
-  return {
-    close: async () => closeServer(server),
-    origin: `http://127.0.0.1:${String(port)}`
-  };
 }
 
 async function answerRequest(request: HTTPRequest, pageOrigin: string): Promise<void> {
@@ -229,18 +216,6 @@ async function applyFrameInput(page: Page, scenario: Scenario, frame: number): P
       );
     }
   }
-}
-
-async function closeServer(server: Server): Promise<void> {
-  await new Promise<void>((resolvePromise, reject) => {
-    server.close((error) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolvePromise();
-      }
-    });
-  });
 }
 
 function coverageOf(snapshot: DifferentialSnapshot | undefined): Coverage {
@@ -279,8 +254,9 @@ async function describeTraceDivergence(original: Page, reconstruction: Page, fra
   return { frame, original: 'hash differs', reconstruction: 'hash differs', what: 'trace hash' };
 }
 
-// Answers every request to the scenario's host from the repository files, the way the test server would, and
-// Fails every other request, so a page that believes it is on the real site still never leaves the machine.
+// Every request is answered from the repository files inside the browser, and any request to another host fails.
+// Nothing goes over the network, so nothing on the machine can rewrite a response either: a real HTTP server let
+// A desktop ad blocker inject a userscript into the page, and its one Math.random call shifted the seeded stream.
 async function interceptHost(page: Page, pageOrigin: string): Promise<void> {
   await page.setRequestInterception(true);
   page.on('request', (request) => {
@@ -290,7 +266,7 @@ async function interceptHost(page: Page, pageOrigin: string): Promise<void> {
   });
 }
 
-async function openVariant(browser: Browser, origin: string, variant: Variant, scenario: Scenario): Promise<Page> {
+async function openVariant(browser: Browser, variant: Variant, scenario: Scenario): Promise<Page> {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors: string[] = [];
@@ -298,10 +274,8 @@ async function openVariant(browser: Browser, origin: string, variant: Variant, s
     errors.push(String(error));
   });
   await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
-  const pageOrigin = scenario.host === undefined ? origin : `http://${scenario.host}`;
-  if (scenario.host !== undefined) {
-    await interceptHost(page, pageOrigin);
-  }
+  const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
+  await interceptHost(page, pageOrigin);
   await page.goto(`${pageOrigin}/${variant}/index.html`, { waitUntil: 'load' });
   // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
   // Has frozen, so the boot wait polls from Node instead.
