@@ -10,6 +10,7 @@ import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type {
   Browser,
+  HTTPRequest,
   Page
 } from 'puppeteer-core';
 
@@ -93,6 +94,11 @@ export interface Scenario {
   /** The minimum count of each event the run must reach, so a scenario that stops reaching them fails. */
   readonly expectedCoverage: Partial<Coverage>;
   readonly frames: number;
+  /**
+   * The host the page believes it is on. Left out, it is the local test server; `paperio.site` is served from the same
+   * files through request interception, so the engine's domain lock takes its real-host branch.
+   */
+  readonly host?: string;
   readonly keys: readonly KeyEvent[];
   readonly name: string;
   readonly seed: number;
@@ -130,7 +136,7 @@ export async function launchBrowser(): Promise<Browser> {
   });
 }
 export async function runScenario(browser: Browser, origin: string, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
-  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, origin, variant, scenario.seed)));
+  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, origin, variant, scenario)));
   const [original, reconstruction] = pages;
   if (!original || !reconstruction) {
     throw new Error('Expected one page per variant');
@@ -191,6 +197,19 @@ export async function startStaticServer(): Promise<StaticServer> {
     close: async () => closeServer(server),
     origin: `http://127.0.0.1:${String(port)}`
   };
+}
+
+async function answerRequest(request: HTTPRequest, pageOrigin: string): Promise<void> {
+  if (!request.url().startsWith(`${pageOrigin}/`)) {
+    await request.abort();
+    return;
+  }
+  try {
+    const { body, status, type } = await serveFile(request.url());
+    await request.respond({ body, contentType: type, status });
+  } catch {
+    await request.abort();
+  }
 }
 
 async function applyFrameInput(page: Page, scenario: Scenario, frame: number): Promise<void> {
@@ -260,15 +279,30 @@ async function describeTraceDivergence(original: Page, reconstruction: Page, fra
   return { frame, original: 'hash differs', reconstruction: 'hash differs', what: 'trace hash' };
 }
 
-async function openVariant(browser: Browser, origin: string, variant: Variant, seed: number): Promise<Page> {
+// Answers every request to the scenario's host from the repository files, the way the test server would, and
+// Fails every other request, so a page that believes it is on the real site still never leaves the machine.
+async function interceptHost(page: Page, pageOrigin: string): Promise<void> {
+  await page.setRequestInterception(true);
+  page.on('request', (request) => {
+    answerRequest(request, pageOrigin).catch((error: unknown) => {
+      console.error(error);
+    });
+  });
+}
+
+async function openVariant(browser: Browser, origin: string, variant: Variant, scenario: Scenario): Promise<Page> {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (error) => {
     errors.push(String(error));
   });
-  await page.evaluateOnNewDocument(installDeterminism, { seed });
-  await page.goto(`${origin}/${variant}/index.html`, { waitUntil: 'load' });
+  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
+  const pageOrigin = scenario.host === undefined ? origin : `http://${scenario.host}`;
+  if (scenario.host !== undefined) {
+    await interceptHost(page, pageOrigin);
+  }
+  await page.goto(`${pageOrigin}/${variant}/index.html`, { waitUntil: 'load' });
   // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
   // Has frozen, so the boot wait polls from Node instead.
   const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;

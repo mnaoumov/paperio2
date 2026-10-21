@@ -111,6 +111,17 @@ export const SCENARIOS: readonly Scenario[] = [
     name: 'random walk',
     seed: 11,
     startFrame: START_FRAME
+  },
+  {
+    // The same walk on the real host: the domain lock sets `Player.prototype.moveTo`, which turns off the anti-piracy
+    // Glitch and its per-frame `Math.random` call and turns on tail recovery, a branch localhost never takes.
+    expectedCoverage: { botKillsByBots: 1 },
+    frames: 1800,
+    host: 'paperio.site',
+    keys: route(FIRST_INPUT_FRAME, randomWalk(11, 40)),
+    name: 'random walk on paperio.site',
+    seed: 11,
+    startFrame: START_FRAME
   }
 ];
 /* eslint-enable no-magic-numbers -- end of the scripted routes. */
