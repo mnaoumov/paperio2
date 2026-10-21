@@ -73,20 +73,52 @@ Determined by decoding `app2.js` (`readInput()` and the input listeners). Useful
 
 ## Pausing & game-loop control
 
-The engine has **no user-facing pause** (no button/key, and no `visibilitychange`/`blur`
-handler — it doesn't even auto-pause when the tab is hidden). But the game object carries
-a `stopped` boolean that its main loop checks first and early-returns on, *before*
-rescheduling `requestAnimationFrame(() => this.loop())`. So there is an internal pause
-lever reachable from the console or the shim:
+**The original `app2.js` has no user-facing pause** (no button or key, and no
+`visibilitychange`/`blur` handler). Its only lever is the `stopped` flag, which the loop checks
+before rescheduling `requestAnimationFrame`: `paperio2api.game.stopped = true` kills the rAF chain,
+and `stopped = false; loop()` restarts it. That lever is **not a pause**. The real clock keeps
+running under it, so the first frame after a restart sees the whole stopped span as one delta,
+clamped to `MAX_DELTA_MILLISECONDS` (10 s): the game jumps up to 10 s at once, the FPS governor reads
+it as a 10-second frame, and the death-delay `setTimeout` keeps counting. A hidden tab does the same,
+because the browser stops rAF. `stopped` is also what the engine sets on death and on `Game.stop()`.
 
-- **Pause:** `paperio2api.game.stopped = true` (next frame returns early, rAF chain dies).
-- **Resume:** `paperio2api.game.stopped = false; paperio2api.game.loop();` (must re-kick the
-  loop, since it stopped rescheduling). The loop clamps its time delta to 10s, so resuming
-  after a long pause won't blow up the physics.
+**The `ts/` reconstruction has a real pause.** All game logic reads `game.clock`, a `GameClock`
+(`ts/src/shared/game-clock.ts`): real time minus every paused span, plus `setTimeout` timers that
+are suspended on pause and re-armed with what they had left.
+
+- **API:** `paperio2api.game.pause()` / `resume()` (each returns `false` when it changed nothing),
+  `game.paused`, and `game.onPauseChange` (the UI's hook). While paused, `loop()` parks: it ends the
+  rAF chain and sets `loopParked`, and `resume()` restarts it with a `requestAnimationFrame` at the
+  point a running loop takes its frames, so there is never a second chain.
+- **UI:** `PauseControl` in `ui.ts`, mounted beside the canvas on the `game` route: a top-centre
+  button, a full-screen "Paused" overlay (tap to resume), and `Esc` / `P` by `KeyboardEvent.code`, so
+  P works on any layout. Like the joystick toggle, none of it may take focus (`tabIndex = -1`,
+  `preventDefault` on pointer/mouse down, `blur()` after a click): the engine reads keys only from
+  `document.body`.
+- **Hidden tab:** the `Game` constructor listens for `visibilitychange`. Hiding pauses. Showing
+  resumes on its own only when no player is in play (the menu's bots), so a player who comes back
+  finds the game paused rather than lost.
+- **Bit-identical until the first pause.** `GameClock.now()` returns the real time minus a zero
+  offset, and a timer is armed as one `setTimeout` with the delay it was given. That is why the
+  differential test against the original stays green, so keep it that way.
+- **Time sources, and which clock each one reads.** These read the game clock: the loop's frame delta
+  (and through it the FPS/quality governor), the death delay in `gameOver`, the playtime
+  (`startTime` and `result.time`), and `Unit.bornTime`. These stay on real time, deliberately:
+  `timings.*` (CPU time inside a frame), the 500 ms particle-cleanup interval (it only filters dead
+  particles, so it is idempotent while nothing ages), the prepare phase's `setInterval(0)` and its
+  `maxPreparingTime` CPU budget, the domain-lock redirect and ad-pixel timers (not game logic, kept
+  faithful), the recording-label blink, and the menu's tip rotation and CSS `fadein` (UI-only
+  animations keep running). Bot AI, particles, labels, scores and quests are driven by the update
+  delta, so they freeze with the loop. **A new time-based mechanic must read `game.clock`**, never
+  `now()`/`Date`/a bare `setTimeout`, or it will fire during a pause.
+- **Proven by `test/differential/pause.integration.test.ts`** (part of `npm run test:integration`).
+  It plays one scenario twice on the reconstruction. One run pauses for 10 virtual minutes mid-play
+  (Esc, then P) and again during the death delay (hidden tab, then the button). Every later frame's
+  draw calls, the game state and the results screen, playtime included, must equal the unpaused run.
+  It was falsified by reverting each of the loop delta, the death timer and the playtime to real time.
 
 `paperio2api.game` is the live game object (subsystems: `rng`, `controller`, `nameManager`,
-`bots`, `units`, `player`, …). `stopped` is the same flag the engine flips internally on
-death and during the pre-game "prepare" phase.
+`bots`, `units`, `player`, `clock`, …).
 
 ## Editing guidance
 

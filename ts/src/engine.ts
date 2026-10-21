@@ -64,6 +64,7 @@ import {
   PERCENT_MAX,
   TURN_SPEED_RADIANS_PER_SECOND
 } from './shared/constants.ts';
+import { GameClock } from './shared/game-clock.ts';
 import {
   clamp,
   easeOutCubic,
@@ -377,6 +378,8 @@ export class Game {
   public botSpawnLimited: boolean;
   public build: number;
   public citiesManager: CitiesManager | null;
+  /** The clock game logic reads instead of the real one: it stops while the game is paused. */
+  public readonly clock: GameClock;
   public config: Config;
   public controller: Controller;
   public currMetric: Metric | null;
@@ -401,6 +404,8 @@ export class Game {
   public mouse: Vector;
   public nameManager: NamePool;
   public notifications: Quest[];
+  /** Told whenever the game pauses or resumes, so the page can show it. */
+  public onPauseChange: ((paused: boolean) => void) | null = null;
   public origin: null | Vector = null;
   public particles: Particle[];
   public player: null | Player;
@@ -429,9 +434,19 @@ export class Game {
   public updateParticlesId: number;
   public view: HTMLCanvasElement;
   public visible: boolean;
+  public get paused(): boolean {
+    return this.clock.isPaused;
+  }
+
   public get renderContext(): RenderContext | undefined {
     return this.getRenderContext();
   }
+
+  /** Set when `loop` found the game paused and let its animation-frame chain end, so `resume` restarts it. */
+  private loopParked = false;
+
+  /** Set when hiding the tab is what paused the game, so showing it again may undo that. */
+  private pausedByHiddenTab = false;
 
   public constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
     this.best = null;
@@ -441,6 +456,7 @@ export class Game {
     this.topListChanged = false;
     this.citiesManager = null;
     this.renderer = null;
+    this.clock = new GameClock();
     this.rng = createRandomGenerator(seed);
     this.build = GAME_BUILD;
     this.config = config;
@@ -495,6 +511,9 @@ export class Game {
       q9: true
     };
     window.addEventListener('resize', noop, false);
+    document.addEventListener('visibilitychange', () => {
+      this.handleVisibilityChange();
+    }, false);
     this.stats = {
       ait: 0,
       fps: 0,
@@ -669,7 +688,7 @@ export class Game {
         percent: player.percent,
         reason: ensureNonNullable(reason),
         score: ensureNonNullable(player.schemes).result(),
-        time: now() - this.startTime,
+        time: this.clock.now() - this.startTime,
         top: player.top
       };
       if (reason === KILL_REASON_WIN) {
@@ -681,7 +700,7 @@ export class Game {
       if (this.playerDeathCallback) {
         this.playerDeathCallback();
       }
-      setTimeout(() => {
+      this.clock.setTimeout(() => {
         if (reason === KILL_REASON_WIN) {
           this.kill(player, undefined, reason);
         }
@@ -1254,8 +1273,12 @@ export class Game {
   }
 
   public loop(): void {
-    const currentTime = now();
+    const currentTime = this.clock.now();
     if (this.stopped) {
+      return;
+    }
+    if (this.clock.isPaused) {
+      this.loopParked = true;
       return;
     }
     if (!this.debugView && (this.visible || this.cycle < this.config.prepareCounter)) {
@@ -1284,6 +1307,20 @@ export class Game {
     requestAnimationFrame(() => {
       this.loop();
     });
+  }
+
+  /**
+   * Pauses the game: its clock stops, so no frame delta, playtime or game timer counts the paused span, and the
+   * loop ends its animation-frame chain at its next frame.
+   *
+   * @returns `false` when it was already paused.
+   */
+  public pause(): boolean {
+    if (!this.clock.pause()) {
+      return false;
+    }
+    this.onPauseChange?.(true);
+    return true;
   }
 
   public post(): void {
@@ -1423,6 +1460,27 @@ export class Game {
     }
   }
 
+  /**
+   * Resumes a paused game where it stopped. A loop that parked itself is restarted on the next animation frame,
+   * the same point a running loop takes its frames at.
+   *
+   * @returns `false` when the game was not paused.
+   */
+  public resume(): boolean {
+    if (!this.clock.resume()) {
+      return false;
+    }
+    this.pausedByHiddenTab = false;
+    if (this.loopParked) {
+      this.loopParked = false;
+      requestAnimationFrame(() => {
+        this.loop();
+      });
+    }
+    this.onPauseChange?.(false);
+    return true;
+  }
+
   public setLeaderboard(leaderboard?: Leaderboard): void {
     if (leaderboard) {
       this.leaderboard = leaderboard;
@@ -1512,7 +1570,7 @@ export class Game {
     player.setSkin(playerSkin);
     this.addPlayer(player);
     this.scale = maxScale - Math.trunc(player.base.square / this.square * SCALE_QUANTIZATION_STEPS) / SCALE_QUANTIZATION_STEPS * (maxScale - minScale);
-    this.startTime = now();
+    this.startTime = this.clock.now();
   }
 
   public stepSimulation(deltaMilliseconds: number): void {
@@ -1814,6 +1872,23 @@ export class Game {
         if (quest.state > QUEST_STATE_COMPLETE) {
           this.notifications.shift();
         }
+      }
+    }
+  }
+
+  /**
+   * Hiding the tab pauses the game. Showing it again resumes on its own only when no player is in play, so a
+   * player coming back finds the game paused instead of already lost.
+   */
+  private handleVisibilityChange(): void {
+    if (document.visibilityState === 'hidden') {
+      if (this.pause()) {
+        this.pausedByHiddenTab = true;
+      }
+    } else if (this.pausedByHiddenTab) {
+      this.pausedByHiddenTab = false;
+      if (!this.player) {
+        this.resume();
       }
     }
   }

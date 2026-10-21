@@ -20,6 +20,12 @@ or hides it on any device, desktop included, where a mouse drag then summons it.
 The choice is remembered in the browser; with none stored it is shown on touch
 devices and hidden on desktop.
 
+The reconstruction can be paused: the button at the top of the screen, or `Esc`
+or `P` on a keyboard. Switching to another tab pauses it too, and coming back
+leaves it paused until you resume. Nothing time-based in the game moves while it
+is paused, so a resumed game carries on exactly where it stopped. The original
+(`?original`) has no pause.
+
 ## Running it locally
 
 The game `fetch`es JSON files (`assets/skins/skins.json`, `assets/languages.json`),
@@ -60,6 +66,9 @@ back to the original `app2.js` and says so in the browser console. Add
   full 8-way control; it hides on release and ignores taps on menu/HUD controls.
   A bottom-left toggle button and the `J` key show or hide it, remembered in
   `localStorage`.
+- A pause in the `ts/` reconstruction: a top-centre button, `Esc` / `P`, and an
+  automatic pause when the tab is hidden. All game logic reads a game clock that
+  stops while paused (`ts/src/shared/game-clock.ts`).
 
 ## Structure
 
