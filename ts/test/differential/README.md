@@ -87,6 +87,25 @@ The test was falsified before it was committed. Changing one constant in `src/ga
 factor, `0.95` to `0.951`) fails it at frame 1 with
 `Path2D#3.moveTo(1950,1000)` against `Path2D#3.moveTo(1951,1000)`.
 
+## The pause test
+
+`pause.integration.test.ts` uses the same harness for a different comparison: the reconstruction against itself,
+paused and unpaused. It plays the `paperio.site` random walk twice in lockstep. One run is paused for 10 virtual
+minutes at frame 400, by `Esc`, and resumed by `P`. It is paused again for 10 minutes on the frame the player dies,
+by a hidden tab, and resumed by a click on the pause button, after checking that showing the tab left it paused.
+Every frame after each resume must make the same canvas calls as the unpaused run, the game state must match every
+30 frames, and the results screen (playtime included) and the final pixels must be the same.
+
+Its frames are exactly 16 ms instead of 1000/60 ms, so every virtual time is an integer and the 10 minutes subtract
+out exactly. With fractional frames the paused run reads the same game time only to within a rounding error, and
+that would change a frame delta in its last bit. It runs on `paperio.site` because on any other host the
+original's domain lock schedules a redirect a few minutes in, which a 10-minute pause reaches. A removed unit's
+`frame` is left out of its snapshots, because it counts the page's steps and each pause adds one. The per-frame
+call comparison pins the frame each unit dies on anyway.
+
+It fails when any one of the loop's frame delta, the death delay or the playtime is put back on real time. That was
+checked before it was committed.
+
 ## What it does not cover, and why
 
 - **The menus and the results screen.** The test reaches the game through `startGame()`, so it never clicks

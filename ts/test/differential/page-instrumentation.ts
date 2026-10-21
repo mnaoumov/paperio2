@@ -78,9 +78,20 @@ export interface InstallDeterminismParams {
   readonly seed: number;
 }
 
-/** The one call the harness makes on the game's own `window.paperio2api`: what the shim's Play button calls. */
+/**
+ * What the harness touches on the game's own `window.paperio2api`: `startGame`, which the shim's Play button
+ * calls, and the live game, which the pause test reads.
+ */
 export interface PaperIo2PageApi {
+  readonly game: PaperIo2PageGame;
   startGame: () => void;
+}
+
+/** The game fields the pause test reads. `paused` exists only in the reconstruction. */
+export interface PaperIo2PageGame {
+  readonly paused: boolean;
+  readonly player: unknown;
+  readonly units: readonly unknown[];
 }
 
 export function installDeterminism(params: InstallDeterminismParams): void {

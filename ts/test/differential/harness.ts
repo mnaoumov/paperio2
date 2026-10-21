@@ -125,6 +125,24 @@ interface ServedFile {
   readonly type: string;
 }
 
+export async function applyFrameInput(page: Page, scenario: Scenario, frame: number): Promise<void> {
+  if (frame === scenario.startFrame) {
+    await page.evaluate(() => {
+      window.paperio2api.startGame();
+    });
+  }
+  for (const keyEvent of scenario.keys) {
+    if (keyEvent.frame === frame) {
+      await page.evaluate(
+        (keyCode: number, isDown: boolean) => {
+          window.__differential.key(keyCode, isDown);
+        },
+        keyEvent.keyCode,
+        keyEvent.isDown
+      );
+    }
+  }
+}
 export async function launchBrowser(): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
@@ -134,6 +152,42 @@ export async function launchBrowser(): Promise<Browser> {
     ...executablePath ? { executablePath } : { channel: 'chrome' }
   });
 }
+
+export async function openVariant(browser: Browser, variant: Variant, scenario: Scenario): Promise<Page> {
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (error) => {
+    errors.push(String(error));
+  });
+  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
+  const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
+  await interceptHost(page, pageOrigin);
+  await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });
+  // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
+  // Has frozen, so the boot wait polls from Node instead.
+  const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;
+  while (!await page.evaluate(() => 'paperio2api' in window && document.querySelector('canvas') !== null)) {
+    if (performance.now() > deadline || errors.length > 0) {
+      throw new Error(`${variant} did not boot within ${String(BOOT_TIMEOUT_MILLISECONDS)} ms:\n${errors.join('\n')}`);
+    }
+    await delay(BOOT_POLL_MILLISECONDS);
+  }
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  if (errors.length > 0) {
+    throw new Error(`${variant} raised page errors while booting:\n${errors.join('\n')}`);
+  }
+  // The page falls back to the original when the reconstruction fails to load, which would compare the original
+  // With itself and pass, so the engine that actually ran is checked.
+  const engine = await page.evaluate(() => window.paperio2engine);
+  if (engine !== variant) {
+    throw new Error(`The ${variant} page ran the ${String(engine)} engine.`);
+  }
+  return page;
+}
+
 export async function runScenario(browser: Browser, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
   const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, variant, scenario)));
   const [original, reconstruction] = pages;
@@ -187,6 +241,10 @@ export async function runScenario(browser: Browser, scenario: Scenario, variants
   }
 }
 
+export async function stepPage(page: Page, frameMilliseconds = FRAME_MILLISECONDS): Promise<DifferentialFrameResult> {
+  return page.evaluate(async (milliseconds: number) => window.__differential.step(milliseconds), frameMilliseconds);
+}
+
 async function answerRequest(request: HTTPRequest, pageOrigin: string): Promise<void> {
   if (!request.url().startsWith(`${pageOrigin}/`)) {
     await request.abort();
@@ -197,25 +255,6 @@ async function answerRequest(request: HTTPRequest, pageOrigin: string): Promise<
     await request.respond({ body, contentType: type, status });
   } catch {
     await request.abort();
-  }
-}
-
-async function applyFrameInput(page: Page, scenario: Scenario, frame: number): Promise<void> {
-  if (frame === scenario.startFrame) {
-    await page.evaluate(() => {
-      window.paperio2api.startGame();
-    });
-  }
-  for (const keyEvent of scenario.keys) {
-    if (keyEvent.frame === frame) {
-      await page.evaluate(
-        (keyCode: number, isDown: boolean) => {
-          window.__differential.key(keyCode, isDown);
-        },
-        keyEvent.keyCode,
-        keyEvent.isDown
-      );
-    }
   }
 }
 
@@ -267,41 +306,6 @@ async function interceptHost(page: Page, pageOrigin: string): Promise<void> {
   });
 }
 
-async function openVariant(browser: Browser, variant: Variant, scenario: Scenario): Promise<Page> {
-  const context = await browser.createBrowserContext();
-  const page = await context.newPage();
-  const errors: string[] = [];
-  page.on('pageerror', (error) => {
-    errors.push(String(error));
-  });
-  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
-  const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
-  await interceptHost(page, pageOrigin);
-  await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });
-  // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
-  // Has frozen, so the boot wait polls from Node instead.
-  const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;
-  while (!await page.evaluate(() => 'paperio2api' in window && document.querySelector('canvas') !== null)) {
-    if (performance.now() > deadline || errors.length > 0) {
-      throw new Error(`${variant} did not boot within ${String(BOOT_TIMEOUT_MILLISECONDS)} ms:\n${errors.join('\n')}`);
-    }
-    await delay(BOOT_POLL_MILLISECONDS);
-  }
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-  if (errors.length > 0) {
-    throw new Error(`${variant} raised page errors while booting:\n${errors.join('\n')}`);
-  }
-  // The page falls back to the original when the reconstruction fails to load, which would compare the original
-  // With itself and pass, so the engine that actually ran is checked.
-  const engine = await page.evaluate(() => window.paperio2engine);
-  if (engine !== variant) {
-    throw new Error(`The ${variant} page ran the ${String(engine)} engine.`);
-  }
-  return page;
-}
-
 async function serveFile(url: string): Promise<ServedFile> {
   const pathname = decodeURIComponent(new URL(url, 'http://localhost').pathname);
   const [, variant, ...rest] = pathname.split('/');
@@ -311,8 +315,4 @@ async function serveFile(url: string): Promise<ServedFile> {
   }
   const filePath = join(SITE_ROOT, relativePath);
   return { body: await readFile(filePath), status: HTTP_OK, type: CONTENT_TYPES[extname(filePath)] ?? 'application/octet-stream' };
-}
-
-async function stepPage(page: Page): Promise<DifferentialFrameResult> {
-  return page.evaluate(async (milliseconds: number) => window.__differential.step(milliseconds), FRAME_MILLISECONDS);
 }

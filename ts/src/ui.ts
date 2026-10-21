@@ -19,6 +19,7 @@ import {
 
 import type {
   Config,
+  Game,
   GameResults
 } from './engine.ts';
 import type { GameApi } from './game-api.ts';
@@ -350,6 +351,131 @@ export function GameScreen({
     setPreparing(false);
   }, []);
   return null;
+}
+/** `KeyboardEvent.code` values that toggle the pause: layout-independent, so P works on a Russian layout too. */
+export const PAUSE_KEY_CODES: readonly string[] = ['Escape', 'KeyP'];
+export const PAUSE_Z_INDEX = 1000;
+export interface PauseControlProps {
+  api: GameApi | null;
+}
+function keepFocusOnBody(event: Event): void {
+  event.preventDefault();
+}
+/**
+ * The pause button, the paused overlay and the Esc / P toggle. None of it may take keyboard focus: the engine
+ * reads keys only when `event.target === document.body`, so a focused button would silently stop keyboard
+ * steering, the same constraint the joystick toggle in `index.html` follows.
+ *
+ * @param root0 - The props.
+ * @param root0.api - The game API whose live game is paused.
+ * @returns The button, plus the overlay while paused.
+ */
+export function PauseControl({
+  api
+}: PauseControlProps): VNode<unknown> {
+  const game = api?.game;
+  const [paused, setPaused] = useState(game?.paused ?? false);
+  useEffect(() => {
+    if (!game) {
+      return undefined;
+    }
+    const currentGame: Game = game;
+    currentGame.onPauseChange = setPaused;
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.repeat || !PAUSE_KEY_CODES.includes(event.code)) {
+        return;
+      }
+      event.preventDefault();
+      togglePause(currentGame);
+    }
+    window.addEventListener('keydown', handleKeyDown, false);
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown, false);
+      if (currentGame.onPauseChange === setPaused) {
+        currentGame.onPauseChange = null;
+      }
+    };
+  }, [game]);
+  function handleClick(event: MouseEvent): void {
+    if (event.currentTarget instanceof HTMLElement) {
+      event.currentTarget.blur();
+    }
+    if (game) {
+      togglePause(game);
+    }
+  }
+  return createElement(
+    Fragment,
+    null,
+    paused && createElement(
+      'div',
+      {
+        id: 'pause-overlay',
+        onClick: handleClick,
+        onMouseDown: keepFocusOnBody,
+        onPointerDown: keepFocusOnBody,
+        style: {
+          alignItems: 'center',
+          background: 'rgba(0, 0, 0, 0.45)',
+          color: '#ffffff',
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          fontFamily: '"PT Sans Caption", sans-serif',
+          inset: '0',
+          justifyContent: 'center',
+          position: 'fixed',
+          textAlign: 'center',
+          userSelect: 'none',
+          zIndex: PAUSE_Z_INDEX
+        }
+      },
+      createElement('div', {
+        style: {
+          fontSize: '48px',
+          fontWeight: 'bold'
+        }
+      }, 'Paused'),
+      createElement('div', {
+        style: {
+          fontSize: '18px',
+          marginTop: '8px'
+        }
+      }, 'Press Esc or P, or tap to resume')
+    ),
+    createElement('button', {
+      'aria-label': paused ? 'Resume' : 'Pause',
+      'id': 'pause-button',
+      'onClick': handleClick,
+      'onMouseDown': keepFocusOnBody,
+      'onPointerDown': keepFocusOnBody,
+      'style': {
+        background: 'rgba(0, 0, 0, 0.35)',
+        border: '2px solid rgba(255, 255, 255, 0.8)',
+        borderRadius: '50%',
+        color: '#ffffff',
+        cursor: 'pointer',
+        fontSize: '18px',
+        height: '44px',
+        left: '50%',
+        lineHeight: '1',
+        padding: '0',
+        position: 'fixed',
+        top: '12px',
+        transform: 'translateX(-50%)',
+        width: '44px',
+        zIndex: PAUSE_Z_INDEX + 1
+      },
+      'tabIndex': -1,
+      'title': paused ? 'Resume (Esc / P)' : 'Pause (Esc / P)',
+      'type': 'button'
+    }, paused ? '▶' : '❚❚')
+  );
+}
+function togglePause(game: Game): void {
+  if (!game.pause()) {
+    game.resume();
+  }
 }
 export interface ResultsScreenProps {
   bestScore: number;
@@ -729,6 +855,9 @@ export function App({
       class: route === 'game' || preparing ? '' : 'fadein',
       id: 'view',
       ref: setCanvasRef
+    }),
+    route === 'game' && createElement(PauseControl, {
+      api
     }),
     route !== 'game' && createElement('div', {
       id: 'ui_overlay'

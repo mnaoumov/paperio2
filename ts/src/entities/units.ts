@@ -18,7 +18,6 @@ import {
   PERCENT_MAX,
   QUARTER_TURN
 } from '../shared/constants.ts';
-import { now } from '../shared/math-utils.ts';
 import { noop } from '../shared/noop.ts';
 import { createRandomGenerator } from '../shared/random.ts';
 import {
@@ -165,7 +164,7 @@ export class Unit {
       kills: 0
     };
     this.log = [];
-    this.bornTime = now();
+    this.bornTime = game.clock.now();
     this.cities = [];
     this.labels = [];
     this.percent = 0;
