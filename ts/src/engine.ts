@@ -377,7 +377,8 @@ export class Game {
   public angle = 0;
   public best: null | number;
   public border: Border;
-  public bots: number[];
+  /** Starts as an array; every bot spawn replaces it with an object keyed by bot type, as in the original. */
+  public bots: number[] | Record<string, number>;
   public botSpawnLimited: boolean;
   public build: number;
   public citiesManager: CitiesManager | null;
@@ -1525,28 +1526,39 @@ export class Game {
     if (!spawnPosition) {
       return;
     }
-    const botTypeCounts: number[] = [0, 0, 0, 0];
+    // The original keeps these counts in `[0, 0, 0, 0]` indexed by `unit.type`, which is `undefined` for a bot spawned
+    // Past the end of the bag below: its key is then `"undefined"` and its count `NaN`. `String(type)` is the key the
+    // Original's indexing used, and `Number(count)` is what its `++`, `--` and `> 0` did to a missing count.
+    const botTypeCounts: Record<string, number> = {};
+    for (let botTypeIndex = 0; botTypeIndex <= BOT_TYPE_3; botTypeIndex++) {
+      botTypeCounts[String(botTypeIndex)] = 0;
+    }
     // eslint-disable-next-line no-magic-numbers -- bot-type distribution weight tables: each row is a fixed weighted bag of bot-type ids selected by game level; the individual cells are not separately nameable.
     const list4: number[][] = [[1, 2, 2, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 2, 2, 2, 2, 3, 3, 0, 0, 0, 0, 0, 0, 0], [1, 1, 1, 2, 2, 2, 2, 2, 3, 0, 0, 0, 0, 0, 0]];
     this.units.forEach((unit: Unit) => {
       if (unit !== this.player) {
-        botTypeCounts[unit.type] = ensureNonNullable(botTypeCounts[unit.type]) + 1;
+        const typeKey = String(unit.type);
+        botTypeCounts[typeKey] = Number(botTypeCounts[typeKey]) + 1;
       }
     });
-    this.bots = [...botTypeCounts];
+    const bots = { ...botTypeCounts };
+    this.bots = bots;
     const typeDistribution = ensureNonNullable(list4[Math.round(this.level * (list4.length - 1))]);
     let distributionIndex = -1;
-    while (ensureNonNullable(botTypeCounts[ensureNonNullable(typeDistribution[++distributionIndex])]) > 0) {
-      const decrementType = ensureNonNullable(typeDistribution[distributionIndex]);
-      botTypeCounts[decrementType] = ensureNonNullable(botTypeCounts[decrementType]) - 1;
+    // With as many bots as the bag has entries, it is used up and the index runs past its end, as in the original: the
+    // Bot then spawns with an `undefined` type.
+    while (Number(botTypeCounts[String(typeDistribution[++distributionIndex])]) > 0) {
+      const decrementKey = String(typeDistribution[distributionIndex]);
+      botTypeCounts[decrementKey] = Number(botTypeCounts[decrementKey]) - 1;
     }
-    const botType = ensureNonNullable(typeDistribution[distributionIndex]);
+    const botType = typeDistribution[distributionIndex];
     const botName = ensureNonNullable(this.nameManager.get());
     const bot = new Bot(this, botType, botName, spawnPosition, createCirclePoints(spawnPosition, baseCount, baseRadius), undefined, this.schemesManager);
     const botSkin = this.skinManager.get();
     bot.setSkin(botSkin);
     this.addUnit(bot);
-    this.bots[botType] = ensureNonNullable(this.bots[botType]) + 1;
+    const botKey = String(botType);
+    bots[botKey] = Number(bots[botKey]) + 1;
   }
 
   public spawnPlayer(playerName?: string, skinName?: string, areaPercent?: number): void {

@@ -50,8 +50,8 @@ it was checked before the first one was trusted.
   mismatch the harness diffs the two frames' call lists and reports the first differing call. Set
   `DIFFERENTIAL_DUMP=<directory>` to have both lists written there.
 - **Game state, every 30 frames.** For each unit: name, position, direction, territory area, share of the map,
-  trail length, killer. Then the game's cycle counter, the player, and every unit removed so far, with the frame
-  it died on and its killer. Removals are recorded every frame, because a dead unit leaves `game.units` on the
+  trail length, killer, bot type. Then the game's cycle counter, the player, every unit removed so far, with the
+  frame it died on and its killer, and how many bots have joined with no type. Removals are recorded every frame, because a dead unit leaves `game.units` on the
   frame it dies. The obfuscator kept property names, so both builds expose the same fields. `null` and
   `undefined` are folded together here. See the audit below for why that is safe.
 - **The final pixels**, as a hash of the main canvas's `toDataURL()`.
@@ -70,14 +70,17 @@ makes, and the first key goes down at frame 150.
 | Back across its own trail | 7 | 1200 | the player's death (no killer), 1 bot killed by a bot |
 | Random walk (8 directions plus the pointer fallback) | 18 | 2400 | 1 capture, the player's death, 1 bot killed by a bot |
 | Random walk on `paperio.site` | 18 | 1800 | the player's death, 1 bot killed by a bot |
+| Capture loop on `paperio.site`, a 16th bot | 9 | 1500 | the player's death, 1 bot spawned with no type |
 
-Together they run 10200 frames of play, plus about 6000 updates per scenario of the pre-game warm-up the engine
+Together they run 11700 frames of play, plus about 6000 updates per scenario of the pre-game warm-up the engine
 simulates before it starts, in under two minutes. Random walks cross their own trails within a few hundred frames
 whatever the seed; seed 18 was chosen because it survives longest and captures on the way.
 
-The last scenario runs on `http://paperio.site/`, where the engine's domain lock takes its real-host branch and sets
+The last two scenarios run on `http://paperio.site/`, where the engine's domain lock takes its real-host branch and sets
 `Player.prototype.moveTo`. That turns off the anti-piracy glitch, and with it one `Math.random` call per frame, and
-turns on tail recovery. No other host takes that branch. When a coverage miss fails a scenario, the message carries
+turns on tail recovery. No other host takes that branch. There the capture loop's player dies near frame 1000 with
+15 bots alive, and during the death delay the spawn guard still discounts the player, so a 16th bot spawns past the
+end of the level's bag of bot types, with an `undefined` type. When a coverage miss fails a scenario, the message carries
 the player's path every 150 frames, its deaths, and the page's environment and `Math.random` count at the start. The
 coverage minimums are there
 so a scenario fails when it stops reaching what it was written for, for example when a changed spawn means the
@@ -135,9 +138,8 @@ never seeded it. The test rewinds it so that any other state a restore missed sh
 are 20 ms, so the detour, played in chunks of 25 frames, lasts a whole number of the engine's 500 ms particle-cleanup
 intervals, and that real-time timer stays in phase with the game on both pages. Draw-call hashes are compared only
 before the snapshot. The trace names each `Path2D` by when it was created, and the detour creates some. After a
-saved game the pixels are compared only from a second on, because a save leaves out the sparks. The run stops at
-frame 960: just after it, both pages throw in `spawnBot` on the same frame, a reconstruction bug that runs with
-15 bots during a death delay, where the original spawns a 16th bot.
+saved game the pixels are compared only from a second on, because a save leaves out the sparks. The run goes on to
+frame 1500, past the scenario's own death near frame 1000 and the 16th bot that spawns during its death delay.
 
 It fails when the restore leaves out the game's random generator. The vector pool and the id counter are restored
 too, but the test would still pass without them, so their restore is defensive rather than proven.
@@ -157,7 +159,7 @@ too, but the test would still pass without them, so their restore is defensive r
   fall due after any recorded scenario ends.
 - **Network-dependent paths.** The results POST to `/newpaperio/ajax/results.php` gets a 404 from the interception,
   and its reply is not awaited deterministically. Nothing the scenarios compare depends on it.
-- **Rarely-reached branches.** Whatever the five routes do not reach is not compared: an extra life, the
+- **Rarely-reached branches.** Whatever the six routes do not reach is not compared: an extra life, the
   capital-surrounded kill, the debug views. That is what the audit below is for.
 
 ## Audit of the risky rewrite classes
@@ -177,6 +179,8 @@ with its strings inlined and its operators and structure untouched. It is git-ig
 | `Player.moveTo` | A declared field is an own `undefined` under define semantics, which hid the domain lock's `Player.prototype.moveTo = true` on the real host: no tail recovery, and the glitch stayed on | `declare` (type-only) | `random walk on paperio.site`, which diverges at frame 182 without the fix |
 | `Game.best` / `newBest` | `best ?? null` compared as `result > (best ?? 0)`, so a `start()` with no best score reported a new best. The original compared `result > undefined`, which is false | `best !== null && result > best` | Audit only. The UI always passes a number |
 | `AchievementStore.save` (twice) | `readCookieJson(...) ?? {}`: a cookie that parses to `0`, `false` or `''` was kept, and `profile.achievements = ...` then threw inside `gameOver()` | Back to the original `\|\| {}` | Audit only. Needs a corrupted cookie |
+| `Game.spawnBot` | `ensureNonNullable` on the bot-type bag, so with 15 bots during a death delay the bag ran out and the spawn threw, which ended the `requestAnimationFrame` chain and froze the game. The original spawned a 16th bot with an `undefined` type | Counts keyed by `String(type)` and read through `Number(...)`, `bots` built by an object spread as the original's `Object.assign({}, ...)` | `capture loop on paperio.site, a 16th bot`, which throws at the spawn without the fix |
+| `Unit.type` | Defaulted to `0`; the original sets `undefined`, which the player keeps | `undefined` | Every scenario, frame 150, through the bot type in the state snapshot |
 | Bootstrap | The original's `console.log('Version: A6 2020-10-14T10:51:36.392Z')` was dropped | Restored at the same point of the bootstrap | Console only |
 
 ### `~~` to `Math.trunc` (24 sites, all equivalent)
@@ -226,7 +230,7 @@ fire on reachable values: `particles.ts:137, 140, 171`, the asset-shape assertio
 ### Field defaults the original left unset
 
 `best`, `isTest`, `playerDeathCallback`, `citiesManager`, `renderer`, `origin`, `startTime`, `angle`, `recording`
-and `replaying` on `Game`. `killer`, `achievements`, `death`, `jitter`, `smoothness`, `type` and `fsm` on units.
+and `replaying` on `Game`. `killer`, `achievements`, `death`, `jitter`, `smoothness` and `fsm` on units.
 `isTrack` and `square` on territories. The segment coefficients. `accumulator` on `ScoreLabel`. `pattern` on
 `PatternAsset`. `Vector.space`.
 
