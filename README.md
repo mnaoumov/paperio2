@@ -26,6 +26,15 @@ leaves it paused until you resume. Nothing time-based in the game moves while it
 is paused, so a resumed game carries on exactly where it stopped. The original
 (`?original`) has no pause.
 
+The reconstruction also has a **practice mode**, with checkpoints in the manner of
+Geometry Dash. Turn it on with the menu's Practice button. A checkpoint is then
+taken every 10 seconds while you are inside your own territory, and when you die
+you respawn at the latest one. `Z` adds a checkpoint where you are, `X` removes
+the latest, and the panel on the left removes any of them, saves the game (`K`)
+or ends the run. Flags on the map mark the checkpoints. A saved game is kept in the
+browser and loads from the menu into a new practice run. Practice runs do not
+count: no best score and no achievements.
+
 ## Running it locally
 
 The game `fetch`es JSON files (`assets/skins/skins.json`, `assets/languages.json`),
@@ -69,6 +78,10 @@ back to the original `app2.js` and says so in the browser console. Add
 - A pause in the `ts/` reconstruction: a top-centre button, `Esc` / `P`, and an
   automatic pause when the tab is hidden. All game logic reads a game clock that
   stops while paused (`ts/src/shared/game-clock.ts`).
+- A practice mode in the `ts/` reconstruction: automatic and manual checkpoints,
+  a respawn at the latest one on death, and saved games in `localStorage`, all
+  built on a full game snapshot (`ts/src/snapshot.ts`, `ts/src/practice.ts`,
+  `ts/src/save-format.ts`). It is off by default, so a normal run is untouched.
 
 ## Structure
 

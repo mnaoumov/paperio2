@@ -153,4 +153,40 @@ describe('GameClock', () => {
     host.advance(TEN_MINUTES);
     expect(fired).toBe(1);
   });
+
+  it('moves the game time with setNow, running or paused', () => {
+    const host = new FakeHost();
+    const clock = new GameClock(host);
+    host.advance(5000);
+    clock.setNow(1200);
+    expect(clock.now()).toBe(1200);
+    host.advance(300);
+    expect(clock.now()).toBe(1500);
+    clock.pause();
+    clock.setNow(400);
+    host.advance(TEN_MINUTES);
+    expect(clock.now()).toBe(400);
+    clock.resume();
+    host.advance(100);
+    expect(clock.now()).toBe(500);
+  });
+
+  it('cancels every pending timer with clearTimers', () => {
+    const host = new FakeHost();
+    const clock = new GameClock(host);
+    let fired = 0;
+    clock.setTimeout(() => {
+      fired++;
+    }, 100);
+    clock.pause();
+    clock.setTimeout(() => {
+      fired++;
+    }, 100);
+    expect(clock.pendingTimers).toBe(2);
+    clock.clearTimers();
+    expect(clock.pendingTimers).toBe(0);
+    clock.resume();
+    host.advance(TEN_MINUTES);
+    expect(fired).toBe(0);
+  });
 });

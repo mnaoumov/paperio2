@@ -24,13 +24,27 @@ import type {
 } from './engine.ts';
 import type { GameApi } from './game-api.ts';
 import type { Language } from './i18n.ts';
+import type { Checkpoint } from './practice.ts';
+import type { SaveSummary } from './save-format.ts';
 import type { SkinSource } from './skins/skin.ts';
+import type { GameSnapshot } from './snapshot.ts';
 
 import {
   findDefaultLanguage,
   list3
 } from './i18n.ts';
+import { Practice } from './practice.ts';
+import {
+  deleteSave,
+  listSaves,
+  readSave,
+  writeSave
+} from './save-format.ts';
 import { DAYS_IN_YEAR } from './scoring.ts';
+import {
+  canCaptureSnapshot,
+  captureSnapshot
+} from './snapshot.ts';
 
 export type Dispatch<T> = (action: ((prevState: T) => T) | T) => void;
 
@@ -190,13 +204,19 @@ export function LanguageFooter({
 }
 export interface MenuScreenProps {
   api: GameApi | null;
+  loadSave: (id: string) => void;
+  menuMessage: string;
   nickName: string;
   playable: boolean;
+  practiceMode: boolean;
   preparing: boolean;
   provider?: undefined;
+  removeSave: (id: string) => void;
   route: Dispatch<string>;
+  saves: readonly SaveSummary[];
   setLanguage: Dispatch<Language | undefined>;
   setNickName: Dispatch<string>;
+  setPracticeMode: (practiceMode: boolean) => void;
   setState: Dispatch<string>;
   skin: string;
   skins: SkinSource[];
@@ -204,9 +224,15 @@ export interface MenuScreenProps {
 }
 export function MenuScreen({
   api,
+  loadSave,
+  menuMessage,
   nickName,
+  practiceMode,
+  removeSave,
   route,
+  saves,
   setNickName,
+  setPracticeMode,
   skin,
   start
 }: MenuScreenProps): VNode<unknown> {
@@ -292,11 +318,173 @@ export function MenuScreen({
       ),
       !isSupported && createElement('p', {
         class: 'notsupported'
-      }, lng.nosupport)
+      }, lng.nosupport),
+      isSupported && createElement(PracticeMenu, {
+        loadSave,
+        menuMessage,
+        practiceMode,
+        removeSave,
+        saves,
+        setPracticeMode
+      })
     ),
     createElement('div', {
       id: 'right_side'
     })
+  );
+}
+/** Where the menu's Practice toggle is remembered, `on` or `off`. */
+export const PRACTICE_MODE_STORAGE_KEY = 'paperio2.practice';
+const PRACTICE_PANEL_STYLE = {
+  color: '#ffffff',
+  fontFamily: '"PT Sans Caption", sans-serif',
+  fontSize: '15px',
+  margin: '12px auto 0',
+  maxWidth: '420px',
+  textAlign: 'center'
+};
+const SAVE_ROW_STYLE = {
+  alignItems: 'center',
+  background: 'rgba(0, 0, 0, 0.25)',
+  borderRadius: '6px',
+  display: 'flex',
+  gap: '8px',
+  justifyContent: 'space-between',
+  margin: '4px 0',
+  padding: '4px 8px'
+};
+const SMALL_BUTTON_STYLE = {
+  fontSize: '14px',
+  margin: '0',
+  padding: '4px 10px'
+};
+export function readPracticeMode(): boolean {
+  try {
+    return localStorage.getItem(PRACTICE_MODE_STORAGE_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+export function writePracticeMode(practiceMode: boolean): void {
+  try {
+    localStorage.setItem(PRACTICE_MODE_STORAGE_KEY, practiceMode ? 'on' : 'off');
+  } catch {
+    // A blocked storage only means the toggle is not remembered.
+  }
+}
+export function formatPlaytime(milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / MILLISECONDS_PER_SECOND));
+  const minutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE);
+  const seconds = totalSeconds % SECONDS_PER_MINUTE;
+  return `${String(minutes)}:${String(seconds).padStart(SECONDS_DIGITS, '0')}`;
+}
+const MILLISECONDS_PER_SECOND = 1000;
+const SECONDS_DIGITS = 2;
+const SECONDS_PER_MINUTE = 60;
+export interface PracticeMenuProps {
+  loadSave: (id: string) => void;
+  menuMessage: string;
+  practiceMode: boolean;
+  removeSave: (id: string) => void;
+  saves: readonly SaveSummary[];
+  setPracticeMode: (practiceMode: boolean) => void;
+}
+/**
+ * The menu's Practice toggle and its saved games. Practice mode turns on checkpoints for the next run; a saved game
+ * always loads into a practice run.
+ *
+ * @param root0 - The props.
+ * @param root0.loadSave - Starts a practice run from a save.
+ * @param root0.menuMessage - A message to show, such as why a save did not load.
+ * @param root0.practiceMode - Whether the next run is practice.
+ * @param root0.removeSave - Deletes a save.
+ * @param root0.saves - The saves, newest first.
+ * @param root0.setPracticeMode - Turns practice mode on or off.
+ * @returns The panel.
+ */
+export function PracticeMenu({
+  loadSave,
+  menuMessage,
+  practiceMode,
+  removeSave,
+  saves,
+  setPracticeMode
+}: PracticeMenuProps): VNode<unknown> {
+  return createElement(
+    'div',
+    {
+      id: 'practice-menu',
+      style: PRACTICE_PANEL_STYLE
+    },
+    createElement('button', {
+      'aria-pressed': practiceMode,
+      'class': practiceMode ? 'green' : 'orange',
+      'id': 'practice-toggle',
+      'onClick': () => {
+        setPracticeMode(!practiceMode);
+      },
+      'title': 'Checkpoints every 10 seconds, respawn at the latest on death. Practice runs do not count.',
+      'type': 'button'
+    }, `Practice mode: ${practiceMode ? 'on' : 'off'}`),
+    menuMessage && createElement('p', {
+      id: 'practice-message'
+    }, menuMessage),
+    saves.length > 0 && createElement(
+      'div',
+      {
+        id: 'saved-games'
+      },
+      createElement('p', {
+        style: {
+          margin: '8px 0 4px'
+        }
+      }, 'Saved games'),
+      saves.map((save: SaveSummary) =>
+        createElement(
+          'div',
+          {
+            key: save.id,
+            style: SAVE_ROW_STYLE
+          },
+          createElement('span', {
+            style: {
+              overflow: 'hidden',
+              textAlign: 'left',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            },
+            title: save.name
+          }, `${save.name} (${formatPlaytime(save.playtime)})`),
+          createElement(
+            'span',
+            {
+              style: {
+                display: 'flex',
+                flexShrink: '0',
+                gap: '4px'
+              }
+            },
+            createElement('button', {
+              class: 'yellow',
+              onClick: () => {
+                loadSave(save.id);
+              },
+              style: SMALL_BUTTON_STYLE,
+              type: 'button'
+            }, 'Load'),
+            createElement('button', {
+              'aria-label': `Delete ${save.name}`,
+              'class': 'orange',
+              'onClick': () => {
+                removeSave(save.id);
+              },
+              'style': SMALL_BUTTON_STYLE,
+              'type': 'button'
+            }, '✕')
+          )
+        )
+      )
+    )
   );
 }
 export interface GameScreenProps {
@@ -304,8 +492,13 @@ export interface GameScreenProps {
   bestScore: number;
   lastPercent?: number;
   nickName: string;
+  /** A saved game to start from, which makes the run practice. */
+  pendingLoad: GameSnapshot | null;
+  practiceMode: boolean;
   route: Dispatch<string>;
   setBestScore: Dispatch<number>;
+  setPendingLoad: Dispatch<GameSnapshot | null>;
+  setPractice: Dispatch<null | Practice>;
   setPreparing: Dispatch<boolean>;
   setResults: Dispatch<GameResults | null>;
   skin: string;
@@ -315,14 +508,20 @@ export function GameScreen({
   bestScore,
   lastPercent,
   nickName,
+  pendingLoad,
+  practiceMode,
   route,
   setBestScore,
+  setPendingLoad,
+  setPractice,
   setPreparing,
   setResults,
   skin
 }: GameScreenProps): null {
   useEffect(() => {
     function handleGameOver(results: GameResults): void {
+      ensureNonNullable(api).game.practice = null;
+      setPractice(null);
       if (results.newBest) {
         setBestScore(results.score);
       }
@@ -337,7 +536,22 @@ export function GameScreen({
     if (skin2 === 'default' || skin2 === 'No skin') {
       skin2 = '';
     }
-    ensureNonNullable(api).start(nickName, skin2, bestScore, handleGameOver, lastPercent);
+    const startedApi = ensureNonNullable(api);
+    startedApi.start(nickName, skin2, bestScore, handleGameOver, lastPercent);
+    const { game } = startedApi;
+    game.practice = null;
+    if (pendingLoad || practiceMode) {
+      if (pendingLoad) {
+        startedApi.restoreSnapshot(pendingLoad);
+        setPendingLoad(null);
+      }
+      const practice = new Practice(game);
+      game.practice = practice;
+      practice.begin();
+      setPractice(practice);
+    } else {
+      setPractice(null);
+    }
     const {
       dataLayer
     } = window;
@@ -477,6 +691,252 @@ function togglePause(game: Game): void {
     game.resume();
   }
 }
+/** `KeyboardEvent.code` values of the practice keys, none of which the engine steers on. */
+export const PRACTICE_KEY_ADD = 'KeyZ';
+export const PRACTICE_KEY_REMOVE = 'KeyX';
+export const PRACTICE_KEY_SAVE = 'KeyK';
+export const PRACTICE_MESSAGE_MILLISECONDS = 3000;
+export const PRACTICE_VISIBLE_CHECKPOINTS = 10;
+const PRACTICE_HUD_BUTTON_STYLE = {
+  background: 'rgba(0, 0, 0, 0.35)',
+  border: '2px solid rgba(255, 255, 255, 0.8)',
+  borderRadius: '8px',
+  color: '#ffffff',
+  cursor: 'pointer',
+  fontSize: '14px',
+  lineHeight: '1',
+  padding: '6px 8px'
+};
+export interface PracticeControlProps {
+  /** Called after a save is written, so the menu lists it. */
+  onSaved: () => void;
+  practice: null | Practice;
+}
+/**
+ * The practice run's controls: add a checkpoint (Z), remove the latest (X), save the game (K) and end the run, plus
+ * the checkpoints themselves, each removable on its own. Like the pause button, none of it may take keyboard focus,
+ * since the engine reads keys only from `document.body`.
+ *
+ * @param root0 - The props.
+ * @param root0.onSaved - Told when a save has been written.
+ * @param root0.practice - The practice run, or `null` outside practice mode.
+ * @returns The controls, or nothing outside practice mode.
+ */
+export function PracticeControl({
+  onSaved,
+  practice
+}: PracticeControlProps): null | VNode<unknown> {
+  const [, setVersion] = useState(0);
+  const [message, setMessage] = useState('');
+  useEffect(() => {
+    if (!practice) {
+      return undefined;
+    }
+    const currentPractice: Practice = practice;
+    let messageTimer: number | undefined;
+    function showMessage(text: string): void {
+      setMessage(text);
+      clearTimeout(messageTimer);
+      messageTimer = setTimeout(() => {
+        setMessage('');
+      }, PRACTICE_MESSAGE_MILLISECONDS);
+    }
+    currentPractice.onChange = (): void => {
+      setVersion((version: number) => version + 1);
+    };
+    currentPractice.onMessage = showMessage;
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.repeat || event.target instanceof HTMLInputElement) {
+        return;
+      }
+      switch (event.code) {
+        case PRACTICE_KEY_ADD:
+          addCheckpoint(currentPractice);
+          break;
+        case PRACTICE_KEY_REMOVE:
+          currentPractice.remove();
+          break;
+        case PRACTICE_KEY_SAVE:
+          saveGame(currentPractice, onSaved);
+          break;
+        default:
+          return;
+      }
+      event.preventDefault();
+    }
+    window.addEventListener('keydown', handleKeyDown, false);
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown, false);
+      clearTimeout(messageTimer);
+      if (currentPractice.onChange) {
+        currentPractice.onChange = null;
+      }
+      currentPractice.onMessage = null;
+    };
+  }, [practice]);
+  if (!practice) {
+    return null;
+  }
+  const currentPractice = practice;
+  function hudButton(id: string, label: string, title: string, action: () => void): VNode<unknown> {
+    return createElement('button', {
+      id,
+      onClick: (event: MouseEvent) => {
+        if (event.currentTarget instanceof HTMLElement) {
+          event.currentTarget.blur();
+        }
+        action();
+      },
+      onMouseDown: keepFocusOnBody,
+      onPointerDown: keepFocusOnBody,
+      style: PRACTICE_HUD_BUTTON_STYLE,
+      tabIndex: -1,
+      title,
+      type: 'button'
+    }, label);
+  }
+  const { checkpoints } = currentPractice;
+  const latest = checkpoints[checkpoints.length - 1];
+  const visible = checkpoints.slice(-PRACTICE_VISIBLE_CHECKPOINTS);
+  let status = `Checkpoints: ${String(checkpoints.length)} · Deaths: ${String(currentPractice.deaths)}`;
+  if (currentPractice.respawnPending) {
+    status = 'Respawning at the latest checkpoint…';
+  }
+  return createElement(
+    'div',
+    {
+      id: 'practice-hud',
+      onMouseDown: keepFocusOnBody,
+      onPointerDown: keepFocusOnBody,
+      style: {
+        background: 'rgba(0, 0, 0, 0.5)',
+        borderRadius: '8px',
+        color: '#ffffff',
+        display: 'flex',
+        flexDirection: 'column',
+        fontFamily: '"PT Sans Caption", sans-serif',
+        fontSize: '13px',
+        gap: '6px',
+        left: '8px',
+        maxWidth: '220px',
+        padding: '8px',
+        position: 'fixed',
+        textShadow: '0 1px 2px rgba(0, 0, 0, 0.8)',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        userSelect: 'none',
+        zIndex: PAUSE_Z_INDEX - 1
+      }
+    },
+    createElement('div', {
+      style: {
+        fontWeight: 'bold'
+      }
+    }, 'Practice'),
+    createElement('div', null, status),
+    createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '4px'
+        }
+      },
+      hudButton('practice-add', '⚑ +', 'Add a checkpoint (Z)', () => {
+        addCheckpoint(currentPractice);
+      }),
+      hudButton('practice-remove', '⚑ −', 'Remove the latest checkpoint (X)', () => {
+        currentPractice.remove();
+      }),
+      hudButton('practice-save', 'Save', 'Save the game (K)', () => {
+        saveGame(currentPractice, onSaved);
+      }),
+      hudButton('practice-end', 'End', 'End the practice run', () => {
+        currentPractice.end();
+      })
+    ),
+    createElement(
+      'div',
+      {
+        id: 'practice-checkpoints',
+        style: {
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '4px'
+        }
+      },
+      checkpoints.length > visible.length && createElement('span', null, `+${String(checkpoints.length - visible.length)}`),
+      visible.map((checkpoint: Checkpoint) =>
+        createElement(
+          'span',
+          {
+            key: checkpoint.id,
+            style: {
+              alignItems: 'center',
+              background: checkpoint === latest ? 'rgba(46, 204, 113, 0.75)' : 'rgba(0, 0, 0, 0.35)',
+              borderRadius: '10px',
+              display: 'inline-flex',
+              gap: '2px',
+              padding: '1px 2px 1px 6px'
+            },
+            title: checkpoint.isAuto ? 'Automatic checkpoint' : 'Your checkpoint'
+          },
+          `${checkpoint.isAuto ? '' : '★ '}${formatPlaytime(checkpoint.playtime)}`,
+          createElement('button', {
+            'aria-label': 'Remove this checkpoint',
+            'onClick': (event: MouseEvent) => {
+              if (event.currentTarget instanceof HTMLElement) {
+                event.currentTarget.blur();
+              }
+              currentPractice.remove(checkpoint.id);
+            },
+            'onMouseDown': keepFocusOnBody,
+            'onPointerDown': keepFocusOnBody,
+            'style': {
+              background: 'transparent',
+              border: 'none',
+              color: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '12px',
+              padding: '0 4px'
+            },
+            'tabIndex': -1,
+            'type': 'button'
+          }, '✕')
+        )
+      )
+    ),
+    message && createElement('div', {
+      id: 'practice-message'
+    }, message)
+  );
+}
+function addCheckpoint(practice: Practice): void {
+  if (!practice.add()) {
+    practice.onMessage?.('No checkpoint while the player is out of play');
+  }
+}
+function saveGame(practice: Practice, onSaved: () => void): void {
+  const { game } = practice;
+  const latest = practice.checkpoints[practice.checkpoints.length - 1];
+  const player = game.player;
+  const inPlay = player !== null && game.units.includes(player);
+  const snapshot = inPlay && canCaptureSnapshot(game) ? captureSnapshot(game) : latest?.snapshot;
+  if (!snapshot) {
+    practice.onMessage?.('Nothing to save yet');
+    return;
+  }
+  const percent = ((player?.percent ?? 0) * PERCENT_DISPLAY_SCALE).toFixed(PERCENT_DECIMAL_PLACES);
+  const name = `${player?.name ?? 'Player'} · ${percent}% · ${new Date().toLocaleString()}`;
+  writeSave(game, snapshot, name).then(() => {
+    practice.onMessage?.('Saved');
+    onSaved();
+  }, (error: unknown) => {
+    practice.onMessage?.(error instanceof Error ? error.message : String(error));
+  });
+}
+const PERCENT_DISPLAY_SCALE = 100;
 export interface ResultsScreenProps {
   bestScore: number;
   country?: undefined;
@@ -542,6 +1002,14 @@ export function ResultsScreen({
           onClick: goToMenu
         }, lng.btnContinue)
       ),
+      results.practice && createElement('p', {
+        id: 'practice-results',
+        style: {
+          color: '#ffffff',
+          fontFamily: '"PT Sans Caption", sans-serif',
+          textAlign: 'center'
+        }
+      }, 'Practice run: it does not count toward your best score.'),
       createElement(
         'div',
         {
@@ -805,6 +1273,46 @@ export function App({
   const [nickName, setNickName] = useState(storedData.nickName ?? '');
   const [bestScore, setBestScore] = useState(storedData.bestScore ?? 0);
   const [skin, setSkin] = useState(storedData.skin ?? '');
+  const [practiceMode, setPracticeModeState] = useState(readPracticeMode);
+  const [practice, setPractice] = useState<null | Practice>(null);
+  const [pendingLoad, setPendingLoad] = useState<GameSnapshot | null>(null);
+  const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
+  const [menuMessage, setMenuMessage] = useState('');
+  function setPracticeMode(nextPracticeMode: boolean): void {
+    writePracticeMode(nextPracticeMode);
+    setPracticeModeState(nextPracticeMode);
+  }
+  function refreshSaves(): void {
+    setSaves(listSaves());
+  }
+  function loadSave(id: string): void {
+    if (!api) {
+      return;
+    }
+    setMenuMessage('Loading…');
+    let payload: string;
+    try {
+      payload = readSave(id);
+    } catch (error) {
+      setMenuMessage(error instanceof Error ? error.message : String(error));
+      return;
+    }
+    api.decodeSnapshot(payload).then((snapshot: GameSnapshot) => {
+      setMenuMessage('');
+      setPendingLoad(snapshot);
+      start();
+    }, (error: unknown) => {
+      setMenuMessage(`This save could not be loaded: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+  function removeSave(id: string): void {
+    try {
+      deleteSave(id);
+    } catch (error) {
+      setMenuMessage(error instanceof Error ? error.message : String(error));
+    }
+    refreshSaves();
+  }
   const storageOptions = {
     expires: DAYS_IN_YEAR
   };
@@ -859,6 +1367,10 @@ export function App({
     route === 'game' && createElement(PauseControl, {
       api
     }),
+    route === 'game' && createElement(PracticeControl, {
+      onSaved: refreshSaves,
+      practice
+    }),
     route !== 'game' && createElement('div', {
       id: 'ui_overlay'
     }),
@@ -872,13 +1384,19 @@ export function App({
           },
           route === 'menu' && createElement(MenuScreen, {
             api,
+            loadSave,
+            menuMessage,
             nickName,
             playable,
+            practiceMode,
             preparing,
             provider,
+            removeSave,
             route: setRoute,
+            saves,
             setLanguage,
             setNickName,
+            setPracticeMode,
             setState: setRoute,
             skin,
             skins,
@@ -888,8 +1406,12 @@ export function App({
             api,
             bestScore,
             nickName,
+            pendingLoad,
+            practiceMode,
             route: setRoute,
             setBestScore,
+            setPendingLoad,
+            setPractice,
             setPreparing,
             setResults,
             skin

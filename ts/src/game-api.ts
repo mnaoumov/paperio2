@@ -11,6 +11,7 @@ import type {
   SchemeCycler
 } from './scoring.ts';
 import type { GameSkinManager } from './skins/manager.ts';
+import type { GameSnapshot } from './snapshot.ts';
 
 import {
   Controller,
@@ -26,13 +27,29 @@ import { Border } from './geometry/border.ts';
 import { SpatialGrid } from './geometry/spatial-grid.ts';
 import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
+import {
+  decodeSave,
+  encodeSave
+} from './save-format.ts';
 import { now } from './shared/math-utils.ts';
+import {
+  captureSnapshot,
+  restoreSnapshot
+} from './snapshot.ts';
 
 export interface GameApi {
+  /** Takes a full snapshot of the live game, between frames. */
+  captureSnapshot: () => GameSnapshot;
   create: (view: HTMLCanvasElement) => void;
+  /** Reads a snapshot back from {@link GameApi.encodeSnapshot}'s text, ready for {@link GameApi.restoreSnapshot}. */
+  decodeSnapshot: (payload: string) => Promise<GameSnapshot>;
+  /** Encodes a snapshot as the compressed text a saved game stores. */
+  encodeSnapshot: (snapshot: GameSnapshot, name?: string) => Promise<string>;
   game: Game;
   prepare: (onPrepared?: () => void) => void;
   preparing: boolean;
+  /** Puts the live game back to a snapshot of it, between frames. */
+  restoreSnapshot: (snapshot: GameSnapshot) => void;
   start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number) => void;
   startGame?: () => void;
 }
@@ -67,6 +84,12 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       });
       /* eslint-enable no-magic-numbers -- end of the debug-combo keyCode literals. */
     };
+    gameApi.captureSnapshot = (): GameSnapshot => captureSnapshot(gameApi.game);
+    gameApi.restoreSnapshot = (snapshot: GameSnapshot): void => {
+      restoreSnapshot(gameApi.game, snapshot);
+    };
+    gameApi.encodeSnapshot = async (snapshot: GameSnapshot, name = ''): Promise<string> => encodeSave(gameApi.game, snapshot, { id: '', name, percent: gameApi.game.player?.percent ?? 0, playtime: snapshot.clockTime - gameApi.game.startTime, savedAt: Date.now() });
+    gameApi.decodeSnapshot = async (payload: string): Promise<GameSnapshot> => decodeSave(gameApi.game, payload);
     gameApi.preparing = true;
     let i2 = 0;
     let prepareIntervalId: number | undefined;
