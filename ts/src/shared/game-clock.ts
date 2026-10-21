@@ -38,14 +38,34 @@ export class GameClock {
     return this.pausedAt !== null;
   }
 
+  /**
+   * Counts the timers set and not fired yet.
+   *
+   * @returns How many there are.
+   */
+  public get pendingTimers(): number {
+    return this.timers.size;
+  }
+
   private readonly host: ClockHost;
   private pausedAt: null | number = null;
+
   private pausedTotal = 0;
 
   private readonly timers = new Set<ClockTimer>();
 
   public constructor(host: ClockHost = browserHost) {
     this.host = host;
+  }
+
+  /** Cancels every timer that has not fired yet. */
+  public clearTimers(): void {
+    for (const timer of this.timers) {
+      if (timer.handle !== null) {
+        this.host.clearTimeout(timer.handle);
+      }
+    }
+    this.timers.clear();
   }
 
   /**
@@ -92,6 +112,15 @@ export class GameClock {
       this.arm(timer, Math.max(0, timer.due - gameTime));
     }
     return true;
+  }
+
+  /**
+   * Moves the game time to `time`, paused or not, as restoring a checkpoint does. Timers keep their due times.
+   *
+   * @param time - The game time {@link now} returns from here on, counting on from it while running.
+   */
+  public setNow(time: number): void {
+    this.pausedTotal = (this.pausedAt ?? this.host.now()) - time;
   }
 
   /**

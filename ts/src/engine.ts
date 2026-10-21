@@ -16,6 +16,7 @@ import type {
   Unit
 } from './entities/units.ts';
 import type { LanguageStrings } from './i18n.ts';
+import type { Practice } from './practice.ts';
 import type {
   AchievementStore,
   Quest,
@@ -218,6 +219,8 @@ export interface GameOverResult {
   readonly name: string;
   readonly newBest: boolean;
   readonly percent: number;
+  /** Whether the run was practice, which counts toward nothing. */
+  readonly practice: boolean;
   readonly reason: number;
   readonly score: number;
   readonly time: number;
@@ -410,6 +413,8 @@ export class Game {
   public particles: Particle[];
   public player: null | Player;
   public playerDeathCallback: (() => void) | null;
+  /** The practice run's checkpoints, or `null` outside practice mode. */
+  public practice: null | Practice = null;
   public qas: Record<string, boolean>;
   public quality: number;
   public recording: null | Recorder;
@@ -638,6 +643,10 @@ export class Game {
   public gameOver(reason?: number): void {
     const player = ensureNonNullable(this.player);
     if (!player.win) {
+      const deathDelay = reason === KILL_REASON_TRAIL || reason === KILL_REASON_EXIT_POINT || reason === KILL_REASON_SURROUNDED ? this.config.enemyKillDelay : this.config.selfKillDelay;
+      if (reason !== KILL_REASON_WIN && this.practice?.handlePlayerDeath(ensureNonNullable(reason), deathDelay)) {
+        return;
+      }
       let minX = Infinity;
       let maxX = 0;
       let minY = Infinity;
@@ -684,8 +693,9 @@ export class Game {
         kills: player.statistics.kills,
         name: player.name,
         // The original compared against an unset est (`result > undefined`, always false); `null` stands for unset here.
-        newBest: this.best !== null && ensureNonNullable(player.schemes).result() > this.best,
+        newBest: this.practice === null && this.best !== null && ensureNonNullable(player.schemes).result() > this.best,
         percent: player.percent,
+        practice: this.practice !== null,
         reason: ensureNonNullable(reason),
         score: ensureNonNullable(player.schemes).result(),
         time: this.clock.now() - this.startTime,
@@ -708,7 +718,7 @@ export class Game {
         if (this.gameOverCallback) {
           this.gameOverCallback(result);
         }
-      }, reason === KILL_REASON_TRAIL || reason === KILL_REASON_EXIT_POINT || reason === KILL_REASON_SURROUNDED ? this.config.enemyKillDelay : this.config.selfKillDelay);
+      }, deathDelay);
     }
   }
 
@@ -1304,6 +1314,7 @@ export class Game {
     }
     this.timings.renderEndTime = now();
     this.last = currentTime;
+    this.practice?.afterFrame();
     requestAnimationFrame(() => {
       this.loop();
     });
@@ -1943,6 +1954,8 @@ export interface Config {
 export interface GameResults {
   kills: number;
   newBest: boolean;
+  /** Whether the run was practice, which counts toward nothing. */
+  practice?: boolean;
   score: number;
   time: number;
 }

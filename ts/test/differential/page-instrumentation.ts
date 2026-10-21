@@ -31,6 +31,9 @@ export interface DifferentialPageApi {
   facts: () => string;
   frameTrace: () => readonly string[];
   key: (keyCode: number, isDown: boolean) => void;
+  /** Where the seeded `Math.random` is in its sequence, for a test that rewinds the game and must rewind it too. */
+  randomState: () => number;
+  setRandomState: (state: number) => void;
   snapshot: () => DifferentialSnapshot;
   step: (milliseconds: number) => Promise<DifferentialFrameResult>;
 }
@@ -83,7 +86,12 @@ export interface InstallDeterminismParams {
  * calls, and the live game, which the pause test reads.
  */
 export interface PaperIo2PageApi {
+  /** The reconstruction's full game snapshot, which the checkpoint test keeps inside the page. */
+  readonly captureSnapshot?: () => unknown;
+  readonly decodeSnapshot?: (payload: string) => Promise<unknown>;
+  readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;
+  readonly restoreSnapshot?: (snapshot: unknown) => void;
   startGame: () => void;
 }
 
@@ -492,6 +500,10 @@ export function installDeterminism(params: InstallDeterminismParams): void {
     },
     frameTrace: () => lastFrameTrace,
     key: pressKey,
+    randomState: () => randomState,
+    setRandomState: (state: number) => {
+      randomState = state;
+    },
     snapshot,
     step
   };

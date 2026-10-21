@@ -45,6 +45,15 @@ export class Vector {
     return Vector.alloc(point.x, point.y);
   }
 
+  /**
+   * Lists the vectors waiting in the pool, in the order `alloc` hands them out last first.
+   *
+   * @returns A copy of the pooled part of the pool.
+   */
+  public static pooled(): Vector[] {
+    return vectorPool.slice(0, i);
+  }
+
   public static poolLength(): number {
     return i;
   }
@@ -53,6 +62,18 @@ export class Vector {
     if (i < VECTOR_POOL_SIZE) {
       vector.set();
       vectorPool[i++] = vector;
+    }
+  }
+
+  /**
+   * Replaces the pool's contents with a list read by {@link Vector.pooled}.
+   *
+   * @param vectors - The vectors to pool, at most {@link VECTOR_POOL_SIZE}.
+   */
+  public static restorePool(vectors: readonly Vector[]): void {
+    i = Math.min(vectors.length, VECTOR_POOL_SIZE);
+    for (let index = 0; index < i; index++) {
+      vectorPool[index] = ensureNonNullable(vectors[index]);
     }
   }
 

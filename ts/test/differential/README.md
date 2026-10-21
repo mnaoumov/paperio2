@@ -106,6 +106,30 @@ call comparison pins the frame each unit dies on anyway.
 It fails when any one of the loop's frame delta, the death delay or the playtime is put back on real time. That was
 checked before it was committed.
 
+## The checkpoint test
+
+`checkpoint.integration.test.ts` proves a snapshot restores the whole game. Two pages play one scenario (seed 9, the
+capture-loop route) in lockstep. At frame 330 the second page takes a snapshot, then plays a detour of its own:
+right, up, left and down across its outgoing trail, until its player dies. It restores the snapshot while the death
+delay is still running, gets the first page's input again, and from then on the game state must match the first page
+on every frame, and the canvas pixels every 50 frames. The cancelled death delay must never bring up the results
+screen. The test runs the detour twice, once restoring the snapshot from memory, as a checkpoint does, and once
+after a round trip through a saved game's compressed text. A third case plays a practice run through the menu's
+toggle: `Z` and `X` add and remove a checkpoint, the player dies and respawns at the latest one, and the End button
+brings up a result marked as practice.
+
+The seeded `Math.random` is rewound with the snapshot. The game does not rewind it in play, because the original
+never seeded it. The test rewinds it so that any other state a restore missed shows up as a difference. Its frames
+are 20 ms, so the detour, played in chunks of 25 frames, lasts a whole number of the engine's 500 ms particle-cleanup
+intervals, and that real-time timer stays in phase with the game on both pages. Draw-call hashes are compared only
+before the snapshot. The trace names each `Path2D` by when it was created, and the detour creates some. After a
+saved game the pixels are compared only from a second on, because a save leaves out the sparks. The run stops at
+frame 960: just after it, both pages throw in `spawnBot` on the same frame, a reconstruction bug that runs with
+15 bots during a death delay, where the original spawns a 16th bot.
+
+It fails when the restore leaves out the game's random generator. The vector pool and the id counter are restored
+too, but the test would still pass without them, so their restore is defensive rather than proven.
+
 ## What it does not cover, and why
 
 - **The menus and the results screen.** The test reaches the game through `startGame()`, so it never clicks
