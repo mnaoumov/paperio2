@@ -25,7 +25,6 @@
   },
   "overrides": {
     "eslint-plugin-import": "npm:eslint-plugin-import-x@^4.17.1",
-    "smol-toml": "^1.9.1",
     "type-fest": "$type-fest"
   },
   "dependencies": {
@@ -39,7 +38,7 @@
     "@commitlint/types": "^21.2.0",
     "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
     "@eslint/js": "^10.0.1",
-    "@mnaoumov/typescript-dev-toolkit": "^1.1.0",
+    "@mnaoumov/typescript-dev-toolkit": "^3.7.3",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@total-typescript/ts-reset": "^0.6.1",
     "@tsconfig/strictest": "^2.0.8",
@@ -62,9 +61,9 @@
     "husky": "^9.1.7",
     "jiti": "^2.7.0",
     "linkinator": "^7.6.1",
-    "markdownlint": "^0.41.0",
-    "markdownlint-cli2": "^0.23.0",
-    "markdownlint-rule-relative-links": "^5.1.1",
+    "markdownlint": "^0.42.0",
+    "markdownlint-cli2": "^0.24.0",
+    "markdownlint-rule-relative-links": "^5.1.4",
     "nano-staged": "^1.0.2",
     "type-fest": "^5.8.0",
     "typescript": "6.0.3",
