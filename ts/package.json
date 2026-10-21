@@ -20,8 +20,9 @@
     "spellcheck": "jiti scripts/spellcheck.ts",
     "test": "jiti scripts/test.ts",
     "test:coverage": "jiti scripts/test-coverage.ts",
+    "test:integration": "jiti scripts/test-integration.ts",
     "test:watch": "jiti scripts/test-watch.ts",
-    "typecheck": "tsc --noEmit -p src/tsconfig.json && tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p src/tsconfig.json && tsc --noEmit -p tsconfig.json && tsc --noEmit -p test/tsconfig.json"
   },
   "overrides": {
     "eslint-plugin-import": "npm:eslint-plugin-import-x@^4.17.1",
@@ -65,6 +66,7 @@
     "markdownlint-cli2": "^0.24.0",
     "markdownlint-rule-relative-links": "^5.1.4",
     "nano-staged": "^1.0.2",
+    "puppeteer-core": "^25.15.0",
     "type-fest": "^5.8.0",
     "typescript": "6.0.3",
     "typescript-eslint": "^8.63.0",

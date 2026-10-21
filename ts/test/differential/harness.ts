@@ -1,0 +1,303 @@
+/**
+ * @file
+ *
+ * The Node half of the differential test: serves the repository root twice, once as shipped and once with
+ * `app2.js` swapped for the reconstruction's `ts/dist/app2.js`, then drives one page of each in lockstep through
+ * the same scenario and reports the first frame on which they differ.
+ */
+
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import type {
+  Browser,
+  Page
+} from 'puppeteer-core';
+
+import {
+  readFile,
+  writeFile
+} from 'node:fs/promises';
+import { createServer } from 'node:http';
+import {
+  extname,
+  join,
+  normalize,
+  resolve
+} from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
+import { launch } from 'puppeteer-core';
+
+import type {
+  DifferentialFrameResult,
+  DifferentialRemovedUnit,
+  DifferentialSnapshot
+} from './page-instrumentation.ts';
+
+import { installDeterminism } from './page-instrumentation.ts';
+
+export type Variant = 'original' | 'reconstruction';
+
+export const VARIANTS: readonly Variant[] = ['original', 'reconstruction'];
+
+export const TS_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const REPO_ROOT = resolve(TS_ROOT, '..');
+const RECONSTRUCTION_BUNDLE = join(TS_ROOT, 'dist', 'app2.js');
+const MILLISECONDS_PER_SECOND = 1000;
+const FRAMES_PER_SECOND = 60;
+const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
+const VIEWPORT_HEIGHT = 720;
+const VIEWPORT_WIDTH = 1280;
+const VIEWPORT = { deviceScaleFactor: 1, height: VIEWPORT_HEIGHT, width: VIEWPORT_WIDTH };
+const BOOT_TIMEOUT_MILLISECONDS = 30_000;
+const BOOT_POLL_MILLISECONDS = 50;
+const HTTP_NOT_FOUND = 404;
+const HTTP_OK = 200;
+const SNAPSHOT_INTERVAL_FRAMES = 30;
+
+const CONTENT_TYPES: Readonly<Record<string, string>> = {
+  '.css': 'text/css',
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.json': 'application/json',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2'
+};
+
+/** The events a scenario is there to exercise, counted from the original's run. */
+export interface Coverage {
+  readonly botDeaths: number;
+  readonly botKillsByBots: number;
+  readonly playerCaptures: number;
+  readonly playerDeaths: number;
+  readonly playerKilledByBots: number;
+}
+
+export interface Divergence {
+  readonly frame: number;
+  readonly original: string;
+  readonly reconstruction: string;
+  readonly what: string;
+}
+
+export interface KeyEvent {
+  readonly frame: number;
+  readonly isDown: boolean;
+  readonly keyCode: number;
+}
+
+export interface Scenario {
+  /** The minimum count of each event the run must reach, so a scenario that stops reaching them fails. */
+  readonly expectedCoverage: Partial<Coverage>;
+  readonly frames: number;
+  readonly keys: readonly KeyEvent[];
+  readonly name: string;
+  readonly seed: number;
+  readonly startFrame: number;
+}
+
+export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots'];
+
+export interface ScenarioResult {
+  readonly coverage: Coverage;
+  readonly divergence: Divergence | null;
+  readonly drawCalls: number;
+  readonly framesCompared: number;
+  readonly playerDeaths: readonly DifferentialRemovedUnit[];
+}
+
+export interface StaticServer {
+  close: () => Promise<void>;
+  readonly origin: string;
+}
+
+interface ServedFile {
+  readonly body: Buffer;
+  readonly status: number;
+  readonly type: string;
+}
+
+export async function launchBrowser(): Promise<Browser> {
+  const executablePath = process.env['CHROME_PATH'];
+  return launch({
+    args: process.env['CI'] ? ['--no-sandbox'] : [],
+    defaultViewport: VIEWPORT,
+    headless: true,
+    ...executablePath ? { executablePath } : { channel: 'chrome' }
+  });
+}
+export async function runScenario(browser: Browser, origin: string, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
+  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, origin, variant, scenario.seed)));
+  const [original, reconstruction] = pages;
+  if (!original || !reconstruction) {
+    throw new Error('Expected one page per variant');
+  }
+  let lastSnapshot: DifferentialSnapshot | undefined;
+  let drawCalls = 0;
+  function result(divergence: Divergence | null, framesCompared: number): ScenarioResult {
+    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [] };
+  }
+  try {
+    for (let frame = 0; frame < scenario.frames; frame++) {
+      await Promise.all(pages.map(async (page) => applyFrameInput(page, scenario, frame)));
+      const [originalFrame, reconstructionFrame] = await Promise.all(pages.map(async (page) => stepPage(page)));
+      if (!originalFrame || !reconstructionFrame) {
+        throw new Error('Expected one frame result per variant');
+      }
+      drawCalls += originalFrame.callCount;
+      if (originalFrame.hash !== reconstructionFrame.hash) {
+        return result(await describeTraceDivergence(original, reconstruction, frame), frame);
+      }
+      if (frame % SNAPSHOT_INTERVAL_FRAMES === 0 || frame === scenario.frames - 1) {
+        const [originalSnapshot, reconstructionSnapshot] = await Promise.all(pages.map(async (page) => page.evaluate(() => window.__differential.snapshot())));
+        const left = String(JSON.stringify(originalSnapshot));
+        const right = String(JSON.stringify(reconstructionSnapshot));
+        if (left !== right) {
+          return result({ frame, original: left, reconstruction: right, what: 'game state snapshot' }, frame);
+        }
+        if (originalSnapshot) {
+          lastSnapshot = originalSnapshot;
+        }
+      }
+    }
+    const [originalPixels, reconstructionPixels] = await Promise.all(pages.map(async (page) => page.evaluate(() => window.__differential.canvasHash())));
+    if (originalPixels !== reconstructionPixels) {
+      return result({ frame: scenario.frames, original: String(originalPixels), reconstruction: String(reconstructionPixels), what: 'canvas pixels' }, scenario.frames);
+    }
+    return result(null, scenario.frames);
+  } finally {
+    await Promise.all(pages.map(async (page) => page.browserContext().close()));
+  }
+}
+
+export async function startStaticServer(): Promise<StaticServer> {
+  const server = createServer((request, response) => {
+    serveFile(request.url ?? '/').then(({ body, status, type }) => {
+      response.writeHead(status, { 'content-type': type });
+      response.end(body);
+    }).catch((error: unknown) => {
+      response.writeHead(HTTP_NOT_FOUND, { 'content-type': 'text/plain' });
+      response.end(String(error));
+    });
+  });
+  await new Promise<void>((resolvePromise) => {
+    server.listen(0, '127.0.0.1', resolvePromise);
+  });
+  const { port } = server.address() as AddressInfo;
+  return {
+    close: async () => closeServer(server),
+    origin: `http://127.0.0.1:${String(port)}`
+  };
+}
+
+async function applyFrameInput(page: Page, scenario: Scenario, frame: number): Promise<void> {
+  if (frame === scenario.startFrame) {
+    await page.evaluate(() => {
+      window.paperio2api.startGame();
+    });
+  }
+  for (const keyEvent of scenario.keys) {
+    if (keyEvent.frame === frame) {
+      await page.evaluate(
+        (keyCode: number, isDown: boolean) => {
+          window.__differential.key(keyCode, isDown);
+        },
+        keyEvent.keyCode,
+        keyEvent.isDown
+      );
+    }
+  }
+}
+
+async function closeServer(server: Server): Promise<void> {
+  await new Promise<void>((resolvePromise, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolvePromise();
+      }
+    });
+  });
+}
+
+function coverageOf(snapshot: DifferentialSnapshot | undefined): Coverage {
+  const removed = snapshot?.removed ?? [];
+  const bots = removed.filter((unit) => !unit.isPlayer);
+  const playerNames = new Set(removed.filter((unit) => unit.isPlayer).map((unit) => unit.name));
+  return {
+    botDeaths: bots.length,
+    botKillsByBots: bots.filter((unit) => unit.killer !== null && unit.killer !== unit.name && !playerNames.has(unit.killer) && unit.killer !== snapshot?.player).length,
+    playerCaptures: snapshot?.playerCaptures ?? 0,
+    playerDeaths: removed.length - bots.length,
+    playerKilledByBots: removed.filter((unit) => unit.isPlayer && unit.killer !== null && unit.killer !== unit.name).length
+  };
+}
+
+async function describeTraceDivergence(original: Page, reconstruction: Page, frame: number): Promise<Divergence> {
+  const [originalTrace, reconstructionTrace] = await Promise.all([original, reconstruction].map(async (page) => page.evaluate(() => [...window.__differential.frameTrace()])));
+  const left = originalTrace ?? [];
+  const right = reconstructionTrace ?? [];
+  const dumpDirectory = process.env['DIFFERENTIAL_DUMP'];
+  if (dumpDirectory) {
+    await writeFile(join(dumpDirectory, 'original.txt'), left.join('\n'));
+    await writeFile(join(dumpDirectory, 'reconstruction.txt'), right.join('\n'));
+  }
+  const length = Math.max(left.length, right.length);
+  for (let index = 0; index < length; index++) {
+    if (left[index] !== right[index]) {
+      return {
+        frame,
+        original: left[index] ?? '<end of frame>',
+        reconstruction: right[index] ?? '<end of frame>',
+        what: `draw call ${String(index)} of ${String(left.length)} / ${String(right.length)}`
+      };
+    }
+  }
+  return { frame, original: 'hash differs', reconstruction: 'hash differs', what: 'trace hash' };
+}
+
+async function openVariant(browser: Browser, origin: string, variant: Variant, seed: number): Promise<Page> {
+  const context = await browser.createBrowserContext();
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (error) => {
+    errors.push(String(error));
+  });
+  await page.evaluateOnNewDocument(installDeterminism, { seed });
+  await page.goto(`${origin}/${variant}/index.html`, { waitUntil: 'load' });
+  // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
+  // Has frozen, so the boot wait polls from Node instead.
+  const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;
+  while (!await page.evaluate(() => 'paperio2api' in window && document.querySelector('canvas') !== null)) {
+    if (performance.now() > deadline || errors.length > 0) {
+      throw new Error(`${variant} did not boot within ${String(BOOT_TIMEOUT_MILLISECONDS)} ms:\n${errors.join('\n')}`);
+    }
+    await delay(BOOT_POLL_MILLISECONDS);
+  }
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  if (errors.length > 0) {
+    throw new Error(`${variant} raised page errors while booting:\n${errors.join('\n')}`);
+  }
+  return page;
+}
+
+async function serveFile(url: string): Promise<ServedFile> {
+  const pathname = decodeURIComponent(new URL(url, 'http://localhost').pathname);
+  const [, variant, ...rest] = pathname.split('/');
+  const relativePath = normalize(rest.join('/'));
+  if ((variant !== 'original' && variant !== 'reconstruction') || relativePath.startsWith('..')) {
+    return { body: Buffer.from('not found'), status: HTTP_NOT_FOUND, type: 'text/plain' };
+  }
+  const filePath = variant === 'reconstruction' && relativePath === 'app2.js' ? RECONSTRUCTION_BUNDLE : join(REPO_ROOT, relativePath);
+  return { body: await readFile(filePath), status: HTTP_OK, type: CONTENT_TYPES[extname(filePath)] ?? 'application/octet-stream' };
+}
+
+async function stepPage(page: Page): Promise<DifferentialFrameResult> {
+  return page.evaluate(async (milliseconds: number) => window.__differential.step(milliseconds), FRAME_MILLISECONDS);
+}

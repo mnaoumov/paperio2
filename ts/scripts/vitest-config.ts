@@ -2,6 +2,8 @@ import { defineConfig } from 'vitest/config';
 
 const SHARED_EXCLUDE = ['dist', 'node_modules'];
 const SCRIPTS_TEST_FILES = 'scripts/**/*.test.ts';
+const INTEGRATION_TEST_FILES = 'test/**/*.integration.test.ts';
+const INTEGRATION_TEST_TIMEOUT_MILLISECONDS = 300_000;
 
 export const config = defineConfig({
   test: {
@@ -42,6 +44,22 @@ export const config = defineConfig({
           exclude: SHARED_EXCLUDE,
           include: [SCRIPTS_TEST_FILES],
           name: 'unit-tests:scripts'
+        }
+      },
+      {
+        /*
+         * The differential test (`test/differential/`): it drives Chrome through every recorded scenario on both
+         * the original `app2.js` and the reconstruction, so it is slow and needs a browser. `npm test` leaves it
+         * out; `npm run test:integration` and CI run it.
+         */
+        test: {
+          environment: 'node',
+          exclude: SHARED_EXCLUDE,
+          fileParallelism: false,
+          hookTimeout: INTEGRATION_TEST_TIMEOUT_MILLISECONDS,
+          include: [INTEGRATION_TEST_FILES],
+          name: 'integration-tests',
+          testTimeout: INTEGRATION_TEST_TIMEOUT_MILLISECONDS
         }
       }
     ]
