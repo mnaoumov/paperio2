@@ -4,7 +4,7 @@
         <meta charset="utf-8" />
         <meta name="theme-color" content="#2d3331" />
         <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-        <title>Paper.io 2 (offline)</title>
+        <title>Paper.io 2</title>
         <meta
             name="description"
             content="In Paper.io 2 you fight other players for territory on a sheet of paper."
@@ -12,6 +12,9 @@
 
         <link rel="manifest" href="manifest.json" />
         <link rel="icon" type="image/png" href="assets/images/icon512.png" />
+        <!-- Installed app on a Mac: Safari's Add to Dock takes its icon and name from these. -->
+        <link rel="apple-touch-icon" sizes="180x180" href="assets/images/apple-touch-icon.png" />
+        <meta name="apple-mobile-web-app-title" content="Paper.io 2" />
         <link rel="stylesheet" href="assets/fonts/ptsans.css" />
         <link rel="stylesheet" href="style3.css" />
         <link rel="stylesheet" href="joystick.css" />
@@ -123,5 +126,17 @@
             })();
         </script>
         <script type="text/javascript" src="joystick.js"></script>
+        <script type="text/javascript">
+            // Installed app: sw.js caches the game so it starts with no network. A page outside a secure context
+            // (plain http on a host other than localhost) has no navigator.serviceWorker, and skips it. Registered
+            // after load, so it never competes with the engine's own boot.
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function () {
+                    navigator.serviceWorker.register('sw.js').catch(function (error) {
+                        console.warn('The service worker did not register, so the app will not start offline.', error);
+                    });
+                });
+            }
+        </script>
     </body>
 </html>
