@@ -309,7 +309,8 @@ export function computeCrossing(point: Vector, point2: Vector, point3: Vector): 
 export class Polygon {
   public bounds: Bounds | null;
   public owner: null | ShapeOwner;
-  public path = new Path2D();
+  // Unset until calcPath, as in the original: a default `new Path2D()` here would construct a path the original never does.
+  public path: null | Path2D = null;
   public segments: Segment[];
   public simplify: Vector[];
   public constructor(points: Vector[]) {
