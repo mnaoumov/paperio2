@@ -650,10 +650,10 @@ export class Game {
         context.translate(canvasSize / HALF_DIVISOR / scale - vector.x, canvasSize / HALF_DIVISOR / scale - vector.y);
         context.translate(0, sizeUnit / scale);
         context.fillStyle = player.skin.colors.back;
-        context.fill(player.base.polygon.path);
+        context.fill(ensureNonNullable(player.base.polygon.path));
         context.translate(0, sizeUnit * SCORE_PREVIEW_OUTLINE_OFFSET_FACTOR / scale);
         context.fillStyle = player.skin.pattern?.pattern ?? player.skin.colors.main;
-        context.fill(player.base.polygon.path);
+        context.fill(ensureNonNullable(player.base.polygon.path));
         dataUrl = element.toDataURL('image/png');
       }
       const result: GameOverResult = {
@@ -664,7 +664,8 @@ export class Game {
         image: dataUrl,
         kills: player.statistics.kills,
         name: player.name,
-        newBest: ensureNonNullable(player.schemes).result() > (this.best ?? 0),
+        // The original compared against an unset est (`result > undefined`, always false); `null` stands for unset here.
+        newBest: this.best !== null && ensureNonNullable(player.schemes).result() > this.best,
         percent: player.percent,
         reason: ensureNonNullable(reason),
         score: ensureNonNullable(player.schemes).result(),

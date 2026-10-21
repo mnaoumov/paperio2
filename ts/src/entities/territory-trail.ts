@@ -35,7 +35,8 @@ export class Territory {
   public isTrack = false;
   // Never populated by any observed code path; element type is not inferable from usage.
   public merges: Polygon[];
-  public path = new Path2D();
+  // Unset until calcPath, as in the original: a default `new Path2D()` here would construct a path the original never does.
+  public path: null | Path2D = null;
   public polygon: Polygon;
   public square = 0;
   public unit: Unit;
@@ -49,7 +50,8 @@ export class Territory {
   }
 
   public calcPath(): Path2D {
-    this.path = new Path2D();
+    const path = new Path2D();
+    this.path = path;
     const {
       segments
     } = this.polygon;
@@ -59,15 +61,15 @@ export class Territory {
     const {
       start
     } = ensureNonNullable(segments[0]);
-    this.path.moveTo(start.x, start.y);
+    path.moveTo(start.x, start.y);
     for (let segmentIndex = 1; segmentIndex < length; segmentIndex++) {
       const {
         start: point
       } = ensureNonNullable(segments[segmentIndex]);
-      this.path.lineTo(point.x, point.y);
+      path.lineTo(point.x, point.y);
     }
-    this.path.closePath();
-    return this.path;
+    path.closePath();
+    return path;
   }
 
   public calcSquare(): void {

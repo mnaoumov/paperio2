@@ -242,7 +242,10 @@ export const PLAYER_ANGLE_DIVISOR = 127;
 export const PLAYER_TARGET_DISTANCE = 50;
 export class Player extends Unit {
   public override readonly isPlayer: boolean = true;
-  public moveTo?: boolean;
+  // Type-only on purpose: the domain lock in `engine.ts` sets `Player.prototype.moveTo`, and a real field would become
+  // An own `undefined` on every instance (class fields use define semantics) and hide that prototype flag.
+  // eslint-disable-next-line no-restricted-syntax -- `declare` is the point here: it keeps the field off the instance.
+  declare public moveTo?: boolean;
   public win: boolean;
   public constructor(game: Game, name: string, position: Vector, basePoints: Vector[], unused?: undefined, schemeCycler?: SchemeCycler) {
     super(game, name, position, basePoints, unused, schemeCycler);

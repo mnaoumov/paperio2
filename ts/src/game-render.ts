@@ -343,7 +343,7 @@ export function drawBaseFills(renderContext: RenderContext): void {
   } = game.config;
   game.units.forEach((unit: Unit) => {
     if (boundsInView({ bounds: ensureNonNullable(unit.base.polygon.bounds) }, trackWidth) || game.debugView) {
-      fillPath(ctx, unit.base.polygon.path, unit.skin.pattern?.pattern ?? unit.skin.colors.main);
+      fillPath(ctx, ensureNonNullable(unit.base.polygon.path), unit.skin.pattern?.pattern ?? unit.skin.colors.main);
     }
   });
 }
@@ -368,7 +368,7 @@ export function drawTrailUnderlays(renderContext: RenderContext): void {
         strokeTrail(ctx, unit.skin.colors.main, unit.track, unit.position, trackWidth);
         ctx.save();
         ctx.globalCompositeOperation = 'destination-over';
-        ctx.clip(unit.base.polygon.path);
+        ctx.clip(ensureNonNullable(unit.base.polygon.path));
         strokeTrail(ctx, unit.skin.pattern?.pattern ?? unit.skin.colors.main, unit.track, unit.position, trackWidth + TRAIL_UNDERLAY_WIDTH_EXTRA);
         ctx.restore();
       }
@@ -456,7 +456,7 @@ export function drawBaseBacks(renderContext: RenderContext): void {
   } = game.config;
   game.units.forEach((unit: Unit) => {
     if (boundsInView({ bounds: ensureNonNullable(unit.base.polygon.bounds) }, trackWidth)) {
-      fillPath(ctx, unit.base.polygon.path, unit.skin.colors.back);
+      fillPath(ctx, ensureNonNullable(unit.base.polygon.path), unit.skin.colors.back);
     }
   });
 }
@@ -474,9 +474,9 @@ export function drawArenaBackground(renderContext: RenderContext): void {
     baseHeight,
     borderColor
   } = game.config;
-  fillPath(ctx, game.border.polygon.path, arenaColor);
+  fillPath(ctx, ensureNonNullable(game.border.polygon.path), arenaColor);
   ctx.translate(0, baseHeight * ARENA_BORDER_OFFSET_FACTOR);
-  fillPath(ctx, game.border.polygon.path, borderColor);
+  fillPath(ctx, ensureNonNullable(game.border.polygon.path), borderColor);
   ctx.translate(0, baseHeight * -ARENA_BORDER_OFFSET_FACTOR);
   const backgroundGradient = getVerticalGradient(ctx, game.space, backgroundTopColor, backgroundBottomColor);
   if (backgroundGradient) {
@@ -545,12 +545,12 @@ export function drawMinimap(renderContext: RenderContext): void {
   ctx.save();
   ctx.translate(viewScreenWidth - padding - minimapSize, viewScreenHeight - padding - minimapSize);
   ctx.scale(minimapSize / game.space.width, minimapSize / game.space.height);
-  fillPath(ctx, game.border.polygon.path, '#c2d6cdaa');
-  fillPath(ctx, game.player.base.polygon.path, game.player.skin.colors.main);
-  strokePath(ctx, game.player.base.polygon.path, game.player.skin.colors.back, minimapStrokeWidth / HALF_DIVISOR);
+  fillPath(ctx, ensureNonNullable(game.border.polygon.path), '#c2d6cdaa');
+  fillPath(ctx, ensureNonNullable(game.player.base.polygon.path), game.player.skin.colors.main);
+  strokePath(ctx, ensureNonNullable(game.player.base.polygon.path), game.player.skin.colors.back, minimapStrokeWidth / HALF_DIVISOR);
   strokeTrail(ctx, game.player.skin.colors.back, game.player.track, game.player.position, minimapStrokeWidth / HALF_DIVISOR);
   const borderColor = game.units.some((unit: Unit) => !game.isPlayer(unit) && unit.in === ensureNonNullable(game.player).base) ? '#ff0000' : '#00000099';
-  strokePath(ctx, game.border.polygon.path, borderColor, minimapStrokeWidth);
+  strokePath(ctx, ensureNonNullable(game.border.polygon.path), borderColor, minimapStrokeWidth);
   ctx.beginPath();
   ctx.arc(game.player.position.x, game.player.position.y, minimapStrokeWidth, 0, FULL_TURN);
   ctx.fillStyle = game.player.skin.colors.nick;

@@ -43,7 +43,9 @@ const rootConfigFiles = [
 const sourceFiles = ['src/**/*.ts'];
 const scriptFiles = ['scripts/**/*.ts'];
 const testFiles = ['**/*.test.ts'];
-const allFiles = [...sourceFiles, ...scriptFiles, ...rootConfigFiles];
+// The differential test harness (`test/differential/`), type-checked by `test/tsconfig.json`.
+const harnessFiles = ['test/**/*.ts'];
+const allFiles = [...sourceFiles, ...scriptFiles, ...harnessFiles, ...rootConfigFiles];
 
 /**
  * Build ESLint configurations.
@@ -337,7 +339,7 @@ function getImportXConfigs(): Linter.Config[] {
       }
     },
     {
-      files: scriptFiles,
+      files: [...scriptFiles, ...harnessFiles],
       rules: {
         'import-x/no-nodejs-modules': 'off'
       }
