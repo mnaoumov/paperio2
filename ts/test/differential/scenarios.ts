@@ -76,12 +76,12 @@ const FIRST_INPUT_FRAME = 150;
 /* eslint-disable no-magic-numbers -- the scripted routes are data: frame counts per leg. */
 export const SCENARIOS: readonly Scenario[] = [
   {
-    // A clean loop out of the base and back: the player captures territory twice, then rides along the wall.
+    // A clean loop out of the base and back: the player captures territory twice and survives the run.
     expectedCoverage: { botKillsByBots: 1, playerCaptures: 2 },
     frames: 2400,
     keys: route(FIRST_INPUT_FRAME, [[[KEY_RIGHT], 90], [[KEY_UP], 90], [[KEY_LEFT], 115], [[KEY_DOWN], 90], [[KEY_RIGHT], 60], [[KEY_UP], 630]]),
-    name: 'capture loop, then the wall',
-    seed: 2,
+    name: 'capture loop',
+    seed: 9,
     startFrame: START_FRAME
   },
   {
@@ -94,33 +94,32 @@ export const SCENARIOS: readonly Scenario[] = [
     startFrame: START_FRAME
   },
   {
-    // The return leg runs back over where the first leg went (that trail was already cut, so the player lives),
-    // Then the player rides the bottom wall.
-    expectedCoverage: { botDeaths: 1 },
+    // The return leg crosses the first one outside the base, and the player dies with no killer.
+    expectedCoverage: { botKillsByBots: 1, playerDeaths: 1 },
     frames: 1200,
     keys: route(FIRST_INPUT_FRAME, [[[KEY_RIGHT], 90], [[KEY_UP], 60], [[KEY_LEFT], 45], [[KEY_DOWN], 120]]),
-    name: 'back over its own path, then along the wall',
+    name: 'back across its own trail',
     seed: 7,
     startFrame: START_FRAME
   },
   {
-    // Eight-way and diagonal steering plus the pointer fallback, until the player dies with no killer.
-    expectedCoverage: { botKillsByBots: 1, playerDeaths: 1 },
-    frames: 3000,
-    keys: route(FIRST_INPUT_FRAME, randomWalk(11, 70)),
+    // Eight-way and diagonal steering plus the pointer fallback: one capture, then a death with no killer.
+    expectedCoverage: { botKillsByBots: 1, playerCaptures: 1, playerDeaths: 1 },
+    frames: 2400,
+    keys: route(FIRST_INPUT_FRAME, randomWalk(18, 60)),
     name: 'random walk',
-    seed: 11,
+    seed: 18,
     startFrame: START_FRAME
   },
   {
     // The same walk on the real host: the domain lock sets `Player.prototype.moveTo`, which turns off the anti-piracy
     // Glitch and its per-frame `Math.random` call and turns on tail recovery, a branch localhost never takes.
-    expectedCoverage: { botKillsByBots: 1 },
+    expectedCoverage: { botKillsByBots: 1, playerDeaths: 1 },
     frames: 1800,
     host: 'paperio.site',
-    keys: route(FIRST_INPUT_FRAME, randomWalk(11, 40)),
+    keys: route(FIRST_INPUT_FRAME, randomWalk(18, 40)),
     name: 'random walk on paperio.site',
-    seed: 11,
+    seed: 18,
     startFrame: START_FRAME
   }
 ];

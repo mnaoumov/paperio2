@@ -22,13 +22,10 @@ import {
   it
 } from 'vitest';
 
-import type { StaticServer } from './harness.ts';
-
 import {
   COVERAGE_EVENTS,
   launchBrowser,
   runScenario,
-  startStaticServer,
   TS_ROOT
 } from './harness.ts';
 import { SCENARIOS } from './scenarios.ts';
@@ -37,24 +34,21 @@ const SCENARIO_TIMEOUT_MILLISECONDS = 300_000;
 
 describe('the reconstruction against the original app2.js', () => {
   let browser: Browser | undefined;
-  let server: StaticServer | undefined;
 
   beforeAll(async () => {
     await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
-    server = await startStaticServer();
     browser = await launchBrowser();
   }, SCENARIO_TIMEOUT_MILLISECONDS);
 
   afterAll(async () => {
     await browser?.close();
-    await server?.close();
   });
 
   it.each(SCENARIOS)('plays "$name" (seed $seed) identically', async (scenario) => {
-    if (!browser || !server) {
-      throw new Error('The browser or the server did not start');
+    if (!browser) {
+      throw new Error('The browser did not start');
     }
-    const result = await runScenario(browser, server.origin, scenario);
+    const result = await runScenario(browser, scenario);
     expect(result.divergence).toBeNull();
     expect(result.framesCompared).toBe(scenario.frames);
     for (const event of COVERAGE_EVENTS) {

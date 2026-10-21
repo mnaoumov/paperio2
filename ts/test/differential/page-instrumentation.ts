@@ -85,7 +85,6 @@ export function installDeterminism(params: InstallDeterminismParams): void {
   /* eslint-disable no-magic-numbers, no-bitwise -- mulberry32 and FNV-1a are bit mixers by definition, and their constants are the algorithms'; the 4 ms interval clamp is the browser's. */
   let randomState = params.seed >>> 0;
   let randomCalls = 0;
-  const randomCallsByFrame: number[] = [];
   Math.random = function random(): number {
     randomCalls++;
     randomState = (randomState + 0x6D2B79F5) | 0;
@@ -373,7 +372,6 @@ export function installDeterminism(params: InstallDeterminismParams): void {
       });
     }
     trackUnits();
-    randomCallsByFrame.push(randomCalls);
     await yieldTask();
     await loadHeldImages();
     lastFrameTrace = [...trace];
@@ -477,7 +475,7 @@ export function installDeterminism(params: InstallDeterminismParams): void {
     canvasHash,
     facts: () => {
       const canvas = document.querySelector('canvas');
-      return JSON.stringify({ canvas: [canvas?.clientWidth, canvas?.clientHeight, canvas?.width, canvas?.height], dpr: devicePixelRatio, inner: [innerWidth, innerHeight], languages: navigator.languages, randomCalls, randomCallsByFrame: randomCallsByFrame.join(','), ua: navigator.userAgent });
+      return JSON.stringify({ canvas: [canvas?.clientWidth, canvas?.clientHeight, canvas?.width, canvas?.height], dpr: devicePixelRatio, inner: [innerWidth, innerHeight], languages: navigator.languages, randomCalls, ua: navigator.userAgent });
     },
     frameTrace: () => lastFrameTrace,
     key: pressKey,
