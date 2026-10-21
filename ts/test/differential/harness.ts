@@ -116,6 +116,8 @@ export interface ScenarioResult {
   readonly playerDeaths: readonly DifferentialRemovedUnit[];
   /** The player's position and territory every 150 frames, from the original's run, for a coverage failure. */
   readonly playerPath: readonly string[];
+  /** The original page's environment and `Math.random` call count when the game starts, for a coverage failure. */
+  readonly startFacts: string;
 }
 
 export interface StaticServer {
@@ -146,12 +148,16 @@ export async function runScenario(browser: Browser, origin: string, scenario: Sc
   }
   let lastSnapshot: DifferentialSnapshot | undefined;
   const playerPath: string[] = [];
+  let startFacts = '';
   let drawCalls = 0;
   function result(divergence: Divergence | null, framesCompared: number): ScenarioResult {
-    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [], playerPath };
+    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [], playerPath, startFacts };
   }
   try {
     for (let frame = 0; frame < scenario.frames; frame++) {
+      if (frame === scenario.startFrame) {
+        startFacts = await original.evaluate(() => window.__differential.facts());
+      }
       await Promise.all(pages.map(async (page) => applyFrameInput(page, scenario, frame)));
       const [originalFrame, reconstructionFrame] = await Promise.all(pages.map(async (page) => stepPage(page)));
       if (!originalFrame || !reconstructionFrame) {

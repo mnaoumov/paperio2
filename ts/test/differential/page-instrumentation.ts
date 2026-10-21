@@ -28,6 +28,7 @@ export interface DifferentialFrameResult {
 
 export interface DifferentialPageApi {
   canvasHash: () => string;
+  facts: () => string;
   frameTrace: () => readonly string[];
   key: (keyCode: number, isDown: boolean) => void;
   snapshot: () => DifferentialSnapshot;
@@ -83,7 +84,9 @@ export interface PaperIo2PageApi {
 export function installDeterminism(params: InstallDeterminismParams): void {
   /* eslint-disable no-magic-numbers, no-bitwise -- mulberry32 and FNV-1a are bit mixers by definition, and their constants are the algorithms'; the 4 ms interval clamp is the browser's. */
   let randomState = params.seed >>> 0;
+  let randomCalls = 0;
   Math.random = function random(): number {
+    randomCalls++;
     randomState = (randomState + 0x6D2B79F5) | 0;
     let mixed = Math.imul(randomState ^ (randomState >>> 15), 1 | randomState);
     mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
@@ -470,6 +473,10 @@ export function installDeterminism(params: InstallDeterminismParams): void {
 
   const api: DifferentialPageApi = {
     canvasHash,
+    facts: () => {
+      const canvas = document.querySelector('canvas');
+      return JSON.stringify({ canvas: [canvas?.clientWidth, canvas?.clientHeight, canvas?.width, canvas?.height], dpr: devicePixelRatio, inner: [innerWidth, innerHeight], languages: navigator.languages, randomCalls, ua: navigator.userAgent });
+    },
     frameTrace: () => lastFrameTrace,
     key: pressKey,
     snapshot,
