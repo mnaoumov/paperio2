@@ -1,8 +1,8 @@
-# Paper.io 2 — offline copy
+# Paper.io 2 — self-contained copy
 
-A local, self-contained copy of the browser game from https://paperio.site/.
-It runs entirely client-side (JavaScript + Canvas) with AI bots — there is **no
-server-side game logic**, so it works fully offline.
+A self-contained copy of the browser game from https://paperio.site/, with no ads,
+analytics or servers. It runs entirely client-side (JavaScript + Canvas) with AI
+bots — there is **no server-side game logic**, so it also works with no network.
 
 ## Play it online
 
@@ -34,6 +34,24 @@ the latest, and the panel on the left removes any of them, saves the game (`K`)
 or ends the run. Flags on the map mark the checkpoints. A saved game is kept in the
 browser and loads from the menu into a new practice run. Practice runs do not
 count: no best score and no achievements.
+
+## Install it as an app on a Mac
+
+The live demo installs as a standalone app, with its own window, a Dock icon
+and a Launchpad entry. After the first launch it starts with no network too:
+a service worker (`sw.js`) keeps a copy of the game and refreshes it whenever
+you are online.
+
+- **Chrome:** open https://mnaoumov.dev/paperio2/ and click the install icon
+  at the right of the address bar, or use the menu > Cast, save and share >
+  Install page as app. The app lands in `~/Applications/Chrome Apps`.
+- **Safari** (17 or later, macOS Sonoma or later): open the same page and use
+  File > Add to Dock.
+
+An app installed before the manifest was fixed opens https://mnaoumov.dev/
+instead of the game. Remove it and install again: in Chrome, right-click it in
+`chrome://apps` > Remove from Chrome; in Safari, drag it out of the Dock and
+delete it from `~/Applications`.
 
 ## Running it locally
 
@@ -97,12 +115,15 @@ back to the original `app2.js` and says so in the browser console. Add
   original before publishing.
 - `joystick.js` + `joystick.css` — on-screen touch joystick (added by this repo).
 - `style3.css` — game UI styles (unmodified original).
-- `manifest.json` — PWA manifest (unmodified original).
+- `manifest.json` — PWA manifest (the original's, with relative paths and a
+  maskable icon, so it installs from `/paperio2/`).
+- `sw.js` — service worker that lets the installed app start offline (added by
+  this repo).
 - `assets/skins/` — 56 skin `.svg` files + `skins.json` metadata.
 - `assets/skins/select/` — 19 skin selector thumbnails (`.png`, incl. `noskin.png`).
 - `assets/images/` — logo and PWA icons.
 - `assets/languages.json` — UI translations (EN/RU/TR/SP/FR/NL/PT/DE/IT).
 - `assets/fonts/` — locally-hosted PT Sans Caption font.
 
-`app2.js`, `style3.css`, `manifest.json` and all assets are the site's original
+`app2.js`, `style3.css`, `manifest.json` and the other assets are the site's original
 content, © their respective owners. This copy is for local/offline personal use.
