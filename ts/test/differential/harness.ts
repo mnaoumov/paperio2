@@ -55,6 +55,7 @@ const BOOT_POLL_MILLISECONDS = 50;
 const HTTP_NOT_FOUND = 404;
 const HTTP_OK = 200;
 const SNAPSHOT_INTERVAL_FRAMES = 30;
+const PLAYER_PATH_INTERVAL_FRAMES = 150;
 
 const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.css': 'text/css',
@@ -113,6 +114,8 @@ export interface ScenarioResult {
   readonly drawCalls: number;
   readonly framesCompared: number;
   readonly playerDeaths: readonly DifferentialRemovedUnit[];
+  /** The player's position and territory every 150 frames, from the original's run, for a coverage failure. */
+  readonly playerPath: readonly string[];
 }
 
 export interface StaticServer {
@@ -142,9 +145,10 @@ export async function runScenario(browser: Browser, origin: string, scenario: Sc
     throw new Error('Expected one page per variant');
   }
   let lastSnapshot: DifferentialSnapshot | undefined;
+  const playerPath: string[] = [];
   let drawCalls = 0;
   function result(divergence: Divergence | null, framesCompared: number): ScenarioResult {
-    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [] };
+    return { coverage: coverageOf(lastSnapshot), divergence, drawCalls, framesCompared, playerDeaths: lastSnapshot?.removed.filter((unit) => unit.isPlayer) ?? [], playerPath };
   }
   try {
     for (let frame = 0; frame < scenario.frames; frame++) {
@@ -166,6 +170,10 @@ export async function runScenario(browser: Browser, origin: string, scenario: Sc
         }
         if (originalSnapshot) {
           lastSnapshot = originalSnapshot;
+          if (frame % PLAYER_PATH_INTERVAL_FRAMES === 0) {
+            const playerUnit = originalSnapshot.units.find((unit) => unit.isPlayer);
+            playerPath.push(playerUnit ? `${String(frame)}:${playerUnit.x.toFixed(0)},${playerUnit.y.toFixed(0)} area ${playerUnit.baseSquare.toFixed(0)}` : `${String(frame)}:-`);
+          }
         }
       }
     }

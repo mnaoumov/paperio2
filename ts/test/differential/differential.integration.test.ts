@@ -60,7 +60,7 @@ describe('the reconstruction against the original app2.js', () => {
     for (const event of COVERAGE_EVENTS) {
       const minimum = scenario.expectedCoverage[event];
       if (minimum !== undefined) {
-        expect.soft(result.coverage[event], `${event} in "${scenario.name}"`).toBeGreaterThanOrEqual(minimum);
+        expect.soft(result.coverage[event], `${event} in "${scenario.name}"; player path ${result.playerPath.join(' | ')}; player deaths ${JSON.stringify(result.playerDeaths)}`).toBeGreaterThanOrEqual(minimum);
       }
     }
   }, SCENARIO_TIMEOUT_MILLISECONDS);
