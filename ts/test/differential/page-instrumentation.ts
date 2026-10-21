@@ -39,6 +39,8 @@ declare global {
   interface Window {
     __differential: DifferentialPageApi;
     paperio2api: PaperIo2PageApi;
+    /** Which engine `index.html`'s engine switch loaded. */
+    paperio2engine?: 'original' | 'reconstruction';
   }
 }
 
