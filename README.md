@@ -161,6 +161,16 @@ back to the original `app2.js` and says so in the browser console. Add
 - A recording mode in the `ts/` reconstruction (`ts/src/recording.ts`): it hides
   every addition above and marks the frames to cut with full-frame red and green
   markers. It is off by default.
+- Readable leaderboard names in the `ts/` reconstruction
+  (`ts/src/leaderboard-fit.ts`). The original staggers the top-right bars and
+  runs them off the right edge, so names are cut short, the player's own row
+  worst. Now a bar moves left just enough for its text to fit, measured in the
+  loaded font. It never goes further left than the top bar, and a name that
+  still cannot fit there ends in `…`. Where the text already fits, the original
+  layout is kept. On a phone the top bar is narrow, so long names still end in
+  `…`, but the rank and percent always show. `?original` is unchanged. The
+  `leaderboardFitNames` config key turns it off. It stays on in recording mode,
+  because it changes no control on screen.
 
 ## Structure
 
