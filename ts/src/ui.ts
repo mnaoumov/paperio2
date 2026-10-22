@@ -1691,7 +1691,7 @@ export function App({
   const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   const video = useVideoRecording(api, route);
   const sound = useGameAudio(api, route, recordingMode);
-  const autopilot = useAutopilot(api, route);
+  const autopilot = useAutopilot(api, route, start);
   const enemies = useEnemySettings(api);
   const ghost = useGhostRace(api, route, autopilot.autopilot);
   function setPracticeMode(nextPracticeMode: boolean): void {
