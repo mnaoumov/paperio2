@@ -177,6 +177,15 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
+  // The reconstruction moves a leaderboard bar left when its name would be clipped, which the original never does, so
+  // The comparison turns that off before the first frame; `src/leaderboard-fit.test.ts` covers the layout. The original
+  // Exposes no config and has nothing to turn off.
+  await page.evaluate(() => {
+    const { config } = window.paperio2api;
+    if (config) {
+      config['leaderboardFitNames'] = false;
+    }
+  });
   if (errors.length > 0) {
     throw new Error(`${variant} raised page errors while booting:\n${errors.join('\n')}`);
   }

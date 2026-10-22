@@ -157,6 +157,8 @@ export interface PageUnit {
 export interface PaperIo2PageApi {
   /** The reconstruction's full game snapshot, which the checkpoint test keeps inside the page. */
   readonly captureSnapshot?: () => unknown;
+  /** The reconstruction's config, there from boot; the original exposes none. */
+  readonly config?: Record<string, unknown>;
   readonly decodeSnapshot?: (payload: string) => Promise<unknown>;
   readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;

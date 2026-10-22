@@ -40,6 +40,8 @@ import {
 export interface GameApi {
   /** Takes a full snapshot of the live game, between frames. */
   captureSnapshot: () => GameSnapshot;
+  /** The config every game is created with, there before the game is, so a page can change it ahead of the first frame. */
+  config: Config;
   create: (view: HTMLCanvasElement) => void;
   /** Reads a snapshot back from {@link GameApi.encodeSnapshot}'s text, ready for {@link GameApi.restoreSnapshot}. */
   decodeSnapshot: (payload: string) => Promise<GameSnapshot>;
@@ -60,6 +62,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
   const gameApi = {} as GameApi;
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Path2D feature-detection for old browsers; lib.dom types it as always-defined but it may be absent at runtime.
   if (Path2D) {
+    gameApi.config = config;
     gameApi.create = (view: HTMLCanvasElement): void => {
       const {
         arenaSize,

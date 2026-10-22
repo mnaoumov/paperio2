@@ -34,6 +34,7 @@ import {
 } from './engine.ts';
 import { TOP_LIST_RANK_LIMIT } from './entities/units.ts';
 import { Vector } from './geometry/vector.ts';
+import { fitLeaderboardRow } from './leaderboard-fit.ts';
 import {
   FULL_TURN,
   IMAGE_CENTER_DIVISOR,
@@ -639,6 +640,25 @@ export function drawLeaderboardRows(context: CanvasRenderingContext2D, renderCon
     previousBarWidth = scoreBarWidth;
     const barRightOffset = halfBarWidth + scoreBarWidth;
     let barX = viewScreenWidth - barRightOffset;
+    const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
+    const flagImage = flagAsset?.content.roundedFlag;
+    const flagHeight = barHeight * LEADERBOARD_FLAG_HEIGHT_FACTOR;
+    const prefix = `${String(rank)} – ${ensureNonNullable(unit.schemes).print()} `;
+    let label = prefix + unit.name;
+    // Off by the `leaderboardFitNames` config key only in the differential test, which compares against the original.
+    if (String(game.config.leaderboardFitNames) === 'true') {
+      context.font = uiFont;
+      ({ barX, label } = fitLeaderboardRow({
+        barWidth,
+        barX,
+        halfBarHeight,
+        iconWidth: flagImage ? flagHeight : 0,
+        measure: (text: string) => context.measureText(text).width,
+        name: unit.name,
+        prefix,
+        rightEdge: viewScreenWidth
+      }));
+    }
     const cornerRadii: [number, number, number, number] = [halfBarHeight, 0, 0, halfBarHeight];
     context.fillStyle = '#00000022';
     drawRoundedRect(context, barX + backHeight, rowY + backHeight * LEADERBOARD_SHADOW_OFFSET_FACTOR, barWidth, barHeight, cornerRadii);
@@ -646,10 +666,7 @@ export function drawLeaderboardRows(context: CanvasRenderingContext2D, renderCon
     drawRoundedRect(context, barX, rowY + backHeight, barWidth, barHeight, cornerRadii, strokeWidth);
     context.fillStyle = unit.skin.colors.main;
     drawRoundedRect(context, barX, rowY, barWidth, barHeight, cornerRadii, strokeWidth);
-    const flagAsset = unit.skin.assets.find((asset: Asset) => asset.pool.name === 'flags');
-    const flagImage = flagAsset?.content.roundedFlag;
     if (flagImage) {
-      const flagHeight = barHeight * LEADERBOARD_FLAG_HEIGHT_FACTOR;
       const flagOffsetX = barHeight / LEADERBOARD_FLAG_OFFSET_DIVISOR;
       const flagScale = flagHeight / flagImage.height;
       context.save();
@@ -663,7 +680,7 @@ export function drawLeaderboardRows(context: CanvasRenderingContext2D, renderCon
     context.font = uiFont;
     context.textAlign = 'left';
     context.textBaseline = 'middle';
-    context.fillText(`${String(rank)} – ${ensureNonNullable(unit.schemes).print()} ${unit.name}`, barX + halfBarHeight, rowY + halfBarHeight * TEXT_BASELINE_NUDGE_FACTOR);
+    context.fillText(label, barX + halfBarHeight, rowY + halfBarHeight * TEXT_BASELINE_NUDGE_FACTOR);
   }
 }
 export function renderScoreBar(renderContext: RenderContext): void {

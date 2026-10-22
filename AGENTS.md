@@ -204,6 +204,26 @@ neither.
   `spawnBot` now follows the original key for key (`String(type)` keys, `Number(...)` reads), and the scenario
   `capture loop on paperio.site, a 16th bot` pins it.
 
+## Leaderboard names
+
+**The original clips leaderboard names, and the `ts/` reconstruction does not** (owner request, 2026-10-21). The
+original puts each bar's left edge at `viewScreenWidth - halfBarWidth - scoreBarWidth`, so the lower the score, the
+further right the bar starts, and it runs `barWidth` past that, off the right edge. Only the top bar ends exactly at
+the edge. At 1280x720 the player's row read `16 – 0.10% mnao`, and on a phone `16 – 0.10`.
+`ts/src/leaderboard-fit.ts` (`fitLeaderboardRow`, unit-tested) moves a bar left only as far as its `measureText` width
+needs. It never goes left of `viewScreenWidth - barWidth`, which is the top bar's position and also the width of the
+cached leaderboard canvas in `drawLeaderboard`, so the cache needs no change. A name that still cannot fit is cut with
+`…`, and the rank and percent are never shortened. That limit is deliberate. On a phone the top bar is about a third
+of the width, and the pause button sits just left of it, so a wider cap would overlap the pause button.
+
+- **It is on by default, so the differential harness turns it off.** `openVariant` sets
+  `paperio2api.config.leaderboardFitNames = false` after boot. `GameApi.config` exists from boot, because
+  `paperio2api.game` does not exist until the canvas mounts, and the first attempt, which went through `game.config`,
+  threw on every scenario. The original exposes no `config`, so it is skipped there. The flag is read as
+  `String(...) === 'true'`, because the config screen writes values back as strings.
+- **The faithful path makes the same canvas calls as before.** The flag lookup and the label string are not canvas
+  calls. The fit path also sets `context.font` before measuring.
+
 ## Editing guidance
 
 - Real changes belong in `index.html` (the shim) or the CSS/assets — **not** in `app2.js`.

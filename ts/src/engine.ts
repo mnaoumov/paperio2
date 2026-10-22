@@ -159,6 +159,7 @@ export interface Config {
   enemyKillDelay: number;
   followKiller: boolean;
   font: string;
+  leaderboardFitNames: boolean;
   maxPreparingTime: number;
   maxScale: number;
   minScale: number;
@@ -2004,6 +2005,7 @@ export interface Config {
   enemyKillDelay: number;
   followKiller: boolean;
   font: string;
+  leaderboardFitNames: boolean;
   maxPreparingTime: number;
   maxScale: number;
   minScale: number;
@@ -2062,6 +2064,7 @@ export const defaultConfig = {
   enemyKillDelay: 2000,
   followKiller: true,
   font: 'PT Sans Caption',
+  leaderboardFitNames: true,
   maxPreparingTime: 500,
   maxScale: 4.5,
   minScale: 3,
