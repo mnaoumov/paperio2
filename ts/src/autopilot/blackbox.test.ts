@@ -9,7 +9,8 @@ import {
   chamferDistance,
   erodeThin,
   modeColor,
-  thinForeign
+  thinForeign,
+  wallGradient
 } from './blackbox.ts';
 
 interface Rgb {
@@ -112,6 +113,17 @@ describe('blackbox', () => {
     const thin = thinForeign(classes, width, height);
     expect(thin[20 * width + 15]).toBe(0);
     expect(thin[20 * width + 40]).toBe(1);
+  });
+
+  it('points away from the wall', () => {
+    const width = 10;
+    const height = 6;
+    // The outside lies to the right: the distance to it grows to the left.
+    const wall = Float32Array.from({ length: width * height }, (_unused, index) => width - 1 - index % width);
+    const away = wallGradient(wall, width, height, 5, 3);
+    expect(away.x).toBeCloseTo(-1);
+    expect(away.y).toBeCloseTo(0);
+    expect(wallGradient(new Float32Array(width * height).fill(Infinity), width, height, 5, 3)).toEqual({ x: 0, y: 0 });
   });
 
   it('heads out of its territory toward the nearest free floor', () => {

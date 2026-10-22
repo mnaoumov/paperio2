@@ -282,6 +282,21 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N Esc.
 - **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts`, and `blackbox.test.ts` asserts it. The driver
   hands it `grabDownscaledFrame(game.view)` (the canvas scaled down 4x) after each rendered frame, nothing else.
+- **How the blackbox keeps its bearings and gets home** (`blackbox.ts`, `odometry.ts`): an odometer matches each
+  classified frame's edges against a key frame, so the pilot knows its position, speed and heading from the ground
+  sliding past, and remembers its trail and its exit point as positions rather than by colour (the trail's blend
+  changes with the ground under it). The way back flies each candidate aim in `simulateReturn` (measured speed, the
+  turn rate, the engine's wall slide: a step's part into the wall is dropped) and fails it on the remembered trail's
+  raster; once a flight leaves the view it finishes as a straight line checked against the remembered trail itself
+  (`trackCrosses`), so the exit point beyond the view is a real aim. Aims are taken only from the inside of own ground
+  (`isOwnInside`): edges between foreign colours and the wall's dotted stroke blend into specks of the player's colour,
+  which also made `capturedPixels` read a false capture. The last aim is kept while it stays within 25% + 10 frames of
+  the best (`quickestAim`), or the aim flips between frames and the player curls over its own trail. With no reachable
+  aim, `escape` prefers the clear heading that ends nearest the exit point. `guardWallTurn` is the whitebox's rule seen
+  from pixels: the outward normal is the wall-distance gradient at the centre, and contact is a centre distance under
+  12 (pressed, the player reads 10, because the avatar hides the edge). `--dump <dir>` on the benchmark writes the
+  last 2 s of frames beside their classes, the remembered trail (yellow) and the aim (magenta); the minimap is not
+  read, since the odometer already gives the way home beyond the view.
 - **The overlay is its own `pointer-events: none` canvas**, so the recorder, which records `game.view`, never sees it.
   While the human steers and the overlay is on, `Autopilot.coach` keeps the whitebox planning without steering (the
   "assist" mode).

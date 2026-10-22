@@ -194,9 +194,13 @@ remembers the choice:
 - **Blackbox** sees only what you see: the canvas, scaled down. It learns its
   colour from the score bar, ignores the score bar, leaderboard, minimap and its
   own name, treats small foreign shapes as danger and large ones as enemy ground,
-  and flies a cautious rectangle from its territory, keeping its bearings by
-  memory. It never reads the engine; a unit test checks that its code imports
-  nothing of it.
+  and flies a cautious rectangle from its territory. It keeps its bearings the
+  way a person does, from the ground sliding past, so it remembers the way it
+  came and where it left home even when neither is in view. Before it turns for
+  home it flies each way back in a simulation (its own speed and turning circle,
+  sliding along the wall as you do) and takes the quickest one that does not
+  touch its own trail. It never reads the engine; a unit test checks that its
+  code imports nothing of it.
 
 Either way it steers with the same pointer the mouse or a touch gives, so it has
 your speed and turning circle and changes nothing else in the game. Steering
@@ -221,7 +225,7 @@ best time to win and how runs end. The same seed replays the same game. On
 | Whitebox | Original | 16 | 15 min | 0 | 1 (surrounded 1) | 15 (34.6%) |
 | Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 2, surrounded 1, self-intersection 1) | 12 (52.6%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
-| Blackbox | Original | 8 | 5 min | 0 | 6 (self-intersection 4, trail cut 1, surrounded 1) | 2 (0.3%) |
+| Blackbox | Original | 16 | 5 min | 0 | 7 (trail cut 6, wall 1) | 9 (4.6%) |
 
 The whitebox now slides along the arena's wall without dying there: pressed
 against the wall, it never turns through the wall's outward direction, which
@@ -231,7 +235,11 @@ An earlier version of the same pilot did win one 60-minute run in 16, in 59:05,
 but it died in 13 of them; the version measured above defends its base more
 carefully and survives an hour in 12 of 16, at the cost of growing more slowly.
 The bots take back about a third of what it captures, which is why it has not
-won yet. The blackbox sees only a small part of the arena and dies early.
+won yet. The blackbox no longer runs into its own trail or loses its way home
+beyond the view; an earlier version measured on 8 of the same seeds died in 6,
+4 of them on its own trail, and the 2 it kept alive held 0.3%. It still sees
+only a small part of the arena, so the bots that cut its trail come into view
+late.
 
 ### Enemy modes
 

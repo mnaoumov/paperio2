@@ -32,7 +32,8 @@ import {
   normalize,
   rotate,
   segmentDistance,
-  SIXTEENTH_TURN
+  SIXTEENTH_TURN,
+  THREE_EIGHTHS_TURN
 } from './plane.ts';
 
 /** Pixel classes. */
@@ -55,6 +56,8 @@ export interface BlackboxDebug {
   readonly threat: null | Point;
   /** The remembered trail drawn over the frame (see `paintTrack`), or `null`. */
   readonly track: null | Uint8Array;
+  /** The distance from the player to the wall, in pixels of the scaled-down frame; `Infinity` with no wall in view. */
+  readonly wallAtCenter: number;
   readonly width: number;
 }
 
@@ -167,6 +170,16 @@ const ESCAPE_REACH = 2;
 const ESCAPE_TURN_COST = 10;
 /** An escape heading that flies clear scores this many frames, less its flight home from where it ends. */
 const CLEAR_ESCAPE_FRAMES = 1e6;
+/** The way back keeps its last aim while that aim's flight takes at most this share of the best one's, plus these frames. */
+const AIM_KEEP_SHARE = 1.25;
+const AIM_KEEP_FRAMES = 10;
+/**
+ * Within this many pixels of the wall the player is pressed against it, and turns there are guarded. The wall is
+ * measured from the outside beyond the avatar, which hides the edge: pressed, the player reads 10 (measured).
+ */
+const WALL_CONTACT = 12;
+/** Pressed against the wall, a slide that must not reverse keeps the heading this far from the outward normal. */
+const WALL_HOLD_ANGLE = 0.3;
 /** A simulated way back keeps this many pixels from the outside of the arena. */
 const WALL_MARGIN = 5;
 /** Outside pixels this deep in the outside are the wall; thinner ones are blends. */
@@ -201,7 +214,7 @@ const BUCKETS_PER_CHANNEL = 32;
 
 export class BlackboxPilot {
   public get debug(): BlackboxDebug {
-    return { aim: this.aim, aimReached: this.aimReached, classes: this.classes, height: this.height, phase: this.phase, threat: this.threat, track: this.raster, width: this.width };
+    return { aim: this.aim, aimReached: this.aimReached, classes: this.classes, height: this.height, phase: this.phase, threat: this.threat, track: this.raster, wallAtCenter: this.wall[Math.floor(this.height * HALF) * this.width + Math.floor(this.width * HALF)] ?? Infinity, width: this.width };
   }
 
   private aim: null | Point = null;
@@ -219,6 +232,8 @@ export class BlackboxPilot {
   private homeMaskPosition: Point = { x: 0, y: 0 };
   /** Frames running that the ring around the avatar has read as home. */
   private homeStreak = 0;
+  /** The way back's last aim, in frame pixels from where the odometer started, or `null`. */
+  private lastAim: null | Point = null;
   private readonly odometer = new Odometer(MASKED);
   /** The direction of the loop's way out and of its sideways leg. */
   private outward: Point = { x: 1, y: 0 };
@@ -269,8 +284,9 @@ export class BlackboxPilot {
     if (Math.hypot(wanted.x, wanted.y) < HALF) {
       return null;
     }
-    this.turnToward(wanted);
-    return wanted;
+    const steered = this.guardWallTurn(wanted);
+    this.turnToward(steered);
+    return steered;
   }
 
   /** Forgets the loop in flight and its bearings, as after a respawn or a takeover. */
@@ -278,6 +294,7 @@ export class BlackboxPilot {
     this.phase = 'home';
     this.framesInPhase = 0;
     this.exitPoint = null;
+    this.lastAim = null;
     this.track = [];
     this.trailStart = null;
     this.homeMask = null;
@@ -545,6 +562,43 @@ export class BlackboxPilot {
   }
 
   /**
+   * The direction to steer instead of `wanted`, so that against the wall the heading never swings through the wall's
+   * outward normal. The engine turns the shortest way, and pressed against the wall a heading that crosses the outward
+   * normal reverses the slide, back over the trail just laid: the player dies by the wall. Such a turn goes the long way
+   * round, through the inward side, at most three eighths of a turn from the heading at a time; a target back along the
+   * wall keeps the slide going forward.
+   *
+   * @param wanted - The direction the pilot wants.
+   * @returns The direction to steer.
+   */
+  private guardWallTurn(wanted: Point): Point {
+    const centerX = this.width * HALF;
+    const centerY = this.height * HALF;
+    if ((this.wall[Math.floor(centerY) * this.width + Math.floor(centerX)] ?? Infinity) >= WALL_CONTACT) {
+      return wanted;
+    }
+    const inward = wallGradient(this.wall, this.width, this.height, centerX, centerY);
+    if (inward.x === 0 && inward.y === 0) {
+      return wanted;
+    }
+    const outward = Math.atan2(-inward.y, -inward.x);
+    const from = wrapAngle(this.heading - outward);
+    const turn = wrapAngle(Math.atan2(wanted.y, wanted.x) - this.heading);
+    const to = from + turn;
+    if (from === 0 || Math.sign(from) === Math.sign(to) || Math.abs(to) >= Math.PI) {
+      return wanted;
+    }
+    let angle: number;
+    if (Math.abs(to) <= Math.PI * HALF) {
+      angle = outward + Math.sign(from) * WALL_HOLD_ANGLE;
+    } else {
+      const longWay = turn - Math.sign(turn) * FULL_TURN;
+      angle = this.heading + Math.sign(longWay) * Math.min(Math.abs(longWay), THREE_EIGHTHS_TURN);
+    }
+    return { x: Math.cos(angle), y: Math.sin(angle) };
+  }
+
+  /**
    * The player's own ground in view: the pixels of its color joined to the ground it left from. A unit's skin can share
    * the player's color, so a patch of that color the player did not leave from is not taken for home.
    *
@@ -722,8 +776,9 @@ export class BlackboxPilot {
     const { wall } = this;
     const nearest = new Array<null | Point>(RETURN_DIRECTIONS).fill(null);
     const nearestDistance = new Array<number>(RETURN_DIRECTIONS).fill(Infinity);
-    for (let index = 0; index < classes.length; index++) {
-      if (home[index] === 0) {
+    for (let index = width + 1; index < classes.length - width - 1; index++) {
+      // Only the inside of the territory is aimed at: specks of the player's color line other edges.
+      if (home[index] === 0 || !isOwnInside(classes, width, index)) {
         continue;
       }
       const dx = index % width - centerX;
@@ -742,30 +797,45 @@ export class BlackboxPilot {
         aims.push({ x: centerX + offset.x + deeper.x * RETURN_AIM_DEPTH, y: centerY + offset.y + deeper.y * RETURN_AIM_DEPTH });
       }
     }
-    // Where the player left is home too, in view or not: when every stretch in view is cut off by the trail, the way
-    // round to it may still be open.
+    aims.push(...this.rememberedAims(aims.length === 0));
     const position = this.odometer.position;
-    for (const remembered of [this.exitPoint, this.track[0]]) {
-      if (remembered) {
-        const aim = { x: remembered.x - position.x + centerX, y: remembered.y - position.y + centerY };
-        if (aims.length === 0 || aim.x < 0 || aim.y < 0 || aim.x >= width || aim.y >= height) {
-          aims.push(aim);
-        }
-      }
-    }
+    const best = this.quickestAim(home, raster, aims);
+    const aim = best ?? this.escape(home, raster, wall);
+    this.lastAim = best ? { x: aim.x - centerX + position.x, y: aim.y - centerY + position.y } : null;
+    this.aim = aim;
+    this.aimReached = best !== null;
+    return normalize({ x: aim.x - centerX, y: aim.y - centerY });
+  }
+
+  /**
+   * Of the aims, the one whose simulated flight reaches home soonest. The last aim stands while it is still reached and
+   * not much slower: an aim that jumps from frame to frame turns the player one way and then the other, into a curl over
+   * its own trail.
+   *
+   * @param home - Nonzero on the territory's pixels.
+   * @param raster - The remembered trail.
+   * @param aims - The aims, in frame pixels.
+   * @returns The aim, or `null` when none is reached.
+   */
+  private quickestAim(home: Uint8Array, raster: Uint8Array, aims: readonly Point[]): null | Point {
     let best: null | Point = null;
     let bestFrames = Infinity;
     for (const aim of aims) {
-      const flight = this.simulateReturn(home, raster, aim, wall);
+      const flight = this.simulateReturn(home, raster, aim, this.wall);
       if (flight.reached && flight.frames < bestFrames) {
         best = aim;
         bestFrames = flight.frames;
       }
     }
-    const aim = best ?? this.escape(home, raster, wall);
-    this.aim = aim;
-    this.aimReached = best !== null;
-    return normalize({ x: aim.x - centerX, y: aim.y - centerY });
+    if (this.lastAim && best) {
+      const position = this.odometer.position;
+      const kept = { x: this.lastAim.x - position.x + this.width * HALF, y: this.lastAim.y - position.y + this.height * HALF };
+      const flight = this.simulateReturn(home, raster, kept, this.wall);
+      if (flight.reached && flight.frames <= bestFrames * AIM_KEEP_SHARE + AIM_KEEP_FRAMES) {
+        return kept;
+      }
+    }
+    return best;
   }
 
   /** Remembers where the player is, keeping only the last stretch while it is at home. */
@@ -778,6 +848,27 @@ export class BlackboxPilot {
     if (this.phase === 'home' && this.framesInPhase >= HOME_CONFIRM_FRAMES) {
       this.forgetTrack();
     }
+  }
+
+  /**
+   * Where the player left, as aims: home too, in view or not. When every stretch in view is cut off by the trail, the
+   * way round to it may still be open.
+   *
+   * @param inView - Whether to aim at it even inside the view, as when no territory is in view.
+   * @returns The aims, in frame pixels.
+   */
+  private rememberedAims(inView: boolean): Point[] {
+    const position = this.odometer.position;
+    const aims: Point[] = [];
+    for (const remembered of [this.exitPoint, this.track[0]]) {
+      if (remembered) {
+        const aim = { x: remembered.x - position.x + this.width * HALF, y: remembered.y - position.y + this.height * HALF };
+        if (inView || aim.x < 0 || aim.y < 0 || aim.x >= this.width || aim.y >= this.height) {
+          aims.push(aim);
+        }
+      }
+    }
+    return aims;
   }
 
   /**
@@ -829,7 +920,7 @@ export class BlackboxPilot {
       let stepX = Math.cos(heading) * this.speed;
       let stepY = Math.sin(heading) * this.speed;
       // Pressed against the wall, the engine slides the player along it: the step's part into the wall is dropped.
-      const ahead = (wall[Math.floor(y + stepY) * width + Math.floor(x + stepX)] ?? Infinity);
+      const ahead = wall[Math.floor(y + stepY) * width + Math.floor(x + stepX)] ?? Infinity;
       if (ahead < wallLimit) {
         const inward = wallGradient(wall, width, height, x, y);
         const into = stepX * inward.x + stepY * inward.y;
@@ -941,6 +1032,7 @@ export class BlackboxPilot {
   private stepHome(classes: Uint8Array): Point {
     if (this.phase !== 'home') {
       this.setPhase('home');
+      this.lastAim = null;
       // The loop's trail is the territory's edge now: forget it at once, or its memory walls the territory off.
       this.forgetTrack();
     }
@@ -1208,6 +1300,30 @@ export function thinForeign(classes: Uint8Array, width: number, height: number):
   return classes.map((pixelClass, index) => pixelClass === OTHER && (core[index] ?? Infinity) > TERRITORY_THICKNESS ? 1 : 0);
 }
 
+/**
+ * The direction away from the wall at a point: the wall distance's gradient, by central differences, normalized.
+ *
+ * @param wall - Each pixel's distance to the outside of the arena.
+ * @param width - The frame's width.
+ * @param height - The frame's height.
+ * @param x - The point's column.
+ * @param y - Its row.
+ * @returns The unit direction; the origin where the distance is flat or unknown.
+ */
+export function wallGradient(wall: Float32Array, width: number, height: number, x: number, y: number): Point {
+  const column = Math.floor(x);
+  const row = Math.floor(y);
+  // Central differences need a pixel on every side.
+  if (column < 1 || row < 1 || column >= width - 1 || row >= height - 1) {
+    return { x: 0, y: 0 };
+  }
+  const index = row * width + column;
+  const dx = (wall[index + 1] ?? 0) - (wall[index - 1] ?? 0);
+  const dy = (wall[index + width] ?? 0) - (wall[index - width] ?? 0);
+  const size = Math.hypot(dx, dy);
+  return Number.isFinite(size) && size > 0 ? { x: dx / size, y: dy / size } : { x: 0, y: 0 };
+}
+
 function distanceSquared(a: Color, b: Color): number {
   return (a.r - b.r) * (a.r - b.r) + (a.g - b.g) * (a.g - b.g) + (a.b - b.b) * (a.b - b.b);
 }
@@ -1224,6 +1340,25 @@ function isDarkerShade(color: Color, base: Color): boolean {
   const low = Math.min(...ratios);
   const high = Math.max(...ratios);
   return high < SHADE_MAX && low > SHADE_MIN && high - low < SHADE_SPREAD;
+}
+
+/**
+ * Whether a pixel and all eight around it are the player's own ground.
+ *
+ * @param classes - The frame's classes.
+ * @param width - Its width.
+ * @param index - The pixel; it must not be on the frame's border.
+ * @returns Whether they are.
+ */
+function isOwnInside(classes: Uint8Array, width: number, index: number): boolean {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (classes[index + dy * width + dx] !== OWN) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**
@@ -1266,45 +1401,6 @@ function wallDistance(classes: Uint8Array, width: number, height: number): Float
   const depth = chamferDistance(classes.map((pixelClass) => pixelClass === OUTSIDE || pixelClass === MASKED ? 0 : 1), width, height);
   const core = chamferDistance(depth.map((distance, index) => distance >= WALL_THICKNESS && classes[index] === OUTSIDE ? 1 : 0), width, height);
   return core.map((distance) => Math.max(0, distance - WALL_THICKNESS));
-}
-
-/**
- * The direction away from the wall at a point: the wall distance's gradient, by central differences, normalized.
- *
- * @param wall - Each pixel's distance to the outside of the arena.
- * @param width - The frame's width.
- * @param height - The frame's height.
- * @param x - The point's column.
- * @param y - Its row.
- * @returns The unit direction; the origin where the distance is flat or unknown.
- */
-function wallGradient(wall: Float32Array, width: number, height: number, x: number, y: number): Point {
-  const column = Math.min(width - 2, Math.max(1, Math.floor(x)));
-  const row = Math.min(height - 2, Math.max(1, Math.floor(y)));
-  const index = row * width + column;
-  const dx = (wall[index + 1] ?? 0) - (wall[index - 1] ?? 0);
-  const dy = (wall[index + width] ?? 0) - (wall[index - width] ?? 0);
-  const size = Math.hypot(dx, dy);
-  return Number.isFinite(size) && size > 0 ? { x: dx / size, y: dy / size } : { x: 0, y: 0 };
-}
-
-/**
- * Whether a pixel and all eight around it are the player's own ground.
- *
- * @param classes - The frame's classes.
- * @param width - Its width.
- * @param index - The pixel; it must not be on the frame's border.
- * @returns Whether they are.
- */
-function isOwnInside(classes: Uint8Array, width: number, index: number): boolean {
-  for (let dy = -1; dy <= 1; dy++) {
-    for (let dx = -1; dx <= 1; dx++) {
-      if (classes[index + dy * width + dx] !== OWN) {
-        return false;
-      }
-    }
-  }
-  return true;
 }
 
 /**
