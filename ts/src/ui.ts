@@ -35,12 +35,21 @@ import {
 } from './i18n.ts';
 import { Practice } from './practice.ts';
 import {
+  applyRecordingClass,
+  CutMarker,
+  formatRewindHint,
+  readRecordingMode,
+  RECORDING_KEY,
+  writeRecordingMode
+} from './recording.ts';
+import {
   deleteSave,
   listSaves,
   readSave,
   writeSave
 } from './save-format.ts';
 import { DAYS_IN_YEAR } from './scoring.ts';
+import { noop } from './shared/noop.ts';
 import {
   canCaptureSnapshot,
   captureSnapshot
@@ -211,12 +220,14 @@ export interface MenuScreenProps {
   practiceMode: boolean;
   preparing: boolean;
   provider?: undefined;
+  recordingMode: boolean;
   removeSave: (id: string) => void;
   route: Dispatch<string>;
   saves: readonly SaveSummary[];
   setLanguage: Dispatch<Language | undefined>;
   setNickName: Dispatch<string>;
   setPracticeMode: (practiceMode: boolean) => void;
+  setRecordingMode: (recordingMode: boolean) => void;
   setState: Dispatch<string>;
   skin: string;
   skins: SkinSource[];
@@ -228,11 +239,13 @@ export function MenuScreen({
   menuMessage,
   nickName,
   practiceMode,
+  recordingMode,
   removeSave,
   route,
   saves,
   setNickName,
   setPracticeMode,
+  setRecordingMode,
   skin,
   start
 }: MenuScreenProps): VNode<unknown> {
@@ -319,13 +332,14 @@ export function MenuScreen({
       !isSupported && createElement('p', {
         class: 'notsupported'
       }, lng.nosupport),
-      isSupported && createElement(PracticeMenu, {
+      isSupported && !recordingMode && createElement(PracticeMenu, {
         loadSave,
         menuMessage,
         practiceMode,
         removeSave,
         saves,
-        setPracticeMode
+        setPracticeMode,
+        setRecordingMode
       })
     ),
     createElement('div', {
@@ -388,10 +402,12 @@ export interface PracticeMenuProps {
   removeSave: (id: string) => void;
   saves: readonly SaveSummary[];
   setPracticeMode: (practiceMode: boolean) => void;
+  setRecordingMode: (recordingMode: boolean) => void;
 }
 /**
- * The menu's Practice toggle and its saved games. Practice mode turns on checkpoints for the next run; a saved game
- * always loads into a practice run.
+ * The menu's Practice toggle, its Recording toggle and its saved games. Practice mode turns on checkpoints for the
+ * next run; a saved game always loads into a practice run. Recording mode hides this whole panel, so the R key is
+ * what turns it back off.
  *
  * @param root0 - The props.
  * @param root0.loadSave - Starts a practice run from a save.
@@ -400,6 +416,7 @@ export interface PracticeMenuProps {
  * @param root0.removeSave - Deletes a save.
  * @param root0.saves - The saves, newest first.
  * @param root0.setPracticeMode - Turns practice mode on or off.
+ * @param root0.setRecordingMode - Turns recording mode on or off.
  * @returns The panel.
  */
 export function PracticeMenu({
@@ -408,7 +425,8 @@ export function PracticeMenu({
   practiceMode,
   removeSave,
   saves,
-  setPracticeMode
+  setPracticeMode,
+  setRecordingMode
 }: PracticeMenuProps): VNode<unknown> {
   return createElement(
     'div',
@@ -426,6 +444,17 @@ export function PracticeMenu({
       'title': 'Checkpoints every 10 seconds, respawn at the latest on death. Practice runs do not count.',
       'type': 'button'
     }, `Practice mode: ${practiceMode ? 'on' : 'off'}`),
+    ' ',
+    createElement('button', {
+      'aria-pressed': false,
+      'class': 'orange',
+      'id': 'recording-toggle',
+      'onClick': () => {
+        setRecordingMode(true);
+      },
+      'title': 'Hide everything this copy adds, and mark the frames to cut. R turns it on and off.',
+      'type': 'button'
+    }, 'Recording mode (R)'),
     menuMessage && createElement('p', {
       id: 'practice-message'
     }, menuMessage),
@@ -491,6 +520,8 @@ export interface GameScreenProps {
   api: GameApi | null;
   bestScore: number;
   lastPercent?: number;
+  /** The cut marker while recording mode is on, else `null`. */
+  marker: CutMarker | null;
   nickName: string;
   /** A saved game to start from, which makes the run practice. */
   pendingLoad: GameSnapshot | null;
@@ -507,6 +538,7 @@ export function GameScreen({
   api,
   bestScore,
   lastPercent,
+  marker,
   nickName,
   pendingLoad,
   practiceMode,
@@ -522,6 +554,10 @@ export function GameScreen({
     function handleGameOver(results: GameResults): void {
       ensureNonNullable(api).game.practice = null;
       setPractice(null);
+      if (marker && marker.state !== 'off') {
+        // A practice run that ran out of checkpoints: the results are the original's, so they are clean again.
+        marker.resumeThen(noop);
+      }
       if (results.newBest) {
         setBestScore(results.score);
       }
@@ -544,6 +580,12 @@ export function GameScreen({
       if (pendingLoad) {
         startedApi.restoreSnapshot(pendingLoad);
         setPendingLoad(null);
+        if (marker && game.pause()) {
+          // A loaded game starts mid-run, so it is a cut: everything before the green frames goes.
+          marker.resumeThen(() => {
+            game.resume();
+          });
+        }
       }
       const practice = new Practice(game);
       game.practice = practice;
@@ -571,6 +613,8 @@ export const PAUSE_KEY_CODES: readonly string[] = ['Escape', 'KeyP'];
 export const PAUSE_Z_INDEX = 1000;
 export interface PauseControlProps {
   api: GameApi | null;
+  /** The cut marker while recording mode is on, else `null`. */
+  marker: CutMarker | null;
 }
 function keepFocusOnBody(event: Event): void {
   event.preventDefault();
@@ -580,12 +624,17 @@ function keepFocusOnBody(event: Event): void {
  * reads keys only when `event.target === document.body`, so a focused button would silently stop keyboard
  * steering, the same constraint the joystick toggle in `index.html` follows.
  *
+ * In recording mode none of it is shown: a pause is the cut marker's red span, and a resume shows its green span with
+ * the game still paused, then plays on.
+ *
  * @param root0 - The props.
  * @param root0.api - The game API whose live game is paused.
+ * @param root0.marker - The cut marker while recording mode is on.
  * @returns The button, plus the overlay while paused.
  */
 export function PauseControl({
-  api
+  api,
+  marker
 }: PauseControlProps): VNode<unknown> {
   const game = api?.game;
   const [paused, setPaused] = useState(game?.paused ?? false);
@@ -594,29 +643,43 @@ export function PauseControl({
       return undefined;
     }
     const currentGame: Game = game;
-    currentGame.onPauseChange = setPaused;
+    function handlePauseChange(isPaused: boolean): void {
+      setPaused(isPaused);
+      if (!marker) {
+        return;
+      }
+      if (isPaused) {
+        marker.cut();
+      } else if (marker.state !== 'off' && !isRespawnPending(currentGame)) {
+        marker.clear();
+      }
+    }
+    currentGame.onPauseChange = handlePauseChange;
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.repeat || !PAUSE_KEY_CODES.includes(event.code)) {
         return;
       }
       event.preventDefault();
-      togglePause(currentGame);
+      togglePause(currentGame, marker);
     }
     window.addEventListener('keydown', handleKeyDown, false);
     return (): void => {
       window.removeEventListener('keydown', handleKeyDown, false);
-      if (currentGame.onPauseChange === setPaused) {
+      if (currentGame.onPauseChange === handlePauseChange) {
         currentGame.onPauseChange = null;
       }
     };
-  }, [game]);
+  }, [game, marker]);
   function handleClick(event: MouseEvent): void {
     if (event.currentTarget instanceof HTMLElement) {
       event.currentTarget.blur();
     }
     if (game) {
-      togglePause(game);
+      togglePause(game, marker);
     }
+  }
+  if (marker) {
+    return createElement(Fragment, null);
   }
   return createElement(
     Fragment,
@@ -686,10 +749,44 @@ export function PauseControl({
     }, paused ? '▶' : '❚❚')
   );
 }
-function togglePause(game: Game): void {
-  if (!game.pause()) {
-    game.resume();
+function togglePause(game: Game, marker: CutMarker | null): void {
+  if (game.pause()) {
+    return;
   }
+  if (!marker || isRespawnPending(game)) {
+    // A pause inside a respawn's cut ends without green frames: the cut runs on to the respawn.
+    game.resume();
+  } else if (marker.state === 'resume') {
+    // Paused again while the green frames show: stay paused, and the cut goes on.
+    marker.cut();
+  } else {
+    marker.resumeThen(() => {
+      game.resume();
+    });
+  }
+}
+function isRespawnPending(game: Game): boolean {
+  return game.practice?.respawnPending ?? false;
+}
+/**
+ * Runs an action that interrupts the play, such as a save, inside a cut in recording mode: the game pauses, the red
+ * frames show, the action runs, then the green frames and the play resumes. Inside a pause it only runs the action.
+ *
+ * @param game - The live game.
+ * @param marker - The cut marker while recording mode is on.
+ * @param action - The action; it calls `done` once it has finished.
+ */
+function interruptPlay(game: Game, marker: CutMarker | null, action: (done: () => void) => void): void {
+  if (marker?.state !== 'off' || isRespawnPending(game) || !game.pause()) {
+    action(noop);
+    return;
+  }
+  marker.cut();
+  action(() => {
+    marker.resumeThen(() => {
+      game.resume();
+    });
+  });
 }
 /** `KeyboardEvent.code` values of the practice keys, none of which the engine steers on. */
 export const PRACTICE_KEY_ADD = 'KeyZ';
@@ -708,6 +805,8 @@ const PRACTICE_HUD_BUTTON_STYLE = {
   padding: '6px 8px'
 };
 export interface PracticeControlProps {
+  /** The cut marker while recording mode is on, else `null`. */
+  marker: CutMarker | null;
   /** Called after a save is written, so the menu lists it. */
   onSaved: () => void;
   practice: null | Practice;
@@ -717,12 +816,18 @@ export interface PracticeControlProps {
  * the checkpoints themselves, each removable on its own. Like the pause button, none of it may take keyboard focus,
  * since the engine reads keys only from `document.body`.
  *
+ * In recording mode none of it is shown and the flags are not drawn, while the keys keep working. A respawn then runs
+ * inside a cut: red from the death, with how far back the cut reaches; the restore; green with the game paused; play.
+ * A save and a removal pause the game inside a cut of their own.
+ *
  * @param root0 - The props.
+ * @param root0.marker - The cut marker while recording mode is on.
  * @param root0.onSaved - Told when a save has been written.
  * @param root0.practice - The practice run, or `null` outside practice mode.
  * @returns The controls, or nothing outside practice mode.
  */
 export function PracticeControl({
+  marker,
   onSaved,
   practice
 }: PracticeControlProps): null | VNode<unknown> {
@@ -733,6 +838,26 @@ export function PracticeControl({
       return undefined;
     }
     const currentPractice: Practice = practice;
+    const { game } = currentPractice;
+    currentPractice.markersVisible = !marker;
+    if (marker) {
+      const currentMarker: CutMarker = marker;
+      currentPractice.onPlayerDeath = (checkpoint: Checkpoint): void => {
+        currentMarker.cut();
+        currentMarker.cut(formatRewindHint(currentMarker.cutStartedAt, checkpoint.seenAt));
+      };
+      currentPractice.onRespawn = (checkpoint: Checkpoint): void => {
+        game.pause();
+        currentMarker.cut(formatRewindHint(currentMarker.cutStartedAt, checkpoint.seenAt));
+        currentMarker.resumeThen(() => {
+          game.resume();
+          checkpoint.seenAt = performance.now();
+        });
+      };
+    } else {
+      currentPractice.onPlayerDeath = null;
+      currentPractice.onRespawn = null;
+    }
     let messageTimer: number | undefined;
     function showMessage(text: string): void {
       setMessage(text);
@@ -754,10 +879,15 @@ export function PracticeControl({
           addCheckpoint(currentPractice);
           break;
         case PRACTICE_KEY_REMOVE:
-          currentPractice.remove();
+          interruptPlay(game, marker, (done: () => void) => {
+            currentPractice.remove();
+            done();
+          });
           break;
         case PRACTICE_KEY_SAVE:
-          saveGame(currentPractice, onSaved);
+          interruptPlay(game, marker, (done: () => void) => {
+            saveGame(currentPractice, onSaved, done);
+          });
           break;
         default:
           return;
@@ -772,9 +902,11 @@ export function PracticeControl({
         currentPractice.onChange = null;
       }
       currentPractice.onMessage = null;
+      currentPractice.onPlayerDeath = null;
+      currentPractice.onRespawn = null;
     };
-  }, [practice]);
-  if (!practice) {
+  }, [practice, marker]);
+  if (!practice || marker) {
     return null;
   }
   const currentPractice = practice;
@@ -917,7 +1049,7 @@ function addCheckpoint(practice: Practice): void {
     practice.onMessage?.(practice.game.preparing() ? 'No checkpoint while the game is still starting' : 'No checkpoint while the player is out of play');
   }
 }
-function saveGame(practice: Practice, onSaved: () => void): void {
+function saveGame(practice: Practice, onSaved: () => void, done: () => void = noop): void {
   const { game } = practice;
   const latest = practice.checkpoints[practice.checkpoints.length - 1];
   const player = game.player;
@@ -925,6 +1057,7 @@ function saveGame(practice: Practice, onSaved: () => void): void {
   const snapshot = inPlay && canCaptureSnapshot(game) ? captureSnapshot(game) : latest?.snapshot;
   if (!snapshot) {
     practice.onMessage?.('Nothing to save yet');
+    done();
     return;
   }
   const percent = ((player?.percent ?? 0) * PERCENT_DISPLAY_SCALE).toFixed(PERCENT_DECIMAL_PLACES);
@@ -932,8 +1065,10 @@ function saveGame(practice: Practice, onSaved: () => void): void {
   writeSave(game, snapshot, name).then(() => {
     practice.onMessage?.('Saved');
     onSaved();
+    done();
   }, (error: unknown) => {
     practice.onMessage?.(error instanceof Error ? error.message : String(error));
+    done();
   });
 }
 const PERCENT_DISPLAY_SCALE = 100;
@@ -941,12 +1076,14 @@ export interface ResultsScreenProps {
   bestScore: number;
   country?: undefined;
   provider?: undefined;
+  recordingMode: boolean;
   results: GameResults;
   route: Dispatch<string>;
   start: () => void;
 }
 export function ResultsScreen({
   bestScore,
+  recordingMode,
   results,
   route
 }: ResultsScreenProps): VNode<unknown> {
@@ -1002,7 +1139,7 @@ export function ResultsScreen({
           onClick: goToMenu
         }, lng.btnContinue)
       ),
-      results.practice && createElement('p', {
+      results.practice && !recordingMode && createElement('p', {
         id: 'practice-results',
         style: {
           color: '#ffffff',
@@ -1248,6 +1385,70 @@ export interface StorageApi {
   getJSON: (key: string) => null | StoredGameData;
   set: (key: string, value: StoredGameData, options: StorageSetOptions) => void;
 }
+export interface RecordingModeState {
+  /** The cut marker while recording mode is on, else `null`. */
+  marker: CutMarker | null;
+  recordingMode: boolean;
+  setRecordingMode: (recordingMode: boolean) => void;
+}
+/**
+ * Recording mode's state: remembered in `localStorage`, toggled by the R key, and mirrored as a class on `<html>`.
+ *
+ * @param api - The game API.
+ * @param route - The current route; a switch during a run is marked.
+ * @returns The mode, its setter and the cut marker.
+ */
+export function useRecordingMode(api: GameApi | null, route: string): RecordingModeState {
+  const [recordingMode, setRecordingModeState] = useState(readRecordingMode);
+  const [cutMarker] = useState(() => new CutMarker());
+  function setRecordingMode(nextRecordingMode: boolean): void {
+    writeRecordingMode(nextRecordingMode);
+    setRecordingModeState(nextRecordingMode);
+    if (route === 'game' && api) {
+      markRecordingSwitch(api.game, cutMarker, nextRecordingMode);
+    }
+  }
+  useEffect(() => {
+    applyRecordingClass(recordingMode);
+  }, [recordingMode]);
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.code !== RECORDING_KEY || event.repeat || event.target instanceof HTMLInputElement) {
+        return;
+      }
+      event.preventDefault();
+      setRecordingMode(!recordingMode);
+    }
+    window.addEventListener('keydown', handleKeyDown, false);
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown, false);
+    };
+  }, [recordingMode, route]);
+  return {
+    marker: recordingMode ? cutMarker : null,
+    recordingMode,
+    setRecordingMode
+  };
+}
+/**
+ * Marks a recording-mode switch made during a run.
+ *
+ * @param game - The live game.
+ * @param marker - The cut marker.
+ * @param recordingMode - Whether recording mode was just turned on.
+ */
+function markRecordingSwitch(game: Game, marker: CutMarker, recordingMode: boolean): void {
+  if (!recordingMode) {
+    // The additions come back, so the frames from here on are not clean.
+    marker.flashCut();
+  } else if (game.pause()) {
+    // Clean from the end of the green frames on. The game waits under the marker, so no play is lost.
+    marker.cut();
+    marker.resumeThen(() => {
+      game.resume();
+    });
+  }
+}
 export interface AppProps {
   ads?: undefined;
   api: GameApi | null;
@@ -1278,6 +1479,7 @@ export function App({
   const [pendingLoad, setPendingLoad] = useState<GameSnapshot | null>(null);
   const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
   const [menuMessage, setMenuMessage] = useState('');
+  const { marker, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1365,9 +1567,11 @@ export function App({
       ref: setCanvasRef
     }),
     route === 'game' && createElement(PauseControl, {
-      api
+      api,
+      marker
     }),
     route === 'game' && createElement(PracticeControl, {
+      marker,
       onSaved: refreshSaves,
       practice
     }),
@@ -1391,12 +1595,14 @@ export function App({
             practiceMode,
             preparing,
             provider,
+            recordingMode,
             removeSave,
             route: setRoute,
             saves,
             setLanguage,
             setNickName,
             setPracticeMode,
+            setRecordingMode,
             setState: setRoute,
             skin,
             skins,
@@ -1405,6 +1611,7 @@ export function App({
           route === 'game' && createElement(GameScreen, {
             api,
             bestScore,
+            marker,
             nickName,
             pendingLoad,
             practiceMode,
@@ -1419,6 +1626,7 @@ export function App({
           route === 'results' && createElement(ResultsScreen, {
             bestScore,
             provider,
+            recordingMode,
             results: ensureNonNullable(results),
             route: setRoute,
             start
