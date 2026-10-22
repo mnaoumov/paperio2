@@ -281,6 +281,31 @@ level from timid (0%) to hardest (100%).
 
 **Bots**: how many bots play, from 0 to 30 (the original has 15).
 
+**Against the demo autopilot.** `npm run benchmark -- --enemies <mode>[:<vision>],...`
+adds a row per enemy mode. The whitebox pilot against each, 4 seeds, 15 minutes
+each, on 2026-10-22:
+
+| Enemies | Wins | Deaths (cause) | Alive at the limit (median %) |
+| --- | --- | --- | --- |
+| Original | 0 | 1 (exit point taken 1) | 3 (46.7%) |
+| Avoid you, whitebox | 0 | 1 (exit point taken 1) | 3 (40.3%) |
+| Avoid you, blackbox | 0 | 1 (exit point taken 1) | 3 (36.7%) |
+| Chase you, whitebox | 0 | 4 (trail cut 4) | 0 |
+| Chase you, blackbox | 0 | 3 (trail cut 2, exit point taken 1) | 1 (44.7%) |
+| Suicidal | 0 | 1 (trail cut 1) | 3 (57.9%) |
+| Passive | 0 | 2 (wall 2) | 2 (25.2%) |
+| Land grabbers | 0 | 1 (self-intersection 1) | 3 (21.9%) |
+| Pack hunters, whitebox | 0 | 2 (trail cut 2) | 2 (16.8%) |
+| Pack hunters, blackbox | 0 | 2 (trail cut 1, exit point taken 1) | 2 (44.3%) |
+| Free-for-all | 0 | 3 (self-intersection 1, exit point taken 1, surrounded 1) | 1 (40.2%) |
+| Civil war | 0 | 1 (self-intersection 1) | 3 (36.9%) |
+| Mixed | 0 | 3 (self-intersection 1, trail cut 1, wall 1) | 1 (39.3%) |
+
+Whitebox Chase is the only mode that killed the pilot in every run. Suicidal
+bots free the most ground. Passive shows the pilot's own limit rather than the
+bots': with nobody to fear it still dies at the wall, which is the last-ring
+problem described under **Demo autopilot**.
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
