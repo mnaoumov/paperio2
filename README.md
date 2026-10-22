@@ -216,16 +216,22 @@ speed in headless Chrome and reports, per pilot, the win rate, the median and
 best time to win and how runs end. The same seed replays the same game. On
 2026-10-22:
 
-| Pilot | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
-| --- | --- | --- | --- | --- | --- |
-| Whitebox | 16 | 15 min | 0 | 2 (trail cut 1, exit point taken 1) | 14 (40.3%) |
-| Blackbox | 8 | 5 min | 0 | 6 (self-intersection 4, trail cut 1, surrounded 1) | 2 (0.3%) |
+| Pilot | Enemies | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
+| --- | --- | --- | --- | --- | --- | --- |
+| Whitebox | Original | 16 | 15 min | 0 | 1 (surrounded 1) | 15 (34.6%) |
+| Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 2, surrounded 1, self-intersection 1) | 12 (52.6%) |
+| Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
+| Blackbox | Original | 8 | 5 min | 0 | 6 (self-intersection 4, trail cut 1, surrounded 1) | 2 (0.3%) |
 
-Neither pilot wins yet. The whitebox survives most runs and keeps growing, to
-about 70% after 40 minutes in a longer run, but it keeps 16 units clear of the
-arena's wall, because a turn while pressed against the wall makes the engine
-count a death by the wall, so it can never take the last few percent. The
-blackbox sees only a small part of the arena and dies early.
+The whitebox now slides along the arena's wall without dying there: pressed
+against the wall, it never turns through the wall's outward direction, which
+would reverse the slide over its own trail. So its loops take the ring along the
+wall, and once it holds 99% of the arena it laps the wall to close what is left.
+An earlier version of the same pilot did win one 60-minute run in 16, in 59:05,
+but it died in 13 of them; the version measured above defends its base more
+carefully and survives an hour in 12 of 16, at the cost of growing more slowly.
+The bots take back about a third of what it captures, which is why it has not
+won yet. The blackbox sees only a small part of the arena and dies early.
 
 ### Enemy modes
 
@@ -303,8 +309,8 @@ each, on 2026-10-22:
 
 Whitebox Chase is the only mode that killed the pilot in every run. Suicidal
 bots free the most ground. Passive shows the pilot's own limit rather than the
-bots': with nobody to fear it still dies at the wall, which is the last-ring
-problem described under **Demo autopilot**.
+bots'. In that run it died at the wall twice. That was before the wall slide
+described under **Demo autopilot**, and it no longer does.
 
 ## Install it as an app on a Mac
 

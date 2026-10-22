@@ -17,6 +17,7 @@ import { Bot } from '../entities/units.ts';
 import { TURN_SPEED_RADIANS_PER_SECOND } from '../shared/constants.ts';
 import {
   add,
+  cross,
   distance,
   distanceToSegment,
   EIGHTH_TURN,
@@ -27,6 +28,7 @@ import {
   ORIGIN,
   pathLength,
   pointInPolygon,
+  QUARTER_TURN,
   scale,
   segmentDistance,
   segmentsIntersect,
@@ -54,7 +56,7 @@ export interface WhiteboxDebug {
 }
 
 /** What the pilot is doing, for the readout and the debug overlay. */
-export type WhiteboxPhase = 'attack' | 'home' | 'out' | 'return';
+export type WhiteboxPhase = 'attack' | 'home' | 'out' | 'return' | 'sweep';
 
 interface Candidate {
   /** What the loop is checked against the units with, again on every update until it leaves the base. */
@@ -103,6 +105,11 @@ const TRAIL_LENGTH_SHARE = 0.85;
 /** At planning, every unit must be at least this share of the loop's length away from it, plus the margin. */
 const PLAN_THREAT_SHARE = 0.6;
 const PLAN_THREAT_MARGIN = 40;
+/** A hunting unit must be farther from each point of a loop than this share of the trail still to lay from there; a passive bot than the second. */
+const HUNTER_REACH_SHARE = 1;
+const PASSIVE_REACH_SHARE_PLAN = 0.5;
+/** However small the loop, no hunting unit may be closer to it than this. */
+const HUNTER_MIN_DISTANCE = 200;
 /** A bot that would lose the race home must still be this share of the loop's length away, against a stray crossing. */
 const PLAN_STRAY_SHARE = 0.15;
 /** A bot that is not hunting must be beyond its trigger distance plus this share of the loop's length. */
@@ -114,19 +121,24 @@ const TRIGGER_MARGIN = 30;
 /** A bot whose heading passes this close to the trail is treated as hunting. */
 const HEADING_CLEARANCE = 12;
 /** In flight, the pilot heads home once a unit is closer to the trail than this factor of the way home, plus the margin. */
-const FLIGHT_THREAT_FACTOR = 1.3;
+const FLIGHT_THREAT_FACTOR = 1.8;
 const FLIGHT_THREAT_MARGIN = 40;
+/** A waypoint closer than this share of the turning radius to the centre of the unit's turn counts as passed. */
+const TURN_CIRCLE_SHARE = 0.95;
 /** A waypoint is reached within this distance. */
 const WAYPOINT_REACHED = 10;
 /** A waypoint beyond the wall is reached once the unit is this close to it and pressed against the wall. */
 const WALL_WAYPOINT_REACHED = 45;
 const WALL_CONTACT = 1.5;
 /**
- * Loops keep this far inside the wall, more than the turning radius. Pressed against the wall, a turn makes the engine's slide fold back onto the
- * trail's last segment, which it counts as a death by the wall, so the pilot never touches it; the thin ring this leaves is
- * not taken.
+ * Where a loop meets the wall, its waypoint sits this far inside the wall; a negative margin puts it past the wall, so the
+ * player is pressed against it and the loop takes the ring along the wall too. Pressed against the wall, a turn through
+ * the outward normal would fold the slide back onto the trail's last segment, a death by the wall, so every steer goes
+ * through {@link guardWallTurn}.
  */
-const WALL_MARGIN = 16;
+const WALL_MARGIN = -20;
+/** Pressed against the wall, a slide that must not reverse keeps the heading this far from the outward normal. */
+const WALL_HOLD_ANGLE = 0.3;
 /** Spacing of the waypoints that follow the wall's arc. */
 const WALL_ARC_STEP = 40;
 /** The return aims this far past the base's edge, so it crosses into the base. */
@@ -181,8 +193,20 @@ const EXACT_CANDIDATES = 40;
 const VERIFIED_CANDIDATES = 12;
 /** An enemy's trail is cut only within this distance. */
 const ATTACK_RANGE = 320;
+/** The wall sweep starts once the player holds this share of the arena, with no other unit this close. */
+const SWEEP_PERCENT = 0.99;
+const SWEEP_CLEARANCE = 300;
+/** It aims this far ahead along the wall and this far past it, so the player stays pressed against it. */
+const SWEEP_LEAD = 60;
+const SWEEP_PUSH = 20;
+/** A sweep whose trail grows longer than this ends, and the player goes home. */
+const SWEEP_MAX_TRAIL = 400;
+/** After a lap, the loops get this many updates before the next sweep. */
+const SWEEP_COOLDOWN_UPDATES = 1800;
+/** A trail through the player's own base is cut only at points at least this far inside it, so the turn there stays inside. */
+const HOME_CUT_DEPTH = 30;
 /** A trail through the player's own base is cut within this distance. */
-const ATTACK_RANGE_AT_HOME = 450;
+const ATTACK_RANGE_AT_HOME = 700;
 /** The pilot must reach the trail in this share of the time its owner needs to get home, less the margin. */
 const ATTACK_TIME_SHARE = 0.8;
 const ATTACK_MARGIN_SECONDS = 0.25;
@@ -234,9 +258,18 @@ interface Estimate {
   readonly waypoints: readonly Point[];
 }
 
+/** A trail point the player can cut from its base, how far it is and how soon it is reached. */
+interface HomeVictim {
+  readonly point: Point;
+  readonly reach: number;
+  readonly seconds: number;
+}
+
 /** A planned loop's points, how far from home it gets and its trail length, which its safety is judged by. */
 interface LoopCheck {
   readonly exposure: number;
+  /** For each sample, the length of trail still to lay from there until the player is home. */
+  readonly remaining: readonly number[];
   readonly samples: readonly Point[];
   readonly trailLength: number;
 }
@@ -276,11 +309,24 @@ interface RingPoint {
   readonly point: Point;
 }
 
+/** A wall sweep under way. */
+interface SweepState {
+  /** The player's angle around the arena's centre at the last update. */
+  lastAngle: number;
+  /** How far round the arena the sweep has gone, in radians. */
+  turned: number;
+}
+
 /** A unit whose trail the pilot can cut, and how soon. */
 interface VictimChoice {
+  /** Whether its trail runs through or right along the player's base, which outranks any other victim. */
+  readonly home: boolean;
   readonly seconds: number;
   readonly unit: Unit;
 }
+
+/** Why the pilot cuts its victim's trail, which decides where it may follow it. */
+type VictimMode = 'chase' | 'home' | 'surround';
 
 /** A way home that the simulation approved, and how long it is. */
 interface WayHome {
@@ -294,7 +340,7 @@ interface WayHome {
  */
 export class WhiteboxPilot {
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
   }
@@ -307,9 +353,18 @@ export class WhiteboxPilot {
   private planCooldown = 0;
   private returnPath: Point[] = [];
   private returnUpdates = 0;
+  /** The wall sweep under way: the player's last angle around the centre and how far round it has gone. */
+  private sweep: null | SweepState = null;
+  /** Updates to wait before the next wall sweep. */
+  private sweepCooldown = 0;
   private target: null | Point = null;
   private threat: null | Threat = null;
   private victim: null | Unit = null;
+  /**
+   * Why the victim was chosen: `home` for a trail through the base, which is then cut only inside the base;
+   * `surround` for a unit whose capture is about to close around the player in its base, cut wherever is nearest.
+   */
+  private victimMode: VictimMode = 'chase';
   private waypointIndex = 0;
 
   /** Drops the plan, so the next update plans again from wherever the player is. */
@@ -348,7 +403,8 @@ export class WhiteboxPilot {
     if (situation.inBase && (this.phase === 'out' || this.phase === 'return')) {
       this.reset();
     }
-    if (this.phase === 'attack' && !this.isVictimValid()) {
+    // A cut from home never follows its trail out of the base: out there the player has a trail of its own to lose.
+    if (this.phase === 'attack' && (!this.isVictimValid() || (this.victimMode === 'home' && !situation.inBase))) {
       this.victim = null;
       this.phase = situation.inBase ? 'home' : 'return';
       this.loop = null;
@@ -359,19 +415,75 @@ export class WhiteboxPilot {
     if (!situation.inBase) {
       this.checkThreats(situation);
     }
-    this.target = this.chooseTarget(situation);
+    if (situation.inBase) {
+      this.lookForCaptureAroundPlayer(situation);
+    }
+    this.target = this.sweepOrChooseTarget(situation);
     this.stats[`${this.phase}Updates`]++;
     if (this.phase === 'home' && !this.loop) {
       this.stats.holdUpdates++;
     }
-    return this.target ? normalize(subtract(this.target, position)) : null;
+    if (!this.target) {
+      return null;
+    }
+    const wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
+    const steered = guardWallTurn(position, situation.heading, wanted, toPoint(game.border.center), game.border.radius);
+    return { x: Math.cos(steered), y: Math.sin(steered) };
   }
 
   private attackTarget(situation: Situation, victim: Unit): null | Point {
-    const { inBase, outline, position } = situation;
+    const { inBase, position } = situation;
     const trailPoints = victim.track.simplyline.map(toPoint);
-    const point = (inBase ? nearestPoint(position, trailPoints.filter((trailPoint) => pointInPolygon(trailPoint, outline))) : null) ?? nearestPoint(position, trailPoints);
-    return point ? add(point, scale(normalize(subtract(point, position)), ATTACK_OVERSHOOT)) : null;
+    if (this.victimMode === 'surround') {
+      // Every moment counts: the nearest point of the trail, inside the base or not.
+      const point = nearestPoint(position, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
+      return point ? add(point, scale(normalize(subtract(point, position)), ATTACK_OVERSHOOT)) : null;
+    }
+    const home = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING))?.point ?? null : null;
+    // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
+    const point = this.victimMode === 'home' ? home : home ?? nearestPoint(position, trailPoints);
+    if (!point) {
+      return null;
+    }
+    const past = add(point, scale(normalize(subtract(point, position)), ATTACK_OVERSHOOT));
+    // A cut from home aims past the trail only as far as the base reaches, so the player does not slip out of it there.
+    return this.victimMode === 'home' && !pointInPolygon(past, situation.outline) ? point : past;
+  }
+
+  /**
+   * How soon the player can cut a unit's trail out in the open: in range, before the unit is home, and with no other
+   * unit near the way there.
+   *
+   * @param situation - What the update knows.
+   * @param unit - The trail's owner.
+   * @param trailPoints - The trail's points.
+   * @returns The seconds to the trail, or `null` when it is not worth the chase.
+   */
+  private chaseSeconds(situation: Situation, unit: Unit, trailPoints: readonly Point[]): null | number {
+    const { game, heading, inBase, outline, player, position } = situation;
+    const speed = game.config.unitSpeed;
+    const point = nearestPoint(position, trailPoints);
+    if (!point) {
+      return null;
+    }
+    const reach = distance(position, point);
+    if (reach > ATTACK_RANGE) {
+      return null;
+    }
+    this.stats.victimsInRange++;
+    const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
+    const seconds = reach / speed + turn / TURN_SPEED_RADIANS_PER_SECOND;
+    if (!reachesInTime(seconds, unit, speed)) {
+      this.stats.victimsTooFar++;
+      return null;
+    }
+    const safe = (inBase && pointInPolygon(point, outline))
+      || game.units.every((other) => other === player || other === unit || other.death || distanceToSegment(toPoint(other.position), position, point) > reach * ATTACK_THREAT_FACTOR + ATTACK_THREAT_MARGIN);
+    if (!safe) {
+      this.stats.victimsUnsafe++;
+      return null;
+    }
+    return seconds;
   }
 
   private checkThreats(situation: Situation): void {
@@ -383,7 +495,8 @@ export class WhiteboxPilot {
     let closest: null | Threat = null;
     let danger = false;
     for (const unit of game.units) {
-      if (unit === player || unit === this.victim || unit.death) {
+      // Only a victim chased out in the open is busy getting home; one cut from the base can turn on the player's trail.
+      if (unit === player || (unit === this.victim && this.victimMode === 'chase') || unit.death) {
         continue;
       }
       const unitPosition = toPoint(unit.position);
@@ -415,6 +528,9 @@ export class WhiteboxPilot {
       if (target) {
         return target;
       }
+      this.victim = null;
+      this.phase = inBase ? 'home' : 'return';
+      this.loop = null;
     }
     if (this.phase === 'home' || this.phase === 'out') {
       const target = this.loopTarget(situation);
@@ -428,7 +544,7 @@ export class WhiteboxPilot {
 
   private isLoopStillSafe(situation: Situation, check: LoopCheck): boolean {
     const { game, player } = situation;
-    return !game.units.some((unit) => unit !== player && !unit.death && threatens(describeEnemy(unit, player), check.samples, check.exposure, check.trailLength));
+    return !game.units.some((unit) => unit !== player && !unit.death && threatens(describeEnemy(unit, player), check));
   }
 
   private isVictimValid(): boolean {
@@ -436,47 +552,67 @@ export class WhiteboxPilot {
     return victim !== null && !victim.death && victim.in !== victim.base && victim.track.simplyline.length > 0;
   }
 
+  /**
+   * When the player, in its base, stands in ground a unit's trail is about to close around, which would kill it there,
+   * that unit becomes the victim, whatever the player was doing: getting out of that ground means crossing the trail
+   * anyway, so the nearest point of the trail is the quickest way out and ends the capture too.
+   *
+   * @param situation - What the update knows.
+   */
+  private lookForCaptureAroundPlayer(situation: Situation): void {
+    const { game, player, position } = situation;
+    if (this.phase === 'attack' && this.victimMode === 'surround') {
+      return;
+    }
+    let best: null | Unit = null;
+    let bestReach = Infinity;
+    for (const unit of game.units) {
+      const capture = unit === player ? null : pendingCapture(unit);
+      if (!capture || !pointInPolygon(position, capture)) {
+        continue;
+      }
+      const reach = nearestDistance(position, unit.track.simplyline.map(toPoint));
+      if (reach < bestReach) {
+        best = unit;
+        bestReach = reach;
+      }
+    }
+    if (best) {
+      this.victim = best;
+      this.victimMode = 'surround';
+      this.phase = 'attack';
+      this.loop = null;
+      this.stats.surrounds++;
+    }
+  }
+
   private lookForVictim(situation: Situation): void {
-    const { game, heading, inBase, outline, player, position } = situation;
-    const speed = game.config.unitSpeed;
+    const { game, inBase, player } = situation;
     let best: null | VictimChoice = null;
     for (const unit of game.units) {
       if (unit === player || unit.death || unit.in === unit.base) {
         continue;
       }
       const trailPoints = unit.track.simplyline.map(toPoint);
-      // A trail run through the player's own base is cut with no risk at all: the player never leaves home for it.
-      const inside = inBase ? nearestPoint(position, trailPoints.filter((trailPoint) => pointInPolygon(trailPoint, outline))) : null;
-      if (inside && distance(position, inside) < ATTACK_RANGE_AT_HOME && isClearOfPolygon(position, inside, outline)) {
-        best = { seconds: 0, unit };
-        break;
+      if (inBase) {
+        // A trail run through the player's own base is about to take ground from it, and cutting it costs the player no
+        // time outside: the nearest such trail is cut first.
+        const home = homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
+        if (home && (!best || !best.home || home.seconds < best.seconds)) {
+          best = { home: true, seconds: home.seconds, unit };
+        }
+        if (best?.home) {
+          continue;
+        }
       }
-      const point = nearestPoint(position, trailPoints);
-      if (!point) {
-        continue;
-      }
-      const reach = distance(position, point);
-      if (reach > ATTACK_RANGE) {
-        continue;
-      }
-      this.stats.victimsInRange++;
-      const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
-      const seconds = reach / speed + turn / TURN_SPEED_RADIANS_PER_SECOND;
-      if (seconds > unit.baseDistance / speed * ATTACK_TIME_SHARE - ATTACK_MARGIN_SECONDS) {
-        this.stats.victimsTooFar++;
-        continue;
-      }
-      const safe = (inBase && pointInPolygon(point, outline))
-        || game.units.every((other) => other === player || other === unit || other.death || distanceToSegment(toPoint(other.position), position, point) > reach * ATTACK_THREAT_FACTOR + ATTACK_THREAT_MARGIN);
-      if (!safe) {
-        this.stats.victimsUnsafe++;
-      }
-      if (safe && (!best || seconds < best.seconds)) {
-        best = { seconds, unit };
+      const seconds = this.chaseSeconds(situation, unit, trailPoints);
+      if (seconds !== null && (!best || seconds < best.seconds)) {
+        best = { home: false, seconds, unit };
       }
     }
     if (best) {
       this.victim = best.unit;
+      this.victimMode = best.home ? 'home' : 'chase';
       this.phase = 'attack';
       this.stats.attacks++;
     }
@@ -519,7 +655,7 @@ export class WhiteboxPilot {
     const radius = game.border.radius;
     while (this.waypointIndex < loop.length) {
       const waypoint = loop[this.waypointIndex] ?? position;
-      if (isReached(position, waypoint, false, center, radius)) {
+      if (isReached(position, situation.heading, waypoint, false, center, radius, game.config.unitSpeed)) {
         this.waypointIndex++;
         continue;
       }
@@ -569,11 +705,100 @@ export class WhiteboxPilot {
       this.returnUpdates = RETURN_REPLAN_UPDATES;
     }
     const center = toPoint(game.border.center);
-    while (this.returnPath.length > 1 && isReached(position, this.returnPath[0] ?? position, false, center, game.border.radius)) {
+    while (this.returnPath.length > 1 && isReached(position, situation.heading, this.returnPath[0] ?? position, false, center, game.border.radius, game.config.unitSpeed)) {
       this.returnPath.shift();
     }
     return this.returnPath[0] ?? null;
   }
+
+  /**
+   * The wall sweep's target when one is due, otherwise whatever the phase calls for.
+   *
+   * @param situation - What the update knows.
+   * @returns The point to steer at.
+   */
+  private sweepOrChooseTarget(situation: Situation): null | Point {
+    const sweep = this.phase === 'attack' || this.phase === 'return' ? null : this.sweepTarget(situation);
+    if (sweep) {
+      this.phase = 'sweep';
+      this.loop = null;
+      return sweep;
+    }
+    if (this.phase === 'sweep') {
+      this.phase = situation.inBase ? 'home' : 'return';
+    }
+    return this.chooseTarget(situation);
+  }
+
+  /**
+   * The endgame's wall sweep. Once nearly all of the arena is the player's, what is left is mostly slivers against the
+   * wall, and a loop that turns into the wall leaves a new wedge between its arc and the wall wherever it does. So with
+   * no other unit near, the player slides along the wall all the way round, pressed against it, and each sliver it
+   * passes closes along the wall itself. A sweep lasts a lap; the loops then get their turn again for a while.
+   *
+   * @param situation - What the update knows.
+   * @returns The point to steer at, past the wall ahead, or `null` when no sweep is due.
+   */
+  private sweepTarget(situation: Situation): null | Point {
+    const { game, player, position } = situation;
+    if (this.sweepCooldown > 0) {
+      this.sweepCooldown--;
+      return null;
+    }
+    if (player.percent < SWEEP_PERCENT || game.units.some((unit) => unit !== player && !unit.death && distance(toPoint(unit.position), position) < SWEEP_CLEARANCE)) {
+      this.sweep = null;
+      return null;
+    }
+    const center = toPoint(game.border.center);
+    const radius = game.border.radius;
+    const angle = Math.atan2(position.y - center.y, position.x - center.x);
+    if (this.sweep) {
+      this.sweep.turned += Math.abs(angleDifference(angle, this.sweep.lastAngle));
+      this.sweep.lastAngle = angle;
+    } else {
+      this.sweep = { lastAngle: angle, turned: 0 };
+    }
+    // Sliding over ground that is not the player's yet lays a trail along the wall; a long one is cut short and taken home.
+    if (this.sweep.turned > FULL_TURN || (!situation.inBase && player.track.length > SWEEP_MAX_TRAIL)) {
+      this.sweep = null;
+      this.sweepCooldown = SWEEP_COOLDOWN_UPDATES;
+      return null;
+    }
+    const ahead = angle + SWEEP_LEAD / radius;
+    return add(center, scale({ x: Math.cos(ahead), y: Math.sin(ahead) }, radius + SWEEP_PUSH));
+  }
+}
+
+/**
+ * The direction to steer at instead of `wanted`, so that near the wall the heading never swings through the wall's
+ * outward normal. The engine turns the shortest way, and pressed against the wall a heading that crosses the outward
+ * normal reverses the slide, straight back over the trail just laid: the unit dies by the wall. Such a turn is made the
+ * long way round instead, through the inward side, by steering at most three eighths of a turn from the heading.
+ *
+ * @param position - The unit.
+ * @param heading - Its heading, in radians.
+ * @param wanted - The direction it should turn to, in radians.
+ * @param center - The arena's centre.
+ * @param radius - The arena's radius.
+ * @returns The direction to steer at, in radians.
+ */
+export function guardWallTurn(position: Point, heading: number, wanted: number, center: Point, radius: number): number {
+  if (distance(position, center) < radius - WALL_CONTACT) {
+    return wanted;
+  }
+  const outward = Math.atan2(position.y - center.y, position.x - center.x);
+  const from = angleDifference(heading, outward);
+  const turn = angleDifference(wanted, heading);
+  const to = from + turn;
+  if (from === 0 || Math.sign(from) === Math.sign(to) || Math.abs(to) >= Math.PI) {
+    return wanted;
+  }
+  if (Math.abs(to) <= QUARTER_TURN) {
+    // The target lies back along the wall: the slide carries on forward instead, still pressed against the wall.
+    return outward + Math.sign(from) * WALL_HOLD_ANGLE;
+  }
+  const longWay = turn - Math.sign(turn) * FULL_TURN;
+  return heading + Math.sign(longWay) * Math.min(Math.abs(longWay), THREE_EIGHTHS_TURN);
 }
 
 /**
@@ -622,6 +847,7 @@ function clampToWall(from: Point, to: Point, center: Point, radius: number): Poi
   const hit = add(from, scale(direction, t));
   return add(center, scale(normalize(subtract(hit, center)), radius - WALL_MARGIN));
 }
+
 /**
  * Every loop worth weighing: a rectangle and a peel loop of each size from each sampled exit, each kept only when no unit
  * makes it unsafe, with its gain counted exactly (rectangles) or estimated (peel loops).
@@ -686,15 +912,35 @@ function considerLoop(context: PlanContext, estimates: Estimate[], loop: LoopSha
   }
   const exposure = farthestHome(route, field, raster) * FLIGHT_THREAT_FACTOR + FLIGHT_THREAT_MARGIN;
   const samples = samplePath([exit, ...route], ROUTE_SAMPLE_SPACING);
-  if (enemies.some((enemy) => threatens(enemy, samples, exposure, trailLength))) {
+  const check: LoopCheck = { exposure, remaining: remainingAlong(samples, trailLength), samples, trailLength };
+  if (enemies.some((enemy) => threatens(enemy, check))) {
     return;
   }
   // Crossing the base takes time and lets the units move under the plan, so it counts double.
   const seconds = (distance(position, exit) * TRANSIT_WEIGHT + trailLength) / speed + LOOP_OVERHEAD_SECONDS;
   const gain = estimatedGain ?? gainCells(shape, raster, center, radius);
   if (gain > 0) {
-    estimates.push({ check: { exposure, samples, trailLength }, exact: estimatedGain === null, gain, seconds, shape, waypoints: [exit, ...route] });
+    estimates.push({ check, exact: estimatedGain === null, gain, seconds, shape, waypoints: [exit, ...route] });
   }
+}
+
+/**
+ * How far a point is from a polygon's nearest edge.
+ *
+ * @param point - The point.
+ * @param polygon - The polygon.
+ * @returns The distance.
+ */
+function depthInside(point: Point, polygon: readonly Point[]): number {
+  let depth = Infinity;
+  for (let index = 0; index < polygon.length; index++) {
+    const a = polygon[index];
+    const b = polygon[(index + 1) % polygon.length];
+    if (a && b) {
+      depth = Math.min(depth, distanceToSegment(point, a, b));
+    }
+  }
+  return depth;
 }
 
 /**
@@ -807,6 +1053,7 @@ function farthestHome(route: readonly Point[], field: Float32Array, raster: Rast
   }
   return farthest;
 }
+
 function fieldAt(field: Float32Array, raster: Raster, point: Point): number {
   const { cellSize, columns, rows } = raster;
   const column = Math.min(columns - 1, Math.max(0, Math.floor(point.x / cellSize)));
@@ -918,6 +1165,33 @@ function holdTarget(situation: Situation): Point {
   return { x: position.x + Math.cos(heading + Math.PI * HALF) * HOLD_RADIUS, y: position.y + Math.sin(heading + Math.PI * HALF) * HOLD_RADIUS };
 }
 
+/**
+ * The nearest point of a unit's trail that the player, in its base, can cut with no risk at all: one inside the base
+ * with a straight way to it that stays inside. Trails that only hug the base from outside are left alone: the way to
+ * them leaves the base right in front of their owner, which is excluded from the threats while it is the victim.
+ *
+ * @param situation - What the update knows.
+ * @param trailPoints - The trail's points.
+ * @returns The point and the seconds to reach it, or `null` when there is none.
+ */
+function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): HomeVictim | null {
+  const { game, heading, outline, position } = situation;
+  const speed = game.config.unitSpeed;
+  let best: HomeVictim | null = null;
+  for (const point of trailPoints) {
+    const reach = distance(position, point);
+    if (reach > ATTACK_RANGE_AT_HOME || (best && reach >= best.reach)) {
+      continue;
+    }
+    if (!pointInPolygon(point, outline) || depthInside(point, outline) < HOME_CUT_DEPTH || !isClearOfPolygon(position, point, outline)) {
+      continue;
+    }
+    const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
+    best = { point, reach, seconds: reach / speed + turn / TURN_SPEED_RADIANS_PER_SECOND };
+  }
+  return best;
+}
+
 function isClearOfPolygon(from: Point, to: Point, polygon: readonly Point[]): boolean {
   for (let index = 0; index < polygon.length; index++) {
     const a = polygon[index];
@@ -1018,6 +1292,24 @@ function isHunting(unit: Unit): boolean {
 }
 
 /**
+ * Whether a point lies inside the circle the unit turns on at its full turn rate, toward the point's side: the unit can
+ * only orbit such a point, never reach it, so it counts as passed.
+ *
+ * @param position - The unit.
+ * @param heading - Its heading, in radians.
+ * @param target - The point.
+ * @param speed - The unit speed.
+ * @returns Whether it does.
+ */
+function isInsideTurn(position: Point, heading: number, target: Point, speed: number): boolean {
+  const turnRadius = speed / TURN_SPEED_RADIANS_PER_SECOND;
+  const forward = { x: Math.cos(heading), y: Math.sin(heading) };
+  const side = Math.sign(cross(forward, subtract(target, position))) || 1;
+  const turnCenter = add(position, scale({ x: -forward.y * side, y: forward.x * side }, turnRadius));
+  return distance(turnCenter, target) < turnRadius * TURN_CIRCLE_SHARE;
+}
+
+/**
  * Whether the straight way from `from` to `to` crosses none of a polygon's edges.
  *
  * @param from - The start.
@@ -1030,15 +1322,20 @@ function isHunting(unit: Unit): boolean {
  * The simulation and the live flight share this rule, so the way the simulation approves is the way that is flown.
  *
  * @param position - The player.
+ * @param heading - The player's heading, in radians.
  * @param target - The waypoint.
  * @param final - Whether it is the last one, which must be reached closely.
  * @param center - The arena's centre.
  * @param radius - The arena's radius.
+ * @param speed - The unit speed.
  * @returns Whether it is reached.
  */
-function isReached(position: Point, target: Point, final: boolean, center: Point, radius: number): boolean {
+function isReached(position: Point, heading: number, target: Point, final: boolean, center: Point, radius: number, speed: number): boolean {
   const away = distance(position, target);
   if (away < (final ? SIMULATION_ARRIVAL : WAYPOINT_REACHED)) {
+    return true;
+  }
+  if (!final && isInsideTurn(position, heading, target, speed)) {
     return true;
   }
   return !final && away < WALL_WAYPOINT_REACHED && distance(target, center) > radius && distance(position, center) > radius - WALL_CONTACT;
@@ -1113,6 +1410,22 @@ function peelLoop(ring: readonly RingPoint[], start: number, direction: number, 
 }
 
 /**
+ * The ground a unit outside its base would take if it went straight home now, roughly: its trail, its head, and the
+ * nearest point of its base, closed back to the trail's start. A unit in its own base that such a capture encloses
+ * dies, so the player stays out of it.
+ *
+ * @param unit - The unit.
+ * @returns The polygon, or `null` for a unit with no trail out.
+ */
+function pendingCapture(unit: Unit): null | Point[] {
+  const home = unit.baseNearestPoint;
+  if (unit.death || unit.in === unit.base || !home || unit.track.simplyline.length === 0) {
+    return null;
+  }
+  return [...unit.track.simplyline.map(toPoint), toPoint(unit.position), toPoint(home)];
+}
+
+/**
  * Ranks the loops by ground taken per second, counting the best estimated ones exactly before the final ranking.
  *
  * @param context - The plan's inputs.
@@ -1163,6 +1476,33 @@ function rasterize(outline: readonly Point[], width: number, height: number, cel
     }
   }
   return { cellSize, columns, own, rows };
+}
+
+/**
+ * Whether the player, `seconds` from a unit's trail, gets there in good time before the unit is home.
+ *
+ * @param seconds - The player's time to the trail.
+ * @param unit - The trail's owner.
+ * @param speed - The unit speed.
+ * @returns Whether it does.
+ */
+function reachesInTime(seconds: number, unit: Unit, speed: number): boolean {
+  return seconds <= unit.baseDistance / speed * ATTACK_TIME_SHARE - ATTACK_MARGIN_SECONDS;
+}
+
+/**
+ * For each point along a sampled path, the length still to go from there, given the whole length.
+ *
+ * @param samples - The points, in order.
+ * @param total - The whole length, the way home included.
+ * @returns The lengths still to go.
+ */
+function remainingAlong(samples: readonly Point[], total: number): number[] {
+  let along = 0;
+  return samples.map((sample, index) => {
+    along += index > 0 ? distance(samples[index - 1] ?? sample, sample) : 0;
+    return Math.max(0, total - along);
+  });
 }
 
 /**
@@ -1232,14 +1572,14 @@ function simulateApproach(params: ApproachParams): null | number {
     if (!target) {
       return null;
     }
-    if (isReached(position, target, leg === path.length - 1, center, radius)) {
+    if (isReached(position, heading, target, leg === path.length - 1, center, radius, speed)) {
       leg++;
       target = path[leg];
       if (!target) {
         return flown;
       }
     }
-    const wanted = Math.atan2(target.y - position.y, target.x - position.x);
+    const wanted = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
     heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(wanted, heading)));
     const next = keepInside({ x: position.x + Math.cos(heading) * stepLength, y: position.y + Math.sin(heading) * stepLength }, center, radius);
     if (staysInside && leg === 0 && distance(next, target) > WAYPOINT_REACHED && !pointInPolygon(next, staysInside)) {
@@ -1277,15 +1617,21 @@ function simulateApproach(params: ApproachParams): null | number {
  * trigger distance for most of the loop, unless the loop is so shallow that the player wins any race home it starts.
  *
  * @param enemy - The unit.
- * @param samples - Points along the loop.
- * @param exposure - How close a hunter may get before the player cannot get home first.
- * @param trailLength - The loop's trail length.
+ * @param check - The loop's points, the trail still to lay from each, how close a hunter may get before the player
+ *   cannot get home first, and the loop's trail length.
  * @returns Whether it is unsafe.
  */
-function threatens(enemy: EnemyModel, samples: readonly Point[], exposure: number, trailLength: number): boolean {
+function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
+  const { exposure, remaining, samples, trailLength } = check;
+  // A unit as fast as the player reaches a point of the trail before the loop closes when it is closer to it than the
+  // trail still to lay from there: a hunter must never be, and a bot that is not hunting yet not within half of it.
+  const reachShare = enemy.hunting ? HUNTER_REACH_SHARE : PASSIVE_REACH_SHARE_PLAN;
+  if (samples.some((sample, index) => distance(enemy.position, sample) < (remaining[index] ?? 0) * reachShare + PLAN_THREAT_MARGIN)) {
+    return true;
+  }
   const near = nearestDistance(enemy.position, samples);
   if (enemy.hunting) {
-    return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN);
+    return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);
   }
   if (exposure <= enemy.trigger) {
     return near < trailLength * PLAN_STRAY_SHARE + PLAN_THREAT_MARGIN;
