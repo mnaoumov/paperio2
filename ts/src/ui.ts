@@ -28,6 +28,7 @@ import type { Checkpoint } from './practice.ts';
 import type { SaveSummary } from './save-format.ts';
 import type { SkinSource } from './skins/skin.ts';
 import type { GameSnapshot } from './snapshot.ts';
+import type { VideoRecordingState } from './video/ui.ts';
 
 import {
   findDefaultLanguage,
@@ -54,6 +55,11 @@ import {
   canCaptureSnapshot,
   captureSnapshot
 } from './snapshot.ts';
+import {
+  RecordControl,
+  RecordingsPanel,
+  useVideoRecording
+} from './video/ui.ts';
 
 export type Dispatch<T> = (action: ((prevState: T) => T) | T) => void;
 
@@ -232,6 +238,7 @@ export interface MenuScreenProps {
   skin: string;
   skins: SkinSource[];
   start: () => void;
+  video: VideoRecordingState;
 }
 export function MenuScreen({
   api,
@@ -247,7 +254,8 @@ export function MenuScreen({
   setPracticeMode,
   setRecordingMode,
   skin,
-  start
+  start,
+  video
 }: MenuScreenProps): VNode<unknown> {
   const {
     lng
@@ -340,7 +348,16 @@ export function MenuScreen({
         saves,
         setPracticeMode,
         setRecordingMode
-      })
+      }),
+      isSupported && !recordingMode && createElement(
+        'div',
+        {
+          style: PRACTICE_PANEL_STYLE
+        },
+        createElement(RecordingsPanel, {
+          state: video
+        })
+      )
     ),
     createElement('div', {
       id: 'right_side'
@@ -1600,6 +1617,7 @@ export function App({
   const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
   const [menuMessage, setMenuMessage] = useState('');
   const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
+  const video = useVideoRecording(api, route);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1692,6 +1710,11 @@ export function App({
       onSaved: refreshSaves,
       practice
     }),
+    createElement(RecordControl, {
+      hidden: marker !== null,
+      inGame: route === 'game',
+      state: video
+    }),
     route === 'game' && createElement(PracticeControl, {
       marker,
       onSaved: refreshSaves,
@@ -1732,7 +1755,8 @@ export function App({
             setState: setRoute,
             skin,
             skins,
-            start
+            start,
+            video
           }),
           route === 'game' && createElement(GameScreen, {
             api,
