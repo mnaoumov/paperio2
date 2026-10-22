@@ -122,8 +122,17 @@ export interface PageClock {
 }
 
 export interface PageConfig {
+  readonly botGreedMax?: number;
   readonly botsCount: number;
   readonly prepareCounter: number;
+}
+
+/** The reconstruction's enemy settings, as `setEnemySettings` takes them. */
+export interface PageEnemySettings {
+  readonly count: null | number;
+  readonly level: null | number;
+  readonly mode: string;
+  readonly vision: 'blackbox' | 'whitebox';
 }
 
 export interface PageGridCell {
@@ -178,6 +187,17 @@ export interface PageSpatialGrid {
   cell(point: PagePoint): PageGridCell;
 }
 
+/** A bot's state machine, which the enemy-mode test reads. */
+export interface PageStateMachine {
+  readonly context: PageStateMachineContext;
+  readonly state: string;
+  readonly states: object;
+}
+
+export interface PageStateMachineContext {
+  readonly prey?: PageUnit;
+}
+
 export interface PageTerritory {
   readonly polygon: PagePolygon;
   readonly square: number;
@@ -185,7 +205,11 @@ export interface PageTerritory {
 
 export interface PageUnit {
   readonly base: PageTerritory;
+  readonly death?: boolean;
+  readonly fsm?: null | PageStateMachine;
+  readonly greed?: number;
   readonly in: unknown;
+  readonly isPlayer?: boolean;
   readonly percent?: number;
   readonly position: PagePoint;
 }
@@ -209,6 +233,8 @@ export interface PaperIo2PageApi {
   readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;
   readonly restoreSnapshot?: (snapshot: unknown) => void;
+  /** The reconstruction's enemy-mode switch; the original has none. */
+  readonly setEnemySettings?: (settings: PageEnemySettings) => void;
   /** Starts a run with no menu in between, as the benchmark does. */
   readonly start?: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: undefined, extraLives?: number, completePreparation?: boolean) => void;
   startGame: () => void;
@@ -219,7 +245,7 @@ export interface PaperIo2PageGame {
   readonly clock: PageClock;
   readonly config: PageConfig;
   readonly cycle: number;
-  kill(unit: PageUnit | undefined, killer: undefined, reason: number): void;
+  kill(unit: PageUnit | undefined, killer: null | PageUnit | undefined, reason: number): void;
   readonly paused: boolean;
   readonly pendingGameOver?: null | PagePendingGameOver;
   readonly player: null | PageUnit;

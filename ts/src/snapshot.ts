@@ -23,7 +23,10 @@ import type { Game } from './engine.ts';
 import type { PendingTimer } from './shared/game-clock.ts';
 
 import { Controller } from './controller.ts';
-import { botStates } from './entities/bot-ai.ts';
+import {
+  ENEMY_STATE_TABLES,
+  syncBotStates
+} from './entities/enemy-modes.ts';
 import {
   NamePool,
   Unit
@@ -270,10 +273,12 @@ export function restoreSnapshot(game: Game, snapshot: GameSnapshot): void {
   snapshot.skinsInUse.forEach((skin: Skin, index: number) => {
     skin.user = graph.skinUsers[index];
   });
+  // The enemy mode is the page's setting, not game state: bots from before a switch take the current one.
+  syncBotStates(game);
 }
 
 function cloneSnapshotGraph(game: Game, graph: SnapshotGraph): SnapshotGraph {
-  const sharedInstances = new Set<object>([botStates, game, game.config, game.language]);
+  const sharedInstances = new Set<object>([...ENEMY_STATE_TABLES, game, game.config, game.language]);
   return cloneGraph(graph, (object: object) => {
     if (sharedInstances.has(object) || object instanceof Node || object instanceof CanvasPattern || object instanceof CanvasGradient) {
       return true;

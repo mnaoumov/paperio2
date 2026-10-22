@@ -30,6 +30,10 @@ import {
   StateMachine
 } from './entities/bot-ai.ts';
 import {
+  enemyStateTableById,
+  enemyStateTableId
+} from './entities/enemy-modes.ts';
+import {
   Territory,
   Trail
 } from './entities/territory-trail.ts';
@@ -119,7 +123,9 @@ interface EncodedUsedSkins {
   readonly skins: readonly number[];
 }
 
-type ExternalTag = 'achievements' | 'botStates' | 'config' | 'game' | 'language' | 'path' | 'schemes' | AchievementTag | SkinTag;
+type ExternalTag = 'achievements' | 'botStates' | 'config' | 'game' | 'language' | 'path' | 'schemes' | `${typeof ENEMY_STATES_TAG_PREFIX}${string}` | AchievementTag | SkinTag;
+/** An enemy mode's state table is saved by its id; the original's keeps its `botStates` tag, so older saves load. */
+const ENEMY_STATES_TAG_PREFIX = 'enemyStates:';
 
 interface SaveDocument {
   readonly build: number;
@@ -391,8 +397,13 @@ function externalObjectOf(game: Game, tag: unknown): unknown {
       return game.language;
     case 'schemes':
       return game.schemesManager;
-    default:
+    default: {
+      const states = typeof tag === 'string' && tag.startsWith(ENEMY_STATES_TAG_PREFIX) ? enemyStateTableById(tag.slice(ENEMY_STATES_TAG_PREFIX.length)) : undefined;
+      if (states) {
+        return states;
+      }
       throw new Error(`Unknown reference in the saved game: ${String(JSON.stringify(tag))}`);
+    }
   }
 }
 
@@ -408,6 +419,10 @@ function externalTagOf(game: Game, value: object): ExternalTag | undefined {
   }
   if (value === botStates) {
     return 'botStates';
+  }
+  const enemyStatesId = enemyStateTableId(value);
+  if (enemyStatesId !== undefined) {
+    return `${ENEMY_STATES_TAG_PREFIX}${enemyStatesId}`;
   }
   if (value instanceof SchemeCycler) {
     return 'schemes';

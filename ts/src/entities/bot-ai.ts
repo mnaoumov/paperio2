@@ -2,7 +2,10 @@
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 
 import type { Vector } from '../geometry/vector.ts';
-import type { Bot } from './units.ts';
+import type {
+  Bot,
+  Unit
+} from './units.ts';
 
 import { Segment } from '../geometry/shapes.ts';
 import {
@@ -17,6 +20,8 @@ export interface BotStateContext {
   exitPoint?: Vector;
   minDistance?: number;
   point?: Vector;
+  /** The unit an `attack` hunts, in the enemy modes that hunt more than the player. */
+  prey?: Unit;
 }
 export interface BotStateHandlers {
   enter?: (payload: Bot, context: BotStateContext) => BotStateContext | undefined;
@@ -164,196 +169,23 @@ export const botStates: BotStates = {
   },
   capture: {
     update(unit, _context) {
-      if (unit.in === unit.base) {
-        return 'idle';
-      }
-      if (isPlayerTrailInRange(unit)) {
-        return 'attack';
-      }
-      const {
-        unitSpeed
-      } = unit.game.config;
-      const {
-        center
-      } = unit.game.space;
-      const {
-        radius
-      } = unit.game.border;
-      const distanceToCenter = unit.position.distance(center);
-      const distanceToBorder = radius - distanceToCenter;
-      if (unit.baseDistance < unitSpeed / CAPTURE_RETURN_SPEED_DIVISOR && unit.track.length > unitSpeed * CAPTURE_RETURN_TRACK_FACTOR && distanceToBorder > CAPTURE_RETURN_BORDER_MARGIN) {
-        return 'back';
-      }
-      const stepDistance = 25;
-      const halfStep = stepDistance / STEP_HALVING_DIVISOR;
-      const halfStepSquared = halfStep * halfStep;
-      if (unit.position.distance2(ensureNonNullable(unit.target)) < halfStepSquared && distanceToBorder > stepDistance) {
-        return;
-      }
-      let signedArea = 0;
-      for (let length = unit.track.simplyline.length, segmentIndex = 1; segmentIndex < length; segmentIndex++) {
-        const point2 = ensureNonNullable(unit.track.simplyline[segmentIndex - 1]);
-        const point3 = ensureNonNullable(unit.track.simplyline[segmentIndex]);
-        signedArea += (point2.x + point3.x) * (point3.y - point2.y);
-      }
-      let point = ensureNonNullable(unit.track.simplyline[unit.track.simplyline.length - 1]);
-      let baseNearestPoint = ensureNonNullable(unit.baseNearestPoint);
-      signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
-      point = ensureNonNullable(unit.baseNearestPoint);
-      baseNearestPoint = ensureNonNullable(unit.track.simplyline[0]);
-      signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
-      const windingSign = Math.sign(signedArea);
-      signedArea = Math.abs(signedArea / SHOELACE_DIVISOR);
-      unit.capSquare = signedArea;
-      const {
-        def,
-        greed,
-        safety
-      } = unit;
-      const circumference = FULL_TURN * unit.vrange * greed;
-      const lengthRatio = unit.track.length / circumference;
-      const areaThreshold = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
-      const areaRatio = unit.capSquare / areaThreshold;
-      const safeDistance = unit.vrange * lerp(SAFE_DISTANCE_RECKLESS_FACTOR, SAFE_DISTANCE_CAUTIOUS_FACTOR, safety);
-      const startDistanceRatio = unit.position.distance(ensureNonNullable(unit.track.polyline.start)) / safeDistance;
-      const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * MIN_TRACK_DISTANCE_FACTOR * def;
-      const baseDistanceRatio = unit.baseDistance / minTrackDistance;
-      const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
-      if (maxRatio > 1) {
-        return 'back';
-      }
-      const greedDistance = unit.vrange * greed;
-      const approachDistance = greedDistance;
-      const retreatDistance = approachDistance * RETREAT_DISTANCE_FACTOR;
-      const toTarget = ensureNonNullable(unit.target).clone().sub(unit.position);
-      let steerVector;
-      if (unit.baseDistance > approachDistance || maxRatio > MAX_RATIO_APPROACH_THRESHOLD) {
-        unit.aspect = 'приближение';
-        steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN + EIGHTH_TURN) * windingSign);
-      } else if (unit.baseDistance < retreatDistance) {
-        unit.aspect = 'отдаление';
-        let angle = EIGHTH_TURN;
-        const trackRatio = unit.track.length / retreatDistance;
-        if (trackRatio < 1) {
-          unit.aspect = 'отстрел';
-          angle = lerp(QUARTER_TURN * greed, 0, trackRatio);
-        }
-        steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN - angle) * windingSign);
-      } else {
-        unit.aspect = 'проход';
-        steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(QUARTER_TURN * windingSign);
-        unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * PASS_SMOOTHNESS_DANGER_FACTOR;
-      }
-      unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 1;
-      if (distanceToBorder < stepDistance * BORDER_BAND_OUTER_FACTOR && distanceToBorder > stepDistance / BORDER_BAND_INNER_DIVISOR && distanceToBorder < unit.position.clone().add(steerVector).distance(center)) {
-        const fromCenter = unit.position.clone().sub(center);
-        const targetAngle = fromCenter.angle(toTarget);
-        const targetAngleSign = Math.sign(targetAngle);
-        let steerAngle = fromCenter.angle(steerVector);
-        let steerAngleSign = Math.sign(steerAngle);
-        if (targetAngleSign !== steerAngleSign) {
-          steerAngle *= -1;
-          steerAngleSign *= -1;
-          steerVector.rotate(steerAngle * ANGLE_REFLECT_FACTOR);
-        }
-        const steerAngleAbs = Math.abs(steerAngle);
-        if (steerAngleAbs < EIGHTH_TURN) {
-          steerVector.rotate((EIGHTH_TURN - steerAngleAbs) * steerAngleSign);
-        }
-      }
-      unit.target = unit.position.clone().add(steerVector);
-      if (unit.target.distance(center) > radius + stepDistance * BORDER_OVERSHOOT_FACTOR) {
-        const fromCenter2 = unit.position.clone().sub(center);
-        const targetAngle2 = fromCenter2.angle(toTarget);
-        const centerDistance = distanceToCenter;
-        const chordProjection = (radius * radius - stepDistance * stepDistance + centerDistance * centerDistance) / (centerDistance * CHORD_DENOMINATOR_FACTOR);
-        const chordHalfLength = Math.sqrt(radius * radius - chordProjection * chordProjection);
-        const centerDirection = unit.position.clone().sub(center).normalize();
-        const projectionPoint = center.clone().add(centerDirection.clone().mulScalar(chordProjection));
-        steerVector = centerDirection.clone().rotate(QUARTER_TURN * targetAngle2).rotate(SIXTEENTH_TURN * -targetAngle2).mulScalar(chordHalfLength);
-        unit.target = projectionPoint.clone().add(steerVector);
-      }
-      return undefined;
+      return updateCapture(unit, isPlayerTrailInRange);
     }
   },
   cut: {
     enter(unit) {
-      const vector = unit.position.clone().sub(unit.game.space.center);
-      const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + BORDER_EXIT_MARGIN).add(unit.game.space.center));
-      const list4 = unit.base.polygon.intersections(segment);
-      const context: BotStateContext = {};
-      list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
-      const first = list4[0];
-      if (first) {
-        context.exitPoint = first.point;
-      }
-      return context;
+      return enterCut(unit);
     },
     update(unit, context) {
-      if (unit.in !== unit.base) {
-        return 'capture';
-      }
-      const distanceToCenter = unit.position.distance(unit.game.space.center);
-      const distanceToBorder = unit.game.border.radius - distanceToCenter;
-      if (!context.exitPoint || distanceToBorder < 1) {
-        return 'idle';
-      }
-      unit.target = context.exitPoint;
-      return undefined;
+      return updateCut(unit, context);
     }
   },
   exit: {
     enter(unit) {
-      const context: BotStateContext = {};
-      let nearestDistance = Infinity;
-      let bestIndex;
-      const {
-        length
-      } = unit.base.polygon.segments;
-      let unitSpeed = unit.game.config.unitSpeed;
-      context.minDistance = unitSpeed;
-      while (bestIndex === undefined) {
-        for (let i2 = 0; i2 < 1; i2++) {
-          const segmentIndex = Math.trunc(unit.game.rng() * length);
-          const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
-          const distance = start.distance(unit.position);
-          if (distance < nearestDistance && distance > unitSpeed) {
-            nearestDistance = distance;
-            bestIndex = segmentIndex;
-          }
-        }
-        unitSpeed *= EXIT_SPEED_DECAY;
-      }
-      context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
-      return context;
+      return enterExit(unit);
     },
     update(unit, context) {
-      if (unit.in !== unit.base) {
-        return 'capture';
-      }
-      if (isPlayerTrailInRange(unit)) {
-        return 'attack';
-      }
-      const {
-        length
-      } = unit.base.polygon.segments;
-      const minDistance = ensureNonNullable(context.minDistance);
-      const segmentIndex = Math.trunc(unit.game.rng() * length);
-      const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
-      const distance = start.distance(unit.position);
-      const exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
-      if (distance > minDistance && distance < exitPointDistance) {
-        context.exitPoint = start;
-      } else {
-        if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment.shape === unit.base.polygon)) {
-          context.exitPoint = start;
-        }
-        if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
-          context.exitPoint = start;
-        }
-      }
-      unit.target = context.exitPoint ?? null;
-      return undefined;
+      return updateExit(unit, context, isPlayerTrailInRange);
     }
   },
   idle: {
@@ -371,4 +203,231 @@ export const botStates: BotStates = {
     }
   }
 };
+
+/**
+ * The `capture` state's step: draw a loop beside the territory and decide when to turn home.
+ *
+ * @param unit - The bot.
+ * @param shouldAttack - Whether the bot leaves the loop to hunt; the original asks {@link isPlayerTrailInRange}.
+ * @returns The next state, or `undefined` to stay.
+ */
+export function updateCapture(unit: Bot, shouldAttack: (unit: Bot) => boolean): string | undefined {
+  if (unit.in === unit.base) {
+    return 'idle';
+  }
+  if (shouldAttack(unit)) {
+    return 'attack';
+  }
+  const {
+    unitSpeed
+  } = unit.game.config;
+  const {
+    center
+  } = unit.game.space;
+  const {
+    radius
+  } = unit.game.border;
+  const distanceToCenter = unit.position.distance(center);
+  const distanceToBorder = radius - distanceToCenter;
+  if (unit.baseDistance < unitSpeed / CAPTURE_RETURN_SPEED_DIVISOR && unit.track.length > unitSpeed * CAPTURE_RETURN_TRACK_FACTOR && distanceToBorder > CAPTURE_RETURN_BORDER_MARGIN) {
+    return 'back';
+  }
+  const stepDistance = 25;
+  const halfStep = stepDistance / STEP_HALVING_DIVISOR;
+  const halfStepSquared = halfStep * halfStep;
+  if (unit.position.distance2(ensureNonNullable(unit.target)) < halfStepSquared && distanceToBorder > stepDistance) {
+    return;
+  }
+  let signedArea = 0;
+  for (let length = unit.track.simplyline.length, segmentIndex = 1; segmentIndex < length; segmentIndex++) {
+    const point2 = ensureNonNullable(unit.track.simplyline[segmentIndex - 1]);
+    const point3 = ensureNonNullable(unit.track.simplyline[segmentIndex]);
+    signedArea += (point2.x + point3.x) * (point3.y - point2.y);
+  }
+  let point = ensureNonNullable(unit.track.simplyline[unit.track.simplyline.length - 1]);
+  let baseNearestPoint = ensureNonNullable(unit.baseNearestPoint);
+  signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
+  point = ensureNonNullable(unit.baseNearestPoint);
+  baseNearestPoint = ensureNonNullable(unit.track.simplyline[0]);
+  signedArea += (point.x + baseNearestPoint.x) * (baseNearestPoint.y - point.y);
+  const windingSign = Math.sign(signedArea);
+  signedArea = Math.abs(signedArea / SHOELACE_DIVISOR);
+  unit.capSquare = signedArea;
+  const {
+    def,
+    greed,
+    safety
+  } = unit;
+  const circumference = FULL_TURN * unit.vrange * greed;
+  const lengthRatio = unit.track.length / circumference;
+  const areaThreshold = Math.min(unit.base.square, Math.PI * unit.vrange * unit.vrange) * greed;
+  const areaRatio = unit.capSquare / areaThreshold;
+  const safeDistance = unit.vrange * lerp(SAFE_DISTANCE_RECKLESS_FACTOR, SAFE_DISTANCE_CAUTIOUS_FACTOR, safety);
+  const startDistanceRatio = unit.position.distance(ensureNonNullable(unit.track.polyline.start)) / safeDistance;
+  const minTrackDistance = unit.unitToTrackDistances.reduce((minDistance, distanceRecord) => Math.min(distanceRecord.trackDistance, minDistance), Infinity) * MIN_TRACK_DISTANCE_FACTOR * def;
+  const baseDistanceRatio = unit.baseDistance / minTrackDistance;
+  const maxRatio = Math.max(lengthRatio, areaRatio, startDistanceRatio, baseDistanceRatio);
+  if (maxRatio > 1) {
+    return 'back';
+  }
+  const greedDistance = unit.vrange * greed;
+  const approachDistance = greedDistance;
+  const retreatDistance = approachDistance * RETREAT_DISTANCE_FACTOR;
+  const toTarget = ensureNonNullable(unit.target).clone().sub(unit.position);
+  let steerVector;
+  if (unit.baseDistance > approachDistance || maxRatio > MAX_RATIO_APPROACH_THRESHOLD) {
+    unit.aspect = 'приближение';
+    steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN + EIGHTH_TURN) * windingSign);
+  } else if (unit.baseDistance < retreatDistance) {
+    unit.aspect = 'отдаление';
+    let angle = EIGHTH_TURN;
+    const trackRatio = unit.track.length / retreatDistance;
+    if (trackRatio < 1) {
+      unit.aspect = 'отстрел';
+      angle = lerp(QUARTER_TURN * greed, 0, trackRatio);
+    }
+    steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate((QUARTER_TURN - angle) * windingSign);
+  } else {
+    unit.aspect = 'проход';
+    steerVector = ensureNonNullable(unit.baseNearestPointNormal).clone().mulScalar(stepDistance).rotate(QUARTER_TURN * windingSign);
+    unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * PASS_SMOOTHNESS_DANGER_FACTOR;
+  }
+  unit.smoothness = 1 + (1 - Math.min(1, unit.maxDanger)) * 1;
+  if (distanceToBorder < stepDistance * BORDER_BAND_OUTER_FACTOR && distanceToBorder > stepDistance / BORDER_BAND_INNER_DIVISOR && distanceToBorder < unit.position.clone().add(steerVector).distance(center)) {
+    const fromCenter = unit.position.clone().sub(center);
+    const targetAngle = fromCenter.angle(toTarget);
+    const targetAngleSign = Math.sign(targetAngle);
+    let steerAngle = fromCenter.angle(steerVector);
+    let steerAngleSign = Math.sign(steerAngle);
+    if (targetAngleSign !== steerAngleSign) {
+      steerAngle *= -1;
+      steerAngleSign *= -1;
+      steerVector.rotate(steerAngle * ANGLE_REFLECT_FACTOR);
+    }
+    const steerAngleAbs = Math.abs(steerAngle);
+    if (steerAngleAbs < EIGHTH_TURN) {
+      steerVector.rotate((EIGHTH_TURN - steerAngleAbs) * steerAngleSign);
+    }
+  }
+  unit.target = unit.position.clone().add(steerVector);
+  if (unit.target.distance(center) > radius + stepDistance * BORDER_OVERSHOOT_FACTOR) {
+    const fromCenter2 = unit.position.clone().sub(center);
+    const targetAngle2 = fromCenter2.angle(toTarget);
+    const centerDistance = distanceToCenter;
+    const chordProjection = (radius * radius - stepDistance * stepDistance + centerDistance * centerDistance) / (centerDistance * CHORD_DENOMINATOR_FACTOR);
+    const chordHalfLength = Math.sqrt(radius * radius - chordProjection * chordProjection);
+    const centerDirection = unit.position.clone().sub(center).normalize();
+    const projectionPoint = center.clone().add(centerDirection.clone().mulScalar(chordProjection));
+    steerVector = centerDirection.clone().rotate(QUARTER_TURN * targetAngle2).rotate(SIXTEENTH_TURN * -targetAngle2).mulScalar(chordHalfLength);
+    unit.target = projectionPoint.clone().add(steerVector);
+  }
+  return undefined;
+}
+
+/**
+ * The `cut` state's entry: the base's edge straight outwards from the arena's centre.
+ *
+ * @param unit - The bot.
+ * @returns The state's context.
+ */
+export function enterCut(unit: Bot): BotStateContext {
+  const vector = unit.position.clone().sub(unit.game.space.center);
+  const segment = new Segment(unit.position, vector.normalize().mulScalar(unit.game.border.radius + BORDER_EXIT_MARGIN).add(unit.game.space.center));
+  const list4 = unit.base.polygon.intersections(segment);
+  const context: BotStateContext = {};
+  list4.sort((intersectionA, intersectionB) => intersectionA.distance - intersectionB.distance);
+  const first = list4[0];
+  if (first) {
+    context.exitPoint = first.point;
+  }
+  return context;
+}
+
+/**
+ * The `cut` state's step: head for the exit point.
+ *
+ * @param unit - The bot.
+ * @param context - The state's context.
+ * @returns The next state, or `undefined` to stay.
+ */
+export function updateCut(unit: Bot, context: BotStateContext): string | undefined {
+  if (unit.in !== unit.base) {
+    return 'capture';
+  }
+  const distanceToCenter = unit.position.distance(unit.game.space.center);
+  const distanceToBorder = unit.game.border.radius - distanceToCenter;
+  if (!context.exitPoint || distanceToBorder < 1) {
+    return 'idle';
+  }
+  unit.target = context.exitPoint;
+  return undefined;
+}
+
+/**
+ * The `exit` state's entry: a random nearby vertex of the base to leave by.
+ *
+ * @param unit - The bot.
+ * @returns The state's context.
+ */
+export function enterExit(unit: Bot): BotStateContext {
+  const context: BotStateContext = {};
+  let nearestDistance = Infinity;
+  let bestIndex;
+  const {
+    length
+  } = unit.base.polygon.segments;
+  let unitSpeed = unit.game.config.unitSpeed;
+  context.minDistance = unitSpeed;
+  while (bestIndex === undefined) {
+    for (let i2 = 0; i2 < 1; i2++) {
+      const segmentIndex = Math.trunc(unit.game.rng() * length);
+      const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
+      const distance = start.distance(unit.position);
+      if (distance < nearestDistance && distance > unitSpeed) {
+        nearestDistance = distance;
+        bestIndex = segmentIndex;
+      }
+    }
+    unitSpeed *= EXIT_SPEED_DECAY;
+  }
+  context.exitPoint = ensureNonNullable(unit.base.polygon.segments[bestIndex]).start;
+  return context;
+}
+
+/**
+ * The `exit` state's step: walk the exit point along the base's edge and head for it.
+ *
+ * @param unit - The bot.
+ * @param context - The state's context.
+ * @param shouldAttack - Whether the bot hunts instead; the original asks {@link isPlayerTrailInRange}.
+ * @returns The next state, or `undefined` to stay.
+ */
+export function updateExit(unit: Bot, context: BotStateContext, shouldAttack: (unit: Bot) => boolean): string | undefined {
+  if (unit.in !== unit.base) {
+    return 'capture';
+  }
+  if (shouldAttack(unit)) {
+    return 'attack';
+  }
+  const {
+    length
+  } = unit.base.polygon.segments;
+  const minDistance = ensureNonNullable(context.minDistance);
+  const segmentIndex = Math.trunc(unit.game.rng() * length);
+  const start = ensureNonNullable(unit.base.polygon.segments[segmentIndex]).start;
+  const distance = start.distance(unit.position);
+  const exitPointDistance = ensureNonNullable(context.exitPoint).distance(unit.position);
+  if (distance > minDistance && distance < exitPointDistance) {
+    context.exitPoint = start;
+  } else {
+    if (!Object.values(ensureNonNullable(context.exitPoint).segments).some((segment) => segment.shape === unit.base.polygon)) {
+      context.exitPoint = start;
+    }
+    if (unit.target && unit.target.distance(unit.game.space.center) > unit.game.border.radius - 1) {
+      context.exitPoint = start;
+    }
+  }
+  unit.target = context.exitPoint ?? null;
+  return undefined;
+}
 /* eslint-enable perfectionist/sort-modules -- end of the dependency-ordered engine declarations. */

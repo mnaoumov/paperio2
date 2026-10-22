@@ -286,7 +286,7 @@ export class Bot extends Unit {
     this.smoothness = 1;
     this.maxDanger = 0;
     this.unitDanger = null;
-    this.fsm = new StateMachine(botStates, 'idle', this);
+    this.fsm = new StateMachine(game.enemies?.tableFor(this) ?? botStates, 'idle', this);
   }
 
   public override update(deltaMilliseconds: number): void {
