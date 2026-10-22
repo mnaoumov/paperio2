@@ -31,7 +31,18 @@ var SHELL = [
     'assets/images/logo.png',
     'assets/languages.json',
     'assets/skins/skins.json',
-    'assets/skins/select/noskin.png'
+    'assets/skins/select/noskin.png',
+    // The effects are small (65 KB in all), so an offline run has them. The music (5 MB) is cached as each track plays.
+    'assets/audio/sounds/capture-large.mp3',
+    'assets/audio/sounds/capture-medium.mp3',
+    'assets/audio/sounds/capture-small.mp3',
+    'assets/audio/sounds/checkpoint-remove.mp3',
+    'assets/audio/sounds/checkpoint-set.mp3',
+    'assets/audio/sounds/death.mp3',
+    'assets/audio/sounds/kill.mp3',
+    'assets/audio/sounds/respawn.mp3',
+    'assets/audio/sounds/results.mp3',
+    'assets/audio/sounds/win.mp3'
 ];
 
 // skins.json names every skin layer and pattern by a "url" field, and the menu shows each skin's thumbnail as

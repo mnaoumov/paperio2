@@ -198,6 +198,35 @@ export interface FrameRecorder {
   onCheckpoint(checkpoint: Checkpoint): void;
   /** Right after a practice respawn restored a checkpoint, between frames. */
   onRespawn(checkpoint: Checkpoint): void;
+  /**
+   * When a gameplay sound effect is due, at the game clock's current time, whether or not it is heard.
+   *
+   * @param sound - The effect's name.
+   * @param gain - Its volume, 0 to 1.
+   */
+  onSound(sound: string, gain: number): void;
+}
+/**
+ * What the game tells the page's sound (`audio/game-audio.ts`) about the player's moments. Only the player's own
+ * events are told, never a bot's, and nothing is called while it is `null`, so the original's behavior is untouched.
+ */
+export interface GameSounds {
+  /**
+   * The player closed a loop and took ground.
+   *
+   * @param increment - The ground taken, as a share of the arena.
+   */
+  onCapture(increment: number): void;
+  /** The death delay ended and the results come up. */
+  onGameOver(result: GameOverResult): void;
+  /** The player killed another unit. */
+  onKill(): void;
+  /** The game paused or resumed. */
+  onPauseChange(paused: boolean): void;
+  /** The player died, practice or not. */
+  onPlayerDeath(): void;
+  /** A practice respawn restored a checkpoint. */
+  onRespawn(): void;
 }
 export interface Recorder {
   duration(): number;
@@ -452,6 +481,8 @@ export class Game {
   public schemesManager: SchemeCycler;
   public seed: number;
   public skinManager: SkinManager;
+  /** The page's sound, told about the player's moments, or `null` when the page plays none. */
+  public sounds: GameSounds | null = null;
   public space: SpatialGrid;
   public spawnSuspend: number;
   public square: number;
@@ -677,6 +708,7 @@ export class Game {
       this.kill(player, undefined, reason);
     }
     this.player = null;
+    this.sounds?.onGameOver(result);
     if (this.gameOverCallback) {
       this.gameOverCallback(result);
     }
@@ -1147,6 +1179,9 @@ export class Game {
       }
     });
     const increment = (unit.base.square - unit.lastSquare) / this.square;
+    if (unit === this.player && increment > 0) {
+      this.sounds?.onCapture(increment);
+    }
     if (unit.schemes) {
       unit.schemes.comeback({
         game: this,
@@ -1321,6 +1356,12 @@ export class Game {
     if (unit2) {
       unit2.onScoreChanged();
     }
+    if (unit2 && unit2 === this.player && unit !== this.player) {
+      this.sounds?.onKill();
+    }
+    if (unit === this.player && reason !== KILL_REASON_WIN && reason !== KILL_REASON_SYSTEM) {
+      this.sounds?.onPlayerDeath();
+    }
     if (reason !== KILL_REASON_WIN && unit === this.player) {
       this.gameOver(reason);
     }
@@ -1359,6 +1400,7 @@ export class Game {
       return false;
     }
     this.onPauseChange?.(true);
+    this.sounds?.onPauseChange(true);
     return true;
   }
 
@@ -1532,6 +1574,7 @@ export class Game {
       });
     }
     this.onPauseChange?.(false);
+    this.sounds?.onPauseChange(false);
     return true;
   }
 

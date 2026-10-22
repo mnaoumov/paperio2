@@ -19,9 +19,11 @@ import {
 } from 'preact/hooks';
 
 import type { GameApi } from '../game-api.ts';
+import type { ExportRecordingOptions } from './export.ts';
 import type {
   CodecChoice,
   StopReason,
+  VideoAudioSetting,
   VideoFpsSetting,
   VideoHeightSetting,
   VideoSettings
@@ -36,6 +38,7 @@ import {
   findCodec,
   outputSize,
   readVideoSettings,
+  VIDEO_AUDIO_OPTIONS,
   VIDEO_FPS_OPTIONS,
   VIDEO_HEIGHT_OPTIONS,
   VideoRecorder,
@@ -97,7 +100,14 @@ const SMALL_BUTTON_STYLE = {
   padding: '4px 10px'
 };
 
-/** Exported files, kept for the session so Play then Download muxes once. */
+const AUDIO_LABELS: Readonly<Record<VideoAudioSetting, string>> = {
+  all: 'Effects and music',
+  effects: 'Effects only',
+  music: 'Music only',
+  none: 'None'
+};
+
+/** Exported files by take and Sound setting, kept for the session so Play then Download muxes once. */
 const exportedFiles = new Map<string, Blob>();
 
 export interface RecordControlProps {
@@ -124,6 +134,16 @@ export interface VideoRecordingState {
   readonly startOrStop: () => void;
   /** Why this browser cannot record, `''` while that is being checked, or `null` when it can. */
   readonly unsupported: null | string;
+}
+
+/**
+ * The download's audio for a Sound setting.
+ *
+ * @param setting - The setting.
+ * @returns Whether the effects and the music go in.
+ */
+export function exportAudio(setting: VideoAudioSetting): ExportRecordingOptions {
+  return { effects: setting === 'all' || setting === 'effects', music: setting === 'all' || setting === 'music' };
 }
 
 export function formatDuration(milliseconds: number): string {
@@ -294,12 +314,15 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
   }, [confirmDelete]);
 
   async function file(record: RecordingRecord): Promise<Blob> {
-    const cached = exportedFiles.get(record.id);
+    const audio = exportAudio(settings.audio);
+    // The music bed is shuffled on each export, so a cached file keeps Play and then Download the same.
+    const key = `:${settings.audio}`;
+    const cached = exportedFiles.get(key);
     if (cached) {
       return cached;
     }
-    const blob = await exportRecording(record);
-    exportedFiles.set(record.id, blob);
+    const blob = await exportRecording(record, audio);
+    exportedFiles.set(key, blob);
     return blob;
   }
   function withFile(record: RecordingRecord, action: (blob: Blob) => void): void {
@@ -365,6 +388,10 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
         'Frame rate',
         select('video-fps', settings.fps, VIDEO_FPS_OPTIONS.map((option: VideoFpsSetting) => [option, `${option} fps`] as const), (value: string) => {
           setSettings({ ...settings, fps: VIDEO_FPS_OPTIONS.find((option: VideoFpsSetting) => option === value) ?? settings.fps });
+        }),
+        'Sound',
+        select('video-audio', settings.audio, VIDEO_AUDIO_OPTIONS.map((option: VideoAudioSetting) => [option, AUDIO_LABELS[option]] as const), (value: string) => {
+          setSettings({ ...settings, audio: VIDEO_AUDIO_OPTIONS.find((option: VideoAudioSetting) => option === value) ?? settings.audio });
         })
       ),
     message && createElement('p', { id: 'recordings-message' }, message),
@@ -576,7 +603,11 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
   }
 
   function remove(id: string): void {
-    exportedFiles.delete(id);
+    for (const key of [...exportedFiles.keys()]) {
+      if (key.startsWith(':')) {
+        exportedFiles.delete(key);
+      }
+    }
     deleteRecording(id).then(refresh, (error: unknown) => {
       setMessage(`The recording could not be deleted: ${errorText(error)}`);
     });

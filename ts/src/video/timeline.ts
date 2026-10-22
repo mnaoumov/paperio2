@@ -44,6 +44,15 @@ export interface RecordingTimelineConstructorParams {
   readonly keyFrameIntervalMilliseconds: number;
 }
 
+/** A sound effect heard in the take, which a download mixes back in at its video time. */
+export interface SoundEntry {
+  /** Its volume, 0 to 1. */
+  readonly gain: number;
+  readonly sound: string;
+  /** Video time in microseconds. */
+  readonly timestamp: number;
+}
+
 interface PendingEncode {
   keep: boolean;
   readonly timestamp: number;
@@ -56,6 +65,9 @@ const MILLISECONDS_PER_SECOND = 1000;
 export class RecordingTimeline {
   /** The kept chunks, in order. */
   public readonly chunks: ChunkEntry[] = [];
+
+  /** The kept sound effects, in order. A cut drops them with the video they belong to. */
+  public readonly sounds: SoundEntry[] = [];
 
   /**
    * How long the take is so far, counting the frames still in the encoder.
@@ -211,10 +223,31 @@ export class RecordingTimeline {
         this.markers.delete(id);
       }
     }
+    const firstDroppedSound = this.sounds.findIndex((entry: SoundEntry) => entry.timestamp > marker);
+    if (firstDroppedSound >= 0) {
+      this.sounds.length = firstDroppedSound;
+    }
     this.lastEncodedAt = marker;
     this.lastKeyFrameAt = marker;
     this.nextFrameAt = this.slotAfter(marker);
     return { fromSeq, restarted: false };
+  }
+
+  /**
+   * Logs a sound effect at the game clock's time. A sound due before the take's first frame is not in it.
+   *
+   * @param clockTime - The game clock now.
+   * @param sound - The effect's name.
+   * @param gain - Its volume, 0 to 1.
+   * @returns Its entry, or `null` when the take has no frame yet.
+   */
+  public sound(clockTime: number, sound: string, gain: number): null | SoundEntry {
+    if (this.origin === null) {
+      return null;
+    }
+    const entry: SoundEntry = { gain, sound, timestamp: this.toVideoTime(clockTime) };
+    this.sounds.push(entry);
+    return entry;
   }
 
   private encode(timestamp: number, keyFrame: boolean): EncodeRequest {
@@ -238,6 +271,7 @@ export class RecordingTimeline {
     }
     const fromSeq = this.chunks[0]?.seq ?? null;
     this.chunks.length = 0;
+    this.sounds.length = 0;
     this.markers.clear();
     this.origin = null;
     this.lastEncodedAt = null;

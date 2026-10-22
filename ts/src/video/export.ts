@@ -15,15 +15,21 @@ import {
   StreamTarget
 } from 'mediabunny';
 
+import type { AddTakeAudioOptions } from './audio-mix.ts';
 import type {
   ChunkRecord,
   RecordingRecord,
   StoredDecoderConfig
 } from './store.ts';
 
+import { addTakeAudio } from './audio-mix.ts';
 import { readChunks } from './store.ts';
 
 const MICROSECONDS_PER_SECOND = 1_000_000;
+const NO_AUDIO: ExportRecordingOptions = { effects: false, music: false };
+
+/** What a download's audio track carries. */
+export type ExportRecordingOptions = AddTakeAudioOptions;
 const DATE_PART_DIGITS = 2;
 
 /**
@@ -74,12 +80,13 @@ export class PositionedParts {
 }
 
 /**
- * Muxes a stored take into an MP4.
+ * Muxes a stored take into an MP4, with its sound effects and a music bed as the options ask.
  *
  * @param record - The take.
+ * @param audio - What goes in the audio track; with neither, or with no audio encoder in this browser, there is none.
  * @returns The file.
  */
-export async function exportRecording(record: RecordingRecord): Promise<Blob> {
+export async function exportRecording(record: RecordingRecord, audio: ExportRecordingOptions = NO_AUDIO): Promise<Blob> {
   if (!record.decoderConfig) {
     throw new Error('This recording has no video in it');
   }
@@ -98,6 +105,7 @@ export async function exportRecording(record: RecordingRecord): Promise<Blob> {
   // No frame-rate hint: mediabunny would round every timestamp to it, and a checkpoint's keyframe can fall between two
   // Slots.
   output.addVideoTrack(source);
+  const takeAudio = await addTakeAudio(output, record, audio);
   await output.start();
   const frameSeconds = 1 / record.fps;
   const meta: EncodedVideoChunkMetadata = { decoderConfig: toDecoderConfig(decoderConfig) };
@@ -107,6 +115,7 @@ export async function exportRecording(record: RecordingRecord): Promise<Blob> {
   for await (const chunks of readChunks(record.id)) {
     for (const chunk of chunks) {
       if (previous) {
+        await takeAudio?.until(chunk.timestamp / MICROSECONDS_PER_SECOND);
         await source.add(toPacket(previous, (chunk.timestamp - previous.timestamp) / MICROSECONDS_PER_SECOND), packets === 0 ? meta : undefined);
         packets++;
       }
@@ -118,6 +127,7 @@ export async function exportRecording(record: RecordingRecord): Promise<Blob> {
     throw new Error('This recording has no video in it');
   }
   await source.add(toPacket(previous, frameSeconds), packets === 0 ? meta : undefined);
+  await takeAudio?.finish();
   await output.finalize();
   return parts.toBlob('video/mp4');
 }

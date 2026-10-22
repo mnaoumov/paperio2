@@ -228,6 +228,7 @@ export class Practice {
     this.respawnPending = false;
     this.scheduleNextAuto(latest.snapshot.clockTime);
     this.game.videoRecorder?.onRespawn(latest);
+    this.game.sounds?.onRespawn();
     this.changed();
     this.onRespawn?.(latest);
     return true;
