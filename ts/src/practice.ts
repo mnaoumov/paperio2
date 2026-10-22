@@ -118,6 +118,7 @@ export class Practice {
       this.scheduleNextAuto(snapshot.clockTime);
       this.thin(autoIndex);
     }
+    this.game.videoRecorder?.onCheckpoint(checkpoint);
     this.changed();
     return checkpoint;
   }
@@ -226,6 +227,7 @@ export class Practice {
     restoreSnapshot(this.game, latest.snapshot);
     this.respawnPending = false;
     this.scheduleNextAuto(latest.snapshot.clockTime);
+    this.game.videoRecorder?.onRespawn(latest);
     this.changed();
     this.onRespawn?.(latest);
     return true;

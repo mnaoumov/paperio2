@@ -248,6 +248,9 @@ export function restoreSnapshot(game: Game, snapshot: GameSnapshot): void {
     game.clock.setTimeout(timer.callback, timer.delay);
   }
   Object.assign(game, graph.fields);
+  // The render layer caches the leaderboard as an image, redrawn only when a score changes, and that image is not
+  // Game state. Without this the first frames after a respawn show the abandoned run's standings.
+  game.topListChanged = true;
   Vector.space = game.space;
   Vector.restorePool(graph.pool);
   setNextId(snapshot.nextId);

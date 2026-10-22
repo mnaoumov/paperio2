@@ -16,7 +16,10 @@ import type {
   Unit
 } from './entities/units.ts';
 import type { LanguageStrings } from './i18n.ts';
-import type { Practice } from './practice.ts';
+import type {
+  Checkpoint,
+  Practice
+} from './practice.ts';
 import type {
   AchievementStore,
   Quest,
@@ -186,6 +189,15 @@ export interface LeaderboardCountryEntry {
 }
 export interface Leaderboard {
   countries: LeaderboardCountryEntry[];
+}
+/** What the game tells the in-game video recorder (`video/recorder.ts`), which records the canvas. */
+export interface FrameRecorder {
+  /** After every frame's render, so the frame on the canvas is the game state just stepped to. */
+  afterFrame(): void;
+  /** When a practice checkpoint is taken, between frames. */
+  onCheckpoint(checkpoint: Checkpoint): void;
+  /** Right after a practice respawn restored a checkpoint, between frames. */
+  onRespawn(checkpoint: Checkpoint): void;
 }
 export interface Recorder {
   duration(): number;
@@ -452,6 +464,8 @@ export class Game {
   public topListChanged: boolean;
   public units: Unit[];
   public updateParticlesId: number;
+  /** The in-game video recorder while a take is running, else `null`. Not the original's input `recording`. */
+  public videoRecorder: FrameRecorder | null = null;
   public view: HTMLCanvasElement;
   public visible: boolean;
   public get paused(): boolean {
@@ -1551,6 +1565,7 @@ export class Game {
     this.timings.renderEndTime = now();
     this.last = currentTime;
     this.practice?.afterFrame();
+    this.videoRecorder?.afterFrame();
   }
 
   public setLeaderboard(leaderboard?: Leaderboard): void {

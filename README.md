@@ -38,6 +38,50 @@ game** (also `K`, at any time) and **End practice**. A saved game is kept in the
 browser and loads from the menu into a new practice run. Practice runs do not
 count: no best score and no achievements.
 
+### Recording inside the game
+
+The reconstruction can record itself, and in practice mode it cuts every failed
+attempt out as it goes, so the video plays as one unbroken run. Press `V` (or the
+**Rec (V)** button beside the pause button) to start; `V` or **Stop** ends the
+take, and **Discard** (click it twice) throws it away. The take also ends by
+itself when the run ends or the browser's storage is nearly full.
+
+- **What is recorded:** the game canvas only, so the map, the players, the
+  leaderboard, the percent and the minimap are in the video, and the page around
+  it (the pause button, the practice panel, menus, dialogs, the joystick) never
+  is. There is no sound, since the game has none.
+- **Game time, not wall time:** a pause, a hidden tab or a dialog leaves no
+  frames behind.
+- **The cut:** every checkpoint is a keyframe. When you die and respawn at a
+  checkpoint, everything recorded after that checkpoint (the failed attempt, the
+  death and the death delay) is dropped, and the video carries on from the
+  checkpoint's frame, which is exactly the state the respawn restored. Removing
+  a checkpoint (`X`) cuts nothing by itself: the next death goes back to the one
+  before it, and the cut reaches back that far. A respawn at a checkpoint taken
+  before you pressed `V` starts the take over from that checkpoint. A death
+  with no checkpoint, or ending the run, keeps everything.
+- **Size:** 720p at 30 fps by default, never larger than the game canvas.
+  The menu's **Recordings** panel sets 480p, 720p or the canvas size, and 30 or
+  60 fps. The default bitrate is 1 Mbit/s at 720p30, scaled by pixels and frame
+  rate. On a busy clip, 1, 1.5, 2 and 4 Mbit/s looked the same at 1:1 (mean PSNR
+  36.0, 36.4, 36.6 and 36.9 dB), because what remains is H.264's colour
+  subsampling on sharp edges, which bitrate does not fix. A real practice take
+  measured **9.3 MB a minute**, about 0.56 GB an hour.
+- **Where the takes are:** in the browser (IndexedDB), written as they are
+  encoded, so they survive a reload. The menu's **Recordings** panel lists each
+  take with its thumbnail, date, length and size, and has **Play** (a preview in
+  the page), **Download** (`paperio2-<yyyy-mm-dd-hhmm>.mp4`; the take stays
+  listed) and **Delete** (click it twice). Its footer shows the space used and
+  left. A take cut short by a reload, a crash or a closed tab is listed as
+  _recovered_ the next time the page loads, and plays like any other.
+- **Browsers:** it needs WebCodecs and a secure page (https, or localhost). It
+  uses H.264 in an `.mp4`, which QuickTime plays, and falls back to VP9 or AV1 in
+  an `.mp4` where a browser cannot encode H.264. Where none can be encoded, the
+  button is hidden and the panel says why. Tested in Chrome on Windows.
+
+This makes recording mode below unnecessary for recording practice runs. It is
+kept for anyone who records the screen with another program.
+
 ### Recording mode
 
 **Recording mode** makes a screen recording look like the original game. Turn it
@@ -46,8 +90,9 @@ on with the menu's Recording mode button or the `R` key, and off again with `R`
 browser. It hides every addition: the pause button and the Paused overlay, the
 practice panel and its messages, the joystick
 and its toggle (the joystick still steers, drawn invisibly), the menu's
-Practice, Recording and saved-games panel, and the practice note on the results
-screen. Practice still runs, and its keys still work: `Z`, `X`, `K`, `Esc` / `P`.
+Practice, Recording, saved-games and Recordings panels, the in-game record button,
+and the practice note on the results screen. Practice still runs, and its keys
+still work: `Z`, `X`, `K`, `Esc` / `P`, and `V` for the in-game recorder.
 
 Every switch into recording mode shows a dialog, _You are in recording mode.
 Press R to return to normal mode_, with an OK button. That includes a page load
@@ -170,6 +215,10 @@ back to the original `app2.js` and says so in the browser console. Add
 - A recording mode in the `ts/` reconstruction (`ts/src/recording.ts`): it hides
   every addition above and marks the frames to cut with full-frame red and green
   markers. It is off by default.
+- An in-game recorder in the `ts/` reconstruction (`ts/src/video/`): `V` records
+  the game canvas with WebCodecs, cuts each failed practice attempt back to its
+  checkpoint, keeps the takes in IndexedDB and exports them as `.mp4`. It makes
+  no call into the game while nobody records, so a normal run is untouched.
 - Readable leaderboard names in the `ts/` reconstruction
   (`ts/src/leaderboard-fit.ts`). The original staggers the top-right bars and
   runs them off the right edge, so names are cut short, the player's own row

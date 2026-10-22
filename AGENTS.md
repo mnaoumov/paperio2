@@ -209,6 +209,34 @@ neither.
   `spawnBot` now follows the original key for key (`String(type)` keys, `Number(...)` reads), and the scenario
   `capture loop on paperio.site, a 16th bot` pins it.
 
+## In-game video recorder
+
+**The `ts/` reconstruction records its own canvas** (`ts/src/video/`, owner request 2026-10-21); the README's
+*Recording inside the game* section is the user-facing contract.
+
+- **Hooks:** `Game.videoRecorder` (a `FrameRecorder`, `null` unless a take runs) gets `afterFrame()` at the end of
+  `runFrame`, after the practice hook, and `Practice` calls `onCheckpoint` from `add` and `onRespawn` from `respawn`.
+  With no take running nothing is called, so the differential test is unaffected. The UI (`video/ui.ts`,
+  `useVideoRecording`) does nothing at all off a secure page, and the differential harness serves
+  `http://paperio2.test/`, which is not one.
+- **The cut** lives in `video/timeline.ts` (`RecordingTimeline`, unit-tested): video time is the game clock minus the
+  clock at the take's first frame, frames go on a fixed grid of the chosen fps, a checkpoint's frame is a forced
+  keyframe at its `snapshot.clockTime`, and a respawn drops every chunk after that keyframe (kept or still in the
+  encoder) and forces a keyframe on the next frame. Since the restore puts the clock back to the checkpoint's, the
+  video carries on from the checkpoint's own timestamp. A respawn at a checkpoint from before the take restarts it.
+- **Storage** is IndexedDB (`video/store.ts`): one record per take, one per chunk keyed `[recordingId, seq]`, the cut a
+  key-range delete, writes chained in issue order. A running take holds the Web Lock `recordingLockName(id)`; on load,
+  a take still `recording` whose lock nobody holds is marked `recovered`.
+- **Export** (`video/export.ts`) muxes with mediabunny into a non-fragmented MP4 through `StreamTarget` and
+  `PositionedParts`. Do not pass `frameRate` to `addVideoTrack`: mediabunny rounds every timestamp to it, and a
+  checkpoint keyframe can sit between two slots.
+- **A restore redraws the leaderboard.** The render layer caches the leaderboard as an image that is redrawn only when
+  `game.topListChanged`, and that image is not game state, so `restoreSnapshot` sets the flag. Without it the first
+  frames after a respawn showed the abandoned attempt's standings, which the recorder made visible.
+- **Bitrate** is `DEFAULT_BITRATE_720P30` (1 Mbit/s) scaled by pixels and fps. It was measured on 2026-10-21: 1, 1.5, 2
+  and 4 Mbit/s gave mean PSNR 36.0 / 36.4 / 36.6 / 36.9 dB on a busy clip with no visible blocking, and a real
+  practice take came to 9.3 MB a minute.
+
 ## Leaderboard names
 
 **The original clips leaderboard names, and the `ts/` reconstruction does not** (owner request, 2026-10-21). The
