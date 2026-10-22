@@ -130,8 +130,11 @@ delay is still running, gets the first page's input again, and from then on the 
 on every frame, and the canvas pixels every 50 frames. The cancelled death delay must never bring up the results
 screen. The test runs the detour twice, once restoring the snapshot from memory, as a checkpoint does, and once
 after a round trip through a saved game's compressed text. A third case plays a practice run through the menu's
-toggle: `Z` and `X` add and remove a checkpoint, the player dies and respawns at the latest one, and the End button
-brings up a result marked as practice.
+toggle: the panel is two buttons, `Z` / Set checkpoint and `X` / Remove latest add and remove one, the player dies
+and respawns at the latest one, and the paused overlay's End practice button brings up a result marked as practice.
+Another case checks that automatic checkpoints are uniform: with the interval cut to 2 s in the page, every one lands
+on the grid from the run's first checkpoint, at most one 40 ms frame late, one of them off the player's territory, and
+each with a game timer pending, through the route's deaths and respawns.
 
 The seeded `Math.random` is rewound with the snapshot. The game does not rewind it in play, because the original
 never seeded it. The test rewinds it so that any other state a restore missed shows up as a difference. Its frames

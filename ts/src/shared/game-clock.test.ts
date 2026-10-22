@@ -171,6 +171,33 @@ describe('GameClock', () => {
     expect(clock.now()).toBe(500);
   });
 
+  it('lists pending timers with the game time they still have, so setting them again puts them back', () => {
+    const host = new FakeHost();
+    const clock = new GameClock(host);
+    const fired: string[] = [];
+    clock.setTimeout(() => {
+      fired.push('first');
+    }, 1000);
+    clock.setTimeout(() => {
+      fired.push('second');
+    }, 3000);
+    host.advance(400);
+    clock.pause();
+    const pending = clock.readTimers();
+    expect(pending.map((timer) => timer.delay)).toEqual([600, 2600]);
+    clock.clearTimers();
+    clock.resume();
+    for (const timer of pending) {
+      clock.setTimeout(timer.callback, timer.delay);
+    }
+    host.advance(599);
+    expect(fired).toEqual([]);
+    host.advance(1);
+    expect(fired).toEqual(['first']);
+    host.advance(2000);
+    expect(fired).toEqual(['first', 'second']);
+  });
+
   it('cancels every pending timer with clearTimers', () => {
     const host = new FakeHost();
     const clock = new GameClock(host);

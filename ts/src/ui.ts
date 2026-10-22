@@ -615,6 +615,10 @@ export interface PauseControlProps {
   api: GameApi | null;
   /** The cut marker while recording mode is on, else `null`. */
   marker: CutMarker | null;
+  /** Called after a save is written, so the menu lists it. */
+  onSaved: () => void;
+  /** The practice run, whose Save and End buttons the paused overlay holds, or `null` outside practice mode. */
+  practice: null | Practice;
 }
 function keepFocusOnBody(event: Event): void {
   event.preventDefault();
@@ -624,20 +628,28 @@ function keepFocusOnBody(event: Event): void {
  * reads keys only when `event.target === document.body`, so a focused button would silently stop keyboard
  * steering, the same constraint the joystick toggle in `index.html` follows.
  *
+ * In a practice run the paused overlay also holds the run's Save (K) and End buttons, which are kept off the in-game
+ * panel.
+ *
  * In recording mode none of it is shown: a pause is the cut marker's red span, and a resume shows its green span with
  * the game still paused, then plays on.
  *
  * @param root0 - The props.
  * @param root0.api - The game API whose live game is paused.
  * @param root0.marker - The cut marker while recording mode is on.
+ * @param root0.onSaved - Told when a save has been written.
+ * @param root0.practice - The practice run, or `null` outside practice mode.
  * @returns The button, plus the overlay while paused.
  */
 export function PauseControl({
   api,
-  marker
+  marker,
+  onSaved,
+  practice
 }: PauseControlProps): VNode<unknown> {
   const game = api?.game;
   const [paused, setPaused] = useState(game?.paused ?? false);
+  const [practiceMessage, setPracticeMessage] = useState('');
   useEffect(() => {
     if (!game) {
       return undefined;
@@ -645,6 +657,7 @@ export function PauseControl({
     const currentGame: Game = game;
     function handlePauseChange(isPaused: boolean): void {
       setPaused(isPaused);
+      setPracticeMessage('');
       if (!marker) {
         return;
       }
@@ -681,6 +694,26 @@ export function PauseControl({
   if (marker) {
     return createElement(Fragment, null);
   }
+  function overlayButton(id: string, label: string, title: string, action: () => void): VNode<unknown> {
+    return createElement('button', {
+      id,
+      onClick: (event: MouseEvent) => {
+        // The overlay itself resumes on a click.
+        event.stopPropagation();
+        if (event.currentTarget instanceof HTMLElement) {
+          event.currentTarget.blur();
+        }
+        action();
+      },
+      onMouseDown: keepFocusOnBody,
+      onPointerDown: keepFocusOnBody,
+      style: { ...PRACTICE_HUD_BUTTON_STYLE, fontSize: '16px', padding: '8px 14px' },
+      tabIndex: -1,
+      title,
+      type: 'button'
+    }, label);
+  }
+  const practiceInPlay = practice !== null && !practice.ended;
   return createElement(
     Fragment,
     null,
@@ -718,7 +751,33 @@ export function PauseControl({
           fontSize: '18px',
           marginTop: '8px'
         }
-      }, 'Press Esc or P, or tap to resume')
+      }, 'Press Esc or P, or tap to resume'),
+      practiceInPlay && createElement(
+        'div',
+        {
+          id: 'pause-practice',
+          style: {
+            display: 'flex',
+            gap: '8px',
+            marginTop: '16px'
+          }
+        },
+        overlayButton('practice-save', 'Save game', 'Save the game (K)', () => {
+          saveGame(practice, onSaved, setPracticeMessage);
+        }),
+        overlayButton('practice-end', 'End practice', 'End the practice run and see the results', () => {
+          practice.end();
+          // The death delay before the results runs on the game clock.
+          game?.resume();
+        })
+      ),
+      practiceInPlay && practiceMessage && createElement('div', {
+        id: 'pause-practice-message',
+        style: {
+          fontSize: '16px',
+          marginTop: '8px'
+        }
+      }, practiceMessage)
     ),
     createElement('button', {
       'aria-label': paused ? 'Resume' : 'Pause',
@@ -793,7 +852,6 @@ export const PRACTICE_KEY_ADD = 'KeyZ';
 export const PRACTICE_KEY_REMOVE = 'KeyX';
 export const PRACTICE_KEY_SAVE = 'KeyK';
 export const PRACTICE_MESSAGE_MILLISECONDS = 3000;
-export const PRACTICE_VISIBLE_CHECKPOINTS = 10;
 const PRACTICE_HUD_BUTTON_STYLE = {
   background: 'rgba(0, 0, 0, 0.35)',
   border: '2px solid rgba(255, 255, 255, 0.8)',
@@ -812,11 +870,12 @@ export interface PracticeControlProps {
   practice: null | Practice;
 }
 /**
- * The practice run's controls: add a checkpoint (Z), remove the latest (X), save the game (K) and end the run, plus
- * the checkpoints themselves, each removable on its own. Like the pause button, none of it may take keyboard focus,
- * since the engine reads keys only from `document.body`.
+ * The practice run's controls, the Geometry Dash way: two buttons, Set checkpoint (Z) and Remove latest (X). A death
+ * respawns at the latest checkpoint, so there is no list to pick from. K saves the game; the Save and End buttons are
+ * on the paused overlay. Like the pause button, none of it may take keyboard focus, since the engine reads keys only
+ * from `document.body`.
  *
- * In recording mode none of it is shown and the flags are not drawn, while the keys keep working. A respawn then runs
+ * In recording mode none of it is shown, while the keys keep working. A respawn then runs
  * inside a cut: red from the death, with how far back the cut reaches; the restore; green with the game paused; play.
  * A save and a removal pause the game inside a cut of their own.
  *
@@ -839,7 +898,6 @@ export function PracticeControl({
     }
     const currentPractice: Practice = practice;
     const { game } = currentPractice;
-    currentPractice.markersVisible = !marker;
     if (marker) {
       const currentMarker: CutMarker = marker;
       currentPractice.onPlayerDeath = (checkpoint: Checkpoint): void => {
@@ -880,13 +938,13 @@ export function PracticeControl({
           break;
         case PRACTICE_KEY_REMOVE:
           interruptPlay(game, marker, (done: () => void) => {
-            currentPractice.remove();
+            currentPractice.removeLatest();
             done();
           });
           break;
         case PRACTICE_KEY_SAVE:
           interruptPlay(game, marker, (done: () => void) => {
-            saveGame(currentPractice, onSaved, done);
+            saveGame(currentPractice, onSaved, showMessage, done);
           });
           break;
         default:
@@ -927,13 +985,6 @@ export function PracticeControl({
       type: 'button'
     }, label);
   }
-  const { checkpoints } = currentPractice;
-  const latest = checkpoints[checkpoints.length - 1];
-  const visible = checkpoints.slice(-PRACTICE_VISIBLE_CHECKPOINTS);
-  let status = `Checkpoints: ${String(checkpoints.length)} · Deaths: ${String(currentPractice.deaths)}`;
-  if (currentPractice.respawnPending) {
-    status = 'Respawning at the latest checkpoint…';
-  }
   return createElement(
     'div',
     {
@@ -965,80 +1016,15 @@ export function PracticeControl({
         fontWeight: 'bold'
       }
     }, 'Practice'),
-    createElement('div', null, status),
-    createElement(
-      'div',
-      {
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px'
-        }
-      },
-      hudButton('practice-add', '⚑ +', 'Add a checkpoint (Z)', () => {
-        addCheckpoint(currentPractice);
-      }),
-      hudButton('practice-remove', '⚑ −', 'Remove the latest checkpoint (X)', () => {
-        currentPractice.remove();
-      }),
-      hudButton('practice-save', 'Save', 'Save the game (K)', () => {
-        saveGame(currentPractice, onSaved);
-      }),
-      hudButton('practice-end', 'End', 'End the practice run', () => {
-        currentPractice.end();
-      })
-    ),
-    createElement(
-      'div',
-      {
-        id: 'practice-checkpoints',
-        style: {
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px'
-        }
-      },
-      checkpoints.length > visible.length && createElement('span', null, `+${String(checkpoints.length - visible.length)}`),
-      visible.map((checkpoint: Checkpoint) =>
-        createElement(
-          'span',
-          {
-            key: checkpoint.id,
-            style: {
-              alignItems: 'center',
-              background: checkpoint === latest ? 'rgba(46, 204, 113, 0.75)' : 'rgba(0, 0, 0, 0.35)',
-              borderRadius: '10px',
-              display: 'inline-flex',
-              gap: '2px',
-              padding: '1px 2px 1px 6px'
-            },
-            title: checkpoint.isAuto ? 'Automatic checkpoint' : 'Your checkpoint'
-          },
-          `${checkpoint.isAuto ? '' : '★ '}${formatPlaytime(checkpoint.playtime)}`,
-          createElement('button', {
-            'aria-label': 'Remove this checkpoint',
-            'onClick': (event: MouseEvent) => {
-              if (event.currentTarget instanceof HTMLElement) {
-                event.currentTarget.blur();
-              }
-              currentPractice.remove(checkpoint.id);
-            },
-            'onMouseDown': keepFocusOnBody,
-            'onPointerDown': keepFocusOnBody,
-            'style': {
-              background: 'transparent',
-              border: 'none',
-              color: '#ffffff',
-              cursor: 'pointer',
-              fontSize: '12px',
-              padding: '0 4px'
-            },
-            'tabIndex': -1,
-            'type': 'button'
-          }, '✕')
-        )
-      )
-    ),
+    hudButton('practice-add', '⚑ Set checkpoint', 'Set a checkpoint (Z)', () => {
+      addCheckpoint(currentPractice);
+    }),
+    hudButton('practice-remove', '✕ Remove latest', 'Remove the latest checkpoint (X)', () => {
+      currentPractice.removeLatest();
+    }),
+    currentPractice.respawnPending && createElement('div', {
+      id: 'practice-status'
+    }, 'Respawning at the latest checkpoint…'),
     message && createElement('div', {
       id: 'practice-message'
     }, message)
@@ -1049,25 +1035,27 @@ function addCheckpoint(practice: Practice): void {
     practice.onMessage?.(practice.game.preparing() ? 'No checkpoint while the game is still starting' : 'No checkpoint while the player is out of play');
   }
 }
-function saveGame(practice: Practice, onSaved: () => void, done: () => void = noop): void {
+function saveGame(practice: Practice, onSaved: () => void, report: (text: string) => void, done: () => void = noop): void {
   const { game } = practice;
   const latest = practice.checkpoints[practice.checkpoints.length - 1];
   const player = game.player;
   const inPlay = player !== null && game.units.includes(player);
-  const snapshot = inPlay && canCaptureSnapshot(game) ? captureSnapshot(game) : latest?.snapshot;
+  const captured = inPlay && canCaptureSnapshot(game) ? captureSnapshot(game) : null;
+  // A save cannot hold a pending game timer, so a capture that has one falls back to the latest checkpoint.
+  const snapshot = captured?.timers.length === 0 ? captured : latest?.snapshot;
   if (!snapshot) {
-    practice.onMessage?.('Nothing to save yet');
+    report('Nothing to save yet');
     done();
     return;
   }
   const percent = ((player?.percent ?? 0) * PERCENT_DISPLAY_SCALE).toFixed(PERCENT_DECIMAL_PLACES);
   const name = `${player?.name ?? 'Player'} · ${percent}% · ${new Date().toLocaleString()}`;
   writeSave(game, snapshot, name).then(() => {
-    practice.onMessage?.('Saved');
+    report('Saved');
     onSaved();
     done();
   }, (error: unknown) => {
-    practice.onMessage?.(error instanceof Error ? error.message : String(error));
+    report(error instanceof Error ? error.message : String(error));
     done();
   });
 }
@@ -1568,7 +1556,9 @@ export function App({
     }),
     route === 'game' && createElement(PauseControl, {
       api,
-      marker
+      marker,
+      onSaved: refreshSaves,
+      practice
     }),
     route === 'game' && createElement(PracticeControl, {
       marker,

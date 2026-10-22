@@ -28,10 +28,13 @@ is paused, so a resumed game carries on exactly where it stopped. The original
 
 The reconstruction also has a **practice mode**, with checkpoints in the manner of
 Geometry Dash. Turn it on with the menu's Practice button. A checkpoint is then
-taken every 10 seconds while you are inside your own territory, and when you die
-you respawn at the latest one. `Z` adds a checkpoint where you are, `X` removes
-the latest, and the panel on the left removes any of them, saves the game (`K`)
-or ends the run. Flags on the map mark the checkpoints. A saved game is kept in the
+taken every 10 seconds of play, wherever you are, out on a trail too, and when
+you die you respawn at the latest one. Your own checkpoints are all kept, and so
+are the automatic ones of the last 100 seconds; older automatic ones thin out to
+one a minute, then one every ten minutes, since each holds the whole game.
+The panel on the left has two buttons: **Set checkpoint** (`Z`) and **Remove
+latest** (`X`). To go back to the latest checkpoint, die. Pausing shows **Save
+game** (also `K`, at any time) and **End practice**. A saved game is kept in the
 browser and loads from the menu into a new practice run. Practice runs do not
 count: no best score and no achievements.
 
@@ -41,7 +44,7 @@ count: no best score and no achievements.
 on with the menu's Recording mode button or the `R` key, and off again with `R`
 (the button is hidden with everything else). The choice is remembered in the
 browser. It hides every addition: the pause button and the Paused overlay, the
-practice panel and its messages, the checkpoint flags on the map, the joystick
+practice panel and its messages, the joystick
 and its toggle (the joystick still steers, drawn invisibly), the menu's
 Practice, Recording and saved-games panel, and the practice note on the results
 screen. Practice still runs, and its keys still work: `Z`, `X`, `K`, `Esc` / `P`.

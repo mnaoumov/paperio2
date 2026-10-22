@@ -215,6 +215,8 @@ const PRACTICE_SCENARIO: Scenario = {
 };
 
 interface PracticeView {
+  readonly checkpoints: number;
+  readonly deaths: number;
   readonly hud: string;
   readonly inPlay: boolean;
   readonly results: boolean;
@@ -245,11 +247,16 @@ async function playPractice(browser: Browser): Promise<void> {
         continue;
       }
       if (frame === START_FRAME + 10) {
-        expect((await practiceView(page)).hud, 'the run starts with a checkpoint').toContain('Checkpoints: 1');
+        expect((await practiceView(page)).checkpoints, 'the run starts with a checkpoint').toBe(1);
+        expect(await page.evaluate(() => document.querySelectorAll('#practice-hud button').length), 'the panel is two buttons').toBe(2);
         await pressCode(page, 'KeyZ');
-        expect((await practiceView(page)).hud, 'Z adds one').toContain('Checkpoints: 2');
+        expect((await practiceView(page)).checkpoints, 'Z adds one').toBe(2);
+        await clickById(page, 'practice-remove');
+        expect((await practiceView(page)).checkpoints, 'Remove latest removes it').toBe(1);
+        await clickById(page, 'practice-add');
+        expect((await practiceView(page)).checkpoints, 'Set checkpoint adds one').toBe(2);
         await pressCode(page, 'KeyX');
-        expect((await practiceView(page)).hud, 'X removes the latest').toContain('Checkpoints: 1');
+        expect((await practiceView(page)).checkpoints, 'X removes the latest').toBe(1);
       }
       const view = await practiceView(page);
       expect(view.results, `no results screen at frame ${String(frame)}`).toBe(false);
@@ -258,11 +265,14 @@ async function playPractice(browser: Browser): Promise<void> {
         expect(view.hud).toContain('Respawning');
       } else if (deathFrame !== null && view.inPlay) {
         respawnFrame = frame;
-        expect(view.hud).toContain('Deaths: 1');
+        expect(view.deaths).toBe(1);
       }
     }
     expect(deathFrame, 'the player dies').not.toBeNull();
     expect(respawnFrame, 'the player respawns').not.toBeNull();
+    // Save and End live on the paused overlay.
+    await pressCode(page, 'Escape');
+    expect(await page.evaluate(() => document.getElementById('practice-save') !== null), 'the paused overlay offers Save').toBe(true);
     await clickById(page, 'practice-end');
     for (let frame = 0; frame < 200 && !(await practiceView(page)).results; frame++) {
       await stepPage(page);
@@ -351,7 +361,14 @@ async function playDeathsInARow(browser: Browser, scenario: Scenario, startsMidP
 async function practiceView(page: Page): Promise<PracticeView> {
   return page.evaluate(() => {
     const { player, units } = window.paperio2api.game;
-    return { hud: document.getElementById('practice-hud')?.textContent ?? '', inPlay: player !== null && units.includes(player), results: document.getElementById('practice-results') !== null };
+    const { practice } = window.paperio2api.game;
+    return {
+      checkpoints: practice?.checkpoints.length ?? 0,
+      deaths: practice?.deaths ?? 0,
+      hud: document.getElementById('practice-hud')?.textContent ?? '',
+      inPlay: player !== null && units.includes(player),
+      results: document.getElementById('practice-results') !== null
+    };
   });
 }
 
@@ -380,6 +397,92 @@ async function respawnView(page: Page): Promise<RespawnView> {
       unitCount: game.units.length
     };
   });
+}
+
+const UNIFORM_FRAME_MILLISECONDS = 40;
+const UNIFORM_FRAMES = 1000;
+const UNIFORM_MIN_AUTO_CHECKPOINTS = 3;
+/**
+ * The interval the test switches the run to right after Play, so the route's deaths and respawns leave room for many
+ * checkpoints. The first one already scheduled, at the default 10 s, is a point of the shorter grid too.
+ */
+const UNIFORM_INTERVAL_MILLISECONDS = 2000;
+/** A game timer that never fires inside the run, kept armed while the player is in play, so every checkpoint after the first is taken with it. */
+const UNIFORM_IDLE_TIMER_MILLISECONDS = 1e9;
+
+interface CheckpointTaken {
+  readonly inBase: boolean;
+  readonly isAuto: boolean;
+  /** Game time since the run's first checkpoint. */
+  readonly sinceFirst: number;
+  readonly timers: number;
+}
+
+// Automatic checkpoints fall on a grid of the interval from the run's first one, at most a frame late, whether the
+// Player is in its territory or out on a trail, and while a game timer is pending. Deaths along the way respawn, and
+// The checkpoints after a respawn are on the same grid.
+async function playUniformCheckpoints(browser: Browser): Promise<void> {
+  const scenario: Scenario = { ...SCENARIO, frames: UNIFORM_FRAMES, name: 'uniform checkpoints' };
+  const page = await openVariant(browser, 'reconstruction', scenario);
+  try {
+    await clickById(page, 'practice-toggle');
+    const taken: CheckpointTaken[] = [];
+    let interval = 0;
+    for (let frame = 0; frame < scenario.frames; frame++) {
+      await applyFrameInput(page, scenario, frame);
+      if (frame > scenario.startFrame && interval === 0) {
+        // The run starts a few frames after Play is pressed.
+        interval = await page.evaluate((milliseconds: number) => {
+          const options = window.paperio2api.game.practice?.options;
+          if (options) {
+            Reflect.set(options, 'autoIntervalMilliseconds', milliseconds);
+          }
+          return options?.autoIntervalMilliseconds ?? 0;
+        }, UNIFORM_INTERVAL_MILLISECONDS);
+      }
+      if (frame > scenario.startFrame) {
+        // A respawn at a checkpoint taken before the timer was armed drops it, so it is armed again.
+        await page.evaluate((delay: number) => {
+          const { game } = window.paperio2api;
+          if (game.clock.pendingTimers === 0) {
+            game.clock.setTimeout(() => undefined, delay);
+          }
+        }, UNIFORM_IDLE_TIMER_MILLISECONDS);
+      }
+      await stepPage(page, UNIFORM_FRAME_MILLISECONDS);
+      const latest = await page.evaluate(() => {
+        const { game } = window.paperio2api;
+        const { player, practice } = game;
+        const checkpoint = practice?.checkpoints.at(-1);
+        const first = practice?.checkpoints[0];
+        if (!checkpoint || !first || !player) {
+          return null;
+        }
+        return {
+          id: checkpoint.id,
+          inBase: player.in === player.base,
+          isAuto: checkpoint.isAuto,
+          sinceFirst: checkpoint.snapshot.clockTime - first.snapshot.clockTime,
+          takenNow: checkpoint.snapshot.clockTime === game.clock.now(),
+          timers: checkpoint.snapshot.timers.length
+        };
+      });
+      if (latest?.takenNow && !taken.some((entry) => entry.sinceFirst === latest.sinceFirst)) {
+        taken.push({ inBase: latest.inBase, isAuto: latest.isAuto, sinceFirst: latest.sinceFirst, timers: latest.timers });
+      }
+    }
+    expect(interval, 'the run takes the shorter interval').toBe(UNIFORM_INTERVAL_MILLISECONDS);
+    const autos = taken.filter((entry) => entry.isAuto && entry.sinceFirst > 0);
+    expect(autos.length, `at least ${String(UNIFORM_MIN_AUTO_CHECKPOINTS)} automatic checkpoints after the first`).toBeGreaterThanOrEqual(UNIFORM_MIN_AUTO_CHECKPOINTS);
+    for (const entry of autos) {
+      const late = entry.sinceFirst - Math.floor(entry.sinceFirst / interval) * interval;
+      expect(late, `the checkpoint at ${String(entry.sinceFirst)} ms is on the grid, at most one frame late`).toBeLessThanOrEqual(UNIFORM_FRAME_MILLISECONDS);
+    }
+    expect(autos.some((entry) => !entry.inBase), 'one is taken off the territory').toBe(true);
+    expect(autos.every((entry) => entry.timers > 0), 'each is taken with a game timer pending').toBe(true);
+  } finally {
+    await page.browserContext().close();
+  }
 }
 
 describe('restoring a snapshot of the reconstruction', () => {
@@ -427,5 +530,11 @@ describe('restoring a snapshot of the reconstruction', () => {
       throw new Error('The browser did not start');
     }
     await playDeathsInARow(browser, EARLY_START_SCENARIO, true);
+  }, TIMEOUT_MILLISECONDS);
+  it('takes automatic checkpoints on a uniform grid, on or off the territory and with a game timer pending', async () => {
+    if (!browser) {
+      throw new Error('The browser did not start');
+    }
+    await playUniformCheckpoints(browser);
   }, TIMEOUT_MILLISECONDS);
 });

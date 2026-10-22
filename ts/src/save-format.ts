@@ -65,7 +65,7 @@ import {
 import { Skin } from './skins/skin.ts';
 
 export const SAVE_FORMAT = 'paperio2-save';
-export const SAVE_FORMAT_VERSION = 1;
+export const SAVE_FORMAT_VERSION = 2;
 /** The longest save payload written, in characters: `localStorage` holds about five million per origin. */
 export const MAX_SAVE_CHARACTERS = 4_000_000;
 export const SAVE_INDEX_KEY = 'paperio2.saves';
@@ -210,6 +210,7 @@ export async function decodeSave(game: Game, payload: string): Promise<GameSnaps
     rngSeed: encoded.rngSeed,
     skinManagerSeed: encoded.skinManagerSeed,
     skinsInUse: encoded.skinsInUse.map((index: number) => ensureNonNullable(skins[index])),
+    timers: [],
     unusedSkinNames: encoded.unusedSkinNames,
     usedSkins: encoded.usedSkins.map((entry: EncodedUsedSkins) => ({ name: entry.name, skins: entry.skins.map((index: number) => ensureNonNullable(skins[index])) }))
   };
@@ -235,6 +236,10 @@ export function deleteSave(id: string, storage: Storage = localStorage): void {
  * @returns The payload.
  */
 export async function encodeSave(game: Game, snapshot: GameSnapshot, summary: SaveDetails): Promise<string> {
+  if (snapshot.timers.length > 0) {
+    // A timer's callback is code, which a save cannot hold.
+    throw new Error('A game cannot be saved while a death delay runs');
+  }
   const skins: Skin[] = [...snapshot.skinsInUse];
   function skinIndex(skin: Skin): number {
     let index = skins.indexOf(skin);

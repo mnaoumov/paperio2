@@ -132,9 +132,10 @@ neither.
   shared references stay shared. Alongside it go the state that lives outside `Game`: the three seeded generators
   (game, name pool, skin manager; `readRandomSeed` / `writeRandomSeed` in `shared/random.ts` read them through a
   registry), the skin manager's `usedBy` / `unusedAssets` **in key order** (`randomAssetName` draws from
-  `Object.keys`) plus each in-use skin's `user`, the vector pool, the id counter, and the game time. Restoring clones
-  it again, clears the clock's timers (a running death delay is forgotten) and moves the clock with
-  `GameClock.setNow`. Shared, never cloned: functions, the DOM, canvas patterns, skins and assets, config, language,
+  `Object.keys`) plus each in-use skin's `user`, the vector pool, the id counter, the game time, and the game clock's
+  pending timers (`GameClock.readTimers`: each callback with the game time it has left). Restoring clones it again,
+  clears the clock's timers (a running death delay is forgotten), moves the clock with `GameClock.setNow` and sets
+  the snapshot's own timers again. Shared, never cloned: functions, the DOM, canvas patterns, skins and assets, config, language,
   controller, the stores. A `Path2D` is copied (`Polyline.add2` extends its path in place). `Unit.log` is written
   every frame and read nowhere, so a snapshot keeps it empty. The clone uses a work list, never recursion: point →
   segment → point chains run thousands deep.
@@ -142,21 +143,31 @@ neither.
   `readFields`, and module-level state (like the vector pool or the id counter) needs an accessor and a line in
   `captureSnapshot` / `restoreSnapshot`. `Math.random` is not restored in play: the original never seeded it, and
   only spawn positions, the frame-split jitter and particles draw from it.
-- **A snapshot cannot be taken while a game timer is pending** (`canCaptureSnapshot`), which in practice means the
-  player's death delay: the timer's callback closes over the game as it was.
+- **A snapshot can be taken at any time between frames** (`canCaptureSnapshot` only refuses a stopped game), pending
+  game timers included. That holds because **a game-clock timer's callback must not close over anything the snapshot
+  clones**: it reads the game instead. The engine's death delay keeps its player, reason and results in
+  `Game.pendingGameOver` (a `SnapshotFields` entry) and its timer only calls `finishGameOver()`. A new
+  `clock.setTimeout` follows the same rule, or a restore runs it against objects the game no longer holds. A save
+  cannot hold a timer (its callback is code), so `encodeSave` refuses a snapshot with one and the HUD's save falls
+  back to the latest checkpoint.
 - **Practice mode is opt-in** (the menu's Practice button, remembered as `paperio2.practice` in `localStorage`).
-  `Game.practice` is `null` otherwise, and the engine's three hooks (a death intercept in `gameOver`, `afterFrame`
-  at the end of `loop`, `drawMarkers` in `renderGame`) are inert, so a normal run makes no extra calls and the
-  differential test stays green. A practice run takes an automatic checkpoint every 10 s of game time **only while
-  the player is inside their own territory**, keeps the last 10 automatic and 20 manual ones, and on death restores
-  the latest after the engine's own death delay. `Z` / `X` / `K` add, remove and save, by `KeyboardEvent.code`; the
-  HUD follows the pause button's no-focus rule. **No checkpoint is taken while the game is still preparing**
+  `Game.practice` is `null` otherwise, and the engine's two hooks (a death intercept in `gameOver`, `afterFrame` at
+  the end of `loop`) are inert, so a normal run makes no extra calls and the differential test stays green. A
+  practice run takes **uniform** automatic checkpoints: on a grid of 10 s of game time from the run's first one,
+  wherever the player is (trail included), on the first frame at or past each grid point, so never more than a frame
+  late; a manual one and a respawn do not move the grid. **No count cap**, but old automatic ones are thinned
+  (`keepsAutoCheckpoint`, by grid index: the latest 10 all, then one in 6 up to 70 intervals old, then one in 60;
+  every manual one kept), because a snapshot is megabytes (see **Cost**). On death it restores the latest after the engine's own death delay. The
+  in-game panel is exactly two buttons, Set checkpoint (`Z`) and Remove latest (`X`), by `KeyboardEvent.code`; there
+  is no checkpoint list and no map marker, and going back to a checkpoint is a death. Save (`K`, or the paused
+  overlay's button) and End practice live on `PauseControl`'s paused overlay. All of it follows the pause button's
+  no-focus rule. **No checkpoint is taken while the game is still preparing**
   (`game.preparing()`). Play pressed before the menu's 6000-cycle prepare phase is through gives `start` a 500 ms
   budget, and then the loop fast-forwards the rest at up to 30 updates a frame with the player already in play. That
   is the original's start, and a checkpoint from it would replay the fast-forward on every respawn. So a practice run
   (and a loaded save) calls `start` with `completePreparation`, which prepares in full before the player spawns. The
   first checkpoint is then taken where the player spawned. If the game is somehow still preparing, `afterFrame` takes
-  it on the first frame after that finds the player in its base. A frame that throws no longer ends the rAF chain:
+  it on the first frame after that. A frame that throws no longer ends the rAF chain:
   `Game.loop` logs it (`frameErrors`) and steps again on the next frame. Practice runs set no best score, track no achievements, and their
   result carries `practice: true`. A loaded save always runs as practice.
 - **Recording mode** (`ts/src/recording.ts`, owner request 2026-10-21) hides every addition over the original and marks
@@ -175,8 +186,13 @@ neither.
   left out. **Bump `SAVE_FORMAT_VERSION` whenever the saved shape changes**; a save from another version or
   `GAME_BUILD` is refused with a message. An early-game save measured about 0.9 M characters against the 4 M limit
   `writeSave` enforces, and a full `localStorage` is reported, never half written.
-- **Cost:** a capture measured about 32 ms in headless Chrome mid-game, so an automatic checkpoint is a two-frame
-  hitch every 10 s in practice mode only.
+- **Cost** (measured 2026-10-21 in headless Chrome, CDP heap usage after GC around 5 retained captures): a snapshot
+  holds **2.4 MB** at the start of a run (5.2 k territory points across all units) and **4.6-4.7 MB** mid-game
+  (12.2 k points), roughly 0.38 KB per point, so it grows with the total territory outline. A capture took 54-135 ms
+  (an earlier measurement said 32 ms), so an automatic checkpoint is a hitch of a few frames every 10 s, in practice
+  mode only. Unthinned, an hour at 10 s would be 360 snapshots, about 1.7 GB mid-game; with the thinning an hour
+  keeps 25 automatic ones (about 120 MB) and each further hour adds 6. A gzipped save of the same states is
+  0.84-1.8 M characters.
 - **Proven by `test/differential/checkpoint.integration.test.ts`** (see that folder's README): a snapshot, a detour
   that kills the player, a restore during the death delay, then frame-for-frame state and pixel equality with a page
   that never left the scenario, from memory and through a save; plus a practice run end to end. It runs to frame 1500,

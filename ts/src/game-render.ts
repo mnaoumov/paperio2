@@ -822,7 +822,6 @@ export function renderGame(game: Game): void {
   drawParticles(renderContext);
   drawLabels(renderContext);
   drawLeaderMarker(renderContext);
-  game.practice?.drawMarkers(ctx, scale);
   ctx.resetTransform();
   ctx.scale(1 / devicePixelRatio, 1 / devicePixelRatio);
   if (game.player) {
