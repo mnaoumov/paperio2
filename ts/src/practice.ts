@@ -3,11 +3,15 @@
  *
  * Practice mode: checkpoints in the manner of Geometry Dash. While a practice run is on, a checkpoint is taken every
  * {@link PracticeConstructorOptions.autoIntervalMilliseconds} of game time, a death respawns the player at the latest one, and
- * the player can add one or remove one at any time. A practice run does not count: no achievement is tracked and no
- * best score is set, and the results screen says it was practice.
+ * the player can add one or remove the latest at any time. A practice run does not count: no achievement is tracked
+ * and no best score is set, and the results screen says it was practice.
  *
- * An automatic checkpoint waits until the player is inside their own territory, so it never saves a trail that is
- * about to be cut. A manual one is taken wherever the player asks for it.
+ * Automatic checkpoints are uniform: they fall on a fixed grid of game time that starts at the run's first
+ * checkpoint, wherever the player is, trail and all, and a manual one does not move the grid.
+ *
+ * Nothing caps how many are kept, but a mid-game snapshot holds about 5 MB, so a checkpoint every 10 s would hold
+ * gigabytes within the hour. Every manual checkpoint and the recent automatic ones are kept; older automatic ones are
+ * thinned by age (see {@link keepsAutoCheckpoint}), so an hour holds 25 automatic ones and each further hour adds 6.
  */
 
 import type { Game } from './engine.ts';
@@ -21,6 +25,8 @@ import {
 } from './snapshot.ts';
 
 export interface Checkpoint {
+  /** For an automatic checkpoint, its point on the grid: 0 for the run's first, then one per interval. */
+  readonly autoIndex: null | number;
   readonly id: number;
   readonly isAuto: boolean;
   /** The run's playtime when it was taken, in milliseconds of game time. */
@@ -31,35 +37,25 @@ export interface Checkpoint {
    */
   seenAt: number;
   readonly snapshot: GameSnapshot;
-  /** Where the player was, for the marker. */
-  readonly x: number;
-  readonly y: number;
 }
 
 export interface PracticeConstructorOptions {
   readonly autoIntervalMilliseconds: number;
-  readonly maxAutoCheckpoints: number;
-  readonly maxManualCheckpoints: number;
 }
 
 const DEFAULT_AUTO_INTERVAL_MILLISECONDS = 10_000;
-const DEFAULT_MAX_AUTO_CHECKPOINTS = 10;
-const DEFAULT_MAX_MANUAL_CHECKPOINTS = 20;
 export const DEFAULT_PRACTICE_OPTIONS: PracticeConstructorOptions = {
-  autoIntervalMilliseconds: DEFAULT_AUTO_INTERVAL_MILLISECONDS,
-  maxAutoCheckpoints: DEFAULT_MAX_AUTO_CHECKPOINTS,
-  maxManualCheckpoints: DEFAULT_MAX_MANUAL_CHECKPOINTS
+  autoIntervalMilliseconds: DEFAULT_AUTO_INTERVAL_MILLISECONDS
 };
 
-const HALF = 2;
-const MARKER_POLE_HEIGHT = 30;
-const MARKER_FLAG_WIDTH = 18;
-const MARKER_FLAG_HEIGHT = 12;
-const MARKER_LINE_WIDTH = 2.5;
-const LATEST_MARKER_COLOR = '#2ecc71';
-const AUTO_MARKER_COLOR = '#ffffff';
-const MANUAL_MARKER_COLOR = '#f5c400';
-const MARKER_OUTLINE_COLOR = '#2b3a33';
+/** How many of the latest automatic checkpoints are all kept: the last 100 s at the default interval. */
+export const RECENT_AUTO_CHECKPOINTS = 10;
+/** Past the recent ones, every this many is kept (one a minute at the default interval)... */
+export const MIDDLE_AUTO_CHECKPOINT_SPACING = 6;
+/** ...until they are this many intervals old (about the last 11 minutes)... */
+export const MIDDLE_AUTO_CHECKPOINT_AGE = 70;
+/** ...and older ones, every this many (one every 10 minutes). */
+export const OLD_AUTO_CHECKPOINT_SPACING = 60;
 
 export class Practice {
   public checkpoints: Checkpoint[] = [];
@@ -68,8 +64,6 @@ export class Practice {
   /** Set once the player ends the run; a death after it ends the game as usual. */
   public ended = false;
   public readonly game: Game;
-  /** Whether {@link drawMarkers} draws the flags; recording mode turns them off. */
-  public markersVisible = true;
   /** Told whenever the checkpoints, the death count or the run's state change, so the page can show them. */
   public onChange: (() => void) | null = null;
   /** Shows a short message to the player, such as why a checkpoint could not be taken. */
@@ -81,13 +75,14 @@ export class Practice {
   public readonly options: PracticeConstructorOptions;
   public respawnPending = false;
 
-  private lastAutoTime: number;
+  /** The game time of the run's first automatic checkpoint, where the grid of automatic ones starts. */
+  private autoGridStart: null | number = null;
+  private nextAutoTime = Infinity;
   private nextId = 1;
 
   public constructor(game: Game, options: PracticeConstructorOptions = DEFAULT_PRACTICE_OPTIONS) {
     this.game = game;
     this.options = options;
-    this.lastAutoTime = game.clock.now();
   }
 
   /**
@@ -106,38 +101,46 @@ export class Practice {
       return null;
     }
     const snapshot = captureSnapshot(this.game);
+    if (isAuto) {
+      this.autoGridStart ??= snapshot.clockTime;
+    }
+    const autoIndex = isAuto && this.autoGridStart !== null ? Math.floor((snapshot.clockTime - this.autoGridStart) / this.options.autoIntervalMilliseconds) : null;
     const checkpoint: Checkpoint = {
+      autoIndex,
       id: this.nextId++,
       isAuto,
       playtime: snapshot.clockTime - this.game.startTime,
       seenAt: performance.now(),
-      snapshot,
-      x: player.position.x,
-      y: player.position.y
+      snapshot
     };
     this.checkpoints.push(checkpoint);
-    this.trim(isAuto);
-    this.lastAutoTime = snapshot.clockTime;
+    if (autoIndex !== null) {
+      this.scheduleNextAuto(snapshot.clockTime);
+      this.thin(autoIndex);
+    }
     this.changed();
     return checkpoint;
   }
 
-  /** Takes an automatic checkpoint when one is due. The game loop calls it after each frame. */
+  /**
+   * Takes an automatic checkpoint when one is due, wherever the player is: on the first frame at or past its point on
+   * the grid, so it is never more than a frame late. With no checkpoint left, it takes one at once. The game loop
+   * calls it after each frame.
+   */
   public afterFrame(): void {
     const { game } = this;
     const { player } = game;
-    if (this.ended || this.respawnPending || !player || player.in !== player.base) {
+    if (this.ended || this.respawnPending || !player || !game.units.includes(player)) {
       return;
     }
-    if (this.checkpoints.length === 0 || game.clock.now() - this.lastAutoTime >= this.options.autoIntervalMilliseconds) {
+    if (this.checkpoints.length === 0 || game.clock.now() >= this.nextAutoTime) {
       this.add(true);
     }
   }
 
   /**
    * Starts the run: the player's achievements stop being tracked, and the first checkpoint is taken where they
-   * spawned. If the game is still preparing, `afterFrame` takes it instead, on the first frame after the preparation
-   * that finds the player in its base.
+   * spawned. If the game is still preparing, `afterFrame` takes it instead, on the first frame after the preparation.
    */
   public begin(): void {
     const { player } = this.game;
@@ -145,44 +148,6 @@ export class Practice {
       player.achievements = null;
     }
     this.add(true);
-  }
-
-  /**
-   * Draws a flag at each checkpoint. The renderer calls it with the canvas in world coordinates.
-   *
-   * @param context - The canvas context.
-   * @param scale - The world-to-canvas scale, so the flags keep their size on screen.
-   */
-  public drawMarkers(context: CanvasRenderingContext2D, scale: number): void {
-    if (!this.markersVisible || this.checkpoints.length === 0) {
-      return;
-    }
-    const latest = this.checkpoints[this.checkpoints.length - 1];
-    const size = 1 / scale;
-    context.save();
-    context.lineWidth = MARKER_LINE_WIDTH * size;
-    context.strokeStyle = MARKER_OUTLINE_COLOR;
-    for (const checkpoint of this.checkpoints) {
-      const { x, y } = checkpoint;
-      const top = y - MARKER_POLE_HEIGHT * size;
-      context.beginPath();
-      context.moveTo(x, y);
-      context.lineTo(x, top);
-      context.stroke();
-      context.beginPath();
-      context.moveTo(x, top);
-      context.lineTo(x + MARKER_FLAG_WIDTH * size, top + MARKER_FLAG_HEIGHT * size / HALF);
-      context.lineTo(x, top + MARKER_FLAG_HEIGHT * size);
-      context.closePath();
-      if (checkpoint === latest) {
-        context.fillStyle = LATEST_MARKER_COLOR;
-      } else {
-        context.fillStyle = checkpoint.isAuto ? AUTO_MARKER_COLOR : MANUAL_MARKER_COLOR;
-      }
-      context.fill();
-      context.stroke();
-    }
-    context.restore();
   }
 
   /** Ends the run: the player is removed, and the results come up as after any death, marked as practice. */
@@ -236,17 +201,14 @@ export class Practice {
   }
 
   /**
-   * Removes a checkpoint.
+   * Removes the latest checkpoint.
    *
-   * @param id - The checkpoint's id, or nothing for the latest.
-   * @returns `false` when there was no such checkpoint.
+   * @returns `false` when there was none.
    */
-  public remove(id?: number): boolean {
-    const index = id === undefined ? this.checkpoints.length - 1 : this.checkpoints.findIndex((checkpoint: Checkpoint) => checkpoint.id === id);
-    if (index < 0) {
+  public removeLatest(): boolean {
+    if (this.checkpoints.pop() === undefined) {
       return false;
     }
-    this.checkpoints.splice(index, 1);
     this.changed();
     return true;
   }
@@ -263,7 +225,7 @@ export class Practice {
     }
     restoreSnapshot(this.game, latest.snapshot);
     this.respawnPending = false;
-    this.lastAutoTime = latest.snapshot.clockTime;
+    this.scheduleNextAuto(latest.snapshot.clockTime);
     this.changed();
     this.onRespawn?.(latest);
     return true;
@@ -273,13 +235,45 @@ export class Practice {
     this.onChange?.();
   }
 
-  private trim(isAuto: boolean): void {
-    const limit = isAuto ? this.options.maxAutoCheckpoints : this.options.maxManualCheckpoints;
-    const ofKind = this.checkpoints.filter((checkpoint: Checkpoint) => checkpoint.isAuto === isAuto);
-    const excess = ofKind.length - limit;
-    if (excess > 0) {
-      const dropped = new Set(ofKind.slice(0, excess));
-      this.checkpoints = this.checkpoints.filter((checkpoint: Checkpoint) => !dropped.has(checkpoint));
+  /**
+   * Sets the next automatic checkpoint to the first point of the grid after `time`.
+   *
+   * @param time - The game time the run is at.
+   */
+  private scheduleNextAuto(time: number): void {
+    if (this.autoGridStart === null) {
+      return;
     }
+    const interval = this.options.autoIntervalMilliseconds;
+    this.nextAutoTime = this.autoGridStart + (Math.floor((time - this.autoGridStart) / interval) + 1) * interval;
   }
+
+  /**
+   * Drops the old automatic checkpoints {@link keepsAutoCheckpoint} does not keep. Manual ones are never dropped.
+   *
+   * @param latestIndex - The grid index of the automatic checkpoint just taken.
+   */
+  private thin(latestIndex: number): void {
+    this.checkpoints = this.checkpoints.filter((checkpoint: Checkpoint) => checkpoint.autoIndex === null || keepsAutoCheckpoint(checkpoint.autoIndex, latestIndex));
+  }
+}
+
+/**
+ * Tells whether an automatic checkpoint survives the thinning. The rule goes by grid index, so a checkpoint kept at
+ * one age is still kept at an older one only if the coarser spacing keeps it, and the first one (index 0) is never
+ * dropped.
+ *
+ * @param index - The checkpoint's point on the grid.
+ * @param latestIndex - The latest automatic checkpoint's point on the grid.
+ * @returns `false` when it is dropped.
+ */
+export function keepsAutoCheckpoint(index: number, latestIndex: number): boolean {
+  const age = latestIndex - index;
+  if (age < RECENT_AUTO_CHECKPOINTS) {
+    return true;
+  }
+  if (age < MIDDLE_AUTO_CHECKPOINT_AGE && index % MIDDLE_AUTO_CHECKPOINT_SPACING === 0) {
+    return true;
+  }
+  return index % OLD_AUTO_CHECKPOINT_SPACING === 0;
 }

@@ -7,6 +7,13 @@ export interface ClockHost {
   setTimeout(callback: () => void, delay: number): number;
 }
 
+/** A timer that has not fired yet, as a snapshot keeps it. */
+export interface PendingTimer {
+  readonly callback: () => void;
+  /** How much game time it still has to run. */
+  readonly delay: number;
+}
+
 interface ClockTimer {
   readonly callback: () => void;
   /** When the timer falls due, in game time. */
@@ -94,6 +101,17 @@ export class GameClock {
       }
     }
     return true;
+  }
+
+  /**
+   * Lists the timers that have not fired yet, in the order they were set, with the game time each still has to run.
+   * Setting each again with {@link setTimeout} puts them back.
+   *
+   * @returns The pending timers.
+   */
+  public readTimers(): PendingTimer[] {
+    const gameTime = this.now();
+    return [...this.timers].map((timer: ClockTimer) => ({ callback: timer.callback, delay: Math.max(0, timer.due - gameTime) }));
   }
 
   /**

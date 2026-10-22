@@ -20,6 +20,7 @@
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 
 import type { Game } from './engine.ts';
+import type { PendingTimer } from './shared/game-clock.ts';
 
 import { Controller } from './controller.ts';
 import { botStates } from './entities/bot-ai.ts';
@@ -58,6 +59,11 @@ export interface GameSnapshot {
   readonly skinManagerSeed: number;
   /** Every skin in use, in the skin manager's order. */
   readonly skinsInUse: readonly Skin[];
+  /**
+   * The game clock's timers that had not fired, such as a death delay. Each callback reads the game rather than
+   * closing over anything the snapshot clones, so restoring re-arms them as they were.
+   */
+  readonly timers: readonly PendingTimer[];
   /** The skin manager's unused skin names, in its key order, which `randomAssetName` draws from. */
   readonly unusedSkinNames: readonly string[];
   /** The skin manager's skins in use, by name, in its key order. */
@@ -85,6 +91,7 @@ export interface SnapshotFields {
   notifications: Game['notifications'];
   origin: Game['origin'];
   particles: Game['particles'];
+  pendingGameOver: Game['pendingGameOver'];
   player: Game['player'];
   qas: Game['qas'];
   quality: Game['quality'];
@@ -116,14 +123,14 @@ export interface UsedSkinsEntry {
 }
 
 /**
- * Tells whether a snapshot taken now could be restored faithfully. It cannot while a game timer is pending, which
- * means the player's death delay is running: the timer's callback closes over the game as it is.
+ * Tells whether a snapshot taken now could be restored faithfully: at any time between frames while the game runs,
+ * pending game timers included.
  *
  * @param game - The game.
  * @returns `true` when {@link captureSnapshot} may be called.
  */
 export function canCaptureSnapshot(game: Game): boolean {
-  return !game.stopped && game.clock.pendingTimers === 0;
+  return !game.stopped;
 }
 
 /**
@@ -150,6 +157,7 @@ export function captureSnapshot(game: Game): GameSnapshot {
     rngSeed: readRandomSeed(game.rng),
     skinManagerSeed: readRandomSeed(skinManager.rng),
     skinsInUse,
+    timers: game.clock.readTimers(),
     unusedSkinNames: Object.keys(skinManager.unusedAssets),
     usedSkins
   };
@@ -226,8 +234,8 @@ export function cloneGraph<T>(value: T, isShared: (object: object) => boolean, i
 }
 
 /**
- * Puts the game back to a snapshot. Call it between frames. Pending game timers are cancelled, so a death delay
- * that was running is forgotten.
+ * Puts the game back to a snapshot. Call it between frames. The game timers pending now are cancelled, so a death
+ * delay that was running is forgotten, and the snapshot's own are set again with the time they had left.
  *
  * @param game - The game.
  * @param snapshot - A snapshot taken of this game, or loaded into it.
@@ -236,6 +244,9 @@ export function restoreSnapshot(game: Game, snapshot: GameSnapshot): void {
   const graph = cloneSnapshotGraph(game, snapshot.graph);
   game.clock.clearTimers();
   game.clock.setNow(snapshot.clockTime);
+  for (const timer of snapshot.timers) {
+    game.clock.setTimeout(timer.callback, timer.delay);
+  }
   Object.assign(game, graph.fields);
   Vector.space = game.space;
   Vector.restorePool(graph.pool);
@@ -295,6 +306,7 @@ function readFields(game: Game): SnapshotFields {
     notifications: game.notifications,
     origin: game.origin,
     particles: game.particles,
+    pendingGameOver: game.pendingGameOver,
     player: game.player,
     qas: game.qas,
     quality: game.quality,

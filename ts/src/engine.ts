@@ -226,6 +226,12 @@ export interface GameOverResult {
   readonly time: number;
   readonly top: number;
 }
+/** What a player's death delay ends with: see {@link Game.pendingGameOver}. */
+export interface PendingGameOver {
+  readonly player: Player;
+  readonly reason: number | undefined;
+  readonly result: GameOverResult;
+}
 
 interface Bounds {
   bottom: number;
@@ -414,6 +420,11 @@ export class Game {
   public onPauseChange: ((paused: boolean) => void) | null = null;
   public origin: null | Vector = null;
   public particles: Particle[];
+  /**
+   * The results of a player's death while its death delay runs, else `null`. The delay's timer reads them from here
+   * rather than closing over them, so a snapshot taken during the delay carries them and its restore re-arms it.
+   */
+  public pendingGameOver: null | PendingGameOver = null;
   public player: null | Player;
   public playerDeathCallback: (() => void) | null;
   /** The practice run's checkpoints, or `null` outside practice mode. */
@@ -639,6 +650,23 @@ export class Game {
     this.space.segmentsCount();
   }
 
+  /** Ends the death delay: the results come up. The death delay's timer calls it. */
+  public finishGameOver(): void {
+    const pending = this.pendingGameOver;
+    if (!pending) {
+      return;
+    }
+    this.pendingGameOver = null;
+    const { player, reason, result } = pending;
+    if (reason === KILL_REASON_WIN) {
+      this.kill(player, undefined, reason);
+    }
+    this.player = null;
+    if (this.gameOverCallback) {
+      this.gameOverCallback(result);
+    }
+  }
+
   public finishPrepare(): void {
     const targetCycle = this.replaying ? this.replaying.start : this.config.prepareCounter;
     while (this.cycle < targetCycle) {
@@ -716,14 +744,9 @@ export class Game {
       if (this.playerDeathCallback) {
         this.playerDeathCallback();
       }
+      this.pendingGameOver = { player, reason, result };
       this.clock.setTimeout(() => {
-        if (reason === KILL_REASON_WIN) {
-          this.kill(player, undefined, reason);
-        }
-        this.player = null;
-        if (this.gameOverCallback) {
-          this.gameOverCallback(result);
-        }
+        this.finishGameOver();
       }, deathDelay);
     }
   }

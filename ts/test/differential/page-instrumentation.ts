@@ -84,6 +84,18 @@ export interface InstallDeterminismParams {
   readonly seed: number;
 }
 
+export interface PageCheckpoint {
+  readonly id: number;
+  readonly isAuto: boolean;
+  readonly snapshot: PageSnapshot;
+}
+
+export interface PageClock {
+  now(): number;
+  readonly pendingTimers: number;
+  setTimeout(callback: () => void, delay: number): void;
+}
+
 export interface PageConfig {
   readonly botsCount: number;
   readonly prepareCounter: number;
@@ -105,12 +117,22 @@ export interface PagePolygon {
 }
 
 export interface PagePractice {
-  readonly checkpoints: readonly unknown[];
+  readonly checkpoints: readonly PageCheckpoint[];
   readonly deaths: number;
+  readonly options: PagePracticeOptions;
+}
+
+export interface PagePracticeOptions {
+  readonly autoIntervalMilliseconds: number;
 }
 
 export interface PageSegment {
   readonly start: PagePoint;
+}
+
+export interface PageSnapshot {
+  readonly clockTime: number;
+  readonly timers: readonly unknown[];
 }
 
 export interface PageSpatialGrid {
@@ -144,6 +166,7 @@ export interface PaperIo2PageApi {
 
 /** The game fields the pause, practice and domain-lock tests read. `paused` and `practice` exist only in the reconstruction. */
 export interface PaperIo2PageGame {
+  readonly clock: PageClock;
   readonly config: PageConfig;
   readonly cycle: number;
   kill(unit: PageUnit | undefined, killer: undefined, reason: number): void;
