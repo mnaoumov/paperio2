@@ -65,6 +65,8 @@ interface Job {
 type Mode = 'blackbox' | 'whitebox';
 
 interface Outcome {
+  /** The map share at each of {@link CURVE_MINUTES}, or `null` once the run had ended. */
+  readonly curve: readonly (null | number)[];
   readonly enemies: string;
   readonly mode: Mode;
   readonly percent: number;
@@ -124,6 +126,10 @@ const REASONS: readonly string[] = ['win', 'self-intersection', 'wall', 'trail c
 const DEFAULT_PARALLEL_SHARE = 2;
 /** How many trace lines `--why` prints before a death. */
 const WHY_LINES = 12;
+/** The minutes at which the growth curve samples the map share, the human baseline's marks; each is a whole number of chunks. */
+// eslint-disable-next-line no-magic-numbers -- the curve's marks.
+const CURVE_MINUTES: readonly number[] = [0.5, 1, 2, 3, 5, 10, 15, 30, 60];
+const CURVE_FRAMES: readonly number[] = CURVE_MINUTES.map((minutes) => Math.round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_SECOND));
 
 const { values } = parseArgs({
   options: {
@@ -163,6 +169,27 @@ try {
 }
 print('');
 print(report(outcomes));
+/**
+ * The growth curve: per mode and enemy mode, the median map share at each mark over the runs still alive there, and how
+ * many runs that is.
+ *
+ * @param results - The runs.
+ * @returns A markdown table.
+ */
+function curveReport(results: readonly Outcome[]): string {
+  const marks = CURVE_MINUTES.filter((_minutes, index) => (CURVE_FRAMES[index] ?? Infinity) <= maxFrames);
+  const lines = [`| Mode | Enemies | ${marks.map((minutes) => formatTime(minutes * SECONDS_PER_MINUTE)).join(' | ')} |`, `| --- | --- | ${marks.map(() => '---').join(' | ')} |`];
+  for (const { enemies, mode } of modes.flatMap((pilot) => enemyModes.map((enemyMode) => ({ enemies: enemyMode, mode: pilot })))) {
+    const runs = results.filter((outcome) => outcome.mode === mode && outcome.enemies === enemies);
+    const cells = CURVE_MINUTES.slice(0, marks.length).map((_minutes, index) => {
+      const alive = runs.map((outcome) => outcome.curve[index]).filter((percent): percent is number => typeof percent === 'number');
+      const value = median(alive);
+      return value === null ? '-' : `${(value * PERCENT_SCALE).toFixed(1)}% (${String(alive.length)}/${String(runs.length)})`;
+    });
+    lines.push(`| ${mode} | ${enemies} | ${cells.join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
 
 function describe(outcome: Outcome): string {
   const time = formatTime(outcome.seconds);
@@ -269,10 +296,15 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
     const tail: string[] = [];
     let frames = 0;
     let state = await stepFrames(page, 0, tail);
+    const curve: (null | number)[] = CURVE_MINUTES.map(() => null);
     while (!state.done && frames < maxFrames) {
       const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
       state = await stepFrames(page, count, tail);
       frames += count;
+      const mark = CURVE_FRAMES.indexOf(frames);
+      if (mark >= 0 && !state.done) {
+        curve[mark] = state.percent;
+      }
     }
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     if (values.stats !== undefined) {
@@ -287,7 +319,7 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       print([`--- ${label(job)} seed ${String(seed)}: ${String(reason)}`, ...tail].join('\n'));
       print(`stats ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify({ ...window.__autopilot?.whitebox?.stats, area: window.__areaTotals }))}`);
     }
-    return { enemies, mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
+    return { curve, enemies, mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
   } finally {
     await page.browserContext().close();
   }
@@ -327,7 +359,7 @@ function report(results: readonly Outcome[]): string {
       ].join(' | ').trim()
     );
   }
-  return lines.join('\n');
+  return [...lines, '', curveReport(results)].join('\n');
 }
 
 async function stepFrames(page: Page, count: number, tail: string[]): Promise<PageState> {
