@@ -17,6 +17,7 @@ import {
   useState
 } from 'preact/hooks';
 
+import type { GameAudioState } from './audio/ui.ts';
 import type {
   Config,
   Game,
@@ -30,6 +31,11 @@ import type { SkinSource } from './skins/skin.ts';
 import type { GameSnapshot } from './snapshot.ts';
 import type { VideoRecordingState } from './video/ui.ts';
 
+import {
+  AudioControl,
+  AudioMenu,
+  useGameAudio
+} from './audio/ui.ts';
 import {
   findDefaultLanguage,
   list3
@@ -219,6 +225,7 @@ export function LanguageFooter({
 }
 export interface MenuScreenProps {
   api: GameApi | null;
+  audio: GameAudioState;
   loadSave: (id: string) => void;
   menuMessage: string;
   nickName: string;
@@ -242,6 +249,7 @@ export interface MenuScreenProps {
 }
 export function MenuScreen({
   api,
+  audio,
   loadSave,
   menuMessage,
   nickName,
@@ -340,6 +348,15 @@ export function MenuScreen({
       !isSupported && createElement('p', {
         class: 'notsupported'
       }, lng.nosupport),
+      isSupported && !recordingMode && createElement(
+        'div',
+        {
+          style: PRACTICE_PANEL_STYLE
+        },
+        createElement(AudioMenu, {
+          state: audio
+        })
+      ),
       isSupported && !recordingMode && createElement(PracticeMenu, {
         loadSave,
         menuMessage,
@@ -880,6 +897,8 @@ const PRACTICE_HUD_BUTTON_STYLE = {
   padding: '6px 8px'
 };
 export interface PracticeControlProps {
+  /** The sound, which plays the checkpoint clicks. */
+  audio: GameAudioState['audio'];
   /** The cut marker while recording mode is on, else `null`. */
   marker: CutMarker | null;
   /** Called after a save is written, so the menu lists it. */
@@ -897,12 +916,14 @@ export interface PracticeControlProps {
  * A save and a removal pause the game inside a cut of their own.
  *
  * @param root0 - The props.
+ * @param root0.audio - The sound, which plays the checkpoint clicks.
  * @param root0.marker - The cut marker while recording mode is on.
  * @param root0.onSaved - Told when a save has been written.
  * @param root0.practice - The practice run, or `null` outside practice mode.
  * @returns The controls, or nothing outside practice mode.
  */
 export function PracticeControl({
+  audio,
   marker,
   onSaved,
   practice
@@ -951,11 +972,11 @@ export function PracticeControl({
       }
       switch (event.code) {
         case PRACTICE_KEY_ADD:
-          addCheckpoint(currentPractice);
+          addCheckpoint(currentPractice, audio);
           break;
         case PRACTICE_KEY_REMOVE:
           interruptPlay(game, marker, (done: () => void) => {
-            currentPractice.removeLatest();
+            removeCheckpoint(currentPractice, audio);
             done();
           });
           break;
@@ -980,7 +1001,7 @@ export function PracticeControl({
       currentPractice.onPlayerDeath = null;
       currentPractice.onRespawn = null;
     };
-  }, [practice, marker]);
+  }, [practice, marker, audio]);
   if (!practice || marker) {
     return null;
   }
@@ -1034,10 +1055,10 @@ export function PracticeControl({
       }
     }, 'Practice'),
     hudButton('practice-add', '⚑ Set checkpoint', 'Set a checkpoint (Z)', () => {
-      addCheckpoint(currentPractice);
+      addCheckpoint(currentPractice, audio);
     }),
     hudButton('practice-remove', '✕ Remove latest', 'Remove the latest checkpoint (X)', () => {
-      currentPractice.removeLatest();
+      removeCheckpoint(currentPractice, audio);
     }),
     currentPractice.respawnPending && createElement('div', {
       id: 'practice-status'
@@ -1047,9 +1068,16 @@ export function PracticeControl({
     }, message)
   );
 }
-function addCheckpoint(practice: Practice): void {
-  if (!practice.add()) {
+function addCheckpoint(practice: Practice, audio: GameAudioState['audio']): void {
+  if (practice.add()) {
+    audio.onCheckpointSet();
+  } else {
     practice.onMessage?.(practice.game.preparing() ? 'No checkpoint while the game is still starting' : 'No checkpoint while the player is out of play');
+  }
+}
+function removeCheckpoint(practice: Practice, audio: GameAudioState['audio']): void {
+  if (practice.removeLatest()) {
+    audio.onCheckpointRemoved();
   }
 }
 function saveGame(practice: Practice, onSaved: () => void, report: (text: string) => void, done: () => void = noop): void {
@@ -1618,6 +1646,7 @@ export function App({
   const [menuMessage, setMenuMessage] = useState('');
   const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   const video = useVideoRecording(api, route);
+  const sound = useGameAudio(api, route, recordingMode);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1710,12 +1739,18 @@ export function App({
       onSaved: refreshSaves,
       practice
     }),
+    createElement(AudioControl, {
+      hidden: marker !== null,
+      inGame: route === 'game',
+      state: sound
+    }),
     createElement(RecordControl, {
       hidden: marker !== null,
       inGame: route === 'game',
       state: video
     }),
     route === 'game' && createElement(PracticeControl, {
+      audio: sound.audio,
       marker,
       onSaved: refreshSaves,
       practice
@@ -1737,6 +1772,7 @@ export function App({
           },
           route === 'menu' && createElement(MenuScreen, {
             api,
+            audio: sound,
             loadSave,
             menuMessage,
             nickName,

@@ -56,7 +56,12 @@ export type VideoFpsSetting = typeof VIDEO_FPS_OPTIONS[number];
 export const VIDEO_HEIGHT_OPTIONS = ['480', '720', 'canvas'] as const;
 export type VideoHeightSetting = typeof VIDEO_HEIGHT_OPTIONS[number];
 
+/** What a download's audio track carries: the take's effects, a music bed laid under it, both, or nothing. */
+export const VIDEO_AUDIO_OPTIONS = ['all', 'effects', 'music', 'none'] as const;
+export type VideoAudioSetting = typeof VIDEO_AUDIO_OPTIONS[number];
+
 export interface VideoSettings {
+  readonly audio: VideoAudioSetting;
   readonly fps: VideoFpsSetting;
   readonly height: VideoHeightSetting;
 }
@@ -67,7 +72,7 @@ export interface VideoSize {
 }
 
 export const VIDEO_SETTINGS_STORAGE_KEY = 'paperio2.video';
-export const DEFAULT_VIDEO_SETTINGS: VideoSettings = { fps: '30', height: '720' };
+export const DEFAULT_VIDEO_SETTINGS: VideoSettings = { audio: 'all', fps: '30', height: '720' };
 /**
  * The bitrate at 720p and 30 fps; other sizes and rates get the same bits per pixel. It is the lowest of the bitrates
  * tried that showed no blocking on trail edges (README, *Recording inside the game*).
@@ -249,6 +254,12 @@ export class VideoRecorder implements FrameRecorder {
     }
   }
 
+  public onSound(sound: string, gain: number): void {
+    if (this.stopReason === null) {
+      this.timeline.sound(this.game.clock.now(), sound, gain);
+    }
+  }
+
   /**
    * Ends the take: the frames still in the encoder are flushed and stored, and the take is listed as finished.
    *
@@ -398,6 +409,7 @@ export class VideoRecorder implements FrameRecorder {
   private updateRecordFields(): void {
     this.record.bytes = this.timeline.keptBytes;
     this.record.durationMilliseconds = this.timeline.durationMilliseconds;
+    this.record.sounds = this.timeline.sounds.slice();
     this.record.updatedAt = Date.now();
   }
 }
@@ -462,7 +474,9 @@ export function readVideoSettings(): VideoSettings {
     if (typeof parsed === 'object' && parsed !== null && 'fps' in parsed && 'height' in parsed) {
       const fps = VIDEO_FPS_OPTIONS.find((option: VideoFpsSetting) => option === parsed.fps) ?? DEFAULT_VIDEO_SETTINGS.fps;
       const height = VIDEO_HEIGHT_OPTIONS.find((option: VideoHeightSetting) => option === parsed.height) ?? DEFAULT_VIDEO_SETTINGS.height;
-      return { fps, height };
+      // Settings saved before there was sound have no audio choice.
+      const audio = 'audio' in parsed ? VIDEO_AUDIO_OPTIONS.find((option: VideoAudioSetting) => option === parsed.audio) ?? DEFAULT_VIDEO_SETTINGS.audio : DEFAULT_VIDEO_SETTINGS.audio;
+      return { audio, fps, height };
     }
   } catch {
     // Blocked or malformed storage: the defaults.

@@ -6,7 +6,8 @@ import {
 
 import type {
   ChunkEntry,
-  EncodeRequest
+  EncodeRequest,
+  SoundEntry
 } from './timeline.ts';
 
 import {
@@ -192,6 +193,40 @@ describe('RecordingTimeline', () => {
       }
     }
     expect(keyFrames).toHaveLength(3);
+  });
+
+  it('logs a sound at its video time, and none before the take\'s first frame', () => {
+    const harness = new Harness();
+    expect(harness.timeline.sound(CLOCK_START - 10, 'kill', 1)).toBeNull();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    expect(harness.timeline.sound(CLOCK_START + 500, 'kill', 0.5)).toEqual({ gain: 0.5, sound: 'kill', timestamp: micro(500) });
+    expect(harness.timeline.sounds).toHaveLength(1);
+  });
+
+  it('cuts the sounds of the failed attempt with its video, and keeps the ones up to the checkpoint', () => {
+    const harness = new Harness();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    harness.timeline.sound(CLOCK_START + 400, 'capture-small', 1);
+    harness.checkpoint(1, CLOCK_START + 1000);
+    harness.timeline.sound(CLOCK_START + 1000, 'kill', 1);
+    harness.play(CLOCK_START + 1000, CLOCK_START + 3000);
+    harness.timeline.sound(CLOCK_START + 2500, 'death', 1);
+    harness.drain();
+
+    harness.timeline.respawn(1);
+    expect(harness.timeline.sounds.map((entry: SoundEntry) => entry.sound)).toEqual(['capture-small', 'kill']);
+    // The clock was put back to the checkpoint's, so the next attempt's sounds follow the kept ones in order.
+    harness.play(CLOCK_START + 1000, CLOCK_START + 2000);
+    harness.timeline.sound(CLOCK_START + 1500, 'capture-large', 1);
+    expect(harness.timeline.sounds.map((entry: SoundEntry) => entry.timestamp)).toEqual([micro(400), micro(1000), micro(1500)]);
+  });
+
+  it('drops every sound when a respawn restarts the take', () => {
+    const harness = new Harness();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    harness.timeline.sound(CLOCK_START + 400, 'kill', 1);
+    harness.timeline.respawn(99);
+    expect(harness.timeline.sounds).toHaveLength(0);
   });
 
   it('counts the duration and the kept bytes', () => {

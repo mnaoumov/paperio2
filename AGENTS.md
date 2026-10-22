@@ -237,6 +237,33 @@ neither.
   and 4 Mbit/s gave mean PSNR 36.0 / 36.4 / 36.6 / 36.9 dB on a busy clip with no visible blocking, and a real
   practice take came to 9.3 MB a minute.
 
+## Music and sound effects
+
+**The `ts/` reconstruction has music and sound effects; the original has neither** (owner request, 2026-10-21). The README's *Music and sound effects* section is the user-facing contract.
+
+- **Hooks:** `Game.sounds` (a `GameSounds`, `null` until the page attaches `audio/game-audio.ts`'s `GameAudio`) is told
+  about the player's own moments only: `onCapture` from `handleReturn` (with the share of the arena taken),
+  `onKill` and `onPlayerDeath` from `kill`, `onGameOver` from `finishGameOver`, `onPauseChange` from `pause` /
+  `resume`, and `onRespawn` from `Practice.respawn`. The checkpoint clicks come from the practice controls in `ui.ts`.
+  `audio/ui.ts`'s `useGameAudio` attaches it on the `game` route and drives the music by route.
+- **Sound must never draw from `Math.random`.** The differential harness seeds `Math.random`, and the engine takes spawn
+  positions from it, so one extra draw moves every later spawn. The first version shuffled the playlist with
+  `Math.random` and failed all six scenarios at the player's spawn (frame 122). `audioRandom` in `audio/playlist.ts`
+  reads `crypto.getRandomValues`, and a unit test asserts it never touches `Math.random`. The same holds for any new
+  page-side randomness. Sound also never draws on the canvas, so the harness needs no switch for it.
+- **Captures below 0.0001 of the arena are silent** (`captureCue`). Sliding along the base's edge re-enters it many times
+  a second, each time taking under a millionth of the arena; the smallest real loop measured took 0.0018.
+- **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
+  clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
+  (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged, and recording mode silences them. Music is never
+  recorded: `video/audio-mix.ts` renders the effects plus an optional music bed (`planMusicBed`, crossfaded, over the
+  final cut length) with `OfflineAudioContext` in 10 s windows, fed to the muxer as the video packets reach each window,
+  and encodes AAC, or Opus where AAC cannot be encoded. The Recordings panel's **Sound** setting (`VideoSettings.audio`)
+  picks what goes in.
+- **Assets** are in `assets/audio/` (`music/`, `sounds/`, `CREDITS.md`), all CC0 by Juhani Junkala from OpenGameArt.
+  `sw.js` precaches the effects; music is cached as each track plays. Only the track playing is kept decoded (about
+  25 MB).
+
 ## Leaderboard names
 
 **The original clips leaderboard names, and the `ts/` reconstruction does not** (owner request, 2026-10-21). The

@@ -38,6 +38,31 @@ game** (also `K`, at any time) and **End practice**. A saved game is kept in the
 browser and loads from the menu into a new practice run. Practice runs do not
 count: no best score and no achievements.
 
+### Music and sound effects
+
+The reconstruction has music and sound effects; the original has neither.
+
+- **Music** plays during a run: a shuffled playlist of five chiptune tracks,
+  quieter than the effects. It pauses with the game, fades out when the results
+  come up, and the menu is quiet. `M` switches it on and off.
+- **Sound effects:** taking ground (a single coin, a double or a cluster, louder
+  the more you took), killing a player, your own death, and the results screen
+  (a fanfare for a win or a new best). In practice mode there are quiet clicks for
+  setting and removing a checkpoint, and a chime when you respawn. `N` switches
+  the effects on and off.
+- Both are on by default. The two buttons left of the pause button, or the
+  menu's **Music** and **Sounds** buttons, switch them too, and the browser
+  remembers both choices. Browsers allow sound only after you click or press a
+  key, so it starts when you press Play.
+- Nothing is downloaded before you press Play: the effects (65 KB) are fetched
+  then, and each music track (about 1 MB) when it is due. The music is 5 MB in
+  all.
+- Recording mode hides the two buttons, while `M` and `N` keep working. It also
+  silences the practice sounds (the respawn chime and the checkpoint clicks),
+  which would give a practice run away.
+- Every file is CC0, by Juhani Junkala; `assets/audio/CREDITS.md` lists each one
+  with its source.
+
 ### Recording inside the game
 
 The reconstruction can record itself, and in practice mode it cuts every failed
@@ -49,7 +74,16 @@ itself when the run ends or the browser's storage is nearly full.
 - **What is recorded:** the game canvas only, so the map, the players, the
   leaderboard, the percent and the minimap are in the video, and the page around
   it (the pause button, the practice panel, menus, dialogs, the joystick) never
-  is. There is no sound, since the game has none.
+  is.
+- **Sound:** the sound effects of the run are recorded with the take, whether
+  or not you hear them, and cut with it, so a failed attempt's sounds go too. The
+  practice sounds (the respawn chime and the checkpoint clicks) are never
+  recorded, since the cut exists to hide where a respawn was. Music is not
+  recorded during play, because each cut would make it jump: a download lays one
+  continuous music track, crossfading between tracks, under the finished video
+  instead. The **Recordings** panel's **Sound** setting picks effects and music,
+  effects only, music only, or none. The audio is AAC (or Opus where a browser
+  cannot encode AAC).
 - **Game time, not wall time:** a pause, a hidden tab or a dialog leaves no
   frames behind.
 - **The cut:** every checkpoint is a keyframe. When you die and respawn at a
@@ -62,7 +96,7 @@ itself when the run ends or the browser's storage is nearly full.
   with no checkpoint, or ending the run, keeps everything.
 - **Size:** 720p at 30 fps by default, never larger than the game canvas.
   The menu's **Recordings** panel sets 480p, 720p or the canvas size, and 30 or
-  60 fps. The default bitrate is 1 Mbit/s at 720p30, scaled by pixels and frame
+  60 fps, and what sound goes into a download. The default bitrate is 1 Mbit/s at 720p30, scaled by pixels and frame
   rate. On a busy clip, 1, 1.5, 2 and 4 Mbit/s looked the same at 1:1 (mean PSNR
   36.0, 36.4, 36.6 and 36.9 dB), because what remains is H.264's colour
   subsampling on sharp edges, which bitrate does not fix. A real practice take
@@ -88,7 +122,7 @@ kept for anyone who records the screen with another program.
 on with the menu's Recording mode button or the `R` key, and off again with `R`
 (the button is hidden with everything else). The choice is remembered in the
 browser. It hides every addition: the pause button and the Paused overlay, the
-practice panel and its messages, the joystick
+practice panel and its messages, the music and sound buttons, the joystick
 and its toggle (the joystick still steers, drawn invisibly), the menu's
 Practice, Recording, saved-games and Recordings panels, the in-game record button,
 and the practice note on the results screen. Practice still runs, and its keys
@@ -219,6 +253,11 @@ back to the original `app2.js` and says so in the browser console. Add
   the game canvas with WebCodecs, cuts each failed practice attempt back to its
   checkpoint, keeps the takes in IndexedDB and exports them as `.mp4`. It makes
   no call into the game while nobody records, so a normal run is untouched.
+- Music and sound effects in the `ts/` reconstruction (`ts/src/audio/`,
+  `assets/audio/`): a shuffled CC0 chiptune playlist during a run and effects for
+  the player's moments, each switchable (`M` / `N`) and remembered. Sound never
+  touches the canvas or the game's random numbers, so `?original` is untouched
+  and the reconstruction still plays frame for frame like it.
 - Readable leaderboard names in the `ts/` reconstruction
   (`ts/src/leaderboard-fit.ts`). The original staggers the top-right bars and
   runs them off the right edge, so names are cut short, the player's own row
@@ -249,6 +288,8 @@ back to the original `app2.js` and says so in the browser console. Add
 - `assets/images/` — logo and PWA icons.
 - `assets/languages.json` — UI translations (EN/RU/TR/SP/FR/NL/PT/DE/IT).
 - `assets/fonts/` — locally-hosted PT Sans Caption font.
+- `assets/audio/` — the music (`music/`) and sound effects (`sounds/`), all CC0,
+  credited in `assets/audio/CREDITS.md` (added by this repo).
 
 `app2.js`, `style3.css`, `manifest.json` and the other assets are the site's original
 content, © their respective owners. This copy is for local/offline personal use.
