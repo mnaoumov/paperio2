@@ -12,6 +12,7 @@ import type {
   AchievementStore,
   SchemeCycler
 } from './scoring.ts';
+import type { SeededRandom } from './seed.ts';
 import type { GameSkinManager } from './skins/manager.ts';
 import type { GameSnapshot } from './snapshot.ts';
 
@@ -61,6 +62,8 @@ export interface GameApi {
   preparing: boolean;
   /** Puts the live game back to a snapshot of it, between frames. */
   restoreSnapshot: (snapshot: GameSnapshot) => void;
+  /** The page's speedrun seed (`?seed=`), or `null`; with one, every Play starts from the game as preparation left it. */
+  seed: null | string;
   /** Switches the enemy mode, difficulty and bot count, at once if the game exists, else when it is created. */
   setEnemySettings: (settings: EnemySettings) => void;
   /** `completePreparation` finishes the prepare phase before the player spawns, however long it takes. */
@@ -69,13 +72,27 @@ export interface GameApi {
 }
 export const BORDER_RADIUS_FACTOR = 0.95;
 export const EXTRA_LIFE_LABEL_DURATION_MS = 5000;
-export function createGameApi(config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore): GameApi | null {
+export interface SpeedrunSeed {
+  readonly random: SeededRandom;
+  readonly text: string;
+}
+
+interface SeededStart {
+  readonly random: number;
+  readonly snapshot: GameSnapshot;
+}
+
+export function createGameApi(config: Config, language: Language, createSkinManager: (config: Config, view: HTMLCanvasElement) => GameSkinManager, namePool: NamePool, schemeCycler: SchemeCycler, achievementStore: AchievementStore, speedrunSeed: null | SpeedrunSeed = null): GameApi | null {
   const gameApi = {} as GameApi;
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Path2D feature-detection for old browsers; lib.dom types it as always-defined but it may be absent at runtime.
   if (Path2D) {
     let enemySettings = DEFAULT_ENEMY_SETTINGS;
+    // With a seed, the game as preparation left it: the menu's bots then play on real time, so every Play goes back here.
+    let seededStart: null | SeededStart = null;
     gameApi.config = config;
+    gameApi.seed = speedrunSeed?.text ?? null;
     gameApi.create = (view: HTMLCanvasElement): void => {
+      seededStart = null;
       const {
         arenaSize,
         borderPoints,
@@ -122,6 +139,17 @@ export function createGameApi(config: Config, language: Language, createSkinMana
     gameApi.preparing = true;
     let i2 = 0;
     let prepareIntervalId: number | undefined;
+    function keepSeededStart(): void {
+      if (speedrunSeed && !seededStart) {
+        seededStart = { random: speedrunSeed.random.readState(), snapshot: captureSnapshot(gameApi.game) };
+      }
+    }
+    function returnToSeededStart(): void {
+      if (speedrunSeed && seededStart) {
+        restoreSnapshot(gameApi.game, seededStart.snapshot);
+        speedrunSeed.random.writeState(seededStart.random);
+      }
+    }
     function runPrepareBatch(): void {
       const {
         prepareMult
@@ -138,19 +166,32 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       const {
         game: gameApi2
       } = gameApi;
+      function finishPreparation(): void {
+        keepSeededStart();
+        gameApi.preparing = false;
+        gameApi2.visible = true;
+        if (!gameApi2.looped) {
+          gameApi2.loop();
+        }
+        if (onPrepared) {
+          onPrepared();
+        }
+      }
+      if (speedrunSeed) {
+        // Spread over intervals, preparation interleaves with timers and frames whose timing differs from page to page,
+        // So a seed's map would too. In one go nothing runs in between: the menu shows a moment later, on the seed's map.
+        while (i2 <= config.prepareCounter) {
+          runPrepareBatch();
+        }
+        finishPreparation();
+        return;
+      }
       prepareIntervalId = setInterval(() => {
         if (namePool.aviable()) {
           runPrepareBatch();
           if (i2 > config.prepareCounter) {
             clearInterval(prepareIntervalId);
-            gameApi.preparing = false;
-            gameApi2.visible = true;
-            if (!gameApi2.looped) {
-              gameApi2.loop();
-            }
-            if (onPrepared) {
-              onPrepared();
-            }
+            finishPreparation();
           }
         }
       }, 0);
@@ -169,6 +210,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
           }
         }
       }
+      returnToSeededStart();
       game.best = bestScore ?? null;
       game.spawnPlayer(playerName, skinName, extraLives);
       if (extraLives) {

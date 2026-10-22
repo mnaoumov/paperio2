@@ -26,6 +26,7 @@ import type {
   GameResults
 } from './engine.ts';
 import type { GameApi } from './game-api.ts';
+import type { GhostRaceState } from './ghost/ui.ts';
 import type { Language } from './i18n.ts';
 import type { Checkpoint } from './practice.ts';
 import type { SaveSummary } from './save-format.ts';
@@ -47,6 +48,11 @@ import {
   EnemyMenu,
   useEnemySettings
 } from './enemy-menu.ts';
+import {
+  GhostHud,
+  RaceMenu,
+  useGhostRace
+} from './ghost/ui.ts';
 import {
   findDefaultLanguage,
   list3
@@ -239,6 +245,7 @@ export interface MenuScreenProps {
   audio: GameAudioState;
   autopilot: AutopilotState;
   enemies: EnemyMenuState;
+  ghost: GhostRaceState;
   loadSave: (id: string) => void;
   menuMessage: string;
   nickName: string;
@@ -265,6 +272,7 @@ export function MenuScreen({
   audio,
   autopilot,
   enemies,
+  ghost,
   loadSave,
   menuMessage,
   nickName,
@@ -382,6 +390,15 @@ export function MenuScreen({
         }),
         createElement(EnemyMenu, {
           state: enemies
+        })
+      ),
+      isSupported && !recordingMode && createElement(
+        'div',
+        {
+          style: PRACTICE_PANEL_STYLE
+        },
+        createElement(RaceMenu, {
+          state: ghost
         })
       ),
       isSupported && !recordingMode && createElement(PracticeMenu, {
@@ -1676,6 +1693,7 @@ export function App({
   const sound = useGameAudio(api, route, recordingMode);
   const autopilot = useAutopilot(api, route);
   const enemies = useEnemySettings(api);
+  const ghost = useGhostRace(api, route, autopilot.autopilot);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1774,6 +1792,11 @@ export function App({
       inGame: route === 'game',
       state: autopilot
     }),
+    createElement(GhostHud, {
+      hidden: marker !== null,
+      inGame: route === 'game',
+      state: ghost
+    }),
     createElement(AudioControl, {
       hidden: marker !== null,
       inGame: route === 'game',
@@ -1810,6 +1833,7 @@ export function App({
             audio: sound,
             autopilot,
             enemies,
+            ghost,
             loadSave,
             menuMessage,
             nickName,

@@ -23,12 +23,10 @@ import type {
 } from './driver.ts';
 import type { Point } from './plane.ts';
 
-import { REFERENCE_DIAGONAL_SQUARED } from '../engine.ts';
+import { worldToScreen } from '../camera-map.ts';
 import { AUTOPILOT_MODES } from './driver.ts';
-import {
-  FULL_TURN,
-  HALF
-} from './plane.ts';
+import { FULL_TURN } from './plane.ts';
+import { ShowcaseCamera } from './showcase.ts';
 
 /** `KeyboardEvent.code` that hands control back to the autopilot, or takes it from it. */
 export const AUTOPILOT_KEY = 'KeyO';
@@ -38,6 +36,10 @@ export const AUTOPILOT_OVERLAY_KEY = 'KeyI';
 export const AUTOPILOT_STORAGE_KEY = 'paperio2.autopilot';
 /** Where the overlay switch is remembered, `on` or `off`; it is off unless switched on. */
 export const AUTOPILOT_OVERLAY_STORAGE_KEY = 'paperio2.autopilotOverlay';
+/** `KeyboardEvent.code` that switches the demo's camera between the pilot and the leader. */
+export const AUTOPILOT_VIEW_KEY = 'KeyL';
+/** Where the showcase view is remembered, `on` (the camera follows the leader) or `off`; it is off unless switched on. */
+export const AUTOPILOT_VIEW_STORAGE_KEY = 'paperio2.autopilotView';
 
 const MODE_LABELS: Readonly<Record<AutopilotMode, string>> = { blackbox: 'Blackbox', off: 'Off', whitebox: 'Whitebox' };
 const READOUT_INTERVAL_MILLISECONDS = 250;
@@ -83,8 +85,13 @@ export interface AutopilotState {
   /** Moves the menu's mode on to the next one. */
   readonly cycleMode: () => void;
   readonly engaged: boolean;
+  /** Whether the camera follows the unit with the most territory rather than the pilot (the showcase view). */
+  readonly leaderView: boolean;
   readonly mode: AutopilotMode;
   readonly overlay: boolean;
+  /** The showcase camera of the run on screen, or `null`. */
+  readonly showcase: null | ShowcaseCamera;
+  readonly toggleLeaderView: () => void;
   readonly toggleOverlay: () => void;
 }
 
@@ -101,7 +108,7 @@ export interface AutopilotState {
 export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps): null | VNode<unknown> {
   const [readout, setReadout] = useState('');
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
-  const { autopilot, engaged, mode, overlay } = state;
+  const { autopilot, engaged, mode, overlay, showcase } = state;
   useEffect(() => {
     if (!autopilot || !inGame) {
       return;
@@ -112,14 +119,16 @@ export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps):
       const seconds = Math.max(0, Math.floor((game.clock.now() - game.startTime) / MILLISECONDS_PER_SECOND));
       const time = `${String(Math.floor(seconds / SECONDS_PER_MINUTE))}:${String(seconds % SECONDS_PER_MINUTE).padStart(SECONDS_DIGITS, '0')}`;
       const percent = player ? `${(player.percent * PERCENT_SCALE).toFixed(PERCENT_DIGITS)}%` : '-';
-      setReadout(`${time} · ${percent}`);
+      const leader = showcase?.leader;
+      const watching = leader && leader !== player ? ` · watching ${leader.name} ${(leader.percent * PERCENT_SCALE).toFixed(PERCENT_DIGITS)}%` : '';
+      setReadout(`${time} · ${percent}${watching}`);
     }
     update();
     const intervalId = setInterval(update, READOUT_INTERVAL_MILLISECONDS);
     return (): void => {
       clearInterval(intervalId);
     };
-  }, [autopilot, inGame]);
+  }, [autopilot, inGame, showcase]);
   useEffect(() => {
     if (!autopilot) {
       return;
@@ -180,7 +189,7 @@ export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps):
  * @returns The buttons.
  */
 export function AutopilotMenu({ state }: AutopilotMenuProps): VNode<unknown> {
-  const { cycleMode, mode, overlay, toggleOverlay } = state;
+  const { cycleMode, leaderView, mode, overlay, toggleLeaderView, toggleOverlay } = state;
   return createElement(
     'div',
     {
@@ -203,7 +212,16 @@ export function AutopilotMenu({ state }: AutopilotMenuProps): VNode<unknown> {
       'onClick': toggleOverlay,
       'title': 'Draw what the autopilot plans and sees. Never recorded. I turns it on and off.',
       'type': 'button'
-    }, `Overlay: ${overlay ? 'on' : 'off'} (I)`)
+    }, `Overlay: ${overlay ? 'on' : 'off'} (I)`),
+    mode !== 'off' && ' ',
+    mode !== 'off' && createElement('button', {
+      'aria-pressed': leaderView,
+      'class': leaderView ? 'green' : 'orange',
+      'id': 'autopilot-view-toggle',
+      'onClick': toggleLeaderView,
+      'title': 'Showcase: the camera follows whoever holds the most territory, the pilot or a bot. It goes back to the pilot while you steer. L switches it.',
+      'type': 'button'
+    }, `View: ${leaderView ? 'leader' : 'pilot'} (L)`)
   );
 }
 
@@ -227,6 +245,8 @@ export function readAutopilotMode(): AutopilotMode {
 export function useAutopilot(api: GameApi | null, route: string): AutopilotState {
   const [mode, setMode] = useState<AutopilotMode>(readAutopilotMode);
   const [overlay, setOverlay] = useState(() => readStoredSwitch(AUTOPILOT_OVERLAY_STORAGE_KEY));
+  const [leaderView, setLeaderView] = useState(() => readStoredSwitch(AUTOPILOT_VIEW_STORAGE_KEY));
+  const [showcase, setShowcase] = useState<null | ShowcaseCamera>(null);
   const [autopilot, setAutopilot] = useState<Autopilot | null>(null);
   const [engaged, setEngaged] = useState(true);
   const autopilotRef = useRef<Autopilot | null>(null);
@@ -245,8 +265,30 @@ export function useAutopilot(api: GameApi | null, route: string): AutopilotState
     });
   }
 
+  function toggleLeaderView(): void {
+    setLeaderView((previous: boolean) => {
+      writeStored(AUTOPILOT_VIEW_STORAGE_KEY, previous ? 'off' : 'on');
+      return !previous;
+    });
+  }
+
   const toggleOverlayRef = useRef(toggleOverlay);
   toggleOverlayRef.current = toggleOverlay;
+  const toggleLeaderViewRef = useRef(toggleLeaderView);
+  toggleLeaderViewRef.current = toggleLeaderView;
+
+  useEffect(() => {
+    if (!autopilot || !leaderView) {
+      return;
+    }
+    const camera = new ShowcaseCamera(autopilot.game, () => autopilot.engaged);
+    camera.attach();
+    setShowcase(camera);
+    return (): void => {
+      camera.detach();
+      setShowcase(null);
+    };
+  }, [autopilot, leaderView]);
 
   useEffect(() => {
     // The game is created when the canvas mounts and the run starts on the game route, so the autopilot attaches then.
@@ -277,6 +319,8 @@ export function useAutopilot(api: GameApi | null, route: string): AutopilotState
         }
       } else if (event.code === AUTOPILOT_OVERLAY_KEY && autopilotRef.current) {
         toggleOverlayRef.current();
+      } else if (event.code === AUTOPILOT_VIEW_KEY && autopilotRef.current) {
+        toggleLeaderViewRef.current();
       } else {
         return;
       }
@@ -288,7 +332,7 @@ export function useAutopilot(api: GameApi | null, route: string): AutopilotState
     };
   }, []);
 
-  return { autopilot, cycleMode, engaged, mode, overlay, toggleOverlay };
+  return { autopilot, cycleMode, engaged, leaderView, mode, overlay, showcase, toggleLeaderView, toggleOverlay };
 }
 
 function drawBlackboxView(context: CanvasRenderingContext2D, autopilot: Autopilot, height: number): void {
@@ -364,7 +408,7 @@ function drawOverlay(canvas: HTMLCanvasElement, autopilot: Autopilot): void {
   if (!debug || !player) {
     return;
   }
-  const toScreen = worldToScreen(autopilot, player.position);
+  const toScreen = worldToScreen(autopilot.game, autopilot.game.origin ?? player.position);
   if (debug.loop) {
     context.strokeStyle = '#ffffff';
     context.setLineDash([OVERLAY_DASH, OVERLAY_POINT_RADIUS]);
@@ -404,26 +448,6 @@ function readStoredSwitch(key: string): boolean {
   } catch {
     return false;
   }
-}
-
-/**
- * Maps world coordinates to the overlay's, the way the game's camera does: centred on the player, at the game's zoom.
- *
- * @param autopilot - The autopilot.
- * @param origin - The camera's centre, the player.
- * @returns The mapping.
- */
-function worldToScreen(autopilot: Autopilot, origin: Point): (point: Point) => Point {
-  const { game } = autopilot;
-  const { clientHeight, clientWidth } = game.view;
-  const viewWidth = Math.trunc(clientWidth * game.quality);
-  const viewHeight = Math.trunc(clientHeight * game.quality);
-  const scale = game.scale * Math.hypot(viewWidth, viewHeight) / Math.sqrt(REFERENCE_DIAGONAL_SQUARED);
-  const toCss = viewWidth > 0 ? clientWidth / viewWidth : 1;
-  return (point: Point): Point => ({
-    x: ((point.x - origin.x) * scale + viewWidth * HALF) * toCss,
-    y: ((point.y - origin.y) * scale + viewHeight * HALF) * toCss
-  });
 }
 
 function writeStored(key: string, value: string): void {

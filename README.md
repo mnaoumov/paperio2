@@ -215,6 +215,13 @@ keeps from the trail, or the blackbox's view, colour by class. While you steer,
 the whitebox keeps planning and the overlay shows the loop it suggests. Recording
 mode hides the readout and the overlay.
 
+**View** (`L`, or the menu button next to **Overlay**) is the showcase: the
+camera follows whoever holds the most territory, the pilot or a bot, and glides
+over when the lead changes hands. A unit takes the camera only once it is ahead
+by 0.2% of the arena, so two units trading the lead do not make it flicker. The
+readout names the unit it is watching. While you steer, the camera is yours
+again. It only moves the camera and changes nothing in the game.
+
 **How well it plays.** `npm run benchmark` in `ts/` plays seeded games at full
 speed in headless Chrome and reports, per pilot, the win rate, the median and
 best time to win and how runs end. The same seed replays the same game. On
@@ -320,6 +327,31 @@ bots free the most ground. Passive shows the pilot's own limit rather than the
 bots'. In that run it died at the wall twice. That was before the wall slide
 described under **Demo autopilot**, and it no longer does.
 
+### Racing: a shared seed and a ghost
+
+Two more menu switches are for racing.
+
+**Seeded map.** With `?seed=<anything>` on the page's address, every Play starts
+on the same map, with the same bots and the same spawn point, on any device.
+**Seeded map: off** picks a new seed and reloads with it; on a seeded page the
+panel shows the seed, **Copy link** copies the address to share, **New seed**
+picks another and **Off** goes back to a new map every time. The page prepares a
+seeded map in one go instead of spreading it over the first seconds, so the menu
+appears a moment later. What happens after Play is not pinned: the game steps by
+your frame times and the bots react to what you do, so two runs part ways as
+soon as you steer differently. `?original` ignores the seed.
+
+**Ghost** (`H`, or the button) races the best run on this map as a translucent
+ghost with a short tail, and names the gap between you: `Ghost 12.30% · you
+behind by 1.20%`. Off screen it waits at the edge of the screen in its
+direction. The best run is the one that held the most territory, or as much
+sooner, whoever flew it: you, the demo pilot, or both (the label says which).
+Each seed keeps its own, and so does play without a seed; **Forget** drops it.
+Practice runs are never kept. The ghost is drawn on a layer of its own, so the
+in-game recorder never records it, and recording mode hides it. A ghost replays
+where a run went, not what was pressed: the game steps by real frame times, so
+the same keys never give the same run twice.
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
@@ -421,6 +453,10 @@ back to the original `app2.js` and says so in the browser console. Add
   from the original's without editing it, plus a fixed difficulty and a bot
   count. Original is the default and runs the bots exactly as the shipped game
   does, which `npm run test:integration` checks frame for frame.
+- Racing in the `ts/` reconstruction (`ts/src/seed.ts`, `ts/src/ghost/`): a
+  shareable `?seed=` that starts every Play on the same map, a ghost of the best
+  run on that map, and a showcase view for the demo that follows the leader
+  (`ts/src/autopilot/showcase.ts`). All off by default.
 
 ## Structure
 
