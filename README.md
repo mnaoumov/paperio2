@@ -49,6 +49,14 @@ and its toggle (the joystick still steers, drawn invisibly), the menu's
 Practice, Recording and saved-games panel, and the practice note on the results
 screen. Practice still runs, and its keys still work: `Z`, `X`, `K`, `Esc` / `P`.
 
+Every switch into recording mode shows a dialog, _You are in recording mode.
+Press R to return to normal mode_, with an OK button. That includes a page load
+with the mode remembered as on, so the mode is never on without you knowing.
+OK, `Enter`, `Space` or `Esc` closes it, and nothing on screen gives the mode
+away after that. Switching out needs no dialog: the additions just come back.
+`R` does nothing while the name field has the focus, since it types an `r`
+there. Click outside the field first.
+
 It also marks the frames to cut. A marker is the whole frame in one solid colour
 with a large label, so it survives video compression and shows in a timeline
 thumbnail:
@@ -70,7 +78,8 @@ Clean play never carries a marker. What gets marked:
   cutting from there to the last green frame joins two frames of the same game
   state.
 - **Switching recording mode during a run**: turning it off flashes red (the
-  additions come back); turning it on pauses the game for a red-then-green cut.
+  additions come back); turning it on pauses the game under red with the dialog
+  on top, and the green frames and play follow once the dialog is closed.
   To play a saved game in recording mode, turn it off (`R`), load the save, and
   turn it on again.
 

@@ -1374,27 +1374,47 @@ export interface StorageApi {
   set: (key: string, value: StoredGameData, options: StorageSetOptions) => void;
 }
 export interface RecordingModeState {
+  /** Hides the notice, and plays on if the switch paused a run. */
+  dismissNotice: () => void;
   /** The cut marker while recording mode is on, else `null`. */
   marker: CutMarker | null;
+  /** Whether the "You are in recording mode" notice is shown. */
+  noticeShown: boolean;
   recordingMode: boolean;
   setRecordingMode: (recordingMode: boolean) => void;
 }
 /**
  * Recording mode's state: remembered in `localStorage`, toggled by the R key, and mirrored as a class on `<html>`.
+ * Every switch in shows the notice, a restore from storage on load included, so the mode is never on unannounced.
  *
  * @param api - The game API.
  * @param route - The current route; a switch during a run is marked.
- * @returns The mode, its setter and the cut marker.
+ * @returns The mode, its setter, the cut marker and the notice.
  */
 export function useRecordingMode(api: GameApi | null, route: string): RecordingModeState {
   const [recordingMode, setRecordingModeState] = useState(readRecordingMode);
+  const [noticeShown, setNoticeShown] = useState(recordingMode);
   const [cutMarker] = useState(() => new CutMarker());
+  const afterNotice = useRef<(() => void) | null>(null);
   function setRecordingMode(nextRecordingMode: boolean): void {
     writeRecordingMode(nextRecordingMode);
     setRecordingModeState(nextRecordingMode);
+    setNoticeShown(nextRecordingMode);
+    const pausedBySwitch = afterNotice.current !== null;
+    afterNotice.current = null;
     if (route === 'game' && api) {
-      markRecordingSwitch(api.game, cutMarker, nextRecordingMode);
+      if (pausedBySwitch && !nextRecordingMode) {
+        // Switched back before the notice was dismissed: give back the pause the switch in took.
+        api.game.resume();
+      }
+      afterNotice.current = markRecordingSwitch(api.game, cutMarker, nextRecordingMode);
     }
+  }
+  function dismissNotice(): void {
+    setNoticeShown(false);
+    const action = afterNotice.current;
+    afterNotice.current = null;
+    action?.();
   }
   useEffect(() => {
     applyRecordingClass(recordingMode);
@@ -1413,7 +1433,9 @@ export function useRecordingMode(api: GameApi | null, route: string): RecordingM
     };
   }, [recordingMode, route]);
   return {
+    dismissNotice,
     marker: recordingMode ? cutMarker : null,
+    noticeShown,
     recordingMode,
     setRecordingMode
   };
@@ -1424,18 +1446,128 @@ export function useRecordingMode(api: GameApi | null, route: string): RecordingM
  * @param game - The live game.
  * @param marker - The cut marker.
  * @param recordingMode - Whether recording mode was just turned on.
+ * @returns What to run once the notice is dismissed, or `null`.
  */
-function markRecordingSwitch(game: Game, marker: CutMarker, recordingMode: boolean): void {
+function markRecordingSwitch(game: Game, marker: CutMarker, recordingMode: boolean): (() => void) | null {
   if (!recordingMode) {
     // The additions come back, so the frames from here on are not clean.
     marker.flashCut();
-  } else if (game.pause()) {
-    // Clean from the end of the green frames on. The game waits under the marker, so no play is lost.
-    marker.cut();
+    return null;
+  }
+  if (!game.pause()) {
+    return null;
+  }
+  // The notice sits on the red frames, and the game waits under them until it is dismissed, so no play is lost.
+  // Clean from the end of the green frames on.
+  marker.cut();
+  return (): void => {
     marker.resumeThen(() => {
       game.resume();
     });
+  };
+}
+/** The notice's wording, as the owner asked for it. */
+export const RECORDING_NOTICE_TEXT = 'You are in recording mode. Press R to return to normal mode';
+/** `KeyboardEvent.code` values that dismiss the notice. */
+export const RECORDING_NOTICE_DISMISS_CODES: readonly string[] = ['Enter', 'Escape', 'NumpadEnter', 'Space'];
+/** Above the cut marker, whose red frames it sits on. */
+const RECORDING_NOTICE_Z_INDEX = 2001;
+export interface RecordingNoticeProps {
+  onDismiss: () => void;
+  shown: boolean;
+}
+/**
+ * The modal shown on every switch into recording mode, styled like the game's own About window. Like the pause
+ * control it never takes focus. While it is open it swallows every key but R, so Esc closes it rather than also
+ * toggling the pause, and nothing reaches the engine or the practice keys.
+ *
+ * @param root0 - The props.
+ * @param root0.onDismiss - Called on OK, Enter, Space or Esc.
+ * @param root0.shown - Whether the notice is shown.
+ * @returns The modal, or nothing while it is hidden.
+ */
+export function RecordingNotice({ onDismiss, shown }: RecordingNoticeProps): VNode<unknown> {
+  // Read through a ref, so the effect depends on `shown` alone: an effect whose deps change on every render of the
+  // App would queue preact's after-paint callback on every frame of play, and that alone shifts the frame timing.
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+  useEffect(() => {
+    if (!shown) {
+      return undefined;
+    }
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.code === RECORDING_KEY) {
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+      if (!event.repeat && RECORDING_NOTICE_DISMISS_CODES.includes(event.code)) {
+        dismissRef.current();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown, true);
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [shown]);
+  if (!shown) {
+    return createElement(Fragment, null);
   }
+  return createElement(
+    'div',
+    {
+      'aria-modal': 'true',
+      'id': 'recording-notice',
+      'onMouseDown': keepFocusOnBody,
+      'onPointerDown': keepFocusOnBody,
+      'role': 'dialog',
+      'style': {
+        alignItems: 'center',
+        background: 'rgba(0, 0, 0, 0.45)',
+        display: 'flex',
+        fontFamily: '"PT Sans Caption", sans-serif',
+        inset: '0',
+        justifyContent: 'center',
+        position: 'fixed',
+        userSelect: 'none',
+        zIndex: RECORDING_NOTICE_Z_INDEX
+      }
+    },
+    createElement(
+      'div',
+      {
+        style: {
+          background: '#ffffff',
+          borderRadius: '10px',
+          boxSizing: 'border-box',
+          color: '#422100',
+          margin: '16px',
+          maxWidth: '520px',
+          padding: '32px',
+          textAlign: 'center'
+        }
+      },
+      createElement('p', {
+        style: {
+          fontSize: '24px',
+          lineHeight: '1.3',
+          margin: '0 0 24px'
+        }
+      }, RECORDING_NOTICE_TEXT),
+      createElement('button', {
+        class: 'green',
+        id: 'recording-notice-ok',
+        onClick: (event: MouseEvent) => {
+          if (event.currentTarget instanceof HTMLElement) {
+            event.currentTarget.blur();
+          }
+          onDismiss();
+        },
+        tabIndex: -1,
+        type: 'button'
+      }, 'OK')
+    )
+  );
 }
 export interface AppProps {
   ads?: undefined;
@@ -1467,7 +1599,7 @@ export function App({
   const [pendingLoad, setPendingLoad] = useState<GameSnapshot | null>(null);
   const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
   const [menuMessage, setMenuMessage] = useState('');
-  const { marker, recordingMode, setRecordingMode } = useRecordingMode(api, route);
+  const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1564,6 +1696,10 @@ export function App({
       marker,
       onSaved: refreshSaves,
       practice
+    }),
+    createElement(RecordingNotice, {
+      onDismiss: dismissNotice,
+      shown: noticeShown
     }),
     route !== 'game' && createElement('div', {
       id: 'ui_overlay'
