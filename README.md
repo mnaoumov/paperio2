@@ -35,6 +35,57 @@ or ends the run. Flags on the map mark the checkpoints. A saved game is kept in 
 browser and loads from the menu into a new practice run. Practice runs do not
 count: no best score and no achievements.
 
+### Recording mode
+
+**Recording mode** makes a screen recording look like the original game. Turn it
+on with the menu's Recording mode button or the `R` key, and off again with `R`
+(the button is hidden with everything else). The choice is remembered in the
+browser. It hides every addition: the pause button and the Paused overlay, the
+practice panel and its messages, the checkpoint flags on the map, the joystick
+and its toggle (the joystick still steers, drawn invisibly), the menu's
+Practice, Recording and saved-games panel, and the practice note on the results
+screen. Practice still runs, and its keys still work: `Z`, `X`, `K`, `Esc` / `P`.
+
+It also marks the frames to cut. A marker is the whole frame in one solid colour
+with a large label, so it survives video compression and shows in a timeline
+thumbnail:
+
+- **Red, `CUT`**: cut from the first red frame. It stays up for the whole
+  interruption, and for at least 0.7 s.
+- **Green, `RESUME`**: 0.7 s with the game still paused under it. Cut up to the
+  last green frame. The next frame is clean play.
+
+Clean play never carries a marker. What gets marked:
+
+- **A pause** (`Esc` / `P`, or a hidden tab): red while paused, green on resume.
+- **A save** (`K`) and **a checkpoint removal** (`X`): the game pauses for it
+  inside a red-then-green cut.
+- **A death in practice**: red from the death, through the death delay and the
+  restore, then green while the restored game waits, then play. The red frames
+  say how far back the cut reaches, for example `cut from 8.7 s before this`:
+  that is where the checkpoint's moment is on screen in the raw recording, so
+  cutting from there to the last green frame joins two frames of the same game
+  state.
+- **Switching recording mode during a run**: turning it off flashes red (the
+  additions come back); turning it on pauses the game for a red-then-green cut.
+  To play a saved game in recording mode, turn it off (`R`), load the save, and
+  turn it on again.
+
+**How to cut:** in the raw recording, for each red span, cut from its first red
+frame to the last green frame after it. For a death, cut from the time the red
+frames name instead, counted back from the first red frame. Measure every cut on
+the raw recording: the death hint counts in the raw timeline, so mark all the
+cuts first and remove them together.
+
+**Continuity across a cut.** A respawn restores the checkpoint's whole game
+state, so the frame after the cut is the frame at the checkpoint: territory,
+percent, leaderboard, kills, the minimap and the bots are all as they were then,
+and the playtime the results show is the checkpoint's plus the play after it.
+Nothing in the HUD jumps. Two things differ from the original that a recording
+can show: a practice run never sets a best score, so its results screen never
+shows a new best; and the results come up only when a death finds no checkpoint
+left, or the run is ended.
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
@@ -104,6 +155,9 @@ back to the original `app2.js` and says so in the browser console. Add
   a respawn at the latest one on death, and saved games in `localStorage`, all
   built on a full game snapshot (`ts/src/snapshot.ts`, `ts/src/practice.ts`,
   `ts/src/save-format.ts`). It is off by default, so a normal run is untouched.
+- A recording mode in the `ts/` reconstruction (`ts/src/recording.ts`): it hides
+  every addition above and marks the frames to cut with full-frame red and green
+  markers. It is off by default.
 
 ## Structure
 

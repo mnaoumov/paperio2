@@ -159,6 +159,16 @@ neither.
   it on the first frame after that finds the player in its base. A frame that throws no longer ends the rAF chain:
   `Game.loop` logs it (`frameErrors`) and steps again on the next frame. Practice runs set no best score, track no achievements, and their
   result carries `practice: true`. A loaded save always runs as practice.
+- **Recording mode** (`ts/src/recording.ts`, owner request 2026-10-21) hides every addition over the original and marks
+  the frames to cut; the README's *Recording mode* section is the user-facing contract. `R` (by `KeyboardEvent.code`)
+  toggles it, remembered as `paperio2.recording`, mirrored as the `paperio2-recording` class on `<html>` that
+  `joystick.css` hides the joystick by. In `ui.ts`, `marker` (a `CutMarker`, or `null` when the mode is off) is passed
+  to `PauseControl`, `PracticeControl` and `GameScreen`; each hides itself and routes its events through the marker.
+  The marker is a `pointer-events: none` full-frame div, red (`cut`) until `resumeThen`, then green (`resume`) for
+  700 ms while the game stays paused, then play. `Practice.onPlayerDeath` / `onRespawn` drive a respawn's cut, and
+  `Checkpoint.seenAt` (wall time its state was last on screen, reset when a respawn resumes it) gives the red frames'
+  rewind hint. **A new on-screen addition must hide in recording mode**, and a new interrupting action goes through
+  `interruptPlay`. It is off by default and touches nothing the engine runs, so the differential test is unaffected.
 - **A saved game** is the snapshot through `shared/graph-codec.ts` (a flat object table with back-references and a
   class registry, never `constructor.name`), with skins saved by name and paths rebuilt on load, as gzipped base64
   under `paperio2.save.<id>`, indexed by `paperio2.saves`. Particles, quest notifications and the vector pool are
