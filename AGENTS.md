@@ -303,8 +303,43 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   `api.start(..., completePreparation = true)`, and steps the virtual clock one 60 fps frame at a time inside the page.
   The whitebox runs with `game.renderer = null` (rendering changes no game state): 16 fifteen-minute games in parallel
   took about 4 minutes here. The blackbox renders every frame and runs at about real time. `--why` prints each failed run's last phase changes, the killer's
-  bot state, the whitebox's decision counts and the ground it gained and lost. Selectable enemy behaviours do not exist
-  yet, so every run is against the original bots.
+  bot state, the whitebox's decision counts and the ground it gained and lost. `--enemies` picks the enemy modes to play against
+  (see **Enemy modes**); it defaults to the original bots.
+
+## Enemy modes
+
+**The `ts/` reconstruction can change how the bots play** (`ts/src/entities/enemy-modes.ts`, owner request
+2026-10-21); the README's *Enemy modes* section is the user-facing contract and explains how the original bots work.
+
+- **Tables, not edits.** Each mode is a `BotStates` table built from the original `botStates`. The original's `capture`,
+  `cut` and `exit` handlers delegate to `updateCapture` / `enterCut` / `updateCut` / `enterExit` / `updateExit` in
+  `bot-ai.ts`, which take the "should attack" test as a parameter, so a mode reuses them with another test. That
+  refactor is behaviour-neutral (the differential suite proves it). Every table carries every state name the original
+  has, so a switch mid-run never strands a bot (`enemy-modes.test.ts` asserts it).
+- **Hooks, inert for Original:** `Game.enemies` (`EnemyHooks`, `null` for Original) is read in three places: the `Bot`
+  constructor's table (`tableFor`), a personality override after the level lerp (`adjustPersonality`), and the
+  eligibility test in `updateClosestBotAttack` (`canForceAttack`). Difficulty and bot count write `config.botLevel` /
+  `config.botsCount`, restoring the values the config had before the settings first touched them.
+- **Applies at once** (`GameApi.setEnemySettings`, from `useEnemySettings` in `enemy-menu.ts`), to the menu's bots too.
+  Stored as JSON under `paperio2.enemies`; `parseEnemySettings` drops unknown values field by field.
+- **Snapshot-safe.** No new `Bot` fields: a hunted unit lives in the fsm context (`BotStateContext.prey`), which the
+  snapshot clones. Every table in `ENEMY_STATE_TABLES` is a shared instance in `snapshot.ts`, and a save names a
+  non-original table `enemyStates:<id>` (the original keeps its `botStates` tag, so older saves load). The settings are
+  the page's, not the game's, so `restoreSnapshot` ends with `syncBotStates`: bots from before a switch take the current
+  mode, and a mixed bot keeps the table it drew.
+- **Engine facts the modes rest on:** crossing a trail kills the trail's OWNER (`Trail.handleIntersect`), so a bot cannot
+  kill itself on another trail, and Suicidal crosses its own trail or throws its trail in front of a head instead. A
+  capture kills a unit it encloses while that unit is in its base, or that encloses its trail start or capital
+  (`engine.ts`, after `polygon3`). Civil war's avoidance of the player is steering only and is NOT complete.
+- **Vision** applies to Avoid, Chase and Pack: blackbox sees the player only when its head or trail is within the bot's
+  own `vrange` of the bot. With 15 bots and the whitebox autopilot as the player no bot came within its `vrange` of the
+  player in 40 s (closest 1.26 view ranges), which is why the integration test crowds the arena with 30 bots for the
+  blackbox and Avoid comparisons.
+- **Proven by `test/differential/enemy-modes.integration.test.ts`**: Original stored explicitly plays a scenario frame
+  for frame like `?original`, and each other mode, played 40 s with the whitebox autopilot as the player, shows its
+  signature (no attack where the original attacks, several hunters at once, self-intersection deaths, nobody outside its
+  base, greed above the original's maximum, bots hunting bots, several tables at once). `npm run benchmark -- --enemies
+  original,chase:blackbox,...` adds a row per enemy mode.
 
 ## Leaderboard names
 

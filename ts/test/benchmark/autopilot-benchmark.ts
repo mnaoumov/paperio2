@@ -8,7 +8,10 @@
  * frame, and the same seed replays the same run. The whitebox mode runs with rendering off, which changes no game
  * state; the blackbox mode renders every frame, because pixels are all it sees.
  *
- * `npm run benchmark -- --modes whitebox,blackbox --seeds 10 --first-seed 1 --max-minutes 20 --parallel 4 [--why]`
+ * `npm run benchmark -- --modes whitebox,blackbox --enemies original,chase:blackbox --seeds 10 --first-seed 1 --max-minutes 20 --parallel 4 [--why]`
+ *
+ * `--enemies` takes the enemy modes to play against, each `<mode>` or `<mode>:<vision>` (`whitebox` by default), and reports a row
+ * per autopilot mode and enemy mode.
  *
  * `--why` prints, for every run that does not win, its last phase changes and how its killer was behaving, and the
  * whitebox pilot's decision counts with the ground it gained and lost.
@@ -23,6 +26,7 @@ import { availableParallelism } from 'node:os';
 import { parseArgs } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
+import type { PageEnemySettings } from '../differential/page-instrumentation.ts';
 
 import {
   launchBrowser,
@@ -30,6 +34,8 @@ import {
 } from '../differential/harness.ts';
 
 interface Job {
+  /** The enemy mode, `<mode>` or `<mode>:<vision>`. */
+  readonly enemies: string;
   readonly mode: Mode;
   readonly seed: number;
 }
@@ -37,6 +43,7 @@ interface Job {
 type Mode = 'blackbox' | 'whitebox';
 
 interface Outcome {
+  readonly enemies: string;
   readonly mode: Mode;
   readonly percent: number;
   readonly reason: null | string;
@@ -81,6 +88,7 @@ const WHY_LINES = 12;
 
 const { values } = parseArgs({
   options: {
+    'enemies': { default: 'original', type: 'string' },
     'first-seed': { default: '1', type: 'string' },
     'max-minutes': { default: '20', type: 'string' },
     'modes': { default: 'whitebox,blackbox', type: 'string' },
@@ -96,7 +104,8 @@ const firstSeed = Number(values['first-seed']);
 const maxFrames = Math.round(Number(values['max-minutes']) * SECONDS_PER_MINUTE * FRAMES_PER_SECOND);
 const parallel = Math.max(1, Number(values.parallel));
 
-const jobs: Job[] = modes.flatMap((mode) => Array.from({ length: seedCount }, (_unused, index) => ({ mode, seed: firstSeed + index })));
+const enemyModes = values.enemies.split(',').map((enemies) => enemies.trim()).filter(Boolean);
+const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => Array.from({ length: seedCount }, (_unused, index) => ({ enemies, mode, seed: firstSeed + index }))));
 const browser = await launchBrowser();
 const outcomes: Outcome[] = [];
 try {
@@ -105,7 +114,7 @@ try {
     for (let job = jobs[next++]; job; job = jobs[next++]) {
       const outcome = await play(browser, job);
       outcomes.push(outcome);
-      print(`${outcome.mode} seed ${String(outcome.seed)}: ${describe(outcome)} (${outcome.wallSeconds.toFixed(0)} s wall)`);
+      print(`${label(outcome)} seed ${String(outcome.seed)}: ${describe(outcome)} (${outcome.wallSeconds.toFixed(0)} s wall)`);
     }
   }));
 } finally {
@@ -128,6 +137,10 @@ function formatTime(seconds: number): string {
   return `${String(Math.floor(whole / SECONDS_PER_MINUTE))}:${String(whole % SECONDS_PER_MINUTE).padStart(SECONDS_DIGITS, '0')}`;
 }
 
+function label(run: Pick<Job, 'enemies' | 'mode'>): string {
+  return `${run.mode} vs ${run.enemies}`;
+}
+
 function median(numbers: readonly number[]): null | number {
   if (numbers.length === 0) {
     return null;
@@ -137,8 +150,13 @@ function median(numbers: readonly number[]): null | number {
   return sorted.length % MEDIAN_DIVISOR ? sorted[middle] ?? null : ((sorted[middle - 1] ?? 0) + (sorted[middle] ?? 0)) / MEDIAN_DIVISOR;
 }
 
+function parseEnemies(text: string): PageEnemySettings {
+  const [mode = 'original', vision] = text.split(':');
+  return { count: null, level: null, mode, vision: vision === 'blackbox' ? 'blackbox' : 'whitebox' };
+}
+
 async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
-  const { mode, seed } = job;
+  const { enemies, mode, seed } = job;
   const started = performance.now();
   const scenario: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: `${mode} ${String(seed)}`, seed, startFrame: 0 };
   const page = await openVariant(browserToUse, 'reconstruction', scenario, { traceCanvas: false });
@@ -152,17 +170,22 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       BOOT_FRAMES,
       FRAME_MILLISECONDS
     );
-    await page.evaluate((pilot: Mode) => {
-      const api = window.paperio2api;
-      if (!api.start || !api.attachAutopilot) {
-        throw new Error('This build has no autopilot.');
-      }
-      api.start('Autopilot', '', undefined, undefined, undefined, true);
-      window.__autopilot = api.attachAutopilot(pilot);
-      if (pilot === 'whitebox') {
-        api.game.renderer = null;
-      }
-    }, mode);
+    await page.evaluate(
+      (pilot: Mode, enemySettings: PageEnemySettings) => {
+        const api = window.paperio2api;
+        if (!api.start || !api.attachAutopilot || !api.setEnemySettings) {
+          throw new Error('This build has no autopilot.');
+        }
+        api.setEnemySettings(enemySettings);
+        api.start('Autopilot', '', undefined, undefined, undefined, true);
+        window.__autopilot = api.attachAutopilot(pilot);
+        if (pilot === 'whitebox') {
+          api.game.renderer = null;
+        }
+      },
+      mode,
+      parseEnemies(enemies)
+    );
     const tail: string[] = [];
     let frames = 0;
     let state = await stepFrames(page, 0, tail);
@@ -173,10 +196,10 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
     }
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     if (values.why && reason !== 'win') {
-      print([`--- ${mode} seed ${String(seed)}: ${String(reason)}`, ...tail].join('\n'));
-      print(`stats ${mode} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify({ ...window.__autopilot?.whitebox?.stats, area: window.__areaTotals }))}`);
+      print([`--- ${label(job)} seed ${String(seed)}: ${String(reason)}`, ...tail].join('\n'));
+      print(`stats ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify({ ...window.__autopilot?.whitebox?.stats, area: window.__areaTotals }))}`);
     }
-    return { mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
+    return { enemies, mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
   } finally {
     await page.browserContext().close();
   }
@@ -187,9 +210,9 @@ function print(text: string): void {
 }
 
 function report(results: readonly Outcome[]): string {
-  const lines = ['| Mode | Runs | Wins | Median time to win | Best time to win | Deaths (cause) | Time limit (median %) |', '| --- | --- | --- | --- | --- | --- | --- |'];
-  for (const mode of modes) {
-    const runs = results.filter((outcome) => outcome.mode === mode);
+  const lines = ['| Mode | Enemies | Runs | Wins | Median time to win | Best time to win | Deaths (cause) | Time limit (median %) |', '| --- | --- | --- | --- | --- | --- | --- | --- |'];
+  for (const { enemies, mode } of modes.flatMap((pilot) => enemyModes.map((enemyMode) => ({ enemies: enemyMode, mode: pilot })))) {
+    const runs = results.filter((outcome) => outcome.mode === mode && outcome.enemies === enemies);
     const wins = runs.filter((outcome) => outcome.reason === 'win');
     const deaths = runs.filter((outcome) => outcome.reason !== null && outcome.reason !== 'win');
     const timeouts = runs.filter((outcome) => outcome.reason === null);
@@ -205,6 +228,7 @@ function report(results: readonly Outcome[]): string {
       [
         '',
         mode,
+        enemies,
         String(runs.length),
         `${String(wins.length)} (${(wins.length / Math.max(1, runs.length) * PERCENT_SCALE).toFixed(0)}%)`,
         medianWin === null ? '-' : formatTime(medianWin),

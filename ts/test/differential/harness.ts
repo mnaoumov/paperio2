@@ -109,9 +109,14 @@ export interface Scenario {
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface OpenVariantOptions {
+  /** `localStorage` entries written before the page's own scripts run, as a returning visitor's settings. */
+  readonly storage?: Readonly<Record<string, string>>;
   /** Whether the page records every canvas call; on unless a caller compares no frames. */
   readonly traceCanvas?: boolean;
 }
+
+/** The page options both of a scenario's pages are opened with. */
+export type RunScenarioOptions = OpenVariantOptions;
 
 export interface ScenarioResult {
   readonly coverage: Coverage;
@@ -167,6 +172,13 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
     errors.push(String(error));
   });
   await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
+  if (options.storage) {
+    await page.evaluateOnNewDocument((entries: Readonly<Record<string, string>>) => {
+      for (const [key, value] of Object.entries(entries)) {
+        localStorage.setItem(key, value);
+      }
+    }, options.storage);
+  }
   const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
   await interceptHost(page, pageOrigin);
   await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });
@@ -203,8 +215,8 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
   return page;
 }
 
-export async function runScenario(browser: Browser, scenario: Scenario, variants: readonly Variant[] = VARIANTS): Promise<ScenarioResult> {
-  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, variant, scenario)));
+export async function runScenario(browser: Browser, scenario: Scenario, variants: readonly Variant[] = VARIANTS, options: RunScenarioOptions = {}): Promise<ScenarioResult> {
+  const pages = await Promise.all(variants.map(async (variant) => openVariant(browser, variant, scenario, options)));
   const [original, reconstruction] = pages;
   if (!original || !reconstruction) {
     throw new Error('Expected one page per variant');

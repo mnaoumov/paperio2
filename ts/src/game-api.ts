@@ -5,6 +5,7 @@ import type {
   Config,
   GameResults
 } from './engine.ts';
+import type { EnemySettings } from './entities/enemy-modes.ts';
 import type { NamePool } from './entities/units.ts';
 import type { Language } from './i18n.ts';
 import type {
@@ -24,6 +25,10 @@ import {
   Game,
   HALF_DIVISOR
 } from './engine.ts';
+import {
+  applyEnemySettings,
+  DEFAULT_ENEMY_SETTINGS
+} from './entities/enemy-modes.ts';
 import { renderGame } from './game-render.ts';
 import { Border } from './geometry/border.ts';
 import { SpatialGrid } from './geometry/spatial-grid.ts';
@@ -56,6 +61,8 @@ export interface GameApi {
   preparing: boolean;
   /** Puts the live game back to a snapshot of it, between frames. */
   restoreSnapshot: (snapshot: GameSnapshot) => void;
+  /** Switches the enemy mode, difficulty and bot count, at once if the game exists, else when it is created. */
+  setEnemySettings: (settings: EnemySettings) => void;
   /** `completePreparation` finishes the prepare phase before the player spawns, however long it takes. */
   start: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: (results: GameResults) => void, extraLives?: number, completePreparation?: boolean) => void;
   startGame?: () => void;
@@ -66,6 +73,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
   const gameApi = {} as GameApi;
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- Path2D feature-detection for old browsers; lib.dom types it as always-defined but it may be absent at runtime.
   if (Path2D) {
+    let enemySettings = DEFAULT_ENEMY_SETTINGS;
     gameApi.config = config;
     gameApi.create = (view: HTMLCanvasElement): void => {
       const {
@@ -83,6 +91,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       skinManager.game = game;
       game.renderer = renderGame;
       gameApi.game = game;
+      applyEnemySettings(game, enemySettings);
       /* eslint-disable no-magic-numbers -- keyboard keyCodes for the debug toggle combos (Shift/Alt/Q/B/M and G). */
       game.controller.addSet([16, 18, 81, 66, 77], () => {
         game.debug = !game.debug;
@@ -91,6 +100,13 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         game.debugGraph = !game.debugGraph;
       });
       /* eslint-enable no-magic-numbers -- end of the debug-combo keyCode literals. */
+    };
+    gameApi.setEnemySettings = (settings: EnemySettings): void => {
+      enemySettings = settings;
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- the game exists only once the canvas has mounted; until then the settings wait for `create`.
+      if (gameApi.game) {
+        applyEnemySettings(gameApi.game, settings);
+      }
     };
     gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>): Autopilot => {
       const autopilot = new Autopilot(gameApi.game, mode);

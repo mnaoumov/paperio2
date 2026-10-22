@@ -19,6 +19,7 @@ import {
 
 import type { GameAudioState } from './audio/ui.ts';
 import type { AutopilotState } from './autopilot/ui.ts';
+import type { EnemyMenuState } from './enemy-menu.ts';
 import type {
   Config,
   Game,
@@ -42,6 +43,10 @@ import {
   AutopilotMenu,
   useAutopilot
 } from './autopilot/ui.ts';
+import {
+  EnemyMenu,
+  useEnemySettings
+} from './enemy-menu.ts';
 import {
   findDefaultLanguage,
   list3
@@ -233,6 +238,7 @@ export interface MenuScreenProps {
   api: GameApi | null;
   audio: GameAudioState;
   autopilot: AutopilotState;
+  enemies: EnemyMenuState;
   loadSave: (id: string) => void;
   menuMessage: string;
   nickName: string;
@@ -258,6 +264,7 @@ export function MenuScreen({
   api,
   audio,
   autopilot,
+  enemies,
   loadSave,
   menuMessage,
   nickName,
@@ -372,6 +379,9 @@ export function MenuScreen({
         },
         createElement(AutopilotMenu, {
           state: autopilot
+        }),
+        createElement(EnemyMenu, {
+          state: enemies
         })
       ),
       isSupported && !recordingMode && createElement(PracticeMenu, {
@@ -1665,6 +1675,7 @@ export function App({
   const video = useVideoRecording(api, route);
   const sound = useGameAudio(api, route, recordingMode);
   const autopilot = useAutopilot(api, route);
+  const enemies = useEnemySettings(api);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1798,6 +1809,7 @@ export function App({
             api,
             audio: sound,
             autopilot,
+            enemies,
             loadSave,
             menuMessage,
             nickName,

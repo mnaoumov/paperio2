@@ -32,6 +32,7 @@ import {
   HALF_DIVISOR,
   MAX_METRICS_SAMPLES
 } from './engine.ts';
+import { describeEnemyModes } from './entities/enemy-modes.ts';
 import { TOP_LIST_RANK_LIMIT } from './entities/units.ts';
 import { Vector } from './geometry/vector.ts';
 import { fitLeaderboardRow } from './leaderboard-fit.ts';
@@ -882,6 +883,9 @@ export function renderDebugOverlay(game: Game): void {
   drawStatLine();
   drawStatLine(`Units: ${String(game.units.length)}`);
   drawStatLine(`Level: ${game.level.toFixed(DEBUG_LEVEL_DECIMAL_DIGITS)}`);
+  if (game.enemies) {
+    drawStatLine(`Enemies: ${describeEnemyModes(game)}`);
+  }
   drawStatLine();
   drawStatLine(`Particles: ${String(game.particles.length)}`);
   drawStatLine();

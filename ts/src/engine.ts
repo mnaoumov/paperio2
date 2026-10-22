@@ -5,6 +5,7 @@ import {
 } from '@mnaoumov/typescript-lib/type-guards';
 
 import type { PointerState } from './controller.ts';
+import type { BotStates } from './entities/bot-ai.ts';
 import type {
   ShapeOwner,
   TrailCrossing,
@@ -197,6 +198,15 @@ export interface AutopilotHook {
   afterFrame(): void;
   /** Right before each update reads the input. */
   beforeInput(): void;
+}
+/** The enemy mode's hooks into the engine; `Game.enemies` is `null` for the original bots. */
+export interface EnemyHooks {
+  /** After the level has set a bot's personality, so a mode can override it. */
+  adjustPersonality(bot: Bot): void;
+  /** Whether the bot nearest a long player trail may be forced to attack it, as the original always does. */
+  canForceAttack(bot: Bot): boolean;
+  /** The state table a new bot runs. */
+  tableFor(bot: Bot): BotStates;
 }
 export interface FrameRecorder {
   /** After every frame's render, so the frame on the canvas is the game state just stepped to. */
@@ -449,6 +459,8 @@ export class Game {
   public debugGraph: boolean;
   public debugView: boolean;
   public direction: Vector;
+  /** The enemy mode's hooks, or `null` while the bots are the original's. */
+  public enemies: EnemyHooks | null = null;
   public events: MetricEvents;
   public fakeMouse: null | Vector;
   public fpsSequence: number[];
@@ -1901,6 +1913,7 @@ export class Game {
         bot.greed = lerp(botGreedMin, botGreedMax, clampedLevel);
         bot.safety = lerp(botSafetyMin, botSafetyMax, clampedLevel);
         bot.def = lerp(botDefMin, botDefMax, clampedLevel);
+        this.enemies?.adjustPersonality(bot);
       }
     });
     if (this.player?.achievements) {
@@ -1932,7 +1945,7 @@ export class Game {
     let closestBot: Bot | null = null;
     let closestDistance = Infinity;
     for (const unit of this.units) {
-      if (unit instanceof Bot) {
+      if (unit instanceof Bot && (!this.enemies || this.enemies.canForceAttack(unit))) {
         let minDistance = Infinity;
         player.track.simplyline.forEach((trackPoint: Vector) => {
           const distanceSquared = trackPoint.distance2(unit.position);

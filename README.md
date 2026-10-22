@@ -227,6 +227,60 @@ arena's wall, because a turn while pressed against the wall makes the engine
 count a death by the wall, so it can never take the last few percent. The
 blackbox sees only a small part of the arena and dies early.
 
+### Enemy modes
+
+The reconstruction can change how the bots play. Four menu buttons set it, the
+browser remembers them, and they apply at once, to the menu's bots as well. They
+combine with practice mode and the demo autopilot, and recording mode hides them
+with the rest of the menu.
+
+**How the original bots play.** Each bot is a small state machine. It leaves its
+base at a nearby edge point (or, one time in four, straight outwards), draws a
+loop beside its territory and turns home when the loop gets too long, too big,
+too far from where it started, or when another unit gets closer to its trail
+than it is to home. A bot that is out of its base and sees your trail close by
+hunts it, and once your trail is longer than 1500 units the bot nearest it is
+sent after it whatever its range. Four numbers make its personality (aggression,
+greed, caution, defence). They come from a level that rises as you grow, so the
+bots get bolder the more you hold. The bots never hunt each other; they kill
+each other only by accident.
+
+**Enemies** picks the mode:
+
+- **Original** (the default): exactly the shipped game's bots.
+- **Avoid you**: your head and trail are danger. The bots never attack, stay
+  home while you are near, and turn home as soon as you near their loop.
+- **Chase you**: every bot that sees you hunts your trail, or lurks at your head
+  while you are home. The 1500-unit trigger and the aggression range do not
+  apply, and a hunter never gives up to save itself.
+- **Suicidal**: in this game crossing a trail kills the trail's owner, never the
+  one who crosses it, so a bot cannot kill itself on yours. Instead the bots head
+  straight out, throw their trail in front of the nearest head they see so that
+  unit cuts it, and otherwise hook back over their own trail.
+- **Passive**: the bots never leave their bases.
+- **Land grabbers**: greedier than the original's greediest bot and as reckless
+  as its most reckless one; they race you for space and never attack.
+- **Pack hunters**: while you have a trail, the three bots nearest you that see
+  you hunt together: one at your trail, two across your way home.
+- **Free-for-all**: a bot hunts whichever trail is in range, another bot's as
+  well as yours.
+- **Civil war**: the bots hunt each other and ignore you. They steer around
+  your head and trail, turn home early when you are near, and do not close a loop
+  that would surround you. That is steering, not a rule of the game, so it is not
+  complete: a bot that cannot turn in time can still cut your trail, and the
+  check that a loop would surround you is an approximation.
+- **Mixed**: each bot plays a random one of the modes above. The debug overlay
+  (Shift+Alt+Q+B+M) lists how many bots play each.
+
+**Vision** (for Avoid you, Chase you and Pack hunters): **Whitebox** bots know
+where you are everywhere; **Blackbox** bots see you only within their own view
+range of their own position, as an honest player would.
+
+**Difficulty**: **Ramp** is the original's rising level; a percentage fixes the
+level from timid (0%) to hardest (100%).
+
+**Bots**: how many bots play, from 0 to 30 (the original has 15).
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
@@ -323,6 +377,11 @@ back to the original `app2.js` and says so in the browser console. Add
   both steering through the pointer, with a debug overlay and a benchmark
   (`npm run benchmark`). It is off by default and attaches nothing to the game
   while off.
+- Enemy modes in the `ts/` reconstruction (`ts/src/entities/enemy-modes.ts`,
+  `ts/src/enemy-menu.ts`): nine alternative state tables for the bots, built
+  from the original's without editing it, plus a fixed difficulty and a bot
+  count. Original is the default and runs the bots exactly as the shipped game
+  does, which `npm run test:integration` checks frame for frame.
 
 ## Structure
 
