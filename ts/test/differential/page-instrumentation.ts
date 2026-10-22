@@ -44,6 +44,8 @@ declare global {
     __areaTotals?: PageAreaTotals;
     /** The autopilot the benchmark attached, which its trace reads. */
     __autopilot?: PageAutopilot;
+    /** The last frames the blackbox pilot saw, with their classes, for the benchmark's `--dump`. */
+    __blackboxFrames?: PageDumpFrame[];
     __differential: DifferentialPageApi;
     paperio2api: PaperIo2PageApi;
     /** Which engine `index.html`'s engine switch loaded. */
@@ -103,10 +105,19 @@ export interface PageAutopilot {
 }
 
 export interface PageAutopilotDebug {
+  /** Where the blackbox pilot's way back aims. */
+  readonly aim?: null | PagePlainPoint;
+  readonly aimReached?: boolean;
+  /** The blackbox pilot's pixel classes, row by row. */
+  readonly classes?: null | Uint8Array;
+  readonly height?: number;
   readonly loop?: null | readonly PagePlainPoint[];
   readonly phase: string;
   readonly target?: unknown;
   readonly threat: unknown;
+  /** The blackbox pilot's remembered trail over the frame. */
+  readonly track?: null | Uint8Array;
+  readonly width?: number;
 }
 
 export interface PageCheckpoint {
@@ -130,6 +141,15 @@ export interface PageConfig {
 /** The game's input state: the pointer it steers by, in view pixels. */
 export interface PageController {
   mouse: null | PagePlainPoint;
+}
+
+/** One frame the blackbox pilot saw, kept for the benchmark's `--dump`. */
+export interface PageDumpFrame {
+  readonly aim: null | PagePlainPoint;
+  readonly classes: Uint8Array;
+  readonly frame: ImageData;
+  readonly label: string;
+  readonly track: null | Uint8Array;
 }
 
 /** The reconstruction's enemy settings, as `setEnemySettings` takes them. */
@@ -219,12 +239,6 @@ export interface PageUnit {
   readonly position: PagePoint;
 }
 
-/** The game's canvas, as far as the pointer's centre goes. */
-export interface PageView {
-  readonly clientHeight: number;
-  readonly clientWidth: number;
-}
-
 export interface PageWhiteboxPilot extends PagePilot {
   readonly stats: Readonly<Record<string, number>>;
 }
@@ -267,7 +281,8 @@ export interface PaperIo2PageGame {
   readonly space: PageSpatialGrid;
   readonly startTime?: number;
   readonly units: readonly PageUnit[];
-  readonly view: PageView;
+  /** The game's canvas: the enemy-mode tests read its size, the benchmark's `--dump` its pixels. */
+  readonly view: HTMLCanvasElement;
 }
 
 export function installDeterminism(params: InstallDeterminismParams): void {
