@@ -574,6 +574,18 @@ let spatialGrid: HTMLCanvasElement | null = null;
 window.addEventListener('resize', () => {
   spatialGrid = null;
 }, false);
+/** Whether the cached leaderboard rows were drawn with the name fit, or `null` before the first frame. */
+let leaderboardFitDrawn: boolean | null = null;
+/**
+ * Whether the leaderboard moves bars left to fit the names. Off by the `leaderboardFitNames` config key in the
+ * differential test, which compares against the original, and off while a recording keeps the additions out.
+ *
+ * @param game - The game.
+ * @returns Whether to fit the names.
+ */
+function fitsLeaderboardNames(game: Game): boolean {
+  return String(game.config.leaderboardFitNames) === 'true' && !game.looksOriginal;
+}
 export function drawLeaderboard(renderContext: RenderContext): void {
   const {
     devicePixelRatio
@@ -584,7 +596,11 @@ export function drawLeaderboard(renderContext: RenderContext): void {
     spatialGrid.width = Math.trunc(renderContext.barWidth);
     spatialGrid.height = Math.trunc(renderContext.barHeight * LEADERBOARD_ROW_HEIGHT_FACTOR * LEADERBOARD_ROW_COUNT);
   }
-  if (renderContext.game.topListChanged) {
+  // A recording that switches the name fit on or off redraws the cached rows; the first frame only notes the setting.
+  const fitNames = fitsLeaderboardNames(renderContext.game);
+  const fitChanged = leaderboardFitDrawn !== null && leaderboardFitDrawn !== fitNames;
+  leaderboardFitDrawn = fitNames;
+  if (renderContext.game.topListChanged || fitChanged) {
     renderContext.game.topListChanged = false;
     const context = spatialGrid.getContext('2d');
     if (context) {
@@ -646,8 +662,7 @@ export function drawLeaderboardRows(context: CanvasRenderingContext2D, renderCon
     const flagHeight = barHeight * LEADERBOARD_FLAG_HEIGHT_FACTOR;
     const prefix = `${String(rank)} – ${ensureNonNullable(unit.schemes).print()} `;
     let label = prefix + unit.name;
-    // Off by the `leaderboardFitNames` config key only in the differential test, which compares against the original.
-    if (String(game.config.leaderboardFitNames) === 'true') {
+    if (fitsLeaderboardNames(game)) {
       context.font = uiFont;
       ({ barX, label } = fitLeaderboardRow({
         barWidth,

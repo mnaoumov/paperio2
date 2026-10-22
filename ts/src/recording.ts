@@ -8,6 +8,11 @@
 
 /** Where recording mode is remembered, `on` or `off`. */
 export const RECORDING_MODE_STORAGE_KEY = 'paperio2.recording';
+/**
+ * Where the "Additions in recordings" setting is remembered, `on` or `off`. Off (the default) draws the canvas as the
+ * original does while recording mode or an in-game take is on.
+ */
+export const RECORDING_ADDITIONS_STORAGE_KEY = 'paperio2.recordingAdditions';
 /** `KeyboardEvent.code` of the recording-mode toggle; the engine steers on the arrow and W/A/S/D keys only. */
 export const RECORDING_KEY = 'KeyR';
 /** The class on `<html>` while recording mode is on; `joystick.css` hides the joystick by it. */
@@ -186,11 +191,27 @@ export function formatRewindHint(cutStart: number, seenAt: number): string {
   return `cut from ${seconds.toFixed(1)} s before this`;
 }
 
+export function readRecordingAdditions(): boolean {
+  try {
+    return localStorage.getItem(RECORDING_ADDITIONS_STORAGE_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+
 export function readRecordingMode(): boolean {
   try {
     return localStorage.getItem(RECORDING_MODE_STORAGE_KEY) === 'on';
   } catch {
     return false;
+  }
+}
+
+export function writeRecordingAdditions(recordingAdditions: boolean): void {
+  try {
+    localStorage.setItem(RECORDING_ADDITIONS_STORAGE_KEY, recordingAdditions ? 'on' : 'off');
+  } catch {
+    // A blocked storage only means the setting is not remembered.
   }
 }
 
