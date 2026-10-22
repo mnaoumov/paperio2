@@ -6,9 +6,11 @@ import {
 
 import {
   BlackboxPilot,
+  chamferDistance,
   erodeThin,
-  labelComponents,
-  modeColor
+  modeColor,
+  thinForeign,
+  wallGradient
 } from './blackbox.ts';
 
 interface Rgb {
@@ -80,8 +82,48 @@ describe('blackbox', () => {
     const cleaned = erodeThin(classes, width, height);
     expect(cleaned[2 * width + 3]).toBe(masked);
     expect(cleaned[5 * width + 3]).toBe(other);
-    const { sizes } = labelComponents(classes, width, other);
-    expect(sizes).toStrictEqual([8, 12]);
+  });
+
+  it('measures the distance to the nearest marked pixel', () => {
+    const width = 5;
+    const marked = new Uint8Array(width * width);
+    marked[2 * width + 2] = 1;
+    const distances = chamferDistance(marked, width, width);
+    expect(distances[2 * width + 2]).toBe(0);
+    expect(distances[2 * width + 4]).toBe(2);
+    expect(distances[0]).toBeCloseTo(2 * Math.SQRT2);
+  });
+
+  it('tells a trail joined to its territory from the territory', () => {
+    const width = 60;
+    const height = 40;
+    const other = 3;
+    const classes = new Uint8Array(width * height);
+    // A territory 20 pixels square, and a trail 4 pixels thick leaving it to the right.
+    for (let y = 10; y < 30; y++) {
+      for (let x = 5; x < 25; x++) {
+        classes[y * width + x] = other;
+      }
+    }
+    for (let y = 18; y < 22; y++) {
+      for (let x = 25; x < 55; x++) {
+        classes[y * width + x] = other;
+      }
+    }
+    const thin = thinForeign(classes, width, height);
+    expect(thin[20 * width + 15]).toBe(0);
+    expect(thin[20 * width + 40]).toBe(1);
+  });
+
+  it('points away from the wall', () => {
+    const width = 10;
+    const height = 6;
+    // The outside lies to the right: the distance to it grows to the left.
+    const wall = Float32Array.from({ length: width * height }, (_unused, index) => width - 1 - index % width);
+    const away = wallGradient(wall, width, height, 5, 3);
+    expect(away.x).toBeCloseTo(-1);
+    expect(away.y).toBeCloseTo(0);
+    expect(wallGradient(new Float32Array(width * height).fill(Infinity), width, height, 5, 3)).toEqual({ x: 0, y: 0 });
   });
 
   it('heads out of its territory toward the nearest free floor', () => {
