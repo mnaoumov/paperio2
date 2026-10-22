@@ -180,6 +180,11 @@ neither.
   `Checkpoint.seenAt` (wall time its state was last on screen, reset when a respawn resumes it) gives the red frames'
   rewind hint. **A new on-screen addition must hide in recording mode**, and a new interrupting action goes through
   `interruptPlay`. It is off by default and touches nothing the engine runs, so the differential test is unaffected.
+  Every switch in (R, the menu button, or a load with the mode stored as on) shows `RecordingNotice`, the owner's
+  wording verbatim; in a run the switch pauses under red and `useRecordingMode` holds the green span and the resume
+  until the notice is dismissed. **Keep its key effect's deps at `[shown]`**: a dep that changes on every App render
+  (an inline callback) queues preact's after-paint rAF on every frame, and that alone broke the checkpoint-grid
+  integration test (1 automatic checkpoint instead of 3+).
 - **A saved game** is the snapshot through `shared/graph-codec.ts` (a flat object table with back-references and a
   class registry, never `constructor.name`), with skins saved by name and paths rebuilt on load, as gzipped base64
   under `paperio2.save.<id>`, indexed by `paperio2.saves`. Particles, quest notifications and the vector pool are
