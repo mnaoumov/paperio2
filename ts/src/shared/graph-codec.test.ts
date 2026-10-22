@@ -37,6 +37,11 @@ class Unregistered {
   public value = 1;
 }
 
+// V8's default stack holds about 12.5 k trivial frames, so a recursive encoder would overflow well short of this.
+const DEEP_CHAIN_LENGTH = 50_000;
+// The round trip takes well under a second idle, but several seconds with the CPU saturated by other work.
+const DEEP_CHAIN_TIMEOUT_MILLISECONDS = 30_000;
+
 const ENCODE: EncodeGraphOptions = { classNames: new Map([[Node2.prototype, 'Node2']]) };
 const DECODE: DecodeGraphOptions = { classPrototypes: new Map([['Node2', Node2.prototype]]) };
 
@@ -68,22 +73,26 @@ describe('graph codec', () => {
     expect(Object.is(decoded.items[3], -0)).toBe(true);
   });
 
-  it('encodes a chain far deeper than the call stack without recursion', () => {
+  it('encodes a chain far deeper than the call stack without recursion', { timeout: DEEP_CHAIN_TIMEOUT_MILLISECONDS }, () => {
     const head = new Node2();
     let tail = head;
-    for (let index = 1; index < 200_000; index++) {
+    for (let index = 1; index < DEEP_CHAIN_LENGTH; index++) {
       tail.next = new Node2();
       tail = tail.next;
       tail.value = index;
     }
     let node = roundTrip(head) as Node2 | null;
     let count = 0;
+    let firstMismatch: null | number = null;
     while (node) {
-      expect(node.value).toBe(count);
+      if (firstMismatch === null && node.value !== count) {
+        firstMismatch = count;
+      }
       count++;
       node = node.next;
     }
-    expect(count).toBe(200_000);
+    expect(firstMismatch).toBeNull();
+    expect(count).toBe(DEEP_CHAIN_LENGTH);
   });
 
   it('hands external objects to the caller by tag', () => {
