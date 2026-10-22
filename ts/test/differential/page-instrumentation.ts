@@ -127,6 +127,11 @@ export interface PageConfig {
   readonly prepareCounter: number;
 }
 
+/** The game's input state: the pointer it steers by, in view pixels. */
+export interface PageController {
+  mouse: null | PagePlainPoint;
+}
+
 /** The reconstruction's enemy settings, as `setEnemySettings` takes them. */
 export interface PageEnemySettings {
   readonly count: null | number;
@@ -214,6 +219,12 @@ export interface PageUnit {
   readonly position: PagePoint;
 }
 
+/** The game's canvas, as far as the pointer's centre goes. */
+export interface PageView {
+  readonly clientHeight: number;
+  readonly clientWidth: number;
+}
+
 export interface PageWhiteboxPilot extends PagePilot {
   readonly stats: Readonly<Record<string, number>>;
 }
@@ -244,6 +255,8 @@ export interface PaperIo2PageApi {
 export interface PaperIo2PageGame {
   readonly clock: PageClock;
   readonly config: PageConfig;
+  /** The pointer the engine steers by, in view pixels; the enemy-mode tests steer through it. */
+  readonly controller: PageController;
   readonly cycle: number;
   kill(unit: PageUnit | undefined, killer: null | PageUnit | undefined, reason: number): void;
   readonly paused: boolean;
@@ -254,6 +267,7 @@ export interface PaperIo2PageGame {
   readonly space: PageSpatialGrid;
   readonly startTime?: number;
   readonly units: readonly PageUnit[];
+  readonly view: PageView;
 }
 
 export function installDeterminism(params: InstallDeterminismParams): void {

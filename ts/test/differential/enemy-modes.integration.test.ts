@@ -41,6 +41,8 @@ const SEED = 3;
 const KILL_REASON_SELF_INTERSECTION = 1;
 /** A crowded arena, for the blackbox bots that see only what is near them. */
 const CROWDED_BOTS = 30;
+/** The circling player turns a full circle in this many frames (20 s), a loop of about 290 units' radius. */
+const CIRCLE_FRAMES = 1200;
 
 interface ModeStats {
   /** Frames on which some bot was in `attack`. */
@@ -63,7 +65,13 @@ interface ModeStats {
   readonly selfKills: number;
 }
 
-async function playMode(browser: Browser, enemySettings: PageEnemySettings): Promise<ModeStats> {
+/**
+ * Who steers the player: the whitebox autopilot, or a fixed wide circle that keeps a long trail out where the bots can
+ * see it. The autopilot keeps its trails out of every bot's reach, so the original's bots may never attack it.
+ */
+type Pilot = 'circle' | 'whitebox';
+
+async function playMode(browser: Browser, enemySettings: PageEnemySettings, pilot: Pilot = 'whitebox'): Promise<ModeStats> {
   const scenario: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: enemySettings.mode, seed: SEED, startFrame: 0 };
   const page: Page = await openVariant(browser, 'reconstruction', scenario, { traceCanvas: false });
   try {
@@ -77,14 +85,16 @@ async function playMode(browser: Browser, enemySettings: PageEnemySettings): Pro
       FRAME_MILLISECONDS
     );
     return await page.evaluate(
-      async (frames: number, milliseconds: number, chosen: PageEnemySettings, selfReason: number): Promise<ModeStats> => {
+      async (frames: number, milliseconds: number, chosen: PageEnemySettings, selfReason: number, steering: Pilot, circleFrames: number): Promise<ModeStats> => {
         const api = window.paperio2api;
         if (!api.start || !api.attachAutopilot || !api.setEnemySettings) {
           throw new Error('This build has no enemy modes.');
         }
         api.setEnemySettings(chosen);
         api.start('Probe', '', undefined, undefined, undefined, true);
-        window.__autopilot = api.attachAutopilot('whitebox');
+        if (steering === 'whitebox') {
+          window.__autopilot = api.attachAutopilot('whitebox');
+        }
         const { game } = api;
         game.renderer = null;
         let botKillsByBots = 0;
@@ -108,6 +118,13 @@ async function playMode(browser: Browser, enemySettings: PageEnemySettings): Pro
         let outsideLateFrames = 0;
         let greedMax = 0;
         for (let frame = 0; frame < frames; frame++) {
+          if (steering === 'circle') {
+            const angle = frame / circleFrames * 2 * Math.PI;
+            game.controller.mouse = {
+              x: game.view.clientWidth / 2 + Math.cos(angle) * 100,
+              y: game.view.clientHeight / 2 + Math.sin(angle) * 100
+            };
+          }
           await window.__differential.step(milliseconds);
           let attacking = 0;
           let preyBot = false;
@@ -151,7 +168,9 @@ async function playMode(browser: Browser, enemySettings: PageEnemySettings): Pro
       PLAY_FRAMES,
       FRAME_MILLISECONDS,
       enemySettings,
-      KILL_REASON_SELF_INTERSECTION
+      KILL_REASON_SELF_INTERSECTION,
+      pilot,
+      CIRCLE_FRAMES
     );
   } finally {
     await page.browserContext().close();
@@ -199,11 +218,11 @@ describe('the enemy modes', () => {
     expect(stats.distinctTables).toBe(1);
   }, TIMEOUT_MILLISECONDS);
 
-  // At 15 bots and the ramped level the original's bots do not attack in this run either, so the comparison runs in a
-  // Crowded arena at the hardest level, where they do.
+  // The autopilot never gives the original's bots a trail to attack, so this comparison steers a wide circle instead,
+  // In a crowded arena at the hardest level, where the original's bots do attack it.
   it.each(['whitebox', 'blackbox'] as const)('avoid (%s): no bot ever attacks where the original\'s do', async (vision) => {
-    const original = await playMode(requireBrowser(), { ...settings('original'), count: CROWDED_BOTS, level: 1 });
-    const stats = await playMode(requireBrowser(), { ...settings('avoid', vision), count: CROWDED_BOTS, level: 1 });
+    const original = await playMode(requireBrowser(), { ...settings('original'), count: CROWDED_BOTS, level: 1 }, 'circle');
+    const stats = await playMode(requireBrowser(), { ...settings('avoid', vision), count: CROWDED_BOTS, level: 1 }, 'circle');
     expect(original.attackFrames).toBeGreaterThan(0);
     expect(stats.attackFrames).toBe(0);
   }, TIMEOUT_MILLISECONDS);

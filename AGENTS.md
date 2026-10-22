@@ -293,10 +293,17 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   the loop that grows when the bot heads toward it. The top candidates are flown in `simulateApproach` (60 steps a
   second, the turn rate, a radial wall slide) from the player's real position and heading, and rejected if they leave
   the base before the exit, touch their own trail or slide backwards.
-- **Wall:** pressed against the wall, a turn makes the engine's slide fold back onto the trail's last segment, which it
-  kills as a death by the wall. The simulation cannot reproduce it, so loops keep `WALL_MARGIN` (16, more than the
-  turning radius) inside the wall, and the whitebox can never take the last ring of the arena. Taking it needs a
-  dedicated wall pass that only ever slides forward.
+- **Wall:** pressed against the wall, the engine turns the heading the shortest way, and a heading that swings through
+  the outward normal reverses the slide back over the trail's last segment, which it kills as a death by the wall.
+  `guardWallTurn` filters every steer, live and in `simulateApproach`, so that near the wall the heading never crosses
+  the outward normal: a target back along the wall keeps the slide going forward, and an inward turn behind goes the
+  long way round. With it, loops reach past the wall (`WALL_MARGIN` is negative) and take the last ring, and once the
+  player holds 99% with no unit within 300 the pilot makes a forward-only lap along the wall (`sweepTarget`) to close
+  the slivers left there.
+- **Defence:** a bot trail through the player's base is cut from inside it (`homeVictimPoint`), only at points at least
+  `HOME_CUT_DEPTH` (30) inside, and the cut is dropped the moment the player is outside; a bot whose pending capture
+  (`pendingCapture`) would enclose the player in its base is cut wherever is nearest. Only a victim chased in the open is
+  left out of the threat check: one cut from home can turn on the player's trail, which was the commonest death.
 - **Benchmark:** `npm run benchmark -- --modes whitebox,blackbox --seeds N --max-minutes M [--why]`
   (`test/benchmark/autopilot-benchmark.ts`). It reuses the differential harness's page (`openVariant` with
   `traceCanvas: false`, which `installDeterminism` honours by leaving the canvas prototypes alone), starts the run with
@@ -334,7 +341,9 @@ autopilot* section is the user-facing contract and holds the benchmark table.
 - **Vision** applies to Avoid, Chase and Pack: blackbox sees the player only when its head or trail is within the bot's
   own `vrange` of the bot. With 15 bots and the whitebox autopilot as the player no bot came within its `vrange` of the
   player in 40 s (closest 1.26 view ranges), which is why the integration test crowds the arena with 30 bots for the
-  blackbox and Avoid comparisons.
+  blackbox and Avoid comparisons. The Avoid comparison also needs the original's bots to attack, and the whitebox
+  autopilot now keeps its trails out of their reach (no attack in 80 s even at 30 bots), so there the player steers a
+  fixed wide circle instead (`playMode`'s `circle` pilot).
 - **Proven by `test/differential/enemy-modes.integration.test.ts`**: Original stored explicitly plays a scenario frame
   for frame like `?original`, and each other mode, played 40 s with the whitebox autopilot as the player, shows its
   signature (no attack where the original attacks, several hunters at once, self-intersection deaths, nobody outside its
