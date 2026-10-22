@@ -264,6 +264,48 @@ neither.
   `sw.js` precaches the effects; music is cached as each track plays. Only the track playing is kept decoded (about
   25 MB).
 
+## Demo autopilot
+
+**The `ts/` reconstruction can play itself** (`ts/src/autopilot/`, owner request 2026-10-21); the README's *Demo
+autopilot* section is the user-facing contract and holds the benchmark table.
+
+- **Hook:** `Game.autopilot` (an `AutopilotHook`, `null` unless the menu's Demo mode is on) gets `beforeInput()` right
+  before `readInput` in `update` and `afterFrame()` at the end of `runFrame`. With it `null` nothing is called, so the
+  differential test is unaffected. `GameApi.attachAutopilot(mode)` builds and attaches one; `autopilot/ui.ts`'s
+  `useAutopilot` does that on the `game` route.
+- **It steers only through `controller.mouse`**, the pointer `readInput` already turns into `game.direction`, so the
+  player's speed, turn rate and 254-step angle apply. **Neither pilot may write game state, allocate from the engine's
+  vector pool or draw `game.rng` / `Math.random`**: either would change the game it is watching, break the benchmark's
+  replay of a seed, and shift snapshots. The whitebox works on plain `{ x, y }` copies (`autopilot/plane.ts`).
+- **Hand-over:** a steering `keydown` (any `keyCode` the engine steers on, so the joystick's synthetic events count), a
+  touch on the canvas or a real mouse move of 6 px over it disengages; `O` (`KeyboardEvent.code`) re-engages. `I` toggles
+  the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N Esc.
+- **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts`, and `blackbox.test.ts` asserts it. The driver
+  hands it `grabDownscaledFrame(game.view)` (the canvas scaled down 4x) after each rendered frame, nothing else.
+- **The overlay is its own `pointer-events: none` canvas**, so the recorder, which records `game.view`, never sees it.
+  While the human steers and the overlay is on, `Autopilot.coach` keeps the whitebox planning without steering (the
+  "assist" mode).
+- **Whitebox model of a bot** (the facts it relies on, from `entities/bot-ai.ts` and `engine.ts`): a bot hunts the trail
+  (`attack`) once the trail is within `max(vrange) * aggro * AGGRO_RANGE_FACTOR` while it is in `capture`/`exit`, or when
+  it is the nearest bot to a trail longer than `botAttackTrackLength` (the pilot keeps trails under 85% of that). A loop
+  is planned only when every hunting unit is farther from it than the player will be from home (`farthestHome`, a
+  chamfer distance field over a raster of the base), and every other bot is beyond its trigger distance plus a share of
+  the loop that grows when the bot heads toward it. The top candidates are flown in `simulateApproach` (60 steps a
+  second, the turn rate, a radial wall slide) from the player's real position and heading, and rejected if they leave
+  the base before the exit, touch their own trail or slide backwards.
+- **Wall:** pressed against the wall, a turn makes the engine's slide fold back onto the trail's last segment, which it
+  kills as a death by the wall. The simulation cannot reproduce it, so loops keep `WALL_MARGIN` (16, more than the
+  turning radius) inside the wall, and the whitebox can never take the last ring of the arena. Taking it needs a
+  dedicated wall pass that only ever slides forward.
+- **Benchmark:** `npm run benchmark -- --modes whitebox,blackbox --seeds N --max-minutes M [--why]`
+  (`test/benchmark/autopilot-benchmark.ts`). It reuses the differential harness's page (`openVariant` with
+  `traceCanvas: false`, which `installDeterminism` honours by leaving the canvas prototypes alone), starts the run with
+  `api.start(..., completePreparation = true)`, and steps the virtual clock one 60 fps frame at a time inside the page.
+  The whitebox runs with `game.renderer = null` (rendering changes no game state): 16 fifteen-minute games in parallel
+  took about 4 minutes here. The blackbox renders every frame and runs at about real time. `--why` prints each failed run's last phase changes, the killer's
+  bot state, the whitebox's decision counts and the ground it gained and lost. Selectable enemy behaviours do not exist
+  yet, so every run is against the original bots.
+
 ## Leaderboard names
 
 **The original clips leaderboard names, and the `ts/` reconstruction does not** (owner request, 2026-10-21). The

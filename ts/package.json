@@ -9,6 +9,7 @@
   "type": "module",
   "main": "src/main.ts",
   "scripts": {
+    "benchmark": "jiti test/benchmark/autopilot-benchmark.ts",
     "build": "node build.mjs",
     "commit": "jiti scripts/commit.ts",
     "format": "jiti scripts/format.ts",

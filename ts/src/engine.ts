@@ -191,6 +191,13 @@ export interface Leaderboard {
   countries: LeaderboardCountryEntry[];
 }
 /** What the game tells the in-game video recorder (`video/recorder.ts`), which records the canvas. */
+/** A demo autopilot steering the player. It steers by writing the controller's pointer, never the game state. */
+export interface AutopilotHook {
+  /** After every frame's render, so a pilot that reads pixels sees the frame just drawn. */
+  afterFrame(): void;
+  /** Right before each update reads the input. */
+  beforeInput(): void;
+}
 export interface FrameRecorder {
   /** After every frame's render, so the frame on the canvas is the game state just stepped to. */
   afterFrame(): void;
@@ -423,6 +430,8 @@ export interface TerritoryVictim {
 export class Game {
   public achievementsProfile: AchievementStore;
   public angle = 0;
+  /** The demo autopilot while one is attached, else `null`. */
+  public autopilot: AutopilotHook | null = null;
   public best: null | number;
   public border: Border;
   /** Starts as an array; every bot spawn replaces it with an object keyed by bot type, as in the original. */
@@ -1609,6 +1618,7 @@ export class Game {
     this.last = currentTime;
     this.practice?.afterFrame();
     this.videoRecorder?.afterFrame();
+    this.autopilot?.afterFrame();
   }
 
   public setLeaderboard(leaderboard?: Leaderboard): void {
@@ -1783,6 +1793,7 @@ export class Game {
     deltaMilliseconds += this.rng() * UPDATE_JITTER_FACTOR;
     this.spawnSuspend -= deltaMilliseconds;
     if (!this.isTest) {
+      this.autopilot?.beforeInput();
       this.readInput(deltaMilliseconds);
     }
     this.angle = Math.round(Math.atan2(this.direction.y, this.direction.x) / Math.PI * ANGLE_QUANTIZATION_SCALE + ANGLE_QUANTIZATION_OFFSET) % ANGLE_QUANTIZATION_OFFSET;

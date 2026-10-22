@@ -40,6 +40,10 @@ export interface DifferentialPageApi {
 
 declare global {
   interface Window {
+    /** The share of the arena the player gained and lost, summed frame by frame, for the benchmark's report. */
+    __areaTotals?: PageAreaTotals;
+    /** The autopilot the benchmark attached, which its trace reads. */
+    __autopilot?: PageAutopilot;
     __differential: DifferentialPageApi;
     paperio2api: PaperIo2PageApi;
     /** Which engine `index.html`'s engine switch loaded. */
@@ -82,6 +86,27 @@ export interface DifferentialUnitSnapshot {
 
 export interface InstallDeterminismParams {
   readonly seed: number;
+  /** Whether to record every canvas call; the autopilot benchmark turns it off, since it compares no frames. */
+  readonly traceCanvas?: boolean;
+}
+
+/** The share of the arena the player gained and lost, summed frame by frame. */
+export interface PageAreaTotals {
+  readonly gained: number;
+  readonly lost: number;
+}
+
+/** What the autopilot benchmark's trace reads of an autopilot. */
+export interface PageAutopilot {
+  readonly blackbox: null | PagePilot;
+  readonly whitebox: null | PageWhiteboxPilot;
+}
+
+export interface PageAutopilotDebug {
+  readonly loop?: null | readonly PagePlainPoint[];
+  readonly phase: string;
+  readonly target?: unknown;
+  readonly threat: unknown;
 }
 
 export interface PageCheckpoint {
@@ -103,6 +128,20 @@ export interface PageConfig {
 
 export interface PageGridCell {
   readonly points: readonly PagePoint[];
+}
+
+/** A player's death or win while its death delay runs. */
+export interface PagePendingGameOver {
+  readonly reason: number;
+}
+
+export interface PagePilot {
+  readonly debug: PageAutopilotDebug;
+}
+
+export interface PagePlainPoint {
+  readonly x: number;
+  readonly y: number;
 }
 
 export interface PagePoint {
@@ -147,7 +186,12 @@ export interface PageTerritory {
 export interface PageUnit {
   readonly base: PageTerritory;
   readonly in: unknown;
+  readonly percent?: number;
   readonly position: PagePoint;
+}
+
+export interface PageWhiteboxPilot extends PagePilot {
+  readonly stats: Readonly<Record<string, number>>;
 }
 
 /**
@@ -155,6 +199,8 @@ export interface PageUnit {
  * calls, and the live game, which the pause test reads.
  */
 export interface PaperIo2PageApi {
+  /** The reconstruction's demo autopilot, which the autopilot benchmark attaches; the original has none. */
+  readonly attachAutopilot?: (mode: 'blackbox' | 'whitebox') => PageAutopilot;
   /** The reconstruction's full game snapshot, which the checkpoint test keeps inside the page. */
   readonly captureSnapshot?: () => unknown;
   /** The reconstruction's config, there from boot; the original exposes none. */
@@ -163,6 +209,8 @@ export interface PaperIo2PageApi {
   readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;
   readonly restoreSnapshot?: (snapshot: unknown) => void;
+  /** Starts a run with no menu in between, as the benchmark does. */
+  readonly start?: (playerName?: string, skinName?: string, bestScore?: number, onGameOver?: undefined, extraLives?: number, completePreparation?: boolean) => void;
   startGame: () => void;
 }
 
@@ -173,9 +221,12 @@ export interface PaperIo2PageGame {
   readonly cycle: number;
   kill(unit: PageUnit | undefined, killer: undefined, reason: number): void;
   readonly paused: boolean;
+  readonly pendingGameOver?: null | PagePendingGameOver;
   readonly player: null | PageUnit;
   readonly practice?: null | PagePractice;
+  renderer?: unknown;
   readonly space: PageSpatialGrid;
+  readonly startTime?: number;
   readonly units: readonly PageUnit[];
 }
 
@@ -395,21 +446,23 @@ export function installDeterminism(params: InstallDeterminismParams): void {
       }
     }
   }
-  instrument(CanvasRenderingContext2D.prototype);
-  instrument(Path2D.prototype);
-  instrument(CanvasGradient.prototype);
-  const RealPath2D = Path2D;
-  define(
-    'Path2D',
-    new Proxy(RealPath2D, {
-      construct(_target: typeof Path2D, args: unknown[]): object {
-        const [source] = args;
-        const path = typeof source === 'string' || source instanceof RealPath2D ? new RealPath2D(source) : new RealPath2D();
-        trace.push(`new ${idOf(path)}(${args.map(describe).join(',')})`);
-        return path;
-      }
-    })
-  );
+  if (params.traceCanvas !== false) {
+    instrument(CanvasRenderingContext2D.prototype);
+    instrument(Path2D.prototype);
+    instrument(CanvasGradient.prototype);
+    const RealPath2D = Path2D;
+    define(
+      'Path2D',
+      new Proxy(RealPath2D, {
+        construct(_target: typeof Path2D, args: unknown[]): object {
+          const [source] = args;
+          const path = typeof source === 'string' || source instanceof RealPath2D ? new RealPath2D(source) : new RealPath2D();
+          trace.push(`new ${idOf(path)}(${args.map(describe).join(',')})`);
+          return path;
+        }
+      })
+    );
+  }
 
   function hashOf(lines: readonly string[]): string {
     let first = 0x811C9DC5;
