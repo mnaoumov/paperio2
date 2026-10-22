@@ -31,6 +31,7 @@ import {
   HALF,
   normalize,
   rotate,
+  segmentDistance,
   SIXTEENTH_TURN
 } from './plane.ts';
 
@@ -164,6 +165,8 @@ const MAX_SIMULATION_FRAMES = 300;
 const ESCAPE_REACH = 2;
 /** An escape heading costs this many frames of flight per radian it turns away from the current heading. */
 const ESCAPE_TURN_COST = 10;
+/** An escape heading that flies clear scores this many frames, less its flight home from where it ends. */
+const CLEAR_ESCAPE_FRAMES = 1e6;
 /** A simulated way back keeps this many pixels from the outside of the arena. */
 const WALL_MARGIN = 5;
 /** Outside pixels this deep in the outside are the wall; thinner ones are blends. */
@@ -262,6 +265,10 @@ export class BlackboxPilot {
     this.threat = this.findThreat(classes, raster);
     const wanted = atHome ? this.stepHome(classes) : this.stepAway(classes, raster);
     this.framesInPhase++;
+    // An aim right under the player has no direction: the last one stands, and so does the heading.
+    if (Math.hypot(wanted.x, wanted.y) < HALF) {
+      return null;
+    }
     this.turnToward(wanted);
     return wanted;
   }
@@ -308,7 +315,8 @@ export class BlackboxPilot {
     let captured = 0;
     for (let row = CAPTURE_MARGIN; row < height - CAPTURE_MARGIN; row++) {
       for (let column = CAPTURE_MARGIN; column < width - CAPTURE_MARGIN; column++) {
-        if (classes[row * width + column] === OWN && wasForeignAround(previous, width, height, column + shiftX, row + shiftY)) {
+        // Only the inside of own ground counts: the wall's dotted stroke blends into specks of the player's color.
+        if (isOwnInside(classes, width, row * width + column) && wasForeignAround(previous, width, height, column + shiftX, row + shiftY)) {
           captured++;
         }
       }
@@ -467,12 +475,18 @@ export class BlackboxPilot {
   private escape(home: Uint8Array, raster: Uint8Array, wall: Float32Array): Point {
     let best: Point = { x: this.width * HALF - this.outward.x, y: this.height * HALF - this.outward.y };
     let bestFrames = -Infinity;
+    const position = this.odometer.position;
+    const left = this.exitPoint ?? this.track[0];
+    const homeAim = left ? { x: left.x - position.x + this.width * HALF, y: left.y - position.y + this.height * HALF } : null;
     for (let ray = 0; ray < RAY_COUNT; ray++) {
       const angle = ray / RAY_COUNT * FULL_TURN;
       const aim = { x: this.width * HALF + Math.cos(angle) * this.height * ESCAPE_REACH, y: this.height * HALF + Math.sin(angle) * this.height * ESCAPE_REACH };
       const flight = this.simulateReturn(home, raster, aim, wall);
-      // Of the headings that fly as long, the one nearest the current heading, so the escape does not weave.
-      const frames = (flight.reached ? MAX_SIMULATION_FRAMES : flight.frames) - Math.abs(wrapAngle(angle - this.heading)) * ESCAPE_TURN_COST;
+      // Of the headings that fly clear, the one that ends nearest where the player left, so the escape works its way
+      // home round the trail rather than away; then the one nearest the current heading, so it does not weave.
+      const toHome = homeAim ? Math.hypot(aim.x - homeAim.x, aim.y - homeAim.y) / Math.max(MIN_MEASURED_SPEED, this.speed) : 0;
+      // A heading that flies clear always beats one that does not, however far from home it ends.
+      const frames = (flight.reached ? CLEAR_ESCAPE_FRAMES - toHome : flight.frames) - Math.abs(wrapAngle(angle - this.heading)) * ESCAPE_TURN_COST;
       if (frames > bestFrames) {
         best = aim;
         bestFrames = frames;
@@ -728,11 +742,14 @@ export class BlackboxPilot {
         aims.push({ x: centerX + offset.x + deeper.x * RETURN_AIM_DEPTH, y: centerY + offset.y + deeper.y * RETURN_AIM_DEPTH });
       }
     }
-    if (aims.length === 0) {
-      const position = this.odometer.position;
-      for (const remembered of [this.exitPoint, this.track[0]]) {
-        if (remembered) {
-          aims.push({ x: remembered.x - position.x + centerX, y: remembered.y - position.y + centerY });
+    // Where the player left is home too, in view or not: when every stretch in view is cut off by the trail, the way
+    // round to it may still be open.
+    const position = this.odometer.position;
+    for (const remembered of [this.exitPoint, this.track[0]]) {
+      if (remembered) {
+        const aim = { x: remembered.x - position.x + centerX, y: remembered.y - position.y + centerY };
+        if (aims.length === 0 || aim.x < 0 || aim.y < 0 || aim.x >= width || aim.y >= height) {
+          aims.push(aim);
         }
       }
     }
@@ -805,22 +822,43 @@ export class BlackboxPilot {
     let x = width * HALF;
     let y = height * HALF;
     let heading = this.heading;
+    // A player already pressed against the wall is held only to not going nearer it, or no way would leave the wall.
+    const wallLimit = Math.min(WALL_MARGIN, (wall[Math.floor(y) * width + Math.floor(x)] ?? Infinity) - 1);
     for (let frame = 1; frame <= MAX_SIMULATION_FRAMES; frame++) {
       heading += Math.max(-TURN_PER_FRAME, Math.min(TURN_PER_FRAME, wrapAngle(Math.atan2(aim.y - y, aim.x - x) - heading)));
-      x += Math.cos(heading) * this.speed;
-      y += Math.sin(heading) * this.speed;
+      let stepX = Math.cos(heading) * this.speed;
+      let stepY = Math.sin(heading) * this.speed;
+      // Pressed against the wall, the engine slides the player along it: the step's part into the wall is dropped.
+      const ahead = (wall[Math.floor(y + stepY) * width + Math.floor(x + stepX)] ?? Infinity);
+      if (ahead < wallLimit) {
+        const inward = wallGradient(wall, width, height, x, y);
+        const into = stepX * inward.x + stepY * inward.y;
+        if (into < 0) {
+          stepX -= into * inward.x;
+          stepY -= into * inward.y;
+        }
+      }
+      x += stepX;
+      y += stepY;
       const column = Math.floor(x);
       const row = Math.floor(y);
       if (column < 0 || row < 0 || column >= width || row >= height) {
-        if (Math.hypot(aim.x - x, aim.y - y) < this.speed * (1 + HALF)) {
-          return { frames: frame, reached: true };
+        // Out of view the raster says nothing: the rest of the way is a straight line, checked against the remembered
+        // trail itself. An aim inside the view that the flight overshot is not reached.
+        if (aim.x >= 0 && aim.y >= 0 && aim.x < width && aim.y < height) {
+          continue;
         }
-        continue;
+        const rest = Math.hypot(aim.x - x, aim.y - y);
+        if (this.trackCrosses({ x, y }, aim)) {
+          return { frames: frame, reached: false };
+        }
+        return { frames: frame + rest / Math.max(MIN_MEASURED_SPEED, this.speed), reached: true };
       }
       // The trail starts on the territory's edge, so entering beside its start crosses it: the trail comes first.
       const index = row * width + column;
       // Pressed against the wall, a turn folds the engine's slide back onto the trail: the wall is kept at a margin.
-      if (raster[index] === TRACK_SOLID || (wall[index] ?? Infinity) < WALL_MARGIN) {
+      // A slide stays a pixel's rounding off the limit; nearer than that, the flight runs into the wall.
+      if (raster[index] === TRACK_SOLID || (wall[index] ?? Infinity) < wallLimit - 1) {
         return { frames: frame, reached: false };
       }
       if (home[index] !== 0) {
@@ -930,6 +968,35 @@ export class BlackboxPilot {
       const row = Math.floor(this.height * HALF + direction.y * along);
       const index = row * this.width + column;
       if (column >= 0 && row >= 0 && column < this.width && row < this.height && raster[index] === TRACK_SOLID && classes[index] !== OWN) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Whether a straight line passes within the clearance of the remembered trail's older part, the part the raster marks
+   * {@link TRACK_SOLID}, wherever it lies, in view or not.
+   *
+   * @param from - The line's start, in frame pixels.
+   * @param to - Its end, in frame pixels.
+   * @returns Whether it does.
+   */
+  private trackCrosses(from: Point, to: Point): boolean {
+    if (this.trailStart === null) {
+      return false;
+    }
+    const position = this.odometer.position;
+    const offsetX = position.x - this.width * HALF;
+    const offsetY = position.y - this.height * HALF;
+    const start = { x: from.x + offsetX, y: from.y + offsetY };
+    const end = { x: to.x + offsetX, y: to.y + offsetY };
+    let covered = 0;
+    for (let index = this.track.length - 1; index > this.trailStart; index--) {
+      const segmentEnd = this.track[index] ?? position;
+      const segmentStart = this.track[index - 1] ?? segmentEnd;
+      covered += Math.hypot(segmentEnd.x - segmentStart.x, segmentEnd.y - segmentStart.y);
+      if (covered > RECENT_TRACK_LENGTH && segmentDistance(start, end, segmentStart, segmentEnd) < TRACK_CLEARANCE) {
         return true;
       }
     }
@@ -1199,6 +1266,45 @@ function wallDistance(classes: Uint8Array, width: number, height: number): Float
   const depth = chamferDistance(classes.map((pixelClass) => pixelClass === OUTSIDE || pixelClass === MASKED ? 0 : 1), width, height);
   const core = chamferDistance(depth.map((distance, index) => distance >= WALL_THICKNESS && classes[index] === OUTSIDE ? 1 : 0), width, height);
   return core.map((distance) => Math.max(0, distance - WALL_THICKNESS));
+}
+
+/**
+ * The direction away from the wall at a point: the wall distance's gradient, by central differences, normalized.
+ *
+ * @param wall - Each pixel's distance to the outside of the arena.
+ * @param width - The frame's width.
+ * @param height - The frame's height.
+ * @param x - The point's column.
+ * @param y - Its row.
+ * @returns The unit direction; the origin where the distance is flat or unknown.
+ */
+function wallGradient(wall: Float32Array, width: number, height: number, x: number, y: number): Point {
+  const column = Math.min(width - 2, Math.max(1, Math.floor(x)));
+  const row = Math.min(height - 2, Math.max(1, Math.floor(y)));
+  const index = row * width + column;
+  const dx = (wall[index + 1] ?? 0) - (wall[index - 1] ?? 0);
+  const dy = (wall[index + width] ?? 0) - (wall[index - width] ?? 0);
+  const size = Math.hypot(dx, dy);
+  return Number.isFinite(size) && size > 0 ? { x: dx / size, y: dy / size } : { x: 0, y: 0 };
+}
+
+/**
+ * Whether a pixel and all eight around it are the player's own ground.
+ *
+ * @param classes - The frame's classes.
+ * @param width - Its width.
+ * @param index - The pixel; it must not be on the frame's border.
+ * @returns Whether they are.
+ */
+function isOwnInside(classes: Uint8Array, width: number, index: number): boolean {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (classes[index + dy * width + dx] !== OWN) {
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 /**
