@@ -42,6 +42,11 @@ const MIN_SAMPLES = 20;
 const SAMPLE_FIELDS = 4;
 /** The camera counts as on a unit within this distance of it, in arena units. */
 const CAMERA_TOLERANCE = 3;
+/**
+ * A glide that started mid-run trails its moving leader by about its speed over the glide step (measured 10.6), and
+ * never snaps onto it.
+ */
+const GLIDE_TOLERANCE = 20;
 /** Where the mouse wanders over the game, in view pixels, each leg far past any jitter threshold. */
 const MOUSE_PATH: readonly (readonly [number, number])[] = [[200, 200], [600, 300], [300, 500], [700, 150]];
 const MOUSE_STEPS = 10;
@@ -211,4 +216,84 @@ describe('the demo extras', () => {
       await page.browserContext().close();
     }
   }, TIMEOUT_MILLISECONDS);
+
+  it('keeps the canvas additions out of a recording unless the setting lets them in', async () => {
+    const page = await open({ 'paperio2.autopilot': 'whitebox', 'paperio2.autopilotView': 'on', 'paperio2.recording': 'on' });
+    try {
+      await play(page);
+      // The harness turns the name fit off to compare against the original; this test needs it as a player has it.
+      await page.evaluate(() => {
+        Reflect.set(Object(Reflect.get(window.paperio2api, 'config')), 'leaderboardFitNames', true);
+      });
+      await steps(page, GLIDE_FRAMES);
+      const inRecordingMode = await cameraOffsets(page);
+      expect(inRecordingMode.fromPlayer, 'recording mode keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
+      expect(await measuredLeaderboard(page), 'recording mode draws the leaderboard as the original does').toBe(0);
+
+      await page.evaluate(() => {
+        window.paperio2api.game.recordingAdditions = true;
+      });
+      await steps(page, GLIDE_FRAMES);
+      const withAdditions = await cameraOffsets(page);
+      expect(withAdditions.fromLeader, 'with the setting on, the showcase is recorded').toBeLessThan(GLIDE_TOLERANCE);
+      expect(withAdditions.fromPlayer, 'with the setting on, the camera leaves the player').toBeGreaterThan(GLIDE_TOLERANCE);
+      expect(await measuredLeaderboard(page), 'with the setting on, the leaderboard fits the names')
+        .toBeGreaterThan(0);
+
+      // The in-game recorder's take counts as recording too, with recording mode off.
+      await page.evaluate(() => {
+        const { game } = window.paperio2api;
+        game.recordingAdditions = false;
+        game.screenRecording = false;
+        Reflect.set(game, 'videoRecorder', { afterFrame: (): void => undefined });
+      });
+      await steps(page, GLIDE_FRAMES);
+      expect((await cameraOffsets(page)).fromPlayer, 'a take keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
+      expect(await measuredLeaderboard(page), 'a take draws the leaderboard as the original does').toBe(0);
+    } finally {
+      await page.browserContext().close();
+    }
+  }, TIMEOUT_MILLISECONDS);
 });
+
+async function cameraOffsets(page: Page): Promise<Pick<CameraView, 'fromLeader' | 'fromPlayer'>> {
+  return page.evaluate(() => {
+    const { game } = window.paperio2api;
+    const leader = game.units.reduce((best, unit) => (unit.percent ?? 0) > (best.percent ?? 0) ? unit : best);
+    const origin = game.origin ?? { x: Number.NaN, y: Number.NaN };
+    const player = game.player ?? leader;
+    return {
+      fromLeader: Math.hypot(origin.x - leader.position.x, origin.y - leader.position.y),
+      fromPlayer: Math.hypot(origin.x - player.position.x, origin.y - player.position.y)
+    };
+  });
+}
+
+/**
+ * Redraws the cached leaderboard on the next frame and counts the leaderboard rows measured in it; only the name fit
+ * measures them.
+ *
+ * @param page - The page.
+ * @returns How many rows `measureText` measured in that frame.
+ */
+async function measuredLeaderboard(page: Page): Promise<number> {
+  await page.evaluate(() => {
+    Reflect.set(window, 'measuredRows', 0);
+    if (!Reflect.get(window, 'measuredRowsWrapped')) {
+      Reflect.set(window, 'measuredRowsWrapped', true);
+      const prototype = CanvasRenderingContext2D.prototype;
+      // eslint-disable-next-line @typescript-eslint/unbound-method -- called below with the canvas context as `this`.
+      const original = prototype.measureText;
+      prototype.measureText = function measureText(this: CanvasRenderingContext2D, text: string): TextMetrics {
+        // A leaderboard row reads `<rank> – <percent> <name>`.
+        if (/^\d+ – /.test(text)) {
+          Reflect.set(window, 'measuredRows', Number(Reflect.get(window, 'measuredRows')) + 1);
+        }
+        return original.call(this, text);
+      };
+    }
+    window.paperio2api.game.topListChanged = true;
+  });
+  await stepPage(page);
+  return page.evaluate(() => Number(Reflect.get(window, 'measuredRows')));
+}

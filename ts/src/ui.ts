@@ -62,8 +62,10 @@ import {
   applyRecordingClass,
   CutMarker,
   formatRewindHint,
+  readRecordingAdditions,
   readRecordingMode,
   RECORDING_KEY,
+  writeRecordingAdditions,
   writeRecordingMode
 } from './recording.ts';
 import {
@@ -253,6 +255,7 @@ export interface MenuScreenProps {
   practiceMode: boolean;
   preparing: boolean;
   provider?: undefined;
+  recordingAdditions: boolean;
   recordingMode: boolean;
   removeSave: (id: string) => void;
   route: Dispatch<string>;
@@ -260,6 +263,7 @@ export interface MenuScreenProps {
   setLanguage: Dispatch<Language | undefined>;
   setNickName: Dispatch<string>;
   setPracticeMode: (practiceMode: boolean) => void;
+  setRecordingAdditions: (recordingAdditions: boolean) => void;
   setRecordingMode: (recordingMode: boolean) => void;
   setState: Dispatch<string>;
   skin: string;
@@ -277,12 +281,14 @@ export function MenuScreen({
   menuMessage,
   nickName,
   practiceMode,
+  recordingAdditions,
   recordingMode,
   removeSave,
   route,
   saves,
   setNickName,
   setPracticeMode,
+  setRecordingAdditions,
   setRecordingMode,
   skin,
   start,
@@ -405,9 +411,11 @@ export function MenuScreen({
         loadSave,
         menuMessage,
         practiceMode,
+        recordingAdditions,
         removeSave,
         saves,
         setPracticeMode,
+        setRecordingAdditions,
         setRecordingMode
       }),
       isSupported && !recordingMode && createElement(
@@ -477,13 +485,15 @@ export interface PracticeMenuProps {
   loadSave: (id: string) => void;
   menuMessage: string;
   practiceMode: boolean;
+  recordingAdditions: boolean;
   removeSave: (id: string) => void;
   saves: readonly SaveSummary[];
   setPracticeMode: (practiceMode: boolean) => void;
+  setRecordingAdditions: (recordingAdditions: boolean) => void;
   setRecordingMode: (recordingMode: boolean) => void;
 }
 /**
- * The menu's Practice toggle, its Recording toggle and its saved games. Practice mode turns on checkpoints for the
+ * The menu's Practice toggle, its Recording toggle, the "Additions in recordings" setting and its saved games. Practice mode turns on checkpoints for the
  * next run; a saved game always loads into a practice run. Recording mode hides this whole panel, so the R key is
  * what turns it back off.
  *
@@ -491,9 +501,11 @@ export interface PracticeMenuProps {
  * @param root0.loadSave - Starts a practice run from a save.
  * @param root0.menuMessage - A message to show, such as why a save did not load.
  * @param root0.practiceMode - Whether the next run is practice.
+ * @param root0.recordingAdditions - Whether recordings keep the additions drawn on the canvas.
  * @param root0.removeSave - Deletes a save.
  * @param root0.saves - The saves, newest first.
  * @param root0.setPracticeMode - Turns practice mode on or off.
+ * @param root0.setRecordingAdditions - Turns the "Additions in recordings" setting on or off.
  * @param root0.setRecordingMode - Turns recording mode on or off.
  * @returns The panel.
  */
@@ -501,9 +513,11 @@ export function PracticeMenu({
   loadSave,
   menuMessage,
   practiceMode,
+  recordingAdditions,
   removeSave,
   saves,
   setPracticeMode,
+  setRecordingAdditions,
   setRecordingMode
 }: PracticeMenuProps): VNode<unknown> {
   return createElement(
@@ -533,6 +547,18 @@ export function PracticeMenu({
       'title': 'Hide everything this copy adds, and mark the frames to cut. R turns it on and off.',
       'type': 'button'
     }, 'Recording mode (R)'),
+    ' ',
+    createElement('button', {
+      'aria-pressed': recordingAdditions,
+      'class': recordingAdditions ? 'green' : 'orange',
+      'id': 'recording-additions-toggle',
+      'onClick': () => {
+        setRecordingAdditions(!recordingAdditions);
+      },
+      'title': 'Off: recordings (R, or the in-game recorder) show the leaderboard and camera as the original does. '
+        + 'On: they keep the leaderboard name fit and the showcase view.',
+      'type': 'button'
+    }, `Additions in recordings: ${recordingAdditions ? 'on' : 'off'}`),
     menuMessage && createElement('p', {
       id: 'practice-message'
     }, menuMessage),
@@ -1694,9 +1720,14 @@ export function App({
   const autopilot = useAutopilot(api, route, start);
   const enemies = useEnemySettings(api);
   const ghost = useGhostRace(api, route, autopilot.autopilot);
+  const [recordingAdditions, setRecordingAdditionsState] = useState(readRecordingAdditions);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
+  }
+  function setRecordingAdditions(nextRecordingAdditions: boolean): void {
+    writeRecordingAdditions(nextRecordingAdditions);
+    setRecordingAdditionsState(nextRecordingAdditions);
   }
   function refreshSaves(): void {
     setSaves(listSaves());
@@ -1748,6 +1779,13 @@ export function App({
       setPlayable(true);
     }
   }, []);
+  // After the game is created above; the in-game recorder's take is the other half of `looksOriginal`.
+  useEffect(() => {
+    if (api?.game) {
+      api.game.screenRecording = recordingMode;
+      api.game.recordingAdditions = recordingAdditions;
+    }
+  }, [recordingAdditions, recordingMode]);
   ensureNonNullable(api).startGame = (): void => {
     const element = document.getElementById('overlay');
     if (element) {
@@ -1841,6 +1879,7 @@ export function App({
             practiceMode,
             preparing,
             provider,
+            recordingAdditions,
             recordingMode,
             removeSave,
             route: setRoute,
@@ -1848,6 +1887,7 @@ export function App({
             setLanguage,
             setNickName,
             setPracticeMode,
+            setRecordingAdditions,
             setRecordingMode,
             setState: setRoute,
             skin,

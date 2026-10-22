@@ -180,6 +180,13 @@ neither.
   `Checkpoint.seenAt` (wall time its state was last on screen, reset when a respawn resumes it) gives the red frames'
   rewind hint. **A new on-screen addition must hide in recording mode**, and a new interrupting action goes through
   `interruptPlay`. It is off by default and touches nothing the engine runs, so the differential test is unaffected.
+  **Canvas-drawn additions revert while recording** (owner, 2026-10-22: the screen only, enemy modes and bot count
+  still apply): `Game.looksOriginal` is true while `screenRecording` (mirrored from recording mode by an App effect)
+  or `videoRecorder` is set, unless `recordingAdditions` (the menu's **Additions in recordings**,
+  `paperio2.recordingAdditions`, off by default) is on. It turns off the leaderboard name fit (`fitsLeaderboardNames`
+  in `game-render.ts`, which also redraws the cached rows when it flips) and ignores `cameraFollow`. **A new addition
+  drawn on `game.view` must check `looksOriginal`**; one on its own layer is never in a take and recording mode hides
+  it. Proven in `demo-extras.integration.test.ts`.
   Every switch in (R, the menu button, or a load with the mode stored as on) shows `RecordingNotice`, the owner's
   wording verbatim; in a run the switch pauses under red and `useRecordingMode` holds the green span and the resume
   until the notice is dismissed. **Keep its key effect's deps at `[shown]`**: a dep that changes on every App render

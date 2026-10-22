@@ -279,9 +279,15 @@ export interface PaperIo2PageGame {
   readonly pendingGameOver?: null | PagePendingGameOver;
   readonly player: null | PageUnit;
   readonly practice?: null | PagePractice;
+  /** The reconstruction's "Additions in recordings" setting; the recording look test flips it. */
+  recordingAdditions?: boolean;
   renderer?: unknown;
+  /** Whether recording mode is on, in the reconstruction. */
+  screenRecording?: boolean;
   readonly space: PageSpatialGrid;
   readonly startTime?: number;
+  /** Set to redraw the cached leaderboard on the next frame. */
+  topListChanged?: boolean;
   readonly units: readonly PageUnit[];
   /** The game's canvas: the enemy-mode tests read its size, the benchmark's `--dump` its pixels. */
   readonly view: HTMLCanvasElement;

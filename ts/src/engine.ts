@@ -502,11 +502,18 @@ export class Game {
   public qas: Record<string, boolean>;
   public quality: number;
   public recording: null | Recorder;
+  /**
+   * Whether a recording keeps this copy's additions drawn on the canvas (the leaderboard name fit, the showcase camera).
+   * Off by default, so a recording looks like the original; the page sets it from its menu.
+   */
+  public recordingAdditions = false;
   public renderer: ((game: Game) => void) | null;
   public replaying?: null | Replayer;
   public rng: (n?: number) => number;
   public scale: number;
   public schemesManager: SchemeCycler;
+  /** Whether recording mode (`R`) is on, for an external screen recorder; the page sets it. */
+  public screenRecording = false;
   public seed: number;
   public skinManager: SkinManager;
   /** The page's sound, told about the player's moments, or `null` when the page plays none. */
@@ -527,6 +534,16 @@ export class Game {
   public videoRecorder: FrameRecorder | null = null;
   public view: HTMLCanvasElement;
   public visible: boolean;
+  /**
+   * Whether frames must look like the original's: recording mode or an in-game take is on, and
+   * {@link recordingAdditions} keeps the additions out.
+   *
+   * @returns Whether to draw as the original does.
+   */
+  public get looksOriginal(): boolean {
+    return !this.recordingAdditions && (this.screenRecording || this.videoRecorder !== null);
+  }
+
   public get paused(): boolean {
     return this.clock.isPaused;
   }
@@ -906,7 +923,7 @@ export class Game {
     const scaler = Math.sqrt(viewScreenWidth * viewScreenWidth + viewScreenHeight * viewScreenHeight) / Math.sqrt(REFERENCE_DIAGONAL_SQUARED);
     const scale = this.scale * scaler / devicePixelRatio;
     let vector: Vector;
-    const followed = this.cameraFollow?.() ?? null;
+    const followed = this.looksOriginal ? null : this.cameraFollow?.() ?? null;
     if (followed) {
       vector = followed;
     } else if (this.player) {

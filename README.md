@@ -74,7 +74,15 @@ itself when the run ends or the browser's storage is nearly full.
 - **What is recorded:** the game canvas only, so the map, the players, the
   leaderboard, the percent and the minimap are in the video, and the page around
   it (the pause button, the practice panel, menus, dialogs, the joystick) never
-  is.
+  is. Nor are the demo readout, its overlay and the ghost, which are drawn on
+  layers of their own.
+- **It looks like the original:** while a take runs, the canvas is drawn as the
+  original draws it. The leaderboard goes back to the original's layout, which
+  cuts long names short, and the showcase view's camera goes back to the player.
+  The menu's **Additions in recordings** button (off by default, remembered by
+  the browser) keeps both in the video instead. Enemy modes and the bot count are
+  part of the game, not of the screen, so a recorded run plays with them either
+  way.
 - **Sound:** the sound effects of the run are recorded with the take, whether
   or not you hear them, and cut with it, so a failed attempt's sounds go too. The
   practice sounds (the respawn chime and the checkpoint clicks) are never
@@ -127,6 +135,14 @@ and its toggle (the joystick still steers, drawn invisibly), the menu's
 Practice, Recording, saved-games and Recordings panels, the in-game record button,
 and the practice note on the results screen. Practice still runs, and its keys
 still work: `Z`, `X`, `K`, `Esc` / `P`, and `V` for the in-game recorder.
+
+It also draws the canvas as the original does: the leaderboard takes the
+original's layout, cut-off names included, and the showcase view's camera goes
+back to the player. The menu's **Additions in recordings** button, next to
+**Recording mode**, keeps the name fit and the showcase in the recording
+instead; it is off by default, the browser remembers it, and it applies to the
+in-game recorder too. Enemy modes and the bot count still apply to a recorded
+run.
 
 Every switch into recording mode shows a dialog, _You are in recording mode.
 Press R to return to normal mode_, with an OK button. That includes a page load
@@ -224,7 +240,9 @@ camera follows whoever holds the most territory, the pilot or a bot, and glides
 over when the lead changes hands. A unit takes the camera only once it is ahead
 by 0.2% of the arena, so two units trading the lead do not make it flicker. The
 readout names the unit it is watching. While you steer, the camera is yours
-again. It only moves the camera and changes nothing in the game.
+again. It only moves the camera and changes nothing in the game. While
+recording, the camera stays on the player as in the original, unless
+**Additions in recordings** is on.
 
 **How well it plays.** `npm run benchmark` in `ts/` plays seeded games at full
 speed in headless Chrome and reports, per pilot, the win rate, the median and
@@ -445,8 +463,9 @@ back to the original `app2.js` and says so in the browser console. Add
   still cannot fit there ends in `…`. Where the text already fits, the original
   layout is kept. On a phone the top bar is narrow, so long names still end in
   `…`, but the rank and percent always show. `?original` is unchanged. The
-  `leaderboardFitNames` config key turns it off. It stays on in recording mode,
-  because it changes no control on screen.
+  `leaderboardFitNames` config key turns it off. While recording (recording mode
+  or the in-game recorder) it is off too, so the recording shows the original's
+  cut-off names, unless **Additions in recordings** is on.
 - A demo autopilot in the `ts/` reconstruction (`ts/src/autopilot/`): a whitebox
   pilot that reads the engine and a blackbox pilot that reads only the screen,
   both steering through the pointer, with a debug overlay and a benchmark
