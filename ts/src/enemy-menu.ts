@@ -104,12 +104,36 @@ export function EnemyMenu({ state }: EnemyMenuProps): VNode<unknown> {
     button(
       'enemy-level',
       'level',
-      `Difficulty: ${settings.level === null ? 'Ramp' : `${(settings.level * PERCENT_SCALE).toFixed(0)}%`}`,
+      `Difficulty: ${settings.level === null ? 'Ramp (original)' : `${(settings.level * PERCENT_SCALE).toFixed(0)}%`}`,
       'Ramp makes the bots bolder as you grow, as in the original; a percentage fixes their level from timid (0%) to hardest (100%).',
       settings.level !== null
     ),
-    button('enemy-count', 'count', `Bots: ${String(settings.count ?? ORIGINAL_BOTS_COUNT)}`, 'How many bots play.', settings.count !== null)
+    button(
+      'enemy-count',
+      'count',
+      `Bots: ${settings.count === null ? `${String(ORIGINAL_BOTS_COUNT)} (original)` : String(settings.count)}`,
+      'How many bots play.',
+      settings.count !== null
+    )
   );
+}
+
+/**
+ * The value after `current`, wrapping from the last to the first.
+ *
+ * Only an empty list falls back to `current`, through the destructuring default, which applies to `undefined` and
+ * never to `null`: `null` is a real value here, the original's own setting at the head of `ENEMY_LEVELS` and
+ * `ENEMY_COUNTS`, so the wrap must land on it. A `?? current` fallback threw it away and stuck the cycle on the last
+ * value.
+ *
+ * @param values - The values in cycling order.
+ * @param current - The value now.
+ * @returns The next value.
+ */
+export function nextOf<T>(values: readonly T[], current: T): T {
+  const index = (values.indexOf(current) + 1) % values.length;
+  const [next = current] = values.slice(index, index + 1);
+  return next;
 }
 
 export function readEnemySettings(): EnemySettings {
@@ -148,8 +172,4 @@ export function useEnemySettings(api: GameApi | null): EnemyMenuState {
   }
 
   return { cycle, settings };
-}
-
-function nextOf<T>(values: readonly T[], current: T): T {
-  return values[(values.indexOf(current) + 1) % values.length] ?? current;
 }

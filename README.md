@@ -319,10 +319,12 @@ each other only by accident.
 where you are everywhere; **Blackbox** bots see you only within their own view
 range of their own position, as an honest player would.
 
-**Difficulty**: **Ramp** is the original's rising level; a percentage fixes the
-level from timid (0%) to hardest (100%).
+**Difficulty**: **Ramp (original)** is the original's rising level; a percentage
+fixes the level from timid (0%) to hardest (100%). Past 100% the button wraps back
+to Ramp (original).
 
-**Bots**: how many bots play, from 0 to 30 (the original has 15).
+**Bots**: how many bots play, from 0 to 30. **15 (original)** is the original's
+count; past 30 the button wraps back to it.
 
 **Against the demo autopilot.** `npm run benchmark -- --enemies <mode>[:<vision>],...`
 adds a row per enemy mode. The whitebox pilot against each, 4 seeds, 15 minutes
