@@ -203,10 +203,14 @@ remembers the choice:
   code imports nothing of it.
 
 Either way it steers with the same pointer the mouse or a touch gives, so it has
-your speed and turning circle and changes nothing else in the game. Steering
-yourself (arrows, W/A/S/D, the joystick, a touch, or moving the mouse over the
-game) takes control from it; `O` hands control back. The readout at the bottom
-shows the pilot, the game time and your percent. It combines with practice mode.
+your speed and turning circle and changes nothing else in the game. Once a
+pilot is picked the demo runs by itself: the pilot steers from the first frame,
+and after a death or a win the results show for 5 seconds, then the next round
+starts (the readout counts down; **Continue** stops it). A mouse that only moves
+over the game leaves the pilot steering. Steering yourself (arrows, W/A/S/D, the
+joystick, a touch, or a click on the game) takes control from it; `O` hands
+control back. The readout at the bottom shows the pilot, the game time and your
+percent. It combines with practice mode.
 
 **Overlay** (`I`, or the menu button next to **Demo**) draws what the pilot is
 doing on a layer of its own, which the in-game recorder never records: the

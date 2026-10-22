@@ -3,8 +3,8 @@
  *
  * The autopilot's link to the game: it attaches to `Game.autopilot`, asks its pilot for a direction before every
  * update and writes that direction as the controller's pointer, the same input a mouse or a touch gives, so the
- * autopilot obeys the player's speed, turn rate and angle steps. It hands control back to a human on any steering
- * input, and the blackbox pilot gets the canvas's pixels after every rendered frame and nothing else.
+ * autopilot obeys the player's speed, turn rate and angle steps. It hands control back to a human on a steering key, a
+ * touch or a mouse press on the game, never on a mouse that only moves, and the blackbox pilot gets the canvas's pixels after every rendered frame and nothing else.
  */
 
 import type {
@@ -36,8 +36,6 @@ export const AUTOPILOT_MODES: readonly AutopilotMode[] = ['off', 'whitebox', 'bl
 const POINTER_REACH = 100;
 /** The blackbox pilot sees the frame scaled down by this factor. */
 export const BLACKBOX_DOWNSCALE = 4;
-/** A real mouse moved this far over the canvas takes control. */
-const TAKEOVER_MOUSE_DISTANCE = 6;
 const STEERING_KEY_CODES: readonly number[] = [KEY_ARROW_LEFT, KEY_ARROW_UP, KEY_ARROW_RIGHT, KEY_ARROW_DOWN, KEY_A, KEY_D, KEY_S, KEY_W];
 
 /** Turns a canvas into the pixels the blackbox pilot sees. */
@@ -143,15 +141,10 @@ export class Autopilot implements AutopilotHook {
     this.listen(this.game.view, 'touchstart', () => {
       this.disengage();
     });
-    let origin: null | Point = null;
-    this.listen(this.game.view, 'mousemove', (event: MouseEvent) => {
-      if (!event.isTrusted || !this.engaged) {
-        origin = null;
-        return;
-      }
-      origin ??= { x: event.clientX, y: event.clientY };
-      if (Math.hypot(event.clientX - origin.x, event.clientY - origin.y) >= TAKEOVER_MOUSE_DISTANCE) {
-        origin = null;
+    // A mouse that only moves never takes over: the pointer rests over the game after the menu's click, and a nudge
+    // handed the run to a human who was not steering. A press on the game, a click or the start of a drag, does.
+    this.listen(this.game.view, 'mousedown', (event: MouseEvent) => {
+      if (event.isTrusted) {
         this.disengage();
       }
     });

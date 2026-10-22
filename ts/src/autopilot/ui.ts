@@ -2,7 +2,7 @@
  * @file
  *
  * The page side of the demo autopilot: the menu's mode switch (Off / Whitebox / Blackbox), remembered in
- * `localStorage`; the autopilot attached to each run; the O key that hands control back to it after a takeover; a small
+ * `localStorage`; the autopilot attached to each run; the next round started by itself after the results; the O key that hands control back to it after a takeover; a small
  * readout beside the canvas (mode, game time, percent); and the optional debug overlay, drawn on a canvas of its own so
  * the in-game recorder, which records the game's canvas, never sees it. Everything on screen hides in recording mode.
  */
@@ -43,6 +43,8 @@ export const AUTOPILOT_VIEW_STORAGE_KEY = 'paperio2.autopilotView';
 
 const MODE_LABELS: Readonly<Record<AutopilotMode, string>> = { blackbox: 'Blackbox', off: 'Off', whitebox: 'Whitebox' };
 const READOUT_INTERVAL_MILLISECONDS = 250;
+/** How long the results of a demo round show before the next round starts by itself. */
+const DEMO_RESTART_SECONDS = 5;
 const MILLISECONDS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_DIGITS = 2;
@@ -66,6 +68,23 @@ const OVERLAY_DASH = 8;
 const LABEL_PADDING = 4;
 const LABEL_HEIGHT = 14;
 const OPAQUE = 255;
+const READOUT_STYLE = {
+  background: 'rgba(0, 0, 0, 0.35)',
+  border: '2px solid rgba(255, 255, 255, 0.8)',
+  borderRadius: '8px',
+  bottom: '12px',
+  color: '#ffffff',
+  fontFamily: '"PT Sans Caption", sans-serif',
+  fontSize: '14px',
+  left: '50%',
+  padding: '4px 10px',
+  pointerEvents: 'none',
+  position: 'fixed',
+  transform: 'translateX(-50%)',
+  userSelect: 'none',
+  whiteSpace: 'nowrap',
+  zIndex: HUD_Z_INDEX
+} as const;
 
 export interface AutopilotHudProps {
   readonly api: GameApi | null;
@@ -88,6 +107,8 @@ export interface AutopilotState {
   /** Whether the camera follows the unit with the most territory rather than the pilot (the showcase view). */
   readonly leaderView: boolean;
   readonly mode: AutopilotMode;
+  /** Seconds until the demo's next round starts by itself, while the results screen shows; else `null`. */
+  readonly nextRoundIn: null | number;
   readonly overlay: boolean;
   /** The showcase camera of the run on screen, or `null`. */
   readonly showcase: null | ShowcaseCamera;
@@ -145,7 +166,18 @@ export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps):
       autopilot.coach = false;
     };
   }, [autopilot, overlay]);
-  if (hidden || !inGame || !autopilot || !api) {
+  if (hidden) {
+    return null;
+  }
+  if (!inGame) {
+    return state.nextRoundIn === null
+      ? null
+      : createElement('div', {
+        id: 'autopilot-readout',
+        style: READOUT_STYLE
+      }, `Demo: ${MODE_LABELS[mode]} · next round in ${String(state.nextRoundIn)} s · Continue stops it`);
+  }
+  if (!autopilot || !api) {
     return null;
   }
   return createElement(
@@ -160,23 +192,7 @@ export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps):
     }),
     createElement('div', {
       id: 'autopilot-readout',
-      style: {
-        background: 'rgba(0, 0, 0, 0.35)',
-        border: '2px solid rgba(255, 255, 255, 0.8)',
-        borderRadius: '8px',
-        bottom: '12px',
-        color: '#ffffff',
-        fontFamily: '"PT Sans Caption", sans-serif',
-        fontSize: '14px',
-        left: '50%',
-        padding: '4px 10px',
-        pointerEvents: 'none',
-        position: 'fixed',
-        transform: 'translateX(-50%)',
-        userSelect: 'none',
-        whiteSpace: 'nowrap',
-        zIndex: HUD_Z_INDEX
-      }
+      style: READOUT_STYLE
     }, `Demo: ${MODE_LABELS[mode]}${engaged ? '' : ' (you steer, O hands back)'} · ${readout}`)
   );
 }
@@ -201,7 +217,7 @@ export function AutopilotMenu({ state }: AutopilotMenuProps): VNode<unknown> {
       'class': mode === 'off' ? 'orange' : 'green',
       'id': 'autopilot-toggle',
       'onClick': cycleMode,
-      'title': 'An autopilot that tries to win as fast as it can: Whitebox reads the engine, Blackbox sees only the screen. Steer to take over; O hands back.',
+      'title': 'An autopilot that tries to win as fast as it can, round after round: Whitebox reads the engine, Blackbox sees only the screen. A steering key, a touch or a click on the game takes over; O hands back.',
       'type': 'button'
     }, `Demo: ${MODE_LABELS[mode]}`),
     mode !== 'off' && ' ',
@@ -235,22 +251,26 @@ export function readAutopilotMode(): AutopilotMode {
 }
 
 /**
- * The autopilot for the App: the menu's mode, an autopilot attached to every run while the mode is on, and the O and I
- * keys.
+ * The autopilot for the App: the menu's mode, an autopilot attached to every run while the mode is on, the next round
+ * started by itself from the results screen, and the O and I keys.
  *
  * @param api - The game API.
  * @param route - The current route.
+ * @param restart - Starts the next round, as the results screen's Play does.
  * @returns The state.
  */
-export function useAutopilot(api: GameApi | null, route: string): AutopilotState {
+export function useAutopilot(api: GameApi | null, route: string, restart: () => void): AutopilotState {
   const [mode, setMode] = useState<AutopilotMode>(readAutopilotMode);
   const [overlay, setOverlay] = useState(() => readStoredSwitch(AUTOPILOT_OVERLAY_STORAGE_KEY));
   const [leaderView, setLeaderView] = useState(() => readStoredSwitch(AUTOPILOT_VIEW_STORAGE_KEY));
   const [showcase, setShowcase] = useState<null | ShowcaseCamera>(null);
   const [autopilot, setAutopilot] = useState<Autopilot | null>(null);
   const [engaged, setEngaged] = useState(true);
+  const [nextRoundIn, setNextRoundIn] = useState<null | number>(null);
   const autopilotRef = useRef<Autopilot | null>(null);
   autopilotRef.current = autopilot;
+  const restartRef = useRef(restart);
+  restartRef.current = restart;
 
   function cycleMode(): void {
     const next = AUTOPILOT_MODES[(AUTOPILOT_MODES.indexOf(mode) + 1) % AUTOPILOT_MODES.length] ?? 'off';
@@ -306,6 +326,30 @@ export function useAutopilot(api: GameApi | null, route: string): AutopilotState
   }, [route, mode]);
 
   useEffect(() => {
+    // A demo plays on by itself: after a death or a win the results show for a moment, then the next round starts.
+    // Leaving the results screen (Continue) cancels it.
+    if (route !== 'results' || mode === 'off') {
+      return;
+    }
+    let secondsLeft = DEMO_RESTART_SECONDS;
+    setNextRoundIn(secondsLeft);
+    const intervalId = setInterval(() => {
+      secondsLeft--;
+      if (secondsLeft > 0) {
+        setNextRoundIn(secondsLeft);
+        return;
+      }
+      clearInterval(intervalId);
+      setNextRoundIn(null);
+      restartRef.current();
+    }, MILLISECONDS_PER_SECOND);
+    return (): void => {
+      clearInterval(intervalId);
+      setNextRoundIn(null);
+    };
+  }, [route, mode]);
+
+  useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (event.repeat || event.target instanceof HTMLInputElement) {
         return;
@@ -332,7 +376,7 @@ export function useAutopilot(api: GameApi | null, route: string): AutopilotState
     };
   }, []);
 
-  return { autopilot, cycleMode, engaged, leaderView, mode, overlay, showcase, toggleLeaderView, toggleOverlay };
+  return { autopilot, cycleMode, engaged, leaderView, mode, nextRoundIn, overlay, showcase, toggleLeaderView, toggleOverlay };
 }
 
 function drawBlackboxView(context: CanvasRenderingContext2D, autopilot: Autopilot, height: number): void {

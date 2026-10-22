@@ -3,7 +3,8 @@
  *
  * Proves the ghost race and the demo's showcase view in a real page. A run that ends is kept as the best run and comes
  * back as a ghost drawn on its own canvas in the next run; a practice run is never kept. With the showcase view on,
- * the camera follows the unit with the most territory, which at the start of a run is a bot, not the player.
+ * the camera follows the unit with the most territory, which at the start of a run is a bot, not the player. A demo
+ * pilot keeps steering while the mouse wanders over the game, gives way to a click, and starts the next round by itself.
  */
 
 import type {
@@ -41,6 +42,11 @@ const MIN_SAMPLES = 20;
 const SAMPLE_FIELDS = 4;
 /** The camera counts as on a unit within this distance of it, in arena units. */
 const CAMERA_TOLERANCE = 3;
+/** Where the mouse wanders over the game, in view pixels, each leg far past any jitter threshold. */
+const MOUSE_PATH: readonly (readonly [number, number])[] = [[200, 200], [600, 300], [300, 500], [700, 150]];
+const MOUSE_STEPS = 10;
+const CLICK_X = 400;
+const CLICK_Y = 400;
 const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 'demo extras', seed: 7, startFrame: 0 };
 
 interface CameraView {
@@ -58,6 +64,10 @@ async function endRun(page: Page): Promise<void> {
   await stepUntil(page, async () => page.evaluate(() => !document.getElementById('ui')?.classList.contains('hide')), 'the results screen');
   // Preact runs the run's effect cleanups, which keep the run, on a frame after the results screen renders.
   await steps(page, EFFECT_FRAMES);
+}
+
+async function isEngaged(page: Page): Promise<unknown> {
+  return page.evaluate(() => Reflect.get(Object(Reflect.get(window.paperio2api.game, 'autopilot')), 'engaged'));
 }
 
 async function play(page: Page): Promise<void> {
@@ -146,6 +156,31 @@ describe('the demo extras', () => {
       });
       await endRun(page);
       expect(await page.evaluate(() => localStorage.getItem('paperio2.ghost.free'))).toBeNull();
+    } finally {
+      await page.browserContext().close();
+    }
+  }, TIMEOUT_MILLISECONDS);
+
+  it('plays the demo round after round, and only a press takes it over', async () => {
+    const page = await open({ 'paperio2.autopilot': 'whitebox' });
+    try {
+      await play(page);
+      for (const [x, y] of MOUSE_PATH) {
+        await page.mouse.move(x, y, { steps: MOUSE_STEPS });
+        await stepPage(page);
+      }
+      expect(await isEngaged(page), 'a mouse that only moves leaves the pilot steering').toBe(true);
+      await page.mouse.click(CLICK_X, CLICK_Y);
+      await stepPage(page);
+      expect(await isEngaged(page), 'a click on the game takes over').toBe(false);
+      await page.keyboard.press('KeyO');
+      await stepPage(page);
+      expect(await isEngaged(page), 'O hands back').toBe(true);
+      await endRun(page);
+      expect(await page.evaluate(() => document.getElementById('autopilot-readout')?.textContent ?? '')).toContain('next round in');
+      await stepUntil(page, async () => page.evaluate(() => document.getElementById('ui')?.classList.contains('hide') === true && window.paperio2api.game.player !== null), 'the next round');
+      await steps(page, EFFECT_FRAMES);
+      expect(await isEngaged(page), 'the next round is flown by the pilot').toBe(true);
     } finally {
       await page.browserContext().close();
     }

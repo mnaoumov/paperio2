@@ -278,8 +278,15 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   vector pool or draw `game.rng` / `Math.random`**: either would change the game it is watching, break the benchmark's
   replay of a seed, and shift snapshots. The whitebox works on plain `{ x, y }` copies (`autopilot/plane.ts`).
 - **Hand-over:** a steering `keydown` (any `keyCode` the engine steers on, so the joystick's synthetic events count), a
-  touch on the canvas or a real mouse move of 6 px over it disengages; `O` (`KeyboardEvent.code`) re-engages. `I` toggles
+  touch on the canvas or a trusted `mousedown` on it disengages; `O` (`KeyboardEvent.code`) re-engages. `I` toggles
   the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N H L Esc.
+  **A mouse that only moves must never take over** (owner, 2026-10-22): the pointer rests over the canvas after the menu's
+  click, so the old 6 px move threshold handed every demo to a human who was not steering, and the player flew straight
+  until `O`.
+- **The demo runs itself:** while a pilot is on, `useAutopilot` starts the next round from the `results` route after
+  `DEMO_RESTART_SECONDS` (5) through the App's `start`, the same path as the results screen's Play, and the readout counts
+  it down; leaving `results` (Continue) cancels it. The menu's default stays Off (owner, 2026-10-22). Both halves are
+  proven in `test/differential/demo-extras.integration.test.ts`.
 - **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts`, and `blackbox.test.ts` asserts it. The driver
   hands it `grabDownscaledFrame(game.view)` (the canvas scaled down 4x) after each rendered frame, nothing else.
 - **How the blackbox keeps its bearings and gets home** (`blackbox.ts`, `odometry.ts`): an odometer matches each
