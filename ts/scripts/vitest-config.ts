@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 const SHARED_EXCLUDE = ['dist', 'node_modules'];
 const SCRIPTS_TEST_FILES = 'scripts/**/*.test.ts';
 const INTEGRATION_TEST_FILES = 'test/**/*.integration.test.ts';
+const TEST_FOLDER_UNIT_FILES = 'test/**/*.test.ts';
 const INTEGRATION_TEST_TIMEOUT_MILLISECONDS = 300_000;
 
 export const config = defineConfig({
@@ -44,6 +45,18 @@ export const config = defineConfig({
           exclude: SHARED_EXCLUDE,
           include: [SCRIPTS_TEST_FILES],
           name: 'unit-tests:scripts'
+        }
+      },
+      {
+        /*
+         * Fast tests that need Node (they read source files), so they live in `test/` under its Node config rather
+         * than beside the browser sources. The integration tests in the same folder are left to their own project.
+         */
+        test: {
+          environment: 'node',
+          exclude: [...SHARED_EXCLUDE, INTEGRATION_TEST_FILES],
+          include: [TEST_FOLDER_UNIT_FILES],
+          name: 'unit-tests:test'
         }
       },
       {

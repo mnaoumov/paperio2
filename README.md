@@ -177,6 +177,56 @@ can show: a practice run never sets a best score, so its results screen never
 shows a new best; and the results come up only when a death finds no checkpoint
 left, or the run is ended.
 
+### Demo autopilot
+
+The reconstruction can play the game for you, trying to take the whole arena as
+fast as it can. The menu's **Demo** button picks the pilot, and the browser
+remembers the choice:
+
+- **Off** (the default): you play.
+- **Whitebox** reads the engine: its own base and trail, every bot's position,
+  trail, state and the distance at which it starts hunting a trail. It plans each
+  loop out of its base by ground taken per second, keeps it short enough that no
+  bot can reach the trail before the loop closes, checks every loop by flying it
+  in a simulation first (its own speed and turning circle), and heads home the
+  moment a bot could cut it. It cuts a bot's trail whenever the bot runs it
+  through its territory.
+- **Blackbox** sees only what you see: the canvas, scaled down. It learns its
+  colour from the score bar, ignores the score bar, leaderboard, minimap and its
+  own name, treats small foreign shapes as danger and large ones as enemy ground,
+  and flies a cautious rectangle from its territory, keeping its bearings by
+  memory. It never reads the engine; a unit test checks that its code imports
+  nothing of it.
+
+Either way it steers with the same pointer the mouse or a touch gives, so it has
+your speed and turning circle and changes nothing else in the game. Steering
+yourself (arrows, W/A/S/D, the joystick, a touch, or moving the mouse over the
+game) takes control from it; `O` hands control back. The readout at the bottom
+shows the pilot, the game time and your percent. It combines with practice mode.
+
+**Overlay** (`I`, or the menu button next to **Demo**) draws what the pilot is
+doing on a layer of its own, which the in-game recorder never records: the
+whitebox's planned loop, its target and the nearest bot with the distance it
+keeps from the trail, or the blackbox's view, colour by class. While you steer,
+the whitebox keeps planning and the overlay shows the loop it suggests. Recording
+mode hides the readout and the overlay.
+
+**How well it plays.** `npm run benchmark` in `ts/` plays seeded games at full
+speed in headless Chrome and reports, per pilot, the win rate, the median and
+best time to win and how runs end. The same seed replays the same game. On
+2026-10-22:
+
+| Pilot | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
+| --- | --- | --- | --- | --- | --- |
+| Whitebox | 16 | 15 min | 0 | 2 (trail cut 1, exit point taken 1) | 14 (40.3%) |
+| Blackbox | 8 | 5 min | 0 | 6 (self-intersection 4, trail cut 1, surrounded 1) | 2 (0.3%) |
+
+Neither pilot wins yet. The whitebox survives most runs and keeps growing, to
+about 70% after 40 minutes in a longer run, but it keeps 16 units clear of the
+arena's wall, because a turn while pressed against the wall makes the engine
+count a death by the wall, so it can never take the last few percent. The
+blackbox sees only a small part of the arena and dies early.
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
@@ -268,6 +318,11 @@ back to the original `app2.js` and says so in the browser console. Add
   `…`, but the rank and percent always show. `?original` is unchanged. The
   `leaderboardFitNames` config key turns it off. It stays on in recording mode,
   because it changes no control on screen.
+- A demo autopilot in the `ts/` reconstruction (`ts/src/autopilot/`): a whitebox
+  pilot that reads the engine and a blackbox pilot that reads only the screen,
+  both steering through the pointer, with a debug overlay and a benchmark
+  (`npm run benchmark`). It is off by default and attaches nothing to the game
+  while off.
 
 ## Structure
 

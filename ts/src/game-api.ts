@@ -1,5 +1,6 @@
 import { ensureNonNullable } from '@mnaoumov/typescript-lib/type-guards';
 
+import type { AutopilotMode } from './autopilot/driver.ts';
 import type {
   Config,
   GameResults
@@ -13,6 +14,7 @@ import type {
 import type { GameSkinManager } from './skins/manager.ts';
 import type { GameSnapshot } from './snapshot.ts';
 
+import { Autopilot } from './autopilot/driver.ts';
 import {
   Controller,
   KeyboardModeSwitch
@@ -38,6 +40,8 @@ import {
 } from './snapshot.ts';
 
 export interface GameApi {
+  /** Attaches a demo autopilot to the live game, already steering. */
+  attachAutopilot: (mode: Exclude<AutopilotMode, 'off'>) => Autopilot;
   /** Takes a full snapshot of the live game, between frames. */
   captureSnapshot: () => GameSnapshot;
   /** The config every game is created with, there before the game is, so a page can change it ahead of the first frame. */
@@ -87,6 +91,11 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         game.debugGraph = !game.debugGraph;
       });
       /* eslint-enable no-magic-numbers -- end of the debug-combo keyCode literals. */
+    };
+    gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>): Autopilot => {
+      const autopilot = new Autopilot(gameApi.game, mode);
+      autopilot.attach();
+      return autopilot;
     };
     gameApi.captureSnapshot = (): GameSnapshot => captureSnapshot(gameApi.game);
     gameApi.restoreSnapshot = (snapshot: GameSnapshot): void => {

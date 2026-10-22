@@ -108,6 +108,11 @@ export interface Scenario {
 
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
+export interface OpenVariantOptions {
+  /** Whether the page records every canvas call; on unless a caller compares no frames. */
+  readonly traceCanvas?: boolean;
+}
+
 export interface ScenarioResult {
   readonly coverage: Coverage;
   readonly divergence: Divergence | null;
@@ -125,7 +130,6 @@ interface ServedFile {
   readonly status: number;
   readonly type: string;
 }
-
 export async function applyFrameInput(page: Page, scenario: Scenario, frame: number): Promise<void> {
   if (frame === scenario.startFrame) {
     await page.evaluate(() => {
@@ -144,6 +148,7 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
     }
   }
 }
+
 export async function launchBrowser(): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
@@ -154,14 +159,14 @@ export async function launchBrowser(): Promise<Browser> {
   });
 }
 
-export async function openVariant(browser: Browser, variant: Variant, scenario: Scenario): Promise<Page> {
+export async function openVariant(browser: Browser, variant: Variant, scenario: Scenario, options: OpenVariantOptions = {}): Promise<Page> {
   const context = await browser.createBrowserContext();
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (error) => {
     errors.push(String(error));
   });
-  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed });
+  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
   const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
   await interceptHost(page, pageOrigin);
   await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });

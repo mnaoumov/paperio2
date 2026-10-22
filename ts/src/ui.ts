@@ -18,6 +18,7 @@ import {
 } from 'preact/hooks';
 
 import type { GameAudioState } from './audio/ui.ts';
+import type { AutopilotState } from './autopilot/ui.ts';
 import type {
   Config,
   Game,
@@ -36,6 +37,11 @@ import {
   AudioMenu,
   useGameAudio
 } from './audio/ui.ts';
+import {
+  AutopilotHud,
+  AutopilotMenu,
+  useAutopilot
+} from './autopilot/ui.ts';
 import {
   findDefaultLanguage,
   list3
@@ -226,6 +232,7 @@ export function LanguageFooter({
 export interface MenuScreenProps {
   api: GameApi | null;
   audio: GameAudioState;
+  autopilot: AutopilotState;
   loadSave: (id: string) => void;
   menuMessage: string;
   nickName: string;
@@ -250,6 +257,7 @@ export interface MenuScreenProps {
 export function MenuScreen({
   api,
   audio,
+  autopilot,
   loadSave,
   menuMessage,
   nickName,
@@ -355,6 +363,15 @@ export function MenuScreen({
         },
         createElement(AudioMenu, {
           state: audio
+        })
+      ),
+      isSupported && !recordingMode && createElement(
+        'div',
+        {
+          style: PRACTICE_PANEL_STYLE
+        },
+        createElement(AutopilotMenu, {
+          state: autopilot
         })
       ),
       isSupported && !recordingMode && createElement(PracticeMenu, {
@@ -1647,6 +1664,7 @@ export function App({
   const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   const video = useVideoRecording(api, route);
   const sound = useGameAudio(api, route, recordingMode);
+  const autopilot = useAutopilot(api, route);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
     setPracticeModeState(nextPracticeMode);
@@ -1739,6 +1757,12 @@ export function App({
       onSaved: refreshSaves,
       practice
     }),
+    createElement(AutopilotHud, {
+      api,
+      hidden: marker !== null,
+      inGame: route === 'game',
+      state: autopilot
+    }),
     createElement(AudioControl, {
       hidden: marker !== null,
       inGame: route === 'game',
@@ -1773,6 +1797,7 @@ export function App({
           route === 'menu' && createElement(MenuScreen, {
             api,
             audio: sound,
+            autopilot,
             loadSave,
             menuMessage,
             nickName,
