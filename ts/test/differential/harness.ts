@@ -109,6 +109,8 @@ export interface Scenario {
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface OpenVariantOptions {
+  /** Query parameters added to the page's URL, such as `seed=race` (without the `?`). */
+  readonly query?: string;
   /** `localStorage` entries written before the page's own scripts run, as a returning visitor's settings. */
   readonly storage?: Readonly<Record<string, string>>;
   /** Whether the page records every canvas call; on unless a caller compares no frames. */
@@ -181,7 +183,8 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
   }
   const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
   await interceptHost(page, pageOrigin);
-  await page.goto(`${pageOrigin}/${variant}/index.html${variant === 'original' ? '?original' : ''}`, { waitUntil: 'load' });
+  const query = [...variant === 'original' ? ['original'] : [], ...options.query ? [options.query] : []].join('&');
+  await page.goto(`${pageOrigin}/${variant}/index.html${query ? `?${query}` : ''}`, { waitUntil: 'load' });
   // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
   // Has frozen, so the boot wait polls from Node instead.
   const deadline = performance.now() + BOOT_TIMEOUT_MILLISECONDS;

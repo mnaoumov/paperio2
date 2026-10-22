@@ -279,7 +279,7 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   replay of a seed, and shift snapshots. The whitebox works on plain `{ x, y }` copies (`autopilot/plane.ts`).
 - **Hand-over:** a steering `keydown` (any `keyCode` the engine steers on, so the joystick's synthetic events count), a
   touch on the canvas or a real mouse move of 6 px over it disengages; `O` (`KeyboardEvent.code`) re-engages. `I` toggles
-  the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N Esc.
+  the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N H L Esc.
 - **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts`, and `blackbox.test.ts` asserts it. The driver
   hands it `grabDownscaledFrame(game.view)` (the canvas scaled down 4x) after each rendered frame, nothing else.
 - **How the blackbox keeps its bearings and gets home** (`blackbox.ts`, `odometry.ts`): an odometer matches each
@@ -327,6 +327,34 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   took about 4 minutes here. The blackbox renders every frame and runs at about real time. `--why` prints each failed run's last phase changes, the killer's
   bot state, the whitebox's decision counts and the ground it gained and lost. `--enemies` picks the enemy modes to play against
   (see **Enemy modes**); it defaults to the original bots.
+
+## Racing: seed, ghost and showcase
+
+**The `ts/` reconstruction has a shareable seed, a ghost of the best run and a showcase camera for the demo** (owner
+request 2026-10-21); the README's *Racing* section and *Demo autopilot*'s **View** paragraph are the user-facing
+contract. All off by default and inert for the differential test.
+
+- **Seed** (`ts/src/seed.ts`): `main()` reads `?seed=` and, before anything game-side draws, replaces `Math.random` with
+  a seeded mulberry32, so the name pool's and the game's own generators (seeded from `Math.random`) follow. A seeded
+  page **prepares in one synchronous go** (`GameApi.prepare`): spread over `setInterval` batches, preparation
+  interleaves with timers and frames whose timing differs per page, and two pages on one seed got different maps. The
+  API keeps a snapshot plus `Math.random`'s state the moment preparation ends and restores both on every seeded Play
+  (`returnToSeededStart` in `start`), because the menu's bots then play on real time. Only the start is pinned: live
+  play steps by real frame deltas, so a run diverges from there. Proven by `test/differential/seed.integration.test.ts`
+  (two harness seeds, 2 vs 300 menu frames, same units at spawn; another seed differs).
+- **Ghost** (`ts/src/ghost/`): `useGhostRace` samples the player's position and percent every 100 ms of game time
+  through `Game.frameObservers`, keeps the best run per seed in `localStorage` (`paperio2.ghost.free` /
+  `paperio2.ghost.seed:<seed>`, versioned by `GHOST_FORMAT_VERSION`) when the run's effect is cleaned up, never for a run
+  that was practice at any point, and draws it on its own canvas after each frame, mapped through `camera-map.ts`'s
+  `worldToScreen` from `game.origin` (the camera centre the frame was drawn from). It records positions, not inputs:
+  inputs do not replay under real-time stepping.
+- **Showcase** (`ts/src/autopilot/showcase.ts`): `Game.cameraFollow` (`null` by default) overrides the camera's target
+  in the render context; with it `null` the camera code takes the original's path, smoothing included. The showcase
+  returns the leader (`pickLeader`, with a 0.2% hysteresis) and does its own glide, and returns `null` while the human
+  steers. The pilot stays `game.player`: steering goes through the player's controller, so making the pilot "just
+  another unit" would need a second controller in the engine, which was not taken.
+- **Hooks are inert when unused:** `cameraFollow` is one optional call, and `frameObservers` is an empty array loop.
+  Proven in a page by `test/differential/demo-extras.integration.test.ts`.
 
 ## Enemy modes
 

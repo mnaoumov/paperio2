@@ -448,6 +448,11 @@ export class Game {
   public bots: number[] | Record<string, number>;
   public botSpawnLimited: boolean;
   public build: number;
+  /**
+   * What the camera follows instead of the player, or `null` for the original's camera. The showcase view sets it to the
+   * unit with the most territory; returning `null` falls back to the original's choice for that frame.
+   */
+  public cameraFollow: (() => null | Vector) | null = null;
   public citiesManager: CitiesManager | null;
   /** The clock game logic reads instead of the real one: it stops while the game is paused. */
   public readonly clock: GameClock;
@@ -466,6 +471,8 @@ export class Game {
   public fpsSequence: number[];
   /** How many frames have thrown; the loop survives each one. */
   public frameErrors = 0;
+  /** Called after every frame's render, after the other hooks; page features that draw beside the canvas listen here. */
+  public readonly frameObservers: (() => void)[] = [];
   public gameOverCallback: ((result: GameOverResult) => void) | null;
   public isTest: boolean;
   public keyboard?: null | Partial<PointerState>;
@@ -899,7 +906,10 @@ export class Game {
     const scaler = Math.sqrt(viewScreenWidth * viewScreenWidth + viewScreenHeight * viewScreenHeight) / Math.sqrt(REFERENCE_DIAGONAL_SQUARED);
     const scale = this.scale * scaler / devicePixelRatio;
     let vector: Vector;
-    if (this.player) {
+    const followed = this.cameraFollow?.() ?? null;
+    if (followed) {
+      vector = followed;
+    } else if (this.player) {
       vector = this.player.position;
       if (this.player.killer && this.config.followKiller) {
         vector = this.player.killer.position;
@@ -907,7 +917,7 @@ export class Game {
     } else {
       vector = this.space.center;
     }
-    if (this.origin && (!this.player || this.player.killer)) {
+    if (this.origin && !followed && (!this.player || this.player.killer)) {
       const distance = this.origin.distance(vector);
       const stepDistance = distance / CAMERA_FOLLOW_STEP_DIVISOR;
       const offset = vector.clone().sub(this.origin).normalize().mulScalar(stepDistance);
@@ -1631,6 +1641,9 @@ export class Game {
     this.practice?.afterFrame();
     this.videoRecorder?.afterFrame();
     this.autopilot?.afterFrame();
+    for (const observer of this.frameObservers) {
+      observer();
+    }
   }
 
   public setLeaderboard(leaderboard?: Leaderboard): void {

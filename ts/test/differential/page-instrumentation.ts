@@ -273,6 +273,8 @@ export interface PaperIo2PageGame {
   readonly controller: PageController;
   readonly cycle: number;
   kill(unit: PageUnit | undefined, killer: null | PageUnit | undefined, reason: number): void;
+  /** Where the camera was centred for the last frame; the showcase test reads it. */
+  readonly origin?: null | PagePoint;
   readonly paused: boolean;
   readonly pendingGameOver?: null | PagePendingGameOver;
   readonly player: null | PageUnit;

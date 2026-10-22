@@ -16,6 +16,7 @@ import {
 } from 'preact';
 
 import type { Config } from './engine.ts';
+import type { SpeedrunSeed } from './game-api.ts';
 import type { LanguagesData } from './i18n.ts';
 import type { SkinSource } from './skins/skin.ts';
 
@@ -32,6 +33,10 @@ import {
   BotScoreLabel,
   SchemeCycler
 } from './scoring.ts';
+import {
+  installSeededMathRandom,
+  readSeedParam
+} from './seed.ts';
 import {
   ImageAssetSet,
   SvgAssetSet
@@ -72,6 +77,10 @@ function createSkinManager(config: Config, canvas: HTMLCanvasElement, skins: Ski
 // So the await lives in this async entry, invoked once; `.catch(console.error)`
 // Reports a rejected bootstrap instead of an unhandled rejection.
 async function main(): Promise<void> {
+  // The seed goes in before the game draws its first number: the name pool's and the game's own generators are seeded
+  // From `Math.random` below.
+  const seedText = readSeedParam(location.search);
+  const speedrunSeed: null | SpeedrunSeed = seedText === null ? null : { random: installSeededMathRandom(seedText), text: seedText };
   const loadedAssets = await Promise.all([languagesPromise, skinsPromise]);
   assertLoadedAssets(loadedAssets);
   const [languages, skins] = loadedAssets;
@@ -79,7 +88,7 @@ async function main(): Promise<void> {
   const schemeCycler = new SchemeCycler(BotScoreLabel);
   const achievementStore = new AchievementStore([]);
   achievementStore.load();
-  const api = createGameApi(gameConfig, ensureNonNullable(findDefaultLanguage()), (config: Config, canvas: HTMLCanvasElement) => createSkinManager(config, canvas, skins), new NamePool(botNames, Math.random()), schemeCycler, achievementStore);
+  const api = createGameApi(gameConfig, ensureNonNullable(findDefaultLanguage()), (config: Config, canvas: HTMLCanvasElement) => createSkinManager(config, canvas, skins), new NamePool(botNames, Math.random()), schemeCycler, achievementStore, speedrunSeed);
   if (api) {
     window.paperio2api = api;
   }
