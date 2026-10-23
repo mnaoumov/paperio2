@@ -408,6 +408,26 @@ contract. All off by default and inert for the differential test.
 - **Hooks are inert when unused:** `cameraFollow` is one optional call, and `frameObservers` is an empty array loop.
   Proven in a page by `test/differential/demo-extras.integration.test.ts`.
 
+## Stats logs
+
+**Every run on the `game` route is logged as JSONL** (`ts/src/stats/`, owner request 2026-10-22); the README's *Stats
+logs* section is the user-facing contract, and `stats/format.ts` holds the line shapes (`STATS_FORMAT_VERSION`, bump it
+when one changes).
+
+- **One implementation for the page and the benchmark:** `GameApi.createStatsLog(pilot, recordingMode)` builds a
+  `StatsLog` (`stats/log.ts`) and pushes it onto `game.frameObservers`; `finish()` takes it off and returns the text.
+  `stats/ui.ts`'s `useStatsLog` starts one per run and writes it to IndexedDB (`paperio2-stats`, the newest 20 kept)
+  every minute of game time, when the tab hides and when the run ends; the benchmark's `--stats <dir>` writes one file
+  per run. `npm run stats:report` reads either.
+- **It only reads, and finds every event by comparing a frame with the one before** (area up or down by at least
+  0.0001 of the arena, a unit gone with the player as its `killer`, `player.death`, `pendingGameOver.reason === 0`, a
+  new player with the clock put back for a practice respawn), so the engine carries no hook for it. It never writes
+  game state, draws `Math.random` or arms a timer, so the differential suite plays with it attached and stays green.
+  Keep it that way: a new field reads, never writes.
+- **Frame times** come from `game.metrics` (`updateMetrics`), on the game clock, taken once per metric object.
+- **The commit** in the header is `BUILD_COMMIT`, which `build.mjs` defines from `git rev-parse --short HEAD` (`null`
+  outside a checkout).
+
 ## Enemy modes
 
 **The `ts/` reconstruction can change how the bots play** (`ts/src/entities/enemy-modes.ts`, owner request

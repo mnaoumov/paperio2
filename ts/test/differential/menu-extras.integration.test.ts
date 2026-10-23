@@ -3,7 +3,7 @@
  *
  * Proves the menu's layout in a real page. Everything this copy adds sits behind one Extras button, so the closed
  * menu fits the window like the original's. Opened in a short window, the menu scrolls under the wheel until the
- * Recordings panel at its bottom is on screen. Recording mode hides the Extras button too, and R brings it back.
+ * Recordings panel near its bottom is on screen. Recording mode hides the Extras button too, and R brings it back.
  */
 
 import type {
@@ -40,7 +40,7 @@ const WHEEL_SETTLE_MILLISECONDS = 50;
 const EFFECT_FRAMES = 3;
 const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 'menu extras', seed: 7, startFrame: 0 };
 /** The menu elements this copy adds; recording mode must leave none of them. */
-const ADDED_IDS = ['extras-toggle', 'extras-panel', 'practice-menu', 'recordings'] as const;
+const ADDED_IDS = ['extras-toggle', 'extras-panel', 'practice-menu', 'recordings', 'stats-logs'] as const;
 
 interface Layout {
   readonly clientHeight: number;

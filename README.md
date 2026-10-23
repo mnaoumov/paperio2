@@ -410,6 +410,33 @@ in-game recorder never records it, and recording mode hides it. A ghost replays
 where a run went, not what was pressed: the game steps by real frame times, so
 the same keys never give the same run twice.
 
+### Stats logs
+
+Every run is logged as it is played, and **Stats logs** in **Extras** lists the
+last 20 runs. Each has **Download**, and **Download all** puts every listed run
+in one file. A log is a text file, `paperio2-<yyyy-mm-dd-hhmm>.jsonl`, with one
+JSON object per line:
+
+- a `header`: the build and commit, the enemy settings, who started the run
+  (`human`, `whitebox` or `blackbox`), recording mode, the seed and the window
+  size;
+- a `sample` every 250 ms of game time: your share of the arena (`pct`), your
+  rank, your trail's length, where your head is and whether that is your own
+  ground, open ground or an enemy's (`zone`), who steered, and the frames since
+  the last sample (how many, their mean and longest time, how many took longer
+  than two 60 fps frames);
+- an `event` for each capture (`gained`), each piece of ground taken from you
+  (`lost`), each unit you kill (`victim`), your death (`killer`, `reason`), a
+  win, and in practice a respawn (`rewind`);
+- an `end` line with how the run ended and its totals.
+
+It is kept in this browser (IndexedDB) and leaves it only by your download. The
+log only reads the game, so a run plays exactly as it would without it. The
+benchmark writes the same format for the demo pilots
+(`npm run benchmark -- --stats <dir>`), and `npm run stats:report -- <files or
+directories>` compares any number of logs side by side, a summary row per run
+and the area curves.
+
 ## Install it as an app on a Mac
 
 The live demo installs as a standalone app, with its own window, a Dock icon
@@ -516,6 +543,9 @@ back to the original `app2.js` and says so in the browser console. Add
   shareable `?seed=` that starts every Play on the same map, a ghost of the best
   run on that map, and a showcase view for the demo that follows the leader
   (`ts/src/autopilot/showcase.ts`). All off by default.
+- Stats logs in the `ts/` reconstruction (`ts/src/stats/`): every run's area
+  over time, events and frame times as downloadable JSONL, in the same format
+  the autopilot benchmark writes. It only reads the game.
 
 ## Structure
 

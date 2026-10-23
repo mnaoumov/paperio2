@@ -20,6 +20,7 @@
     "lint:md": "jiti scripts/lint-md.ts",
     "lint:md:fix": "jiti scripts/lint-md-fix.ts",
     "spellcheck": "jiti scripts/spellcheck.ts",
+    "stats:report": "jiti test/benchmark/stats-report.ts",
     "test": "jiti scripts/test.ts",
     "test:coverage": "jiti scripts/test-coverage.ts",
     "test:integration": "jiti scripts/test-integration.ts",
