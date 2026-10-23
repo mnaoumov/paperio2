@@ -46,6 +46,10 @@ import {
   writeVideoSettings
 } from './recorder.ts';
 import {
+  formatStartLabel,
+  formatStartTooltip
+} from './start-label.ts';
+import {
   deleteRecording,
   listRecordings,
   recoverUnfinished
@@ -389,7 +393,7 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
     error && createElement('p', { id: 'recordings-error' }, error),
     recordings.map((record: RecordingRecord) => {
       const thumbnail = thumbnails.get(record.id);
-      const started = new Date(record.startedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
+      const started = formatStartTooltip(record.startedAt);
       return createElement(
         'div',
         {
@@ -405,7 +409,7 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
             style: { display: 'flex', flex: '1', flexDirection: 'column', minWidth: '0' },
             title: started
           },
-          createElement('span', { style: ELLIPSIS_STYLE }, started),
+          createElement('span', { class: 'recording-start', style: { overflowWrap: 'anywhere' } }, formatStartLabel(record.startedAt, Date.now())),
           createElement('span', { class: 'recording-details', style: { ...ELLIPSIS_STYLE, fontSize: '13px', opacity: '0.85' } }, `${formatDuration(record.durationMilliseconds)} · ${formatMegabytes(record.bytes)}${record.status === 'recovered' ? ' · recovered' : ''}${record.status === 'recording' ? ' · recording' : ''}`)
         ),
         record.status !== 'recording' && createElement(
