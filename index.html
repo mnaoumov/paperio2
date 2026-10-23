@@ -25,6 +25,12 @@
                 user-select: none;
                 -webkit-touch-callout: none;
             }
+            /* The menu and results screens scroll when they do not fit the window; body stays fixed so the canvas never moves. */
+            #ui {
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+            }
         </style>
     </head>
 

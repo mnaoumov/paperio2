@@ -170,6 +170,14 @@ neither.
   it on the first frame after that. A frame that throws no longer ends the rAF chain:
   `Game.loop` logs it (`frameErrors`) and steps again on the next frame. Practice runs set no best score, track no achievements, and their
   result carries `practice: true`. A loaded save always runs as practice.
+- **The menu's additions sit behind one `Extras` button** (`#extras-toggle`, open state remembered as
+  `paperio2.extras`; owner, 2026-10-22). `MenuScreen` renders the original's menu plus that button, and
+  `renderExtrasSections` builds the sections shown in `#extras-panel` while it is open. **A new menu section goes there,
+  never into the bare menu.** `index.html` gives `#ui` `overflow-y: auto` (and `style3.css` stays untouched), so a menu
+  or results screen taller than the window scrolls and `body` never does. Recording mode hides the button too, and the
+  panel opens with a line naming R as the way back. A test that clicks a menu control opens Extras first
+  (`openExtras` in `checkpoint.integration.test.ts`). `menu-extras.integration.test.ts` proves the closed menu fits
+  1280x720, the wheel reaches `#recordings` at 1280x600, and recording mode leaves none of the added ids.
 - **Recording mode** (`ts/src/recording.ts`, owner request 2026-10-21) hides every addition over the original and marks
   the frames to cut; the README's *Recording mode* section is the user-facing contract. `R` (by `KeyboardEvent.code`)
   toggles it, remembered as `paperio2.recording`, mirrored as the `paperio2-recording` class on `<html>` that

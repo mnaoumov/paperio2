@@ -298,6 +298,27 @@ export function MenuScreen({
     lng
   } = ensureNonNullable(useContext(LanguageContext));
   const isSupported = !!api;
+  const [extrasOpen, setExtrasOpenState] = useState(readExtrasOpen);
+  function setExtrasOpen(open: boolean): void {
+    setExtrasOpenState(open);
+    writeExtrasOpen(open);
+  }
+  const extrasSections = renderExtrasSections({
+    audio,
+    autopilot,
+    enemies,
+    ghost,
+    loadSave,
+    menuMessage,
+    practiceMode,
+    recordingAdditions,
+    removeSave,
+    saves,
+    setPracticeMode,
+    setRecordingAdditions,
+    setRecordingMode,
+    video
+  });
   function handleNickNameInput(event: Event): void {
     setNickName((event.target as HTMLInputElement).value);
   }
@@ -382,56 +403,135 @@ export function MenuScreen({
         {
           style: PRACTICE_PANEL_STYLE
         },
-        createElement(AudioMenu, {
-          state: audio
-        })
+        createElement('button', {
+          'aria-controls': 'extras-panel',
+          'aria-expanded': extrasOpen,
+          'class': extrasOpen ? 'green' : 'orange',
+          'id': 'extras-toggle',
+          'onClick': () => {
+            setExtrasOpen(!extrasOpen);
+          },
+          'title': 'Everything this copy adds to the original game',
+          'type': 'button'
+        }, extrasOpen ? 'Extras ▴' : 'Extras ▾')
       ),
-      isSupported && !recordingMode && createElement(
+      isSupported && !recordingMode && extrasOpen && createElement(
         'div',
         {
-          style: PRACTICE_PANEL_STYLE
+          id: 'extras-panel'
         },
-        createElement(AutopilotMenu, {
-          state: autopilot
-        }),
-        createElement(EnemyMenu, {
-          state: enemies
-        })
-      ),
-      isSupported && !recordingMode && createElement(
-        'div',
-        {
+        createElement('p', {
+          id: 'extras-recording-hint',
           style: PRACTICE_PANEL_STYLE
-        },
-        createElement(RaceMenu, {
-          state: ghost
-        })
-      ),
-      isSupported && !recordingMode && createElement(PracticeMenu, {
-        loadSave,
-        menuMessage,
-        practiceMode,
-        recordingAdditions,
-        removeSave,
-        saves,
-        setPracticeMode,
-        setRecordingAdditions,
-        setRecordingMode
-      }),
-      isSupported && !recordingMode && createElement(
-        'div',
-        {
-          style: PRACTICE_PANEL_STYLE
-        },
-        createElement(RecordingsPanel, {
-          state: video
-        })
+        }, 'Recording mode (R) hides this button and everything else this copy adds, so the menu looks like the original. Press R again to bring it back.'),
+        ...extrasSections
       )
     ),
     createElement('div', {
       id: 'right_side'
     })
   );
+}
+/** Where the menu remembers whether Extras is open, `open` or `closed`. */
+export const EXTRAS_STORAGE_KEY = 'paperio2.extras';
+export function readExtrasOpen(): boolean {
+  try {
+    return localStorage.getItem(EXTRAS_STORAGE_KEY) === 'open';
+  } catch {
+    return false;
+  }
+}
+export function writeExtrasOpen(extrasOpen: boolean): void {
+  try {
+    localStorage.setItem(EXTRAS_STORAGE_KEY, extrasOpen ? 'open' : 'closed');
+  } catch {
+    // A blocked storage only means the choice is not remembered.
+  }
+}
+interface ExtrasSectionsProps {
+  audio: GameAudioState;
+  autopilot: AutopilotState;
+  enemies: EnemyMenuState;
+  ghost: GhostRaceState;
+  loadSave: (id: string) => void;
+  menuMessage: string;
+  practiceMode: boolean;
+  recordingAdditions: boolean;
+  removeSave: (id: string) => void;
+  saves: readonly SaveSummary[];
+  setPracticeMode: (practiceMode: boolean) => void;
+  setRecordingAdditions: (recordingAdditions: boolean) => void;
+  setRecordingMode: (recordingMode: boolean) => void;
+  video: VideoRecordingState;
+}
+function renderExtrasSections({
+  audio,
+  autopilot,
+  enemies,
+  ghost,
+  loadSave,
+  menuMessage,
+  practiceMode,
+  recordingAdditions,
+  removeSave,
+  saves,
+  setPracticeMode,
+  setRecordingAdditions,
+  setRecordingMode,
+  video
+}: ExtrasSectionsProps): VNode<unknown>[] {
+  return [
+    createElement(
+      'div',
+      {
+        style: PRACTICE_PANEL_STYLE
+      },
+      createElement(AudioMenu, {
+        state: audio
+      })
+    ),
+    createElement(
+      'div',
+      {
+        style: PRACTICE_PANEL_STYLE
+      },
+      createElement(AutopilotMenu, {
+        state: autopilot
+      }),
+      createElement(EnemyMenu, {
+        state: enemies
+      })
+    ),
+    createElement(
+      'div',
+      {
+        style: PRACTICE_PANEL_STYLE
+      },
+      createElement(RaceMenu, {
+        state: ghost
+      })
+    ),
+    createElement(PracticeMenu, {
+      loadSave,
+      menuMessage,
+      practiceMode,
+      recordingAdditions,
+      removeSave,
+      saves,
+      setPracticeMode,
+      setRecordingAdditions,
+      setRecordingMode
+    }),
+    createElement(
+      'div',
+      {
+        style: PRACTICE_PANEL_STYLE
+      },
+      createElement(RecordingsPanel, {
+        state: video
+      })
+    )
+  ];
 }
 /** Where the menu's Practice toggle is remembered, `on` or `off`. */
 export const PRACTICE_MODE_STORAGE_KEY = 'paperio2.practice';
