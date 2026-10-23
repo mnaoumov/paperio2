@@ -25,20 +25,25 @@ import type {
   Page
 } from 'puppeteer-core';
 
+import { execFile } from 'node:child_process';
 import {
   mkdir,
   writeFile
 } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import { parseArgs } from 'node:util';
+import {
+  parseArgs,
+  promisify
+} from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
 import type { PageEnemySettings } from '../differential/page-instrumentation.ts';
 
 import {
   launchBrowser,
-  openVariant
+  openVariant,
+  TS_ROOT
 } from '../differential/harness.ts';
 
 /** How `--dump` draws a frame: the frame, and beside it the pilot's classes, its remembered trail and its aim. */
@@ -153,6 +158,8 @@ const parallel = Math.max(1, Number(values.parallel));
 
 const enemyModes = values.enemies.split(',').map((enemies) => enemies.trim()).filter(Boolean);
 const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => Array.from({ length: seedCount }, (_unused, index) => ({ enemies, mode, seed: firstSeed + index }))));
+// The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
+await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
 const browser = await launchBrowser();
 const outcomes: Outcome[] = [];
 try {

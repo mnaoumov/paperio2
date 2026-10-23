@@ -261,15 +261,30 @@ recording, the camera stays on the player as in the original, unless
 
 **How well it plays.** `npm run benchmark` in `ts/` plays seeded games at full
 speed in headless Chrome and reports, per pilot, the win rate, the median and
-best time to win and how runs end. The same seed replays the same game. On
+best time to win and how runs end, then a growth curve: the median share of the
+arena at 0:30, 1, 2, 3, 5, 10, 15, 30 and 60 minutes over the runs still alive.
+The same seed replays the same game. It builds `dist/` before it plays. On
 2026-10-22:
 
 | Pilot | Enemies | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Whitebox | Original | 16 | 15 min | 0 | 1 (surrounded 1) | 15 (34.6%) |
-| Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 2, surrounded 1, self-intersection 1) | 12 (52.6%) |
+| Whitebox | Original | 32 | 15 min | 0 | 6 (surrounded 3, trail cut 2, wall 1) | 26 (40.5%) |
+| Whitebox | Original | 16 | 60 min | 0 | 9 (trail cut 5, surrounded 4) | 7 (66.3%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
 | Blackbox | Original | 16 | 5 min | 0 | 7 (trail cut 6, wall 1) | 9 (4.6%) |
+
+The whitebox's growth over those 16 one-hour runs, against two games a skilled
+human played by hand with the default settings:
+
+| | 1:00 | 2:00 | 3:00 | 5:00 | 10:00 | 15:00 | 30:00 | 60:00 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Whitebox | 4.9% | 8.9% | 12.5% | 19.1% | 32.7% | 40.7% | 53.6% | 66.3% |
+| Human | 3.2-4.5% | 7.6-7.8% | 11.4-14.3% | 17.9% | | | | |
+
+The human's games ended at 17.3% (3:50) and 27.4% (8:00). The whitebox now
+keeps pace with the human for the first five minutes and survives longer, but
+it dies more often than the more cautious version measured before it (4 deaths
+in 16 one-hour runs, 52.6% at the hour), and it has not won yet.
 
 The whitebox now slides along the arena's wall without dying there: pressed
 against the wall, it never turns through the wall's outward direction, which
@@ -277,8 +292,7 @@ would reverse the slide over its own trail. So its loops take the ring along the
 wall, and once it holds 99% of the arena it laps the wall to close what is left.
 An earlier version of the same pilot did win one 60-minute run in 16, in 59:05,
 but it died in 13 of them; the version measured above defends its base more
-carefully and survives an hour in 12 of 16, at the cost of growing more slowly.
-The bots take back about a third of what it captures, which is why it has not
+carefully and survives an hour in 7 of 16. The bots take back about a third of what it captures, which is why it has not
 won yet. The blackbox no longer runs into its own trail or loses its way home
 beyond the view; an earlier version measured on 8 of the same seeds died in 6,
 4 of them on its own trail, and the 2 it kept alive held 0.3%. It still sees
