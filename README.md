@@ -50,6 +50,15 @@ The reconstruction has music and sound effects; the original has neither.
   (a fanfare for a win or a new best). In practice mode there are quiet clicks for
   setting and removing a checkpoint, and a chime when you respawn. `N` switches
   the effects on and off.
+- **Warning loops:** while your head is off your own territory a quiet loop
+  plays, so you feel exposed: a soft low pulse on empty ground, and a sharper,
+  faster throb on another player's territory. It crossfades between the two and
+  fades out when you get home, and it gets louder and faster as your trail grows,
+  reaching its peak at 1500 units, the length at which the nearest bot comes for
+  your trail whatever its nature. It sits below the capture sounds, stops when you
+  die or pause, and is part of the effects, so `N` silences it. It is made in the
+  browser, so it adds nothing to download. A downloaded recording does not hold
+  it.
 - Both are on by default. The two buttons left of the pause button, or the
   menu's **Music** and **Sounds** buttons, switch them too, and the browser
   remembers both choices. Browsers allow sound only after you click or press a
