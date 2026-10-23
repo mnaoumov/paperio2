@@ -271,7 +271,7 @@ The same seed replays the same game. It builds `dist/` before it plays. On
 | Whitebox | Original | 32 | 15 min | 0 | 6 (surrounded 3, trail cut 2, wall 1) | 26 (40.5%) |
 | Whitebox | Original | 16 | 60 min | 0 | 9 (trail cut 5, surrounded 4) | 7 (66.3%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
-| Blackbox | Original | 16 | 5 min | 0 | 7 (trail cut 6, wall 1) | 9 (4.6%) |
+| Blackbox | Original | 32 | 5 min | 0 | 9 (trail cut 6, surrounded 2, self-intersection 1) | 23 (2.8%) |
 
 The whitebox's growth over those 16 one-hour runs, against two games a skilled
 human played by hand with the default settings:
@@ -295,9 +295,14 @@ but it died in 13 of them; the version measured above defends its base more
 carefully and survives an hour in 7 of 16. The bots take back about a third of what it captures, which is why it has not
 won yet. The blackbox no longer runs into its own trail or loses its way home
 beyond the view; an earlier version measured on 8 of the same seeds died in 6,
-4 of them on its own trail, and the 2 it kept alive held 0.3%. It still sees
-only a small part of the arena, so the bots that cut its trail come into view
-late.
+4 of them on its own trail, and the 2 it kept alive held 0.3%. The blackbox row
+was measured on 2026-10-23: it now sees dark grey bots, which it once took for
+text, and it keeps heeding a bot for 2 s after the bot leaves its view. The
+version before that died in 16 of the same 32 runs, 14 of them to a bot cutting
+its trail and 1 at the wall, and held a median 4.5% in the 16 it kept alive. It
+still sees only a small part of the arena, so the bots that cut its trail come
+into view late, and it now goes home more often, which is why the runs it
+keeps alive hold less.
 
 **Frame rate.** In a live game both pilots do their heavy work in a background
 worker, so the game keeps its full frame rate: the blackbox reads each frame
