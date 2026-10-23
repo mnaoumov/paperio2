@@ -232,11 +232,18 @@ async function clickById(page: Page, id: string): Promise<void> {
   }, id);
 }
 
+// The added menu sections live behind the Extras button, closed by default.
+async function openExtras(page: Page): Promise<void> {
+  if (await page.evaluate(() => document.getElementById('extras-panel') === null)) {
+    await clickById(page, 'extras-toggle');
+  }
+}
 // The route runs back across its own trail, so the player dies; practice mode must bring it back at its latest
 // Checkpoint after the death delay, keep the results screen away, and show a practice result once the run is ended.
 async function playPractice(browser: Browser): Promise<void> {
   const page = await openVariant(browser, 'reconstruction', PRACTICE_SCENARIO);
   try {
+    await openExtras(page);
     await clickById(page, 'practice-toggle');
     let deathFrame: null | number = null;
     let respawnFrame: null | number = null;
@@ -309,6 +316,7 @@ const EARLY_START_SCENARIO: Scenario = { ...PRACTICE_SCENARIO, keys: [], name: '
 async function playDeathsInARow(browser: Browser, scenario: Scenario, startsMidPrepare: boolean): Promise<void> {
   const page = await openVariant(browser, 'reconstruction', scenario);
   try {
+    await openExtras(page);
     await clickById(page, 'practice-toggle');
     if (startsMidPrepare) {
       // `start` finishes the prepare phase within `maxPreparingTime` of real time, which never passes inside one of
@@ -425,6 +433,7 @@ async function playUniformCheckpoints(browser: Browser): Promise<void> {
   const scenario: Scenario = { ...SCENARIO, frames: UNIFORM_FRAMES, name: 'uniform checkpoints' };
   const page = await openVariant(browser, 'reconstruction', scenario);
   try {
+    await openExtras(page);
     await clickById(page, 'practice-toggle');
     const taken: CheckpointTaken[] = [];
     let interval = 0;

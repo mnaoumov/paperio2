@@ -20,6 +20,12 @@ or hides it on any device, desktop included, where a mouse drag then summons it.
 The choice is remembered in the browser; with none stored it is shown on touch
 devices and hidden on desktop.
 
+The reconstruction's menu looks like the original's plus one **Extras** button.
+Everything below that this copy adds to the menu sits behind it: sound, the
+demo pilot, enemy modes, racing, practice mode and saved games, recording
+mode, and the Recordings panel. The browser remembers whether Extras is open.
+When the menu does not fit the window, it scrolls.
+
 The reconstruction can be paused: the button at the top of the screen, or `Esc`
 or `P` on a keyboard. Switching to another tab pauses it too, and coming back
 leaves it paused until you resume. Nothing time-based in the game moves while it
@@ -141,7 +147,7 @@ on with the menu's Recording mode button or the `R` key, and off again with `R`
 browser. It hides every addition: the pause button and the Paused overlay, the
 practice panel and its messages, the music and sound buttons, the joystick
 and its toggle (the joystick still steers, drawn invisibly), the menu's
-Practice, Recording, saved-games and Recordings panels, the in-game record button,
+**Extras** button and everything behind it, so the menu is the original's, the in-game record button,
 and the practice note on the results screen. Practice still runs, and its keys
 still work: `Z`, `X`, `K`, `Esc` / `P`, and `V` for the in-game recorder.
 
