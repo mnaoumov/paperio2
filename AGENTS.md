@@ -329,6 +329,14 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   12 (pressed, the player reads 10, because the avatar hides the edge). `--dump <dir>` on the benchmark writes the
   last 2 s of frames beside their classes, the remembered trail (yellow) and the aim (magenta); the minimap is not
   read, since the odometer already gives the way home beyond the view.
+- **How the blackbox sees the bots that cut its trail** (`findThreat`, `recallThreat`): a threat is a thin foreign
+  component (`thinForeign`) near the player or the remembered trail. **Greys are units, not text**: masking every grey
+  hid dark grey bots and their trails entirely, so only the player's own name strip (`isOwnNameStrip`) stays masked;
+  other names are thin strokes the erosion drops. Foreign ground within `HUD_MARGIN` of the HUD is skipped, because
+  the leaderboard and minimap cut territory into trail-thin slivers. A threat is remembered in odometer coordinates for
+  `THREAT_MEMORY_FRAMES` (120) and recalled while within the danger radius, so a bot that leaves the view or the radius
+  still sends the pilot home (60 measured worse). A way out whose first stretch meets the wall's lookahead scores as
+  blocked (`WALL_ROOM`).
 - **A live game runs the pilots' heavy work in a worker** (`autopilot/worker.ts`, owner report 2026-10-22: "drops
   frames often"). Measured with `npm run benchmark:frames` (`test/benchmark/frame-times.ts`: real time, real
   `localhost` server, a rAF probe, hook timings, `--profile` for a CPU profile): the blackbox's frame reading took
