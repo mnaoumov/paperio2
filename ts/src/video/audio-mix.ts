@@ -5,6 +5,8 @@
  * laid under the whole cut video. Music is never recorded with the take, because a cut would make it jump; it is laid
  * here, once the video's final length is known.
  *
+ * The effects include the warning loops, played back from the take's log of their changes (see `exposure-track.ts`).
+ *
  * The mix is rendered with `OfflineAudioContext` a window at a time, so an hour of video never holds an hour of samples,
  * and the windows are handed to the muxer as the video packets reach them, which keeps the two tracks interleaved.
  */
@@ -25,6 +27,7 @@ import type {
   SoundName
 } from '../audio/catalog.ts';
 import type { BedSegment } from '../audio/playlist.ts';
+import type { Envelope } from './envelope.ts';
 import type { RecordingRecord } from './store.ts';
 import type { SoundEntry } from './timeline.ts';
 
@@ -43,6 +46,13 @@ import {
   planMusicBed,
   shuffledOrder
 } from '../audio/playlist.ts';
+import { applyEnvelope } from './envelope.ts';
+import {
+  EXPOSURE_LEAD_SECONDS,
+  exposureEnvelopes,
+  isExposureAudible,
+  scheduleExposure
+} from './exposure-track.ts';
 
 /** What a download carries besides the video. */
 export interface AddTakeAudioOptions {
@@ -71,11 +81,6 @@ const MICROSECONDS_PER_SECOND = 1_000_000;
 const MILLISECONDS_PER_SECOND = 1000;
 const AUDIO_CODECS: readonly AudioCodec[] = ['aac', 'opus'];
 
-interface Envelope {
-  readonly time: number;
-  readonly value: number;
-}
-
 /**
  * Adds an audio track for a take to the output, before it starts.
  *
@@ -87,7 +92,9 @@ interface Envelope {
 export async function addTakeAudio(output: Output, record: RecordingRecord, options: AddTakeAudioOptions): Promise<null | TakeAudio> {
   const totalSeconds = record.durationMilliseconds / MILLISECONDS_PER_SECOND;
   const sounds = options.effects ? (record.sounds ?? []).filter((entry: SoundEntry) => entry.timestamp / MICROSECONDS_PER_SECOND < totalSeconds) : [];
-  if (totalSeconds <= 0 || (sounds.length === 0 && !options.music) || typeof OfflineAudioContext === 'undefined') {
+  const exposure = options.effects && (record.exposures ?? []).length > 0 ? exposureEnvelopes(record.exposures ?? []) : null;
+  const hasLoops = exposure !== null && isExposureAudible(exposure, 0, totalSeconds);
+  if (totalSeconds <= 0 || (sounds.length === 0 && !hasLoops && !options.music) || typeof OfflineAudioContext === 'undefined') {
     return null;
   }
   const supported = output.format.getSupportedAudioCodecs();
@@ -112,7 +119,13 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
 
   async function renderWindow(from: number, to: number): Promise<void> {
     const frames = Math.max(1, Math.round((to - from) * SAMPLE_RATE));
-    const context = new OfflineAudioContext(CHANNELS, frames, SAMPLE_RATE);
+    // A window with a warning loop in it renders a lead-in first, trimmed off below, so the loops run on across the seam.
+    const lead = exposure && isExposureAudible(exposure, from, to) ? EXPOSURE_LEAD_SECONDS : 0;
+    const leadFrames = Math.round(lead * SAMPLE_RATE);
+    const context = new OfflineAudioContext(CHANNELS, leadFrames + frames, SAMPLE_RATE);
+    if (exposure && lead > 0) {
+      scheduleExposure(context, context.destination, exposure, from, to, lead);
+    }
     for (const entry of sounds) {
       const at = entry.timestamp / MICROSECONDS_PER_SECOND;
       const buffer = isSoundName(entry.sound) ? effects.get(entry.sound) : undefined;
@@ -122,7 +135,7 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
         const node = context.createBufferSource();
         node.buffer = buffer;
         node.connect(gain).connect(context.destination);
-        node.start(Math.max(0, at - from), Math.max(0, from - at));
+        node.start(Math.max(0, at - from) + lead, Math.max(0, from - at));
       }
     }
     for (const segment of bed) {
@@ -135,14 +148,15 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
         continue;
       }
       const gain = context.createGain();
-      applyEnvelope(gain.gain, segmentEnvelope(segment), from, to);
+      applyEnvelope(gain.gain, segmentEnvelope(segment), from, to, lead);
       const node = context.createBufferSource();
       node.buffer = buffer;
       node.connect(gain).connect(context.destination);
       const startAt = Math.max(segment.start, from);
-      node.start(startAt - from, startAt - segment.start, end - startAt);
+      node.start(startAt - from + lead, startAt - segment.start, end - startAt);
     }
-    await source.add(await context.startRendering());
+    const rendered = await context.startRendering();
+    await source.add(leadFrames > 0 ? trimStart(rendered, leadFrames) : rendered);
     // A decoded track holds about 25 MB, so the ones the bed is past are dropped.
     for (const track of [...tracks.keys()]) {
       if (!bed.some((segment: BedSegment) => segment.track === track && segment.start + segment.duration > to)) {
@@ -202,42 +216,6 @@ export function segmentEnvelope(segment: BedSegment): Envelope[] {
   return points;
 }
 
-/**
- * The envelope's value at a time, by straight lines between its corners.
- *
- * @param points - The corners, in order.
- * @param time - Video seconds.
- * @returns The volume.
- */
-export function valueAt(points: readonly Envelope[], time: number): number {
-  let previous = points[0];
-  if (!previous || time <= previous.time) {
-    return previous?.value ?? 0;
-  }
-  for (const point of points.slice(1)) {
-    if (time <= point.time) {
-      const span = point.time - previous.time;
-      return span <= 0 ? point.value : previous.value + (point.value - previous.value) * (time - previous.time) / span;
-    }
-    previous = point;
-  }
-  return previous.value;
-}
-
-function applyEnvelope(param: AudioParam, points: readonly Envelope[], from: number, to: number): void {
-  const startsAt = Math.max(from, points[0]?.time ?? from);
-  param.setValueAtTime(valueAt(points, startsAt), startsAt - from);
-  for (const point of points) {
-    if (point.time > startsAt && point.time <= to) {
-      param.linearRampToValueAtTime(point.value, point.time - from);
-    }
-  }
-  const last = points.find((point: Envelope) => point.time > to);
-  if (last) {
-    param.linearRampToValueAtTime(valueAt(points, to), to - from);
-  }
-}
-
 async function loadEffects(decoder: BaseAudioContext): Promise<Map<SoundName, AudioBuffer>> {
   const buffers = new Map<SoundName, AudioBuffer>();
   await Promise.all(SOUND_NAMES.map(async (name: SoundName) => {
@@ -247,4 +225,19 @@ async function loadEffects(decoder: BaseAudioContext): Promise<Map<SoundName, Au
     }
   }));
   return buffers;
+}
+
+/**
+ * A rendered window without its lead-in.
+ *
+ * @param buffer - The rendered window.
+ * @param frames - The lead-in's length in frames.
+ * @returns A buffer of the window alone.
+ */
+function trimStart(buffer: AudioBuffer, frames: number): AudioBuffer {
+  const trimmed = new AudioBuffer({ length: buffer.length - frames, numberOfChannels: buffer.numberOfChannels, sampleRate: buffer.sampleRate });
+  for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+    trimmed.copyToChannel(buffer.getChannelData(channel).subarray(frames), channel);
+  }
+  return trimmed;
 }

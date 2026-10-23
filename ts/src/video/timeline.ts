@@ -38,6 +38,28 @@ export interface EncodeRequest {
   readonly timestamp: number;
 }
 
+/**
+ * A change of the warning loops heard in the take: from its video time on, each loop's level and the pulse rate, which
+ * a download plays back until the next entry.
+ */
+export interface ExposureEntry {
+  /** The enemy-ground loop's level, 0 to 1. */
+  readonly enemy: number;
+  /** The open-ground loop's level, 0 to 1. */
+  readonly open: number;
+  /** Pulses a second of the loop playing, or 0 when both are silent. */
+  readonly rate: number;
+  /** Video time in microseconds. */
+  readonly timestamp: number;
+}
+
+/** What the warning loops play, as {@link RecordingTimeline.exposure} takes it. */
+export interface ExposureLevels {
+  readonly enemy: number;
+  readonly open: number;
+  readonly rate: number;
+}
+
 export interface RecordingTimelineConstructorParams {
   readonly fps: number;
   /** The longest run of video without a keyframe, so a player can seek. */
@@ -61,10 +83,14 @@ interface PendingEncode {
 export const DEFAULT_KEY_FRAME_INTERVAL_MILLISECONDS = 5000;
 export const MICROSECONDS_PER_MILLISECOND = 1000;
 const MILLISECONDS_PER_SECOND = 1000;
+const SILENT_EXPOSURE: ExposureLevels = { enemy: 0, open: 0, rate: 0 };
 
 export class RecordingTimeline {
   /** The kept chunks, in order. */
   public readonly chunks: ChunkEntry[] = [];
+
+  /** The kept changes of the warning loops, in order. A cut drops them with the video they belong to. */
+  public readonly exposures: ExposureEntry[] = [];
 
   /** The kept sound effects, in order. A cut drops them with the video they belong to. */
   public readonly sounds: SoundEntry[] = [];
@@ -158,6 +184,27 @@ export class RecordingTimeline {
   }
 
   /**
+   * Logs the warning loops' mix at the game clock's time, when it differs from the last one kept. Both loops are silent
+   * before the first entry.
+   *
+   * @param clockTime - The game clock now.
+   * @param mix - The loops' levels and rate.
+   * @returns Its entry, or `null` when the mix did not change or the take has no frame yet.
+   */
+  public exposure(clockTime: number, mix: ExposureLevels): ExposureEntry | null {
+    if (this.origin === null) {
+      return null;
+    }
+    const last = this.exposures.at(-1) ?? SILENT_EXPOSURE;
+    if (last.enemy === mix.enemy && last.open === mix.open && last.rate === mix.rate) {
+      return null;
+    }
+    const entry: ExposureEntry = { enemy: mix.enemy, open: mix.open, rate: mix.rate, timestamp: this.toVideoTime(clockTime) };
+    this.exposures.push(entry);
+    return entry;
+  }
+
+  /**
    * Called after every rendered frame.
    *
    * @param clockTime - The game clock now.
@@ -227,6 +274,10 @@ export class RecordingTimeline {
     if (firstDroppedSound >= 0) {
       this.sounds.length = firstDroppedSound;
     }
+    const firstDroppedExposure = this.exposures.findIndex((entry: ExposureEntry) => entry.timestamp > marker);
+    if (firstDroppedExposure >= 0) {
+      this.exposures.length = firstDroppedExposure;
+    }
     this.lastEncodedAt = marker;
     this.lastKeyFrameAt = marker;
     this.nextFrameAt = this.slotAfter(marker);
@@ -272,6 +323,7 @@ export class RecordingTimeline {
     const fromSeq = this.chunks[0]?.seq ?? null;
     this.chunks.length = 0;
     this.sounds.length = 0;
+    this.exposures.length = 0;
     this.markers.clear();
     this.origin = null;
     this.lastEncodedAt = null;
