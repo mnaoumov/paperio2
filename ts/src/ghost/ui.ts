@@ -70,7 +70,6 @@ export interface CanvasHolder {
 }
 
 export interface GhostHudProps {
-  readonly hidden: boolean;
   readonly inGame: boolean;
   readonly state: GhostRaceState;
 }
@@ -95,13 +94,12 @@ export interface RaceMenuProps {
  * The canvas the ghost is drawn on during a run.
  *
  * @param root0 - The props.
- * @param root0.hidden - Whether recording mode hides it.
  * @param root0.inGame - Whether a run is on screen.
  * @param root0.state - The race's state.
  * @returns The canvas, or nothing.
  */
-export function GhostHud({ hidden, inGame, state }: GhostHudProps): null | VNode<unknown> {
-  if (hidden || !inGame || !state.enabled || !state.best) {
+export function GhostHud({ inGame, state }: GhostHudProps): null | VNode<unknown> {
+  if (!inGame || !state.enabled || !state.best) {
     return null;
   }
   return createElement('canvas', {

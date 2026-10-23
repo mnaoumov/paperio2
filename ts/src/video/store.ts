@@ -18,6 +18,8 @@ export interface ChunkRecord {
 }
 
 export interface RecordingRecord {
+  /** Whether **Record every game** started the take rather than V; only such a take is ever pruned. */
+  readonly auto?: boolean;
   bytes: number;
   readonly codec: StoredCodec;
   decoderConfig: null | StoredDecoderConfig;
@@ -25,6 +27,8 @@ export interface RecordingRecord {
   readonly fps: number;
   readonly height: number;
   readonly id: string;
+  /** Whether the owner marked an automatic take Keep, which exempts it from pruning. */
+  keep?: boolean;
   /** The sound effects heard in the take, which a download mixes in; absent from a take recorded before there was sound. */
   sounds?: readonly SoundEntry[];
   /** `Date.now()` when the take started. */

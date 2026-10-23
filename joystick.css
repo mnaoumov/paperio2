@@ -80,19 +80,6 @@
     opacity: 1;
 }
 
-/* Recording mode (ts/src/recording.ts puts the class on <html>): the frame must
-   look like the original, so the toggle goes and the joystick is drawn
-   invisibly. It still steers: opacity keeps its pointer handling, where
-   display or visibility would not. */
-
-.paperio2-recording #joystick-toggle {
-    display: none;
-}
-
-.paperio2-recording #joystick {
-    opacity: 0;
-}
-
 #joystick-toggle svg {
     width: 24px;
     height: 24px;

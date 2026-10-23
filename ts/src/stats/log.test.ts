@@ -43,7 +43,6 @@ const HEADER: StatsHeaderInput = {
   commit: 'abc1234',
   enemies: { count: null, level: null, mode: 'original', vision: 'whitebox' },
   pilot: 'human',
-  recordingMode: false,
   seed: null,
   startedAt: '2026-10-22T00:00:00.000Z',
   viewport: { devicePixelRatio: 1, height: 720, width: 1280 }
@@ -91,7 +90,7 @@ describe('StatsLog', () => {
       frame(game);
     }
     const lines = parse(log.finish());
-    expect(lines[0]).toMatchObject({ format: 1, pilot: 'human', sampleMilliseconds: 250, type: 'header' });
+    expect(lines[0]).toMatchObject({ format: 2, pilot: 'human', sampleMilliseconds: 250, type: 'header' });
     const samples = lines.filter((line: StatsLine) => line.type === 'sample');
     expect(samples.length).toBe(4);
     expect(samples[0]).toMatchObject({ pct: 1, rank: 2, steer: 'human', units: 2, x: 10, y: 21, zone: 'own' });

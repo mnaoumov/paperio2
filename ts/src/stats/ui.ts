@@ -137,10 +137,9 @@ export function StatsMenu({ state }: StatsMenuProps): VNode<unknown> {
  * @param api - The game API.
  * @param route - The current route.
  * @param autopilotMode - The menu's demo mode, which says who starts a run.
- * @param recordingMode - Whether recording mode is on.
  * @returns The logs' state.
  */
-export function useStatsLog(api: GameApi | null, route: string, autopilotMode: AutopilotMode, recordingMode: boolean): StatsLogState {
+export function useStatsLog(api: GameApi | null, route: string, autopilotMode: AutopilotMode): StatsLogState {
   const pilot = autopilotMode === 'off' ? 'human' : autopilotMode;
   const [games, setGames] = useState<readonly StatsGameRecord[]>([]);
 
@@ -165,7 +164,7 @@ export function useStatsLog(api: GameApi | null, route: string, autopilotMode: A
     }
     const startedAt = Date.now();
     const id = `${String(startedAt)}-${String(Math.trunc(performance.now()))}`;
-    const log = api.createStatsLog(pilot, recordingMode);
+    const log = api.createStatsLog(pilot);
     let flushedAt = 0;
     function save(text: string, then: () => void = noop): void {
       putStatsGame({ id, outcome: log.outcome, percent: log.percent, pilot, seconds: log.seconds, startedAt, text }).then(then, () => {

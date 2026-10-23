@@ -7,7 +7,7 @@
  */
 
 /** Bumped whenever a line's shape changes, so a reader can tell old logs apart. */
-export const STATS_FORMAT_VERSION = 1;
+export const STATS_FORMAT_VERSION = 2;
 
 /** Game time between two samples, in milliseconds. */
 export const STATS_SAMPLE_MILLISECONDS = 250;
@@ -86,7 +86,6 @@ export interface StatsHeaderLine {
   readonly format: number;
   /** Who started the game: `human`, or the demo pilot's mode. */
   readonly pilot: string;
-  readonly recordingMode: boolean;
   readonly sampleMilliseconds: number;
   readonly seed: null | string;
   /** ISO time the log started. */

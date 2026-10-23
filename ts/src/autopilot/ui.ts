@@ -4,7 +4,7 @@
  * The page side of the demo autopilot: the menu's mode switch (Off / Whitebox / Blackbox), remembered in
  * `localStorage`; the autopilot attached to each run; the next round started by itself after the results; the O key that hands control back to it after a takeover; a small
  * readout beside the canvas (mode, game time, percent); and the optional debug overlay, drawn on a canvas of its own so
- * the in-game recorder, which records the game's canvas, never sees it. Everything on screen hides in recording mode.
+ * the in-game recorder, which records the game's canvas, never sees it.
  */
 
 import type { VNode } from 'preact';
@@ -88,8 +88,6 @@ const READOUT_STYLE = {
 
 export interface AutopilotHudProps {
   readonly api: GameApi | null;
-  /** Whether recording mode hides the additions. */
-  readonly hidden: boolean;
   readonly inGame: boolean;
   readonly state: AutopilotState;
 }
@@ -121,12 +119,11 @@ export interface AutopilotState {
  *
  * @param root0 - The props.
  * @param root0.api - The game API.
- * @param root0.hidden - Whether recording mode hides them.
  * @param root0.inGame - Whether a run is on screen.
  * @param root0.state - The autopilot's state.
  * @returns The readout and overlay, or nothing.
  */
-export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps): null | VNode<unknown> {
+export function AutopilotHud({ api, inGame, state }: AutopilotHudProps): null | VNode<unknown> {
   const [readout, setReadout] = useState('');
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const { autopilot, engaged, mode, overlay, showcase } = state;
@@ -166,9 +163,6 @@ export function AutopilotHud({ api, hidden, inGame, state }: AutopilotHudProps):
       autopilot.coach = false;
     };
   }, [autopilot, overlay]);
-  if (hidden) {
-    return null;
-  }
   if (!inGame) {
     return state.nextRoundIn === null
       ? null

@@ -28,7 +28,6 @@ import type {
 import type { GameApi } from './game-api.ts';
 import type { GhostRaceState } from './ghost/ui.ts';
 import type { Language } from './i18n.ts';
-import type { Checkpoint } from './practice.ts';
 import type { SaveSummary } from './save-format.ts';
 import type { SkinSource } from './skins/skin.ts';
 import type { GameSnapshot } from './snapshot.ts';
@@ -60,14 +59,9 @@ import {
 } from './i18n.ts';
 import { Practice } from './practice.ts';
 import {
-  applyRecordingClass,
-  CutMarker,
-  formatRewindHint,
+  forgetRecordingMode,
   readRecordingAdditions,
-  readRecordingMode,
-  RECORDING_KEY,
-  writeRecordingAdditions,
-  writeRecordingMode
+  writeRecordingAdditions
 } from './recording.ts';
 import {
   deleteSave,
@@ -261,7 +255,6 @@ export interface MenuScreenProps {
   preparing: boolean;
   provider?: undefined;
   recordingAdditions: boolean;
-  recordingMode: boolean;
   removeSave: (id: string) => void;
   route: Dispatch<string>;
   saves: readonly SaveSummary[];
@@ -269,7 +262,6 @@ export interface MenuScreenProps {
   setNickName: Dispatch<string>;
   setPracticeMode: (practiceMode: boolean) => void;
   setRecordingAdditions: (recordingAdditions: boolean) => void;
-  setRecordingMode: (recordingMode: boolean) => void;
   setState: Dispatch<string>;
   skin: string;
   skins: SkinSource[];
@@ -288,14 +280,12 @@ export function MenuScreen({
   nickName,
   practiceMode,
   recordingAdditions,
-  recordingMode,
   removeSave,
   route,
   saves,
   setNickName,
   setPracticeMode,
   setRecordingAdditions,
-  setRecordingMode,
   skin,
   start,
   stats,
@@ -323,7 +313,6 @@ export function MenuScreen({
     saves,
     setPracticeMode,
     setRecordingAdditions,
-    setRecordingMode,
     stats,
     video
   });
@@ -406,7 +395,7 @@ export function MenuScreen({
       !isSupported && createElement('p', {
         class: 'notsupported'
       }, lng.nosupport),
-      isSupported && !recordingMode && createElement(
+      isSupported && createElement(
         'div',
         {
           style: PRACTICE_PANEL_STYLE
@@ -423,15 +412,11 @@ export function MenuScreen({
           'type': 'button'
         }, extrasOpen ? 'Extras ▴' : 'Extras ▾')
       ),
-      isSupported && !recordingMode && extrasOpen && createElement(
+      isSupported && extrasOpen && createElement(
         'div',
         {
           id: 'extras-panel'
         },
-        createElement('p', {
-          id: 'extras-recording-hint',
-          style: PRACTICE_PANEL_STYLE
-        }, 'Recording mode (R) hides this button and everything else this copy adds, so the menu looks like the original. Press R again to bring it back.'),
         ...extrasSections
       )
     ),
@@ -469,7 +454,6 @@ interface ExtrasSectionsProps {
   saves: readonly SaveSummary[];
   setPracticeMode: (practiceMode: boolean) => void;
   setRecordingAdditions: (recordingAdditions: boolean) => void;
-  setRecordingMode: (recordingMode: boolean) => void;
   stats: StatsLogState;
   video: VideoRecordingState;
 }
@@ -486,7 +470,6 @@ function renderExtrasSections({
   saves,
   setPracticeMode,
   setRecordingAdditions,
-  setRecordingMode,
   stats,
   video
 }: ExtrasSectionsProps): VNode<unknown>[] {
@@ -529,8 +512,7 @@ function renderExtrasSections({
       removeSave,
       saves,
       setPracticeMode,
-      setRecordingAdditions,
-      setRecordingMode
+      setRecordingAdditions
     }),
     createElement(
       'div',
@@ -609,12 +591,10 @@ export interface PracticeMenuProps {
   saves: readonly SaveSummary[];
   setPracticeMode: (practiceMode: boolean) => void;
   setRecordingAdditions: (recordingAdditions: boolean) => void;
-  setRecordingMode: (recordingMode: boolean) => void;
 }
 /**
- * The menu's Practice toggle, its Recording toggle, the "Additions in recordings" setting and its saved games. Practice mode turns on checkpoints for the
- * next run; a saved game always loads into a practice run. Recording mode hides this whole panel, so the R key is
- * what turns it back off.
+ * The menu's Practice toggle, the "Additions in recordings" setting and its saved games. Practice mode turns on
+ * checkpoints for the next run; a saved game always loads into a practice run.
  *
  * @param root0 - The props.
  * @param root0.loadSave - Starts a practice run from a save.
@@ -625,7 +605,6 @@ export interface PracticeMenuProps {
  * @param root0.saves - The saves, newest first.
  * @param root0.setPracticeMode - Turns practice mode on or off.
  * @param root0.setRecordingAdditions - Turns the "Additions in recordings" setting on or off.
- * @param root0.setRecordingMode - Turns recording mode on or off.
  * @returns The panel.
  */
 export function PracticeMenu({
@@ -636,8 +615,7 @@ export function PracticeMenu({
   removeSave,
   saves,
   setPracticeMode,
-  setRecordingAdditions,
-  setRecordingMode
+  setRecordingAdditions
 }: PracticeMenuProps): VNode<unknown> {
   return createElement(
     'div',
@@ -657,24 +635,13 @@ export function PracticeMenu({
     }, `Practice mode: ${practiceMode ? 'on' : 'off'}`),
     ' ',
     createElement('button', {
-      'aria-pressed': false,
-      'class': 'orange',
-      'id': 'recording-toggle',
-      'onClick': () => {
-        setRecordingMode(true);
-      },
-      'title': 'Hide everything this copy adds, and mark the frames to cut. R turns it on and off.',
-      'type': 'button'
-    }, 'Recording mode (R)'),
-    ' ',
-    createElement('button', {
       'aria-pressed': recordingAdditions,
       'class': recordingAdditions ? 'green' : 'orange',
       'id': 'recording-additions-toggle',
       'onClick': () => {
         setRecordingAdditions(!recordingAdditions);
       },
-      'title': 'Off: recordings (R, or the in-game recorder) show the camera as the original does. '
+      'title': 'Off: in-game recordings show the camera as the original does. '
         + 'On: they keep the showcase view.',
       'type': 'button'
     }, `Additions in recordings: ${recordingAdditions ? 'on' : 'off'}`),
@@ -743,8 +710,6 @@ export interface GameScreenProps {
   api: GameApi | null;
   bestScore: number;
   lastPercent?: number;
-  /** The cut marker while recording mode is on, else `null`. */
-  marker: CutMarker | null;
   nickName: string;
   /** A saved game to start from, which makes the run practice. */
   pendingLoad: GameSnapshot | null;
@@ -761,7 +726,6 @@ export function GameScreen({
   api,
   bestScore,
   lastPercent,
-  marker,
   nickName,
   pendingLoad,
   practiceMode,
@@ -777,10 +741,6 @@ export function GameScreen({
     function handleGameOver(results: GameResults): void {
       ensureNonNullable(api).game.practice = null;
       setPractice(null);
-      if (marker && marker.state !== 'off') {
-        // A practice run that ran out of checkpoints: the results are the original's, so they are clean again.
-        marker.resumeThen(noop);
-      }
       if (results.newBest) {
         setBestScore(results.score);
       }
@@ -803,12 +763,6 @@ export function GameScreen({
       if (pendingLoad) {
         startedApi.restoreSnapshot(pendingLoad);
         setPendingLoad(null);
-        if (marker && game.pause()) {
-          // A loaded game starts mid-run, so it is a cut: everything before the green frames goes.
-          marker.resumeThen(() => {
-            game.resume();
-          });
-        }
       }
       const practice = new Practice(game);
       game.practice = practice;
@@ -836,8 +790,6 @@ export const PAUSE_KEY_CODES: readonly string[] = ['Escape', 'KeyP'];
 export const PAUSE_Z_INDEX = 1000;
 export interface PauseControlProps {
   api: GameApi | null;
-  /** The cut marker while recording mode is on, else `null`. */
-  marker: CutMarker | null;
   /** Called after a save is written, so the menu lists it. */
   onSaved: () => void;
   /** The practice run, whose Save and End buttons the paused overlay holds, or `null` outside practice mode. */
@@ -854,19 +806,14 @@ function keepFocusOnBody(event: Event): void {
  * In a practice run the paused overlay also holds the run's Save (K) and End buttons, which are kept off the in-game
  * panel.
  *
- * In recording mode none of it is shown: a pause is the cut marker's red span, and a resume shows its green span with
- * the game still paused, then plays on.
- *
  * @param root0 - The props.
  * @param root0.api - The game API whose live game is paused.
- * @param root0.marker - The cut marker while recording mode is on.
  * @param root0.onSaved - Told when a save has been written.
  * @param root0.practice - The practice run, or `null` outside practice mode.
  * @returns The button, plus the overlay while paused.
  */
 export function PauseControl({
   api,
-  marker,
   onSaved,
   practice
 }: PauseControlProps): VNode<unknown> {
@@ -881,14 +828,6 @@ export function PauseControl({
     function handlePauseChange(isPaused: boolean): void {
       setPaused(isPaused);
       setPracticeMessage('');
-      if (!marker) {
-        return;
-      }
-      if (isPaused) {
-        marker.cut();
-      } else if (marker.state !== 'off' && !isRespawnPending(currentGame)) {
-        marker.clear();
-      }
     }
     currentGame.onPauseChange = handlePauseChange;
     function handleKeyDown(event: KeyboardEvent): void {
@@ -896,7 +835,7 @@ export function PauseControl({
         return;
       }
       event.preventDefault();
-      togglePause(currentGame, marker);
+      togglePause(currentGame);
     }
     window.addEventListener('keydown', handleKeyDown, false);
     return (): void => {
@@ -905,17 +844,14 @@ export function PauseControl({
         currentGame.onPauseChange = null;
       }
     };
-  }, [game, marker]);
+  }, [game]);
   function handleClick(event: MouseEvent): void {
     if (event.currentTarget instanceof HTMLElement) {
       event.currentTarget.blur();
     }
     if (game) {
-      togglePause(game, marker);
+      togglePause(game);
     }
-  }
-  if (marker) {
-    return createElement(Fragment, null);
   }
   function overlayButton(id: string, label: string, title: string, action: () => void): VNode<unknown> {
     return createElement('button', {
@@ -1031,44 +967,10 @@ export function PauseControl({
     }, paused ? '▶' : '❚❚')
   );
 }
-function togglePause(game: Game, marker: CutMarker | null): void {
-  if (game.pause()) {
-    return;
-  }
-  if (!marker || isRespawnPending(game)) {
-    // A pause inside a respawn's cut ends without green frames: the cut runs on to the respawn.
+function togglePause(game: Game): void {
+  if (!game.pause()) {
     game.resume();
-  } else if (marker.state === 'resume') {
-    // Paused again while the green frames show: stay paused, and the cut goes on.
-    marker.cut();
-  } else {
-    marker.resumeThen(() => {
-      game.resume();
-    });
   }
-}
-function isRespawnPending(game: Game): boolean {
-  return game.practice?.respawnPending ?? false;
-}
-/**
- * Runs an action that interrupts the play, such as a save, inside a cut in recording mode: the game pauses, the red
- * frames show, the action runs, then the green frames and the play resumes. Inside a pause it only runs the action.
- *
- * @param game - The live game.
- * @param marker - The cut marker while recording mode is on.
- * @param action - The action; it calls `done` once it has finished.
- */
-function interruptPlay(game: Game, marker: CutMarker | null, action: (done: () => void) => void): void {
-  if (marker?.state !== 'off' || isRespawnPending(game) || !game.pause()) {
-    action(noop);
-    return;
-  }
-  marker.cut();
-  action(() => {
-    marker.resumeThen(() => {
-      game.resume();
-    });
-  });
 }
 /** `KeyboardEvent.code` values of the practice keys, none of which the engine steers on. */
 export const PRACTICE_KEY_ADD = 'KeyZ';
@@ -1088,8 +990,6 @@ const PRACTICE_HUD_BUTTON_STYLE = {
 export interface PracticeControlProps {
   /** The sound, which plays the checkpoint clicks. */
   audio: GameAudioState['audio'];
-  /** The cut marker while recording mode is on, else `null`. */
-  marker: CutMarker | null;
   /** Called after a save is written, so the menu lists it. */
   onSaved: () => void;
   practice: null | Practice;
@@ -1100,20 +1000,14 @@ export interface PracticeControlProps {
  * on the paused overlay. Like the pause button, none of it may take keyboard focus, since the engine reads keys only
  * from `document.body`.
  *
- * In recording mode none of it is shown, while the keys keep working. A respawn then runs
- * inside a cut: red from the death, with how far back the cut reaches; the restore; green with the game paused; play.
- * A save and a removal pause the game inside a cut of their own.
- *
  * @param root0 - The props.
  * @param root0.audio - The sound, which plays the checkpoint clicks.
- * @param root0.marker - The cut marker while recording mode is on.
  * @param root0.onSaved - Told when a save has been written.
  * @param root0.practice - The practice run, or `null` outside practice mode.
  * @returns The controls, or nothing outside practice mode.
  */
 export function PracticeControl({
   audio,
-  marker,
   onSaved,
   practice
 }: PracticeControlProps): null | VNode<unknown> {
@@ -1124,25 +1018,6 @@ export function PracticeControl({
       return undefined;
     }
     const currentPractice: Practice = practice;
-    const { game } = currentPractice;
-    if (marker) {
-      const currentMarker: CutMarker = marker;
-      currentPractice.onPlayerDeath = (checkpoint: Checkpoint): void => {
-        currentMarker.cut();
-        currentMarker.cut(formatRewindHint(currentMarker.cutStartedAt, checkpoint.seenAt));
-      };
-      currentPractice.onRespawn = (checkpoint: Checkpoint): void => {
-        game.pause();
-        currentMarker.cut(formatRewindHint(currentMarker.cutStartedAt, checkpoint.seenAt));
-        currentMarker.resumeThen(() => {
-          game.resume();
-          checkpoint.seenAt = performance.now();
-        });
-      };
-    } else {
-      currentPractice.onPlayerDeath = null;
-      currentPractice.onRespawn = null;
-    }
     let messageTimer: number | undefined;
     function showMessage(text: string): void {
       setMessage(text);
@@ -1164,15 +1039,10 @@ export function PracticeControl({
           addCheckpoint(currentPractice, audio);
           break;
         case PRACTICE_KEY_REMOVE:
-          interruptPlay(game, marker, (done: () => void) => {
-            removeCheckpoint(currentPractice, audio);
-            done();
-          });
+          removeCheckpoint(currentPractice, audio);
           break;
         case PRACTICE_KEY_SAVE:
-          interruptPlay(game, marker, (done: () => void) => {
-            saveGame(currentPractice, onSaved, showMessage, done);
-          });
+          saveGame(currentPractice, onSaved, showMessage);
           break;
         default:
           return;
@@ -1187,11 +1057,9 @@ export function PracticeControl({
         currentPractice.onChange = null;
       }
       currentPractice.onMessage = null;
-      currentPractice.onPlayerDeath = null;
-      currentPractice.onRespawn = null;
     };
-  }, [practice, marker, audio]);
-  if (!practice || marker) {
+  }, [practice, audio]);
+  if (!practice) {
     return null;
   }
   const currentPractice = practice;
@@ -1298,14 +1166,12 @@ export interface ResultsScreenProps {
   bestScore: number;
   country?: undefined;
   provider?: undefined;
-  recordingMode: boolean;
   results: GameResults;
   route: Dispatch<string>;
   start: () => void;
 }
 export function ResultsScreen({
   bestScore,
-  recordingMode,
   results,
   route
 }: ResultsScreenProps): VNode<unknown> {
@@ -1361,7 +1227,7 @@ export function ResultsScreen({
           onClick: goToMenu
         }, lng.btnContinue)
       ),
-      results.practice && !recordingMode && createElement('p', {
+      results.practice && createElement('p', {
         id: 'practice-results',
         style: {
           color: '#ffffff',
@@ -1607,202 +1473,6 @@ export interface StorageApi {
   getJSON: (key: string) => null | StoredGameData;
   set: (key: string, value: StoredGameData, options: StorageSetOptions) => void;
 }
-export interface RecordingModeState {
-  /** Hides the notice, and plays on if the switch paused a run. */
-  dismissNotice: () => void;
-  /** The cut marker while recording mode is on, else `null`. */
-  marker: CutMarker | null;
-  /** Whether the "You are in recording mode" notice is shown. */
-  noticeShown: boolean;
-  recordingMode: boolean;
-  setRecordingMode: (recordingMode: boolean) => void;
-}
-/**
- * Recording mode's state: remembered in `localStorage`, toggled by the R key, and mirrored as a class on `<html>`.
- * Every switch in shows the notice, a restore from storage on load included, so the mode is never on unannounced.
- *
- * @param api - The game API.
- * @param route - The current route; a switch during a run is marked.
- * @returns The mode, its setter, the cut marker and the notice.
- */
-export function useRecordingMode(api: GameApi | null, route: string): RecordingModeState {
-  const [recordingMode, setRecordingModeState] = useState(readRecordingMode);
-  const [noticeShown, setNoticeShown] = useState(recordingMode);
-  const [cutMarker] = useState(() => new CutMarker());
-  const afterNotice = useRef<(() => void) | null>(null);
-  function setRecordingMode(nextRecordingMode: boolean): void {
-    writeRecordingMode(nextRecordingMode);
-    setRecordingModeState(nextRecordingMode);
-    setNoticeShown(nextRecordingMode);
-    const pausedBySwitch = afterNotice.current !== null;
-    afterNotice.current = null;
-    if (route === 'game' && api) {
-      if (pausedBySwitch && !nextRecordingMode) {
-        // Switched back before the notice was dismissed: give back the pause the switch in took.
-        api.game.resume();
-      }
-      afterNotice.current = markRecordingSwitch(api.game, cutMarker, nextRecordingMode);
-    }
-  }
-  function dismissNotice(): void {
-    setNoticeShown(false);
-    const action = afterNotice.current;
-    afterNotice.current = null;
-    action?.();
-  }
-  useEffect(() => {
-    applyRecordingClass(recordingMode);
-  }, [recordingMode]);
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.code !== RECORDING_KEY || event.repeat || event.target instanceof HTMLInputElement) {
-        return;
-      }
-      event.preventDefault();
-      setRecordingMode(!recordingMode);
-    }
-    window.addEventListener('keydown', handleKeyDown, false);
-    return (): void => {
-      window.removeEventListener('keydown', handleKeyDown, false);
-    };
-  }, [recordingMode, route]);
-  return {
-    dismissNotice,
-    marker: recordingMode ? cutMarker : null,
-    noticeShown,
-    recordingMode,
-    setRecordingMode
-  };
-}
-/**
- * Marks a recording-mode switch made during a run.
- *
- * @param game - The live game.
- * @param marker - The cut marker.
- * @param recordingMode - Whether recording mode was just turned on.
- * @returns What to run once the notice is dismissed, or `null`.
- */
-function markRecordingSwitch(game: Game, marker: CutMarker, recordingMode: boolean): (() => void) | null {
-  if (!recordingMode) {
-    // The additions come back, so the frames from here on are not clean.
-    marker.flashCut();
-    return null;
-  }
-  if (!game.pause()) {
-    return null;
-  }
-  // The notice sits on the red frames, and the game waits under them until it is dismissed, so no play is lost.
-  // Clean from the end of the green frames on.
-  marker.cut();
-  return (): void => {
-    marker.resumeThen(() => {
-      game.resume();
-    });
-  };
-}
-/** The notice's wording, as the owner asked for it. */
-export const RECORDING_NOTICE_TEXT = 'You are in recording mode. Press R to return to normal mode';
-/** `KeyboardEvent.code` values that dismiss the notice. */
-export const RECORDING_NOTICE_DISMISS_CODES: readonly string[] = ['Enter', 'Escape', 'NumpadEnter', 'Space'];
-/** Above the cut marker, whose red frames it sits on. */
-const RECORDING_NOTICE_Z_INDEX = 2001;
-export interface RecordingNoticeProps {
-  onDismiss: () => void;
-  shown: boolean;
-}
-/**
- * The modal shown on every switch into recording mode, styled like the game's own About window. Like the pause
- * control it never takes focus. While it is open it swallows every key but R, so Esc closes it rather than also
- * toggling the pause, and nothing reaches the engine or the practice keys.
- *
- * @param root0 - The props.
- * @param root0.onDismiss - Called on OK, Enter, Space or Esc.
- * @param root0.shown - Whether the notice is shown.
- * @returns The modal, or nothing while it is hidden.
- */
-export function RecordingNotice({ onDismiss, shown }: RecordingNoticeProps): VNode<unknown> {
-  // Read through a ref, so the effect depends on `shown` alone: an effect whose deps change on every render of the
-  // App would queue preact's after-paint callback on every frame of play, and that alone shifts the frame timing.
-  const dismissRef = useRef(onDismiss);
-  dismissRef.current = onDismiss;
-  useEffect(() => {
-    if (!shown) {
-      return undefined;
-    }
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.code === RECORDING_KEY) {
-        return;
-      }
-      event.stopPropagation();
-      event.preventDefault();
-      if (!event.repeat && RECORDING_NOTICE_DISMISS_CODES.includes(event.code)) {
-        dismissRef.current();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown, true);
-    return (): void => {
-      window.removeEventListener('keydown', handleKeyDown, true);
-    };
-  }, [shown]);
-  if (!shown) {
-    return createElement(Fragment, null);
-  }
-  return createElement(
-    'div',
-    {
-      'aria-modal': 'true',
-      'id': 'recording-notice',
-      'onMouseDown': keepFocusOnBody,
-      'onPointerDown': keepFocusOnBody,
-      'role': 'dialog',
-      'style': {
-        alignItems: 'center',
-        background: 'rgba(0, 0, 0, 0.45)',
-        display: 'flex',
-        fontFamily: '"PT Sans Caption", sans-serif',
-        inset: '0',
-        justifyContent: 'center',
-        position: 'fixed',
-        userSelect: 'none',
-        zIndex: RECORDING_NOTICE_Z_INDEX
-      }
-    },
-    createElement(
-      'div',
-      {
-        style: {
-          background: '#ffffff',
-          borderRadius: '10px',
-          boxSizing: 'border-box',
-          color: '#422100',
-          margin: '16px',
-          maxWidth: '520px',
-          padding: '32px',
-          textAlign: 'center'
-        }
-      },
-      createElement('p', {
-        style: {
-          fontSize: '24px',
-          lineHeight: '1.3',
-          margin: '0 0 24px'
-        }
-      }, RECORDING_NOTICE_TEXT),
-      createElement('button', {
-        class: 'green',
-        id: 'recording-notice-ok',
-        onClick: (event: MouseEvent) => {
-          if (event.currentTarget instanceof HTMLElement) {
-            event.currentTarget.blur();
-          }
-          onDismiss();
-        },
-        tabIndex: -1,
-        type: 'button'
-      }, 'OK')
-    )
-  );
-}
 export interface AppProps {
   ads?: undefined;
   api: GameApi | null;
@@ -1833,13 +1503,12 @@ export function App({
   const [pendingLoad, setPendingLoad] = useState<GameSnapshot | null>(null);
   const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
   const [menuMessage, setMenuMessage] = useState('');
-  const { dismissNotice, marker, noticeShown, recordingMode, setRecordingMode } = useRecordingMode(api, route);
   const video = useVideoRecording(api, route);
-  const sound = useGameAudio(api, route, recordingMode);
+  const sound = useGameAudio(api, route);
   const autopilot = useAutopilot(api, route, start);
   const enemies = useEnemySettings(api);
   const ghost = useGhostRace(api, route, autopilot.autopilot);
-  const stats = useStatsLog(api, route, autopilot.mode, recordingMode);
+  const stats = useStatsLog(api, route, autopilot.mode);
   const [recordingAdditions, setRecordingAdditionsState] = useState(readRecordingAdditions);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
@@ -1891,6 +1560,7 @@ export function App({
     }, storageOptions);
   }
   useEffect(() => {
+    forgetRecordingMode();
     if (api) {
       api.create(ensureNonNullable(canvasRef.current));
       api.prepare(() => {
@@ -1899,13 +1569,12 @@ export function App({
       setPlayable(true);
     }
   }, []);
-  // After the game is created above; the in-game recorder's take is the other half of `looksOriginal`.
+  // After the game is created above.
   useEffect(() => {
     if (api?.game) {
-      api.game.screenRecording = recordingMode;
       api.game.recordingAdditions = recordingAdditions;
     }
-  }, [recordingAdditions, recordingMode]);
+  }, [recordingAdditions]);
   ensureNonNullable(api).startGame = (): void => {
     const element = document.getElementById('overlay');
     if (element) {
@@ -1940,40 +1609,30 @@ export function App({
     }),
     route === 'game' && createElement(PauseControl, {
       api,
-      marker,
       onSaved: refreshSaves,
       practice
     }),
     createElement(AutopilotHud, {
       api,
-      hidden: marker !== null,
       inGame: route === 'game',
       state: autopilot
     }),
     createElement(GhostHud, {
-      hidden: marker !== null,
       inGame: route === 'game',
       state: ghost
     }),
     createElement(AudioControl, {
-      hidden: marker !== null,
       inGame: route === 'game',
       state: sound
     }),
     createElement(RecordControl, {
-      hidden: marker !== null,
       inGame: route === 'game',
       state: video
     }),
     route === 'game' && createElement(PracticeControl, {
       audio: sound.audio,
-      marker,
       onSaved: refreshSaves,
       practice
-    }),
-    createElement(RecordingNotice, {
-      onDismiss: dismissNotice,
-      shown: noticeShown
     }),
     route !== 'game' && createElement('div', {
       id: 'ui_overlay'
@@ -2000,7 +1659,6 @@ export function App({
             preparing,
             provider,
             recordingAdditions,
-            recordingMode,
             removeSave,
             route: setRoute,
             saves,
@@ -2008,7 +1666,6 @@ export function App({
             setNickName,
             setPracticeMode,
             setRecordingAdditions,
-            setRecordingMode,
             setState: setRoute,
             skin,
             skins,
@@ -2019,7 +1676,6 @@ export function App({
           route === 'game' && createElement(GameScreen, {
             api,
             bestScore,
-            marker,
             nickName,
             pendingLoad,
             practiceMode,
@@ -2034,7 +1690,6 @@ export function App({
           route === 'results' && createElement(ResultsScreen, {
             bestScore,
             provider,
-            recordingMode,
             results: ensureNonNullable(results),
             route: setRoute,
             start

@@ -1,9 +1,9 @@
 /**
  * @file
  *
- * The in-game recorder's page side: the V key and the record button during a run, and the menu's Recordings list
- * (play, download, delete, the frame-size settings and the storage left). None of it is on the canvas, so none of it is
- * in a take; like every other addition it hides in recording mode, while the V key keeps working.
+ * The in-game recorder's page side: the V key and the record button during a run, **Record every game**, and the
+ * menu's Recordings list (play, download, keep, delete, the frame-size settings and the storage left). None of it is on
+ * the canvas, so none of it is in a take.
  */
 
 import type { VNode } from 'preact';
@@ -46,16 +46,22 @@ import {
   writeVideoSettings
 } from './recorder.ts';
 import {
+  AUTO_TAKES_KEPT,
+  autoTakesToPrune,
+  isTooShortAutoTake
+} from './retention.ts';
+import {
   formatStartLabel,
   formatStartTooltip
 } from './start-label.ts';
 import {
   deleteRecording,
   listRecordings,
+  putRecording,
   recoverUnfinished
 } from './store.ts';
 
-/** `KeyboardEvent.code` of the start/stop key. The engine steers on arrows and W/A/S/D; the app uses R Z X K P J Esc. */
+/** `KeyboardEvent.code` of the start/stop key. The engine steers on arrows and W/A/S/D; the app uses Z X K P J Esc. */
 export const VIDEO_KEY = 'KeyV';
 const CONFIRM_MILLISECONDS = 3000;
 const TICK_MILLISECONDS = 500;
@@ -115,8 +121,6 @@ const AUDIO_LABELS: Readonly<Record<VideoAudioSetting, string>> = {
 const exportedFiles = new ExportCache();
 
 export interface RecordControlProps {
-  /** Whether recording mode hides the additions. */
-  readonly hidden: boolean;
   /** Whether a run is on screen; the control shows only then. */
   readonly inGame: boolean;
   readonly state: VideoRecordingState;
@@ -136,6 +140,8 @@ export interface VideoRecordingState {
   readonly setSettings: (settings: VideoSettings) => void;
   readonly settings: VideoSettings;
   readonly startOrStop: () => void;
+  /** Marks an automatic take Keep, or takes the mark off. */
+  readonly toggleKeep: (id: string) => void;
   /** Why this browser cannot record, `''` while that is being checked, or `null` when it can. */
   readonly unsupported: null | string;
 }
@@ -169,12 +175,11 @@ export function formatMegabytes(bytes: number): string {
  * Discard (a second click confirms). Like the pause button, none of it takes focus.
  *
  * @param root0 - The props.
- * @param root0.hidden - Whether recording mode hides it.
  * @param root0.inGame - Whether a run is on screen.
  * @param root0.state - The recorder's state.
  * @returns The control.
  */
-export function RecordControl({ hidden, inGame, state }: RecordControlProps): null | VNode<unknown> {
+export function RecordControl({ inGame, state }: RecordControlProps): null | VNode<unknown> {
   const { active, discard, message, startOrStop, unsupported } = state;
   const [, setTick] = useState(0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -200,7 +205,7 @@ export function RecordControl({ hidden, inGame, state }: RecordControlProps): nu
       window.clearTimeout(timer);
     };
   }, [confirmDiscard]);
-  if (hidden || !inGame || unsupported !== null) {
+  if (!inGame || unsupported !== null) {
     return null;
   }
   function button(id: string, label: string, title: string, action: () => void): VNode<unknown> {
@@ -276,7 +281,7 @@ export function RecordControl({ hidden, inGame, state }: RecordControlProps): nu
  * @returns The panel.
  */
 export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown> {
-  const { estimate, message, recordings, remove, setSettings, settings, unsupported } = state;
+  const { estimate, message, recordings, remove, setSettings, settings, toggleKeep, unsupported } = state;
   const [preview, setPreview] = useState<null | string>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -387,7 +392,22 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
         'Sound',
         select('video-audio', settings.audio, VIDEO_AUDIO_OPTIONS.map((option: VideoAudioSetting) => [option, AUDIO_LABELS[option]] as const), (value: string) => {
           setSettings({ ...settings, audio: VIDEO_AUDIO_OPTIONS.find((option: VideoAudioSetting) => option === value) ?? settings.audio });
-        })
+        }),
+        createElement(
+          'div',
+          { style: { marginTop: '6px' } },
+          createElement('button', {
+            'aria-pressed': settings.recordEvery,
+            'class': settings.recordEvery ? 'green' : 'orange',
+            'id': 'video-record-every',
+            'onClick': () => {
+              setSettings({ ...settings, recordEvery: !settings.recordEvery });
+            },
+            'style': SMALL_BUTTON_STYLE,
+            'title': `Record each run from its first frame, so V is never forgotten. Takes under 10 s are dropped, and only the newest ${String(AUTO_TAKES_KEPT)} not marked Keep stay.`,
+            'type': 'button'
+          }, `Record every game: ${settings.recordEvery ? 'on' : 'off'}`)
+        )
       ),
     message && createElement('p', { id: 'recordings-message' }, message),
     error && createElement('p', { id: 'recordings-error' }, error),
@@ -410,11 +430,21 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
             title: started
           },
           createElement('span', { class: 'recording-start', style: { overflowWrap: 'anywhere' } }, formatStartLabel(record.startedAt, Date.now())),
-          createElement('span', { class: 'recording-details', style: { ...ELLIPSIS_STYLE, fontSize: '13px', opacity: '0.85' } }, `${formatDuration(record.durationMilliseconds)} · ${formatMegabytes(record.bytes)}${record.status === 'recovered' ? ' · recovered' : ''}${record.status === 'recording' ? ' · recording' : ''}`)
+          createElement('span', { class: 'recording-details', style: { ...ELLIPSIS_STYLE, fontSize: '13px', opacity: '0.85' } }, `${formatDuration(record.durationMilliseconds)} · ${formatMegabytes(record.bytes)}${record.auto === true ? ' · auto' : ''}${record.status === 'recovered' ? ' · recovered' : ''}${record.status === 'recording' ? ' · recording' : ''}`)
         ),
         record.status !== 'recording' && createElement(
           'span',
           { style: { display: 'flex', flexShrink: '0', gap: '4px' } },
+          record.auto === true && createElement('button', {
+            'aria-pressed': record.keep === true,
+            'class': `${record.keep === true ? 'green' : 'orange'} recording-keep`,
+            'onClick': () => {
+              toggleKeep(record.id);
+            },
+            'style': SMALL_BUTTON_STYLE,
+            'title': record.keep === true ? 'Kept: never pruned. Click to let it be pruned again.' : `Keep it: otherwise only the newest ${String(AUTO_TAKES_KEPT)} automatic takes stay`,
+            'type': 'button'
+          }, record.keep === true ? 'Kept' : 'Keep'),
           createElement('button', {
             class: 'yellow recording-play',
             disabled: busy !== '',
@@ -536,14 +566,31 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
       activeRef.current = null;
       setActive(null);
     }
-    recorder.stop(reason).then((record: null | RecordingRecord) => {
+    recorder.stop(reason).then(async (record: null | RecordingRecord) => {
+      if (record && isTooShortAutoTake(record)) {
+        await deleteRecording(record.id);
+        setMessage(note);
+        return;
+      }
       setMessage(note || (record ? `Recorded ${formatDuration(record.durationMilliseconds)} (${formatMegabytes(record.bytes)}); it is in the menu's Recordings` : 'Nothing was recorded'));
+      if (record?.auto === true) {
+        await pruneAutoTakes();
+      }
     }, (error: unknown) => {
       setMessage(`The recording could not be finished: ${errorText(error)}`);
+    }).catch((error: unknown) => {
+      setMessage(`The old automatic recordings could not be pruned: ${errorText(error)}`);
     }).finally(refresh);
   }
 
-  function start(): void {
+  async function pruneAutoTakes(): Promise<void> {
+    for (const id of autoTakesToPrune(await listRecordings())) {
+      exportedFiles.forget(id);
+      await deleteRecording(id);
+    }
+  }
+
+  function start(auto = false): void {
     const game = api?.game;
     if (!game || activeRef.current || startingRef.current || unsupported !== null) {
       return;
@@ -562,7 +609,7 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
         onAutoStop: (reason: StopReason, text: string) => {
           finish(recorder, reason, text);
         }
-      });
+      }, auto);
       activeRef.current = recorder;
       setActive(recorder);
       setMessage('');
@@ -602,6 +649,19 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
     deleteRecording(id).then(refresh, (error: unknown) => {
       setMessage(`The recording could not be deleted: ${errorText(error)}`);
     });
+  }
+
+  function toggleKeep(id: string): void {
+    const record = recordings.find((candidate: RecordingRecord) => candidate.id === id);
+    if (!record) {
+      return;
+    }
+    putRecording({ ...record, keep: record.keep !== true }).then(async () => {
+      // Taking a Keep off can put an old take past the newest few.
+      await pruneAutoTakes();
+    }).catch((error: unknown) => {
+      setMessage(`The recording could not be changed: ${errorText(error)}`);
+    }).finally(refresh);
   }
 
   function setSettings(nextSettings: VideoSettings): void {
@@ -644,9 +704,13 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
     if (route !== 'game' && recorder) {
       finish(recorder, 'game-ended');
     }
+    if (route === 'game' && settingsRef.current.recordEvery) {
+      // Record every game: the run starts in the same commit, so the take's first frame is the run's first.
+      start(true);
+    }
   }, [route]);
 
-  return { active, discard, estimate, message, recordings, remove, setSettings, settings, startOrStop, unsupported };
+  return { active, discard, estimate, message, recordings, remove, setSettings, settings, startOrStop, toggleKeep, unsupported };
 }
 
 function errorText(error: unknown): string {

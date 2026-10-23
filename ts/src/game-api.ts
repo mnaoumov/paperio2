@@ -63,9 +63,8 @@ export interface GameApi {
    * Starts a stats log of the live game (see `stats/log.ts`), attached until its `finish`.
    *
    * @param pilot - Who starts the game: `human`, or the demo pilot's mode.
-   * @param recordingMode - Whether recording mode is on.
    */
-  createStatsLog: (pilot: string, recordingMode: boolean) => StatsLog;
+  createStatsLog: (pilot: string) => StatsLog;
   /** Reads a snapshot back from {@link GameApi.encodeSnapshot}'s text, ready for {@link GameApi.restoreSnapshot}. */
   decodeSnapshot: (payload: string) => Promise<GameSnapshot>;
   /** Encodes a snapshot as the compressed text a saved game stores. */
@@ -143,14 +142,13 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       autopilot.attach();
       return autopilot;
     };
-    gameApi.createStatsLog = (pilot: string, recordingMode: boolean): StatsLog => {
+    gameApi.createStatsLog = (pilot: string): StatsLog => {
       const { game } = gameApi;
       return new StatsLog(game, {
         build: game.build,
         commit: typeof BUILD_COMMIT === 'string' ? BUILD_COMMIT : null,
         enemies: enemySettings,
         pilot,
-        recordingMode,
         seed: gameApi.seed,
         startedAt: new Date().toISOString(),
         viewport: { devicePixelRatio: window.devicePixelRatio, height: window.innerHeight, width: window.innerWidth }

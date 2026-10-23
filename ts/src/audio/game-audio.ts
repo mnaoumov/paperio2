@@ -10,7 +10,7 @@
  * plays on its own source node, so overlapping effects never cut each other off.
  *
  * Every gameplay effect is also logged on the running take's timeline, heard or not, so a download can mix it back in.
- * The practice run's own sounds are never logged, and recording mode silences them.
+ * The practice run's own sounds are never logged.
  *
  * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
  * ground, read after every frame. It is an effect, so the effects switch covers it, but no take holds it: a take logs
@@ -104,7 +104,6 @@ export class GameAudio implements GameSounds {
   private playing: null | PlayingTrack = null;
   /** Bumped on every start and stop, so a track that finishes loading late knows it is no longer wanted. */
   private playlistGeneration = 0;
-  private recordingMode = false;
   private readonly trackBuffers = new Map<number, Promise<AudioBuffer | null>>();
 
   public constructor(musicEnabled: boolean, effectsEnabled: boolean) {
@@ -212,10 +211,6 @@ export class GameAudio implements GameSounds {
     }
   }
 
-  public setRecordingMode(recordingMode: boolean): void {
-    this.recordingMode = recordingMode;
-  }
-
   /** Starts the playlist for a run, from a fresh shuffle, and fetches the effects ahead of the first one. */
   public startMusic(): void {
     this.inRun = true;
@@ -248,12 +243,8 @@ export class GameAudio implements GameSounds {
    * @param cue - The effect.
    */
   private cue(cue: SoundCue): void {
-    const isPractice = PRACTICE_SOUNDS.has(cue.sound);
-    if (!isPractice) {
+    if (!PRACTICE_SOUNDS.has(cue.sound)) {
       this.game?.videoRecorder?.onSound(cue.sound, cue.gain);
-    }
-    if (isPractice && this.recordingMode) {
-      return;
     }
     this.play(cue);
   }

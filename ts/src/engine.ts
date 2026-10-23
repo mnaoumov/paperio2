@@ -512,8 +512,6 @@ export class Game {
   public rng: (n?: number) => number;
   public scale: number;
   public schemesManager: SchemeCycler;
-  /** Whether recording mode (`R`) is on, for an external screen recorder; the page sets it. */
-  public screenRecording = false;
   public seed: number;
   public skinManager: SkinManager;
   /** The page's sound, told about the player's moments, or `null` when the page plays none. */
@@ -535,13 +533,13 @@ export class Game {
   public view: HTMLCanvasElement;
   public visible: boolean;
   /**
-   * Whether frames must look like the original's: recording mode or an in-game take is on, and
-   * {@link recordingAdditions} keeps the additions out.
+   * Whether frames must look like the original's: an in-game take is on, and {@link recordingAdditions} keeps the
+   * additions out.
    *
    * @returns Whether to draw as the original does.
    */
   public get looksOriginal(): boolean {
-    return !this.recordingAdditions && (this.screenRecording || this.videoRecorder !== null);
+    return !this.recordingAdditions && this.videoRecorder !== null;
   }
 
   public get paused(): boolean {

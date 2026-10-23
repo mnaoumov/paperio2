@@ -292,7 +292,7 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
         api.setEnemySettings(enemySettings);
         api.start('Autopilot', '', undefined, undefined, undefined, true);
         window.__autopilot = api.attachAutopilot(pilot);
-        window.__statsLog = api.createStatsLog(pilot, false);
+        window.__statsLog = api.createStatsLog(pilot);
         if (pilot === 'whitebox') {
           api.game.renderer = null;
         }

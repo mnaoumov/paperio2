@@ -72,9 +72,6 @@ The reconstruction has music and sound effects; the original has neither.
 - Nothing is downloaded before you press Play: the effects (65 KB) are fetched
   then, and each music track (about 1 MB) when it is due. The music is 5 MB in
   all.
-- Recording mode hides the two buttons, while `M` and `N` keep working. It also
-  silences the practice sounds (the respawn chime and the checkpoint clicks),
-  which would give a practice run away.
 - Every file is CC0, by Juhani Junkala; `assets/audio/CREDITS.md` lists each one
   with its source.
 
@@ -86,16 +83,24 @@ attempt out as it goes, so the video plays as one unbroken run. Press `V` (or th
 take, and **Discard** (click it twice) throws it away. The take also ends by
 itself when the run ends or the browser's storage is nearly full.
 
+- **Record every game:** the **Recordings** panel's **Record every game** button
+  (off by default, remembered by the browser) starts a take on each run's first
+  frame, so a good run is never lost to a forgotten `V`; the take ends with the
+  run. A take it started is marked _auto_ in the list. One shorter than 10 s is
+  dropped, and only the newest 5 automatic takes stay: an older one is deleted
+  when a new one finishes, unless its **Keep** button marks it kept. A take
+  started with `V` is never deleted for you.
 - **What is recorded:** the game canvas only, so the map, the players, the
   leaderboard, the percent and the minimap are in the video, and the page around
   it (the pause button, the practice panel, menus, dialogs, the joystick) never
   is. Nor are the demo readout, its overlay and the ghost, which are drawn on
   layers of their own.
 - **It looks like the original:** while a take runs, the canvas is drawn as the
-  original draws it. The leaderboard goes back to the original's layout, which
-  cuts long names short, and the showcase view's camera goes back to the player.
-  The menu's **Additions in recordings** button (off by default, remembered by
-  the browser) keeps both in the video instead. Enemy modes and the bot count are
+  original draws it: the showcase view's camera goes back to the player. The
+  leaderboard keeps its readable names, because a name cut off in a video reads
+  as broken rather than faithful. The menu's **Additions in recordings** button
+  (off by default, remembered by the browser) keeps the showcase in the video
+  instead. Enemy modes and the bot count are
   part of the game, not of the screen, so a recorded run plays with them either
   way.
 - **Sound:** the sound effects of the run are recorded with the take, whether
@@ -135,69 +140,6 @@ itself when the run ends or the browser's storage is nearly full.
   uses H.264 in an `.mp4`, which QuickTime plays, and falls back to VP9 or AV1 in
   an `.mp4` where a browser cannot encode H.264. Where none can be encoded, the
   button is hidden and the panel says why. Tested in Chrome on Windows.
-
-This makes recording mode below unnecessary for recording practice runs. It is
-kept for anyone who records the screen with another program.
-
-### Recording mode
-
-**Recording mode** makes a screen recording look like the original game. Turn it
-on with the menu's Recording mode button or the `R` key, and off again with `R`
-(the button is hidden with everything else). The choice is remembered in the
-browser. It hides every addition: the pause button and the Paused overlay, the
-practice panel and its messages, the music and sound buttons, the joystick
-and its toggle (the joystick still steers, drawn invisibly), the menu's
-**Extras** button and everything behind it, so the menu is the original's, the in-game record button,
-and the practice note on the results screen. Practice still runs, and its keys
-still work: `Z`, `X`, `K`, `Esc` / `P`, and `V` for the in-game recorder.
-
-It also draws the canvas as the original does: the showcase view's camera goes
-back to the player. The leaderboard keeps its readable names, because a name
-cut off in a video reads as broken rather than faithful. The menu's
-**Additions in recordings** button, next to **Recording mode**, keeps the
-showcase in the recording instead; it is off by default, the browser remembers
-it, and it applies to the in-game recorder too. Enemy modes and the bot count still apply to a recorded
-run.
-
-Every switch into recording mode shows a dialog, _You are in recording mode.
-Press R to return to normal mode_, with an OK button. That includes a page load
-with the mode remembered as on, so the mode is never on without you knowing.
-OK, `Enter`, `Space` or `Esc` closes it, and nothing on screen gives the mode
-away after that. Switching out needs no dialog: the additions just come back.
-`R` does nothing while the name field has the focus, since it types an `r`
-there. Click outside the field first.
-
-It also marks the frames to cut. A marker is the whole frame in one solid colour
-with a large label, so it survives video compression and shows in a timeline
-thumbnail:
-
-- **Red, `CUT`**: cut from the first red frame. It stays up for the whole
-  interruption, and for at least 0.7 s.
-- **Green, `RESUME`**: 0.7 s with the game still paused under it. Cut up to the
-  last green frame. The next frame is clean play.
-
-Clean play never carries a marker. What gets marked:
-
-- **A pause** (`Esc` / `P`, or a hidden tab): red while paused, green on resume.
-- **A save** (`K`) and **a checkpoint removal** (`X`): the game pauses for it
-  inside a red-then-green cut.
-- **A death in practice**: red from the death, through the death delay and the
-  restore, then green while the restored game waits, then play. The red frames
-  say how far back the cut reaches, for example `cut from 8.7 s before this`:
-  that is where the checkpoint's moment is on screen in the raw recording, so
-  cutting from there to the last green frame joins two frames of the same game
-  state.
-- **Switching recording mode during a run**: turning it off flashes red (the
-  additions come back); turning it on pauses the game under red with the dialog
-  on top, and the green frames and play follow once the dialog is closed.
-  To play a saved game in recording mode, turn it off (`R`), load the save, and
-  turn it on again.
-
-**How to cut:** in the raw recording, for each red span, cut from its first red
-frame to the last green frame after it. For a death, cut from the time the red
-frames name instead, counted back from the first red frame. Measure every cut on
-the raw recording: the death hint counts in the raw timeline, so mark all the
-cuts first and remove them together.
 
 **Continuity across a cut.** A respawn restores the checkpoint's whole game
 state, so the frame after the cut is the frame at the checkpoint: territory,
@@ -327,8 +269,7 @@ same games.
 
 The reconstruction can change how the bots play. Four menu buttons set it, the
 browser remembers them, and they apply at once, to the menu's bots as well. They
-combine with practice mode and the demo autopilot, and recording mode hides them
-with the rest of the menu.
+combine with practice mode and the demo autopilot.
 
 **How the original bots play.** Each bot is a small state machine. It leaves its
 base at a nearby edge point (or, one time in four, straight outwards), draws a
@@ -425,7 +366,7 @@ direction. The best run is the one that held the most territory, or as much
 sooner, whoever flew it: you, the demo pilot, or both (the label says which).
 Each seed keeps its own, and so does play without a seed; **Forget** drops it.
 Practice runs are never kept. The ghost is drawn on a layer of its own, so the
-in-game recorder never records it, and recording mode hides it. A ghost replays
+in-game recorder never records it. A ghost replays
 where a run went, not what was pressed: the game steps by real frame times, so
 the same keys never give the same run twice.
 
@@ -437,7 +378,7 @@ in one file. A log is a text file, `paperio2-<yyyy-mm-dd-hhmm>.jsonl`, with one
 JSON object per line:
 
 - a `header`: the build and commit, the enemy settings, who started the run
-  (`human`, `whitebox` or `blackbox`), recording mode, the seed and the window
+  (`human`, `whitebox` or `blackbox`), the seed and the window
   size;
 - a `sample` every 250 ms of game time: your share of the arena (`pct`), your
   rank, your trail's length, where your head is and whether that is your own
@@ -525,12 +466,10 @@ back to the original `app2.js` and says so in the browser console. Add
   a respawn at the latest one on death, and saved games in `localStorage`, all
   built on a full game snapshot (`ts/src/snapshot.ts`, `ts/src/practice.ts`,
   `ts/src/save-format.ts`). It is off by default, so a normal run is untouched.
-- A recording mode in the `ts/` reconstruction (`ts/src/recording.ts`): it hides
-  every addition above and marks the frames to cut with full-frame red and green
-  markers. It is off by default.
 - An in-game recorder in the `ts/` reconstruction (`ts/src/video/`): `V` records
   the game canvas with WebCodecs, cuts each failed practice attempt back to its
-  checkpoint, keeps the takes in IndexedDB and exports them as `.mp4`. It makes
+  checkpoint, keeps the takes in IndexedDB and exports them as `.mp4`. **Record
+  every game** (off by default) starts a take on every run and keeps the newest 5. It makes
   no call into the game while nobody records, so a normal run is untouched.
 - Music and sound effects in the `ts/` reconstruction (`ts/src/audio/`,
   `assets/audio/`): a shuffled CC0 chiptune playlist during a run and effects for
@@ -545,8 +484,8 @@ back to the original `app2.js` and says so in the browser console. Add
   still cannot fit there ends in `…`. Where the text already fits, the original
   layout is kept. On a phone the top bar is narrow, so long names still end in
   `…`, but the rank and percent always show. `?original` is unchanged. The
-  `leaderboardFitNames` config key turns it off. It stays on while recording
-  (recording mode or the in-game recorder). On a page zoomed out below 100%, the
+  `leaderboardFitNames` config key turns it off. It stays on while the in-game
+  recorder records. On a page zoomed out below 100%, the
   original also cut the top rows' left ends and the player's row off its cached
   leaderboard image; the reconstruction sizes that image to fit.
 - A demo autopilot in the `ts/` reconstruction (`ts/src/autopilot/`): a whitebox

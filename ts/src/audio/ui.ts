@@ -2,8 +2,7 @@
  * @file
  *
  * The page side of the sound: the music and effects switches, their M and N keys, remembered in `localStorage`, and
- * the music following the route: on during a run, faded out on the results, off in the menu. The in-game buttons hide
- * in recording mode like every other addition, while the keys keep working.
+ * the music following the route: on during a run, faded out on the results, off in the menu.
  */
 
 import type { VNode } from 'preact';
@@ -19,7 +18,7 @@ import type { GameApi } from '../game-api.ts';
 
 import { GameAudio } from './game-audio.ts';
 
-/** `KeyboardEvent.code` of the music switch. The engine steers on arrows and W/A/S/D; the app uses R Z X K P J V Esc. */
+/** `KeyboardEvent.code` of the music switch. The engine steers on arrows and W/A/S/D; the app uses Z X K P J V Esc. */
 export const MUSIC_KEY = 'KeyM';
 /** `KeyboardEvent.code` of the sound-effects switch. */
 export const EFFECTS_KEY = 'KeyN';
@@ -42,8 +41,6 @@ const HUD_BUTTON_STYLE = {
 };
 
 export interface AudioControlProps {
-  /** Whether recording mode hides the additions. */
-  readonly hidden: boolean;
   /** Whether a run is on screen; the buttons show only then. */
   readonly inGame: boolean;
   readonly state: GameAudioState;
@@ -65,13 +62,12 @@ export interface GameAudioState {
  * The music and effects buttons during a run, left of the pause button. Like the pause button, neither takes focus.
  *
  * @param root0 - The props.
- * @param root0.hidden - Whether recording mode hides them.
  * @param root0.inGame - Whether a run is on screen.
  * @param root0.state - The switches.
- * @returns The buttons, or nothing in recording mode.
+ * @returns The buttons, or nothing outside a run.
  */
-export function AudioControl({ hidden, inGame, state }: AudioControlProps): null | VNode<unknown> {
-  if (hidden || !inGame) {
+export function AudioControl({ inGame, state }: AudioControlProps): null | VNode<unknown> {
+  if (!inGame) {
     return null;
   }
   const { effectsEnabled, musicEnabled, toggleEffects, toggleMusic } = state;
@@ -145,10 +141,9 @@ export function readSwitch(key: string): boolean {
  *
  * @param api - The game API.
  * @param route - The current route.
- * @param recordingMode - Whether recording mode is on, which silences the practice sounds.
  * @returns The switches and the live audio.
  */
-export function useGameAudio(api: GameApi | null, route: string, recordingMode: boolean): GameAudioState {
+export function useGameAudio(api: GameApi | null, route: string): GameAudioState {
   const [musicEnabled, setMusicEnabled] = useState(() => readSwitch(MUSIC_STORAGE_KEY));
   const [effectsEnabled, setEffectsEnabled] = useState(() => readSwitch(EFFECTS_STORAGE_KEY));
   const [audio] = useState(() => new GameAudio(musicEnabled, effectsEnabled));
@@ -169,7 +164,6 @@ export function useGameAudio(api: GameApi | null, route: string, recordingMode: 
   }
 
   togglesRef.current = { toggleEffects, toggleMusic };
-  audio.setRecordingMode(recordingMode);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
