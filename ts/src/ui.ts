@@ -32,6 +32,7 @@ import type { Checkpoint } from './practice.ts';
 import type { SaveSummary } from './save-format.ts';
 import type { SkinSource } from './skins/skin.ts';
 import type { GameSnapshot } from './snapshot.ts';
+import type { StatsLogState } from './stats/ui.ts';
 import type { VideoRecordingState } from './video/ui.ts';
 
 import {
@@ -80,6 +81,10 @@ import {
   canCaptureSnapshot,
   captureSnapshot
 } from './snapshot.ts';
+import {
+  StatsMenu,
+  useStatsLog
+} from './stats/ui.ts';
 import {
   RecordControl,
   RecordingsPanel,
@@ -269,6 +274,7 @@ export interface MenuScreenProps {
   skin: string;
   skins: SkinSource[];
   start: () => void;
+  stats: StatsLogState;
   video: VideoRecordingState;
 }
 export function MenuScreen({
@@ -292,6 +298,7 @@ export function MenuScreen({
   setRecordingMode,
   skin,
   start,
+  stats,
   video
 }: MenuScreenProps): VNode<unknown> {
   const {
@@ -317,6 +324,7 @@ export function MenuScreen({
     setPracticeMode,
     setRecordingAdditions,
     setRecordingMode,
+    stats,
     video
   });
   function handleNickNameInput(event: Event): void {
@@ -462,6 +470,7 @@ interface ExtrasSectionsProps {
   setPracticeMode: (practiceMode: boolean) => void;
   setRecordingAdditions: (recordingAdditions: boolean) => void;
   setRecordingMode: (recordingMode: boolean) => void;
+  stats: StatsLogState;
   video: VideoRecordingState;
 }
 function renderExtrasSections({
@@ -478,6 +487,7 @@ function renderExtrasSections({
   setPracticeMode,
   setRecordingAdditions,
   setRecordingMode,
+  stats,
   video
 }: ExtrasSectionsProps): VNode<unknown>[] {
   return [
@@ -529,6 +539,15 @@ function renderExtrasSections({
       },
       createElement(RecordingsPanel, {
         state: video
+      })
+    ),
+    createElement(
+      'div',
+      {
+        style: PRACTICE_PANEL_STYLE
+      },
+      createElement(StatsMenu, {
+        state: stats
       })
     )
   ];
@@ -1820,6 +1839,7 @@ export function App({
   const autopilot = useAutopilot(api, route, start);
   const enemies = useEnemySettings(api);
   const ghost = useGhostRace(api, route, autopilot.autopilot);
+  const stats = useStatsLog(api, route, autopilot.mode, recordingMode);
   const [recordingAdditions, setRecordingAdditionsState] = useState(readRecordingAdditions);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);
@@ -1993,6 +2013,7 @@ export function App({
             skin,
             skins,
             start,
+            stats,
             video
           }),
           route === 'game' && createElement(GameScreen, {

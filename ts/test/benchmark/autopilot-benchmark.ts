@@ -8,13 +8,16 @@
  * frame, and the same seed replays the same run. The whitebox mode runs with rendering off, which changes no game
  * state; the blackbox mode renders every frame, because pixels are all it sees.
  *
- * `npm run benchmark -- --modes whitebox,blackbox --enemies original,chase:blackbox --seeds 10 --first-seed 1 --max-minutes 20 --parallel 4 [--why]`
+ * `npm run benchmark -- --modes whitebox,blackbox --enemies original,chase:blackbox --seeds 10 --first-seed 1 --max-minutes 20 --parallel 4 [--why] [--stats <dir>]`
  *
  * `--enemies` takes the enemy modes to play against, each `<mode>` or `<mode>:<vision>` (`whitebox` by default), and reports a row
  * per autopilot mode and enemy mode.
  *
  * `--why` prints, for every run that does not win, its last phase changes and how its killer was behaving, and the
  * whitebox pilot's decision counts with the ground it gained and lost.
+ *
+ * `--stats <dir>` writes each run's stats log there, the same JSONL the page keeps for a human's game, as
+ * `<mode>-<enemies>-seed<n>.jsonl`; `npm run stats:report` compares them.
  */
 
 import type {
@@ -131,6 +134,7 @@ const { values } = parseArgs({
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'seeds': { default: '10', type: 'string' },
+    'stats': { type: 'string' },
     'why': { default: false, type: 'boolean' }
   }
 });
@@ -248,12 +252,13 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
     await page.evaluate(
       (pilot: Mode, enemySettings: PageEnemySettings) => {
         const api = window.paperio2api;
-        if (!api.start || !api.attachAutopilot || !api.setEnemySettings) {
+        if (!api.start || !api.attachAutopilot || !api.setEnemySettings || !api.createStatsLog) {
           throw new Error('This build has no autopilot.');
         }
         api.setEnemySettings(enemySettings);
         api.start('Autopilot', '', undefined, undefined, undefined, true);
         window.__autopilot = api.attachAutopilot(pilot);
+        window.__statsLog = api.createStatsLog(pilot, false);
         if (pilot === 'whitebox') {
           api.game.renderer = null;
         }
@@ -270,6 +275,11 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       frames += count;
     }
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
+    if (values.stats !== undefined) {
+      const text = await page.evaluate(() => window.__statsLog?.finish() ?? '');
+      await mkdir(values.stats, { recursive: true });
+      await writeFile(join(values.stats, `${mode}-${enemies.replace(':', '-')}-seed${String(seed)}.jsonl`), text);
+    }
     if (values.dump !== undefined && reason !== 'win') {
       await dumpFrames(page, join(values.dump, `${mode}-${enemies.replace(':', '-')}-seed${String(seed)}`));
     }

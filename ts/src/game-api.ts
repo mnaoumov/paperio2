@@ -45,6 +45,7 @@ import {
   captureSnapshot,
   restoreSnapshot
 } from './snapshot.ts';
+import { StatsLog } from './stats/log.ts';
 
 export interface GameApi {
   /**
@@ -58,6 +59,13 @@ export interface GameApi {
   /** The config every game is created with, there before the game is, so a page can change it ahead of the first frame. */
   config: Config;
   create: (view: HTMLCanvasElement) => void;
+  /**
+   * Starts a stats log of the live game (see `stats/log.ts`), attached until its `finish`.
+   *
+   * @param pilot - Who starts the game: `human`, or the demo pilot's mode.
+   * @param recordingMode - Whether recording mode is on.
+   */
+  createStatsLog: (pilot: string, recordingMode: boolean) => StatsLog;
   /** Reads a snapshot back from {@link GameApi.encodeSnapshot}'s text, ready for {@link GameApi.restoreSnapshot}. */
   decodeSnapshot: (payload: string) => Promise<GameSnapshot>;
   /** Encodes a snapshot as the compressed text a saved game stores. */
@@ -134,6 +142,19 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       const autopilot = new Autopilot(gameApi.game, mode, undefined, offMainThread ? startAutopilotWorker() : null);
       autopilot.attach();
       return autopilot;
+    };
+    gameApi.createStatsLog = (pilot: string, recordingMode: boolean): StatsLog => {
+      const { game } = gameApi;
+      return new StatsLog(game, {
+        build: game.build,
+        commit: typeof BUILD_COMMIT === 'string' ? BUILD_COMMIT : null,
+        enemies: enemySettings,
+        pilot,
+        recordingMode,
+        seed: gameApi.seed,
+        startedAt: new Date().toISOString(),
+        viewport: { devicePixelRatio: window.devicePixelRatio, height: window.innerHeight, width: window.innerWidth }
+      }, () => game.autopilot instanceof Autopilot && game.autopilot.engaged ? 'pilot' : 'human');
     };
     gameApi.captureSnapshot = (): GameSnapshot => captureSnapshot(gameApi.game);
     gameApi.restoreSnapshot = (snapshot: GameSnapshot): void => {

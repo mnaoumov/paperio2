@@ -47,6 +47,8 @@ declare global {
     /** The last frames the blackbox pilot saw, with their classes, for the benchmark's `--dump`. */
     __blackboxFrames?: PageDumpFrame[];
     __differential: DifferentialPageApi;
+    /** The stats log the benchmark's `--stats` attached. */
+    __statsLog?: PageStatsLog;
     paperio2api: PaperIo2PageApi;
     /** Which engine `index.html`'s engine switch loaded. */
     paperio2engine?: 'original' | 'reconstruction';
@@ -223,6 +225,11 @@ export interface PageStateMachineContext {
   readonly prey?: PageUnit;
 }
 
+/** The reconstruction's stats log, as the benchmark's `--stats` reads it. */
+export interface PageStatsLog {
+  finish(): string;
+}
+
 export interface PageTerritory {
   readonly polygon: PagePolygon;
   readonly square: number;
@@ -254,6 +261,8 @@ export interface PaperIo2PageApi {
   readonly captureSnapshot?: () => unknown;
   /** The reconstruction's config, there from boot; the original exposes none. */
   readonly config?: Record<string, unknown>;
+  /** The reconstruction's per-game stats log; the original has none. */
+  readonly createStatsLog?: (pilot: string, recordingMode: boolean) => PageStatsLog;
   readonly decodeSnapshot?: (payload: string) => Promise<unknown>;
   readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;
