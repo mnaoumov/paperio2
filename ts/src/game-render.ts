@@ -578,13 +578,26 @@ window.addEventListener('resize', () => {
 let leaderboardFitDrawn: boolean | null = null;
 /**
  * Whether the leaderboard moves bars left to fit the names. Off by the `leaderboardFitNames` config key in the
- * differential test, which compares against the original, and off while a recording keeps the additions out.
+ * differential test, which compares against the original. A recording keeps it: the fit repairs the original's
+ * clipped names rather than adding anything, and a cut-off name reads as broken in a video.
  *
  * @param game - The game.
  * @returns Whether to fit the names.
  */
 function fitsLeaderboardNames(game: Game): boolean {
-  return String(game.config.leaderboardFitNames) === 'true' && !game.looksOriginal;
+  return String(game.config.leaderboardFitNames) === 'true';
+}
+/**
+ * How much larger than the leaderboard's screen-unit size its cache canvas must be. The rows are drawn into it at
+ * `1 / devicePixelRatio`, so below a ratio of 1 (a page zoomed out) they take more canvas pixels than the original's
+ * cache had, which clipped the top rows' left ends and the player's row at the bottom. At 1 and above it is 1, the
+ * original's size.
+ *
+ * @param devicePixelRatio - The page's device pixel ratio.
+ * @returns The factor the cache's size is multiplied by.
+ */
+function leaderboardCacheScale(devicePixelRatio: number): number {
+  return 1 / Math.min(devicePixelRatio, 1);
 }
 export function drawLeaderboard(renderContext: RenderContext): void {
   const {
@@ -593,10 +606,11 @@ export function drawLeaderboard(renderContext: RenderContext): void {
   const ctx = ensureNonNullable(renderContext.ctx);
   if (!spatialGrid) {
     spatialGrid = document.createElement('canvas');
-    spatialGrid.width = Math.trunc(renderContext.barWidth);
-    spatialGrid.height = Math.trunc(renderContext.barHeight * LEADERBOARD_ROW_HEIGHT_FACTOR * LEADERBOARD_ROW_COUNT);
+    const cacheScale = leaderboardCacheScale(devicePixelRatio);
+    spatialGrid.width = Math.ceil(Math.trunc(renderContext.barWidth) * cacheScale);
+    spatialGrid.height = Math.ceil(Math.trunc(renderContext.barHeight * LEADERBOARD_ROW_HEIGHT_FACTOR * LEADERBOARD_ROW_COUNT) * cacheScale);
   }
-  // A recording that switches the name fit on or off redraws the cached rows; the first frame only notes the setting.
+  // Switching the name fit on or off redraws the cached rows; the first frame only notes the setting.
   const fitNames = fitsLeaderboardNames(renderContext.game);
   const fitChanged = leaderboardFitDrawn !== null && leaderboardFitDrawn !== fitNames;
   leaderboardFitDrawn = fitNames;

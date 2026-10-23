@@ -674,8 +674,8 @@ export function PracticeMenu({
       'onClick': () => {
         setRecordingAdditions(!recordingAdditions);
       },
-      'title': 'Off: recordings (R, or the in-game recorder) show the leaderboard and camera as the original does. '
-        + 'On: they keep the leaderboard name fit and the showcase view.',
+      'title': 'Off: recordings (R, or the in-game recorder) show the camera as the original does. '
+        + 'On: they keep the showcase view.',
       'type': 'button'
     }, `Additions in recordings: ${recordingAdditions ? 'on' : 'off'}`),
     menuMessage && createElement('p', {

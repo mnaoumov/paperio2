@@ -151,12 +151,12 @@ and its toggle (the joystick still steers, drawn invisibly), the menu's
 and the practice note on the results screen. Practice still runs, and its keys
 still work: `Z`, `X`, `K`, `Esc` / `P`, and `V` for the in-game recorder.
 
-It also draws the canvas as the original does: the leaderboard takes the
-original's layout, cut-off names included, and the showcase view's camera goes
-back to the player. The menu's **Additions in recordings** button, next to
-**Recording mode**, keeps the name fit and the showcase in the recording
-instead; it is off by default, the browser remembers it, and it applies to the
-in-game recorder too. Enemy modes and the bot count still apply to a recorded
+It also draws the canvas as the original does: the showcase view's camera goes
+back to the player. The leaderboard keeps its readable names, because a name
+cut off in a video reads as broken rather than faithful. The menu's
+**Additions in recordings** button, next to **Recording mode**, keeps the
+showcase in the recording instead; it is off by default, the browser remembers
+it, and it applies to the in-game recorder too. Enemy modes and the bot count still apply to a recorded
 run.
 
 Every switch into recording mode shows a dialog, _You are in recording mode.
@@ -526,9 +526,10 @@ back to the original `app2.js` and says so in the browser console. Add
   still cannot fit there ends in `…`. Where the text already fits, the original
   layout is kept. On a phone the top bar is narrow, so long names still end in
   `…`, but the rank and percent always show. `?original` is unchanged. The
-  `leaderboardFitNames` config key turns it off. While recording (recording mode
-  or the in-game recorder) it is off too, so the recording shows the original's
-  cut-off names, unless **Additions in recordings** is on.
+  `leaderboardFitNames` config key turns it off. It stays on while recording
+  (recording mode or the in-game recorder). On a page zoomed out below 100%, the
+  original also cut the top rows' left ends and the player's row off its cached
+  leaderboard image; the reconstruction sizes that image to fit.
 - A demo autopilot in the `ts/` reconstruction (`ts/src/autopilot/`): a whitebox
   pilot that reads the engine and a blackbox pilot that reads only the screen,
   both steering through the pointer, with a debug overlay and a benchmark

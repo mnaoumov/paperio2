@@ -503,7 +503,7 @@ export class Game {
   public quality: number;
   public recording: null | Recorder;
   /**
-   * Whether a recording keeps this copy's additions drawn on the canvas (the leaderboard name fit, the showcase camera).
+   * Whether a recording keeps this copy's additions drawn on the canvas (the showcase camera).
    * Off by default, so a recording looks like the original; the page sets it from its menu.
    */
   public recordingAdditions = false;

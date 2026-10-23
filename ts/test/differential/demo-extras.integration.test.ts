@@ -52,6 +52,10 @@ const MOUSE_PATH: readonly (readonly [number, number])[] = [[200, 200], [600, 30
 const MOUSE_STEPS = 10;
 const CLICK_X = 400;
 const CLICK_Y = 400;
+/** A page zoomed out to 80%, where the original's leaderboard image cut the top rows' left ends. */
+const ZOOMED_OUT_PIXEL_RATIO = 0.8;
+const VIEW_WIDTH = 1280;
+const VIEW_HEIGHT = 720;
 const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 'demo extras', seed: 7, startFrame: 0 };
 
 interface CameraView {
@@ -240,7 +244,7 @@ describe('the demo extras', () => {
     }
   }, TIMEOUT_MILLISECONDS);
 
-  it('keeps the canvas additions out of a recording unless the setting lets them in', async () => {
+  it('keeps the showcase out of a recording unless the setting lets it in, and the name fit in', async () => {
     const page = await open({ 'paperio2.autopilot': 'whitebox', 'paperio2.autopilotView': 'on', 'paperio2.recording': 'on' });
     try {
       await play(page);
@@ -251,7 +255,7 @@ describe('the demo extras', () => {
       await steps(page, GLIDE_FRAMES);
       const inRecordingMode = await cameraOffsets(page);
       expect(inRecordingMode.fromPlayer, 'recording mode keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
-      expect(await measuredLeaderboard(page), 'recording mode draws the leaderboard as the original does').toBe(0);
+      expect(await measuredLeaderboard(page), 'recording mode keeps the leaderboard name fit').toBeGreaterThan(0);
 
       await page.evaluate(() => {
         window.paperio2api.game.recordingAdditions = true;
@@ -272,12 +276,42 @@ describe('the demo extras', () => {
       });
       await steps(page, GLIDE_FRAMES);
       expect((await cameraOffsets(page)).fromPlayer, 'a take keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
-      expect(await measuredLeaderboard(page), 'a take draws the leaderboard as the original does').toBe(0);
+      expect(await measuredLeaderboard(page), 'a take keeps the leaderboard name fit').toBeGreaterThan(0);
+    } finally {
+      await page.browserContext().close();
+    }
+  }, TIMEOUT_MILLISECONDS);
+
+  it('keeps every leaderboard row inside its cached image on a zoomed-out page', async () => {
+    const page = await open({});
+    try {
+      await page.setViewport({ deviceScaleFactor: ZOOMED_OUT_PIXEL_RATIO, height: VIEW_HEIGHT, width: VIEW_WIDTH });
+      await play(page);
+      await page.evaluate(() => {
+        Reflect.set(Object(Reflect.get(window.paperio2api, 'config')), 'leaderboardFitNames', true);
+        window.dispatchEvent(new Event('resize'));
+      });
+      const rows = await leaderboardRowExtents(page);
+      expect(rows.length, 'the leaderboard drew its rows').toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.left, `${row.text} starts inside the image`).toBeGreaterThanOrEqual(0);
+        expect(row.right, `${row.text} ends inside the image`).toBeLessThanOrEqual(row.width);
+        expect(row.bottom, `${row.text} sits above the image's bottom`).toBeLessThanOrEqual(row.height);
+      }
     } finally {
       await page.browserContext().close();
     }
   }, TIMEOUT_MILLISECONDS);
 });
+
+interface RowExtent {
+  readonly bottom: number;
+  readonly height: number;
+  readonly left: number;
+  readonly right: number;
+  readonly text: string;
+  readonly width: number;
+}
 
 async function cameraOffsets(page: Page): Promise<Pick<CameraView, 'fromLeader' | 'fromPlayer'>> {
   return page.evaluate(() => {
@@ -290,6 +324,42 @@ async function cameraOffsets(page: Page): Promise<Pick<CameraView, 'fromLeader' 
       fromPlayer: Math.hypot(origin.x - player.position.x, origin.y - player.position.y)
     };
   });
+}
+
+/**
+ * Redraws the cached leaderboard on the next frame and returns where each row's text landed in the canvas it was
+ * drawn on, in that canvas's pixels.
+ *
+ * @param page - The page.
+ * @returns Each row's text extent and its canvas's size.
+ */
+async function leaderboardRowExtents(page: Page): Promise<RowExtent[]> {
+  await page.evaluate(() => {
+    const rows: RowExtent[] = [];
+    Reflect.set(window, 'leaderboardRows', rows);
+    const prototype = CanvasRenderingContext2D.prototype;
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- called below with the canvas context as `this`.
+    const original = prototype.fillText;
+    prototype.fillText = function fillText(this: CanvasRenderingContext2D, text: string, x: number, y: number): void {
+      // A leaderboard row reads `<rank> – <percent> <name>`.
+      if (/^\d+ – /.test(text)) {
+        const transform = this.getTransform();
+        const width = this.measureText(text).width;
+        rows.push({
+          bottom: transform.d * y + transform.f,
+          height: this.canvas.height,
+          left: transform.a * x + transform.e,
+          right: transform.a * (x + width) + transform.e,
+          text,
+          width: this.canvas.width
+        });
+      }
+      original.call(this, text, x, y);
+    };
+    window.paperio2api.game.topListChanged = true;
+  });
+  await stepPage(page);
+  return page.evaluate(() => Reflect.get(window, 'leaderboardRows') as RowExtent[]);
 }
 
 /**
