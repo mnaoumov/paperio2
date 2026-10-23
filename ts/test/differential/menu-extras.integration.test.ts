@@ -3,7 +3,8 @@
  *
  * Proves the menu's layout in a real page. Everything this copy adds sits behind one Extras button, so the closed
  * menu fits the window like the original's. Opened in a short window, the menu scrolls under the wheel until the
- * Recordings panel near its bottom is on screen. Recording mode hides the Extras button too, and R brings it back.
+ * Recordings panel near its bottom is on screen. The retired recording mode leaves nothing behind: R hides nothing, and
+ * its stored switch is removed on load.
  */
 
 import type {
@@ -36,10 +37,10 @@ const WIDTH = 1280;
 const WHEEL_DELTA = 200;
 const MAX_WHEELS = 40;
 const WHEEL_SETTLE_MILLISECONDS = 50;
-/** Preact runs effects (the recording class, the R listener's rebind) on a frame after the render. */
+/** Preact runs effects on a frame after the render. */
 const EFFECT_FRAMES = 3;
 const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 'menu extras', seed: 7, startFrame: 0 };
-/** The menu elements this copy adds; recording mode must leave none of them. */
+/** The menu elements this copy adds. */
 const ADDED_IDS = ['extras-toggle', 'extras-panel', 'practice-menu', 'recordings', 'stats-logs'] as const;
 
 interface Layout {
@@ -63,7 +64,7 @@ async function layout(page: Page): Promise<Layout> {
 }
 
 async function pressRecordingKey(page: Page): Promise<void> {
-  // The R listener is bound by an effect, so let a pending one run first.
+  // Any key listener is bound by an effect, so let a pending one run first.
   await steps(page, EFFECT_FRAMES);
   await page.evaluate(() => {
     for (const type of ['keydown', 'keyup']) {
@@ -141,15 +142,15 @@ describe('the menu', () => {
     }
   }, TIMEOUT_MILLISECONDS);
 
-  it('hides the Extras button in recording mode and brings it back on R', async () => {
-    const page = await open({ 'paperio2.extras': 'open' });
+  it('keeps the additions on R and removes the retired recording mode from storage', async () => {
+    const page = await open({ 'paperio2.extras': 'open', 'paperio2.recording': 'on' });
     try {
-      expect(await addedIdsShown(page)).toEqual([...ADDED_IDS]);
+      await steps(page, EFFECT_FRAMES);
+      expect(await addedIdsShown(page), 'a stored recording mode hides nothing').toEqual([...ADDED_IDS]);
+      expect(await page.evaluate(() => localStorage.getItem('paperio2.recording')), 'the stored switch is removed').toBeNull();
       await pressRecordingKey(page);
-      expect(await page.evaluate(() => document.documentElement.classList.contains('paperio2-recording'))).toBe(true);
-      expect(await addedIdsShown(page), 'recording mode leaves nothing this copy adds in the menu').toEqual([]);
-      await pressRecordingKey(page);
-      expect(await addedIdsShown(page), 'R brings Extras back, still open').toEqual([...ADDED_IDS]);
+      expect(await addedIdsShown(page), 'R hides nothing').toEqual([...ADDED_IDS]);
+      expect(await page.evaluate(() => document.getElementById('recording-notice')), 'R shows no notice').toBeNull();
     } finally {
       await page.close();
     }

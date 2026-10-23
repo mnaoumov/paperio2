@@ -28,8 +28,7 @@ export interface SoundCue {
 export type SoundName = typeof SOUND_NAMES[number];
 
 /**
- * The practice run's own sounds. They are additions over a real run, so recording mode silences them, and a take never
- * holds them: its cut hides the failed attempt, and a respawn chime would mark the seam.
+ * The practice run's own sounds. They are additions over a real run, so a take never holds them: its cut hides the failed attempt, and a respawn chime would mark the seam.
  */
 export const PRACTICE_SOUNDS: ReadonlySet<SoundName> = new Set<SoundName>(['checkpoint-remove', 'checkpoint-set', 'respawn']);
 

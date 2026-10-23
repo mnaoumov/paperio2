@@ -174,34 +174,25 @@ neither.
   `paperio2.extras`; owner, 2026-10-22). `MenuScreen` renders the original's menu plus that button, and
   `renderExtrasSections` builds the sections shown in `#extras-panel` while it is open. **A new menu section goes there,
   never into the bare menu.** `index.html` gives `#ui` `overflow-y: auto` (and `style3.css` stays untouched), so a menu
-  or results screen taller than the window scrolls and `body` never does. Recording mode hides the button too, and the
-  panel opens with a line naming R as the way back. A test that clicks a menu control opens Extras first
-  (`openExtras` in `checkpoint.integration.test.ts`). `menu-extras.integration.test.ts` proves the closed menu fits
-  1280x720, the wheel reaches `#recordings` at 1280x600, and recording mode leaves none of the added ids.
-- **Recording mode** (`ts/src/recording.ts`, owner request 2026-10-21) hides every addition over the original and marks
-  the frames to cut; the README's *Recording mode* section is the user-facing contract. `R` (by `KeyboardEvent.code`)
-  toggles it, remembered as `paperio2.recording`, mirrored as the `paperio2-recording` class on `<html>` that
-  `joystick.css` hides the joystick by. In `ui.ts`, `marker` (a `CutMarker`, or `null` when the mode is off) is passed
-  to `PauseControl`, `PracticeControl` and `GameScreen`; each hides itself and routes its events through the marker.
-  The marker is a `pointer-events: none` full-frame div, red (`cut`) until `resumeThen`, then green (`resume`) for
-  700 ms while the game stays paused, then play. `Practice.onPlayerDeath` / `onRespawn` drive a respawn's cut, and
-  `Checkpoint.seenAt` (wall time its state was last on screen, reset when a respawn resumes it) gives the red frames'
-  rewind hint. **A new on-screen addition must hide in recording mode**, and a new interrupting action goes through
-  `interruptPlay`. It is off by default and touches nothing the engine runs, so the differential test is unaffected.
-  **Canvas-drawn additions revert while recording** (owner, 2026-10-22: the screen only, enemy modes and bot count
-  still apply): `Game.looksOriginal` is true while `screenRecording` (mirrored from recording mode by an App effect)
-  or `videoRecorder` is set, unless `recordingAdditions` (the menu's **Additions in recordings**,
-  `paperio2.recordingAdditions`, off by default) is on. It ignores `cameraFollow`. The leaderboard name fit is NOT
-  switched off by it (owner, 2026-10-22, reversing the first take): the fit repairs the original's cut-off names, and
-  a cut-off name reads as broken in a video, so `fitsLeaderboardNames` reads only the config flag. **A new addition
-  drawn on `game.view` must check `looksOriginal`**; one on its own layer is never in a take and recording mode hides
-  it. Proven in `demo-extras.integration.test.ts`.
-  Every switch in (R, the menu button, or a load with the mode stored as on) shows `RecordingNotice`, the owner's
-  wording verbatim; in a run the switch pauses under red and `useRecordingMode` holds the green span and the resume
-  until the notice is dismissed. **Keep its key effect's deps at `[shown]`**: a dep that changes on every App render
-  (an inline callback) queues preact's after-paint rAF on every frame, and that alone broke the checkpoint-grid
-  integration test (1 automatic checkpoint instead of 3+).
-- **A saved game** is the snapshot through `shared/graph-codec.ts` (a flat object table with back-references and a
+  or results screen taller than the window scrolls and `body` never does. A test that clicks a menu control opens Extras
+  first (`openExtras` in `checkpoint.integration.test.ts`). `menu-extras.integration.test.ts` proves the closed menu fits
+  1280x720 and the wheel reaches `#recordings` at 1280x600.
+- **Recording mode (the `R` key) is retired** (owner, 2026-10-22: "redundant since you implemented own recording"). It
+  hid every page addition and painted red/green cut markers for an EXTERNAL screen recorder; the in-game recorder
+  covers that, since the page is never in its canvas and a take has no pauses to cut. On load the App removes its old
+  `paperio2.recording` key (`forgetRecordingMode`), and `menu-extras.integration.test.ts` proves R now hides nothing.
+  `ts/src/recording.ts` keeps only the **Additions in recordings** setting. On-screen additions no longer need a
+  hidden state. **Canvas-drawn additions revert during an in-game take** (owner, 2026-10-22: the screen only, enemy
+  modes and bot count still apply): `Game.looksOriginal` is true while `videoRecorder` is set, unless
+  `recordingAdditions` (the menu's **Additions in recordings**, `paperio2.recordingAdditions`, off by default) is on.
+  It ignores `cameraFollow`. The leaderboard name fit is NOT switched off by it (owner, 2026-10-22, reversing the first
+  take): the fit repairs the original's cut-off names, and a cut-off name reads as broken in a video, so
+  `fitsLeaderboardNames` reads only the config flag. **A new addition drawn on `game.view` must check
+  `looksOriginal`**; one on its own layer is never in a take. Proven in `demo-extras.integration.test.ts`, with a
+  stand-in `videoRecorder` because the harness page is not a secure one.
+- **A key-listening effect in a component the App renders every frame keeps stable deps.** A dep that changes on every
+  App render (an inline callback) queues preact's after-paint rAF on every frame, and that alone once broke the
+  checkpoint-grid integration test (1 automatic checkpoint instead of 3+). Read the callback through a ref instead.- **A saved game** is the snapshot through `shared/graph-codec.ts` (a flat object table with back-references and a
   class registry, never `constructor.name`), with skins saved by name and paths rebuilt on load, as gzipped base64
   under `paperio2.save.<id>`, indexed by `paperio2.saves`. Particles, quest notifications and the vector pool are
   left out. **Bump `SAVE_FORMAT_VERSION` whenever the saved shape changes**; a save from another version or
@@ -240,6 +231,10 @@ neither.
   keyframe at its `snapshot.clockTime`, and a respawn drops every chunk after that keyframe (kept or still in the
   encoder) and forces a keyframe on the next frame. Since the restore puts the clock back to the checkpoint's, the
   video carries on from the checkpoint's own timestamp. A respawn at a checkpoint from before the take restarts it.
+- **Record every game** (`VideoSettings.recordEvery`, owner 2026-10-22, default off): `useVideoRecording` starts a take
+  with `auto = true` when the route enters `game`, and the route-leave stop ends it. `video/retention.ts` (unit-tested)
+  decides what goes: an auto take under 10 s is deleted when it finishes, and auto takes past the newest 5 not marked
+  `keep` are pruned after each auto take and each Keep toggle. A `V` take is never pruned.
 - **Storage** is IndexedDB (`video/store.ts`): one record per take, one per chunk keyed `[recordingId, seq]`, the cut a
   key-range delete, writes chained in issue order. A running take holds the Web Lock `recordingLockName(id)`; on load,
   a take still `recording` whose lock nobody holds is marked `recovered`.
@@ -280,7 +275,7 @@ neither.
   only reads: it never writes game state or draws `Math.random`. **The loops are not logged on a take**: the timeline logs one-shot cues, and a state would need a new record shape.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
-  (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged, and recording mode silences them. Music is never
+  (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged. Music is never
   recorded: `video/audio-mix.ts` renders the effects plus an optional music bed (`planMusicBed`, crossfaded, over the
   final cut length) with `OfflineAudioContext` in 10 s windows, fed to the muxer as the video packets reach each window,
   and encodes AAC, or Opus where AAC cannot be encoded. The Recordings panel's **Sound** setting (`VideoSettings.audio`)
@@ -304,7 +299,7 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   replay of a seed, and shift snapshots. The whitebox works on plain `{ x, y }` copies (`autopilot/plane.ts`).
 - **Hand-over:** a steering `keydown` (any `keyCode` the engine steers on, so the joystick's synthetic events count), a
   touch on the canvas or a trusted `mousedown` on it disengages; `O` (`KeyboardEvent.code`) re-engages. `I` toggles
-  the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses R Z X K P J V M N H L Esc.
+  the overlay. The engine steers on arrows/WASD/C and `G` toggles its debug graph; the app uses Z X K P J V M N H L Esc.
   **A mouse that only moves must never take over** (owner, 2026-10-22): the pointer rests over the canvas after the menu's
   click, so the old 6 px move threshold handed every demo to a human who was not steering, and the player flew straight
   until `O`.

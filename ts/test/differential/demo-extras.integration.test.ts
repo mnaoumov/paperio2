@@ -244,18 +244,23 @@ describe('the demo extras', () => {
     }
   }, TIMEOUT_MILLISECONDS);
 
-  it('keeps the showcase out of a recording unless the setting lets it in, and the name fit in', async () => {
-    const page = await open({ 'paperio2.autopilot': 'whitebox', 'paperio2.autopilotView': 'on', 'paperio2.recording': 'on' });
+  it('keeps the showcase out of a take unless the setting lets it in, and the name fit in', async () => {
+    const page = await open({ 'paperio2.autopilot': 'whitebox', 'paperio2.autopilotView': 'on' });
     try {
       await play(page);
       // The harness turns the name fit off to compare against the original; this test needs it as a player has it.
+      // The harness's page is not a secure one, so the recorder never runs there: a stand-in take counts the same.
       await page.evaluate(() => {
         Reflect.set(Object(Reflect.get(window.paperio2api, 'config')), 'leaderboardFitNames', true);
+        function ignore(): void {
+          // A stand-in take records nothing.
+        }
+        Reflect.set(window.paperio2api.game, 'videoRecorder', { afterFrame: ignore, onCheckpoint: ignore, onRespawn: ignore, onSound: ignore });
       });
       await steps(page, GLIDE_FRAMES);
-      const inRecordingMode = await cameraOffsets(page);
-      expect(inRecordingMode.fromPlayer, 'recording mode keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
-      expect(await measuredLeaderboard(page), 'recording mode keeps the leaderboard name fit').toBeGreaterThan(0);
+      const inTake = await cameraOffsets(page);
+      expect(inTake.fromPlayer, 'a take keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
+      expect(await measuredLeaderboard(page), 'a take keeps the leaderboard name fit').toBeGreaterThan(0);
 
       await page.evaluate(() => {
         window.paperio2api.game.recordingAdditions = true;
@@ -266,17 +271,6 @@ describe('the demo extras', () => {
       expect(withAdditions.fromPlayer, 'with the setting on, the camera leaves the player').toBeGreaterThan(GLIDE_TOLERANCE);
       expect(await measuredLeaderboard(page), 'with the setting on, the leaderboard fits the names')
         .toBeGreaterThan(0);
-
-      // The in-game recorder's take counts as recording too, with recording mode off.
-      await page.evaluate(() => {
-        const { game } = window.paperio2api;
-        game.recordingAdditions = false;
-        game.screenRecording = false;
-        Reflect.set(game, 'videoRecorder', { afterFrame: (): void => undefined });
-      });
-      await steps(page, GLIDE_FRAMES);
-      expect((await cameraOffsets(page)).fromPlayer, 'a take keeps the camera on the player').toBeLessThan(CAMERA_TOLERANCE);
-      expect(await measuredLeaderboard(page), 'a take keeps the leaderboard name fit').toBeGreaterThan(0);
     } finally {
       await page.browserContext().close();
     }

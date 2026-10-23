@@ -114,7 +114,7 @@ describe('the stats log', () => {
         return blob instanceof Blob ? blob.text() : '';
       });
       const lines = text.trim().split('\n').map((line: string) => JSON.parse(line) as LogLine);
-      expect(lines[0]).toMatchObject({ format: 1, pilot: 'human', type: 'header' });
+      expect(lines[0]).toMatchObject({ format: 2, pilot: 'human', type: 'header' });
       expect(lines.filter((line: LogLine) => line.type === 'sample').length).toBeGreaterThanOrEqual(MIN_SAMPLES);
       expect(lines.filter((line: LogLine) => line.type === 'event').map((line: LogLine) => line.event)).toContain('death');
       expect(lines.at(-1)).toMatchObject({ outcome: 'death', reason: 'system', type: 'end' });

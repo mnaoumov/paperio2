@@ -31,11 +31,6 @@ export interface Checkpoint {
   readonly isAuto: boolean;
   /** The run's playtime when it was taken, in milliseconds of game time. */
   readonly playtime: number;
-  /**
-   * When its state was last on screen, from `performance.now()`: when it was taken, then when a respawn at it
-   * resumed. Recording mode tells from it how far back a cut reaches.
-   */
-  seenAt: number;
   readonly snapshot: GameSnapshot;
 }
 
@@ -68,10 +63,6 @@ export class Practice {
   public onChange: (() => void) | null = null;
   /** Shows a short message to the player, such as why a checkpoint could not be taken. */
   public onMessage: ((text: string) => void) | null = null;
-  /** Told when a death is taken over, with the checkpoint the respawn is due at. */
-  public onPlayerDeath: ((checkpoint: Checkpoint) => void) | null = null;
-  /** Told right after a respawn restored a checkpoint, between frames. */
-  public onRespawn: ((checkpoint: Checkpoint) => void) | null = null;
   public readonly options: PracticeConstructorOptions;
   public respawnPending = false;
 
@@ -110,7 +101,6 @@ export class Practice {
       id: this.nextId++,
       isAuto,
       playtime: snapshot.clockTime - this.game.startTime,
-      seenAt: performance.now(),
       snapshot
     };
     this.checkpoints.push(checkpoint);
@@ -182,10 +172,6 @@ export class Practice {
     this.deaths++;
     this.respawnPending = true;
     this.changed();
-    const latest = this.checkpoints[this.checkpoints.length - 1];
-    if (latest) {
-      this.onPlayerDeath?.(latest);
-    }
     this.game.clock.setTimeout(() => {
       if (this.ended) {
         // `end` already handed the game over to the results.
@@ -230,7 +216,6 @@ export class Practice {
     this.game.videoRecorder?.onRespawn(latest);
     this.game.sounds?.onRespawn();
     this.changed();
-    this.onRespawn?.(latest);
     return true;
   }
 

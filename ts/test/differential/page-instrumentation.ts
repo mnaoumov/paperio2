@@ -262,7 +262,7 @@ export interface PaperIo2PageApi {
   /** The reconstruction's config, there from boot; the original exposes none. */
   readonly config?: Record<string, unknown>;
   /** The reconstruction's per-game stats log; the original has none. */
-  readonly createStatsLog?: (pilot: string, recordingMode: boolean) => PageStatsLog;
+  readonly createStatsLog?: (pilot: string) => PageStatsLog;
   readonly decodeSnapshot?: (payload: string) => Promise<unknown>;
   readonly encodeSnapshot?: (snapshot: unknown) => Promise<string>;
   readonly game: PaperIo2PageGame;
@@ -291,8 +291,6 @@ export interface PaperIo2PageGame {
   /** The reconstruction's "Additions in recordings" setting; the recording look test flips it. */
   recordingAdditions?: boolean;
   renderer?: unknown;
-  /** Whether recording mode is on, in the reconstruction. */
-  screenRecording?: boolean;
   readonly space: PageSpatialGrid;
   readonly startTime?: number;
   /** Set to redraw the cached leaderboard on the next frame. */

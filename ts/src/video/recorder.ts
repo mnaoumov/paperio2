@@ -64,6 +64,8 @@ export interface VideoSettings {
   readonly audio: VideoAudioSetting;
   readonly fps: VideoFpsSetting;
   readonly height: VideoHeightSetting;
+  /** Whether every run is recorded from its start, without V. */
+  readonly recordEvery: boolean;
 }
 
 export interface VideoSize {
@@ -72,7 +74,7 @@ export interface VideoSize {
 }
 
 export const VIDEO_SETTINGS_STORAGE_KEY = 'paperio2.video';
-export const DEFAULT_VIDEO_SETTINGS: VideoSettings = { audio: 'all', fps: '30', height: '720' };
+export const DEFAULT_VIDEO_SETTINGS: VideoSettings = { audio: 'all', fps: '30', height: '720', recordEvery: false };
 /**
  * The bitrate at 720p and 30 fps; other sizes and rates get the same bits per pixel. It is the lowest of the bitrates
  * tried that showed no blocking on trail edges (README, *Recording inside the game*).
@@ -145,7 +147,7 @@ export class VideoRecorder implements FrameRecorder {
   /** The chain of storage writes, in the order they were issued. */
   private writes: Promise<void> = Promise.resolve();
 
-  private constructor(private readonly game: Game, choice: CodecChoice, settings: VideoSettings, private readonly callbacks: RecorderCallbacks) {
+  private constructor(private readonly game: Game, choice: CodecChoice, settings: VideoSettings, private readonly callbacks: RecorderCallbacks, auto: boolean) {
     const view = game.view;
     const { height, width } = outputSize(view.width, view.height, settings.height);
     this.output = document.createElement('canvas');
@@ -160,6 +162,7 @@ export class VideoRecorder implements FrameRecorder {
     this.timeline = new RecordingTimeline({ fps, keyFrameIntervalMilliseconds: DEFAULT_KEY_FRAME_INTERVAL_MILLISECONDS });
     const now = Date.now();
     this.record = {
+      ...(auto ? { auto } : {}),
       bytes: 0,
       codec: choice.codec,
       decoderConfig: null,
@@ -193,10 +196,11 @@ export class VideoRecorder implements FrameRecorder {
    * @param choice - The codec, from {@link findCodec}.
    * @param settings - Size and frame rate.
    * @param callbacks - Told when the take stops by itself.
+   * @param auto - Whether **Record every game** started it rather than V, which lets it be pruned.
    * @returns The running take.
    */
-  public static start(game: Game, choice: CodecChoice, settings: VideoSettings, callbacks: RecorderCallbacks): VideoRecorder {
-    const recorder = new VideoRecorder(game, choice, settings, callbacks);
+  public static start(game: Game, choice: CodecChoice, settings: VideoSettings, callbacks: RecorderCallbacks, auto = false): VideoRecorder {
+    const recorder = new VideoRecorder(game, choice, settings, callbacks, auto);
     game.videoRecorder = recorder;
     // Held until the take is finished or discarded; a reload or a crash drops it, which marks the take as recoverable.
     navigator.locks.request(recordingLockName(recorder.record.id), () =>
@@ -476,7 +480,8 @@ export function readVideoSettings(): VideoSettings {
       const height = VIDEO_HEIGHT_OPTIONS.find((option: VideoHeightSetting) => option === parsed.height) ?? DEFAULT_VIDEO_SETTINGS.height;
       // Settings saved before there was sound have no audio choice.
       const audio = 'audio' in parsed ? VIDEO_AUDIO_OPTIONS.find((option: VideoAudioSetting) => option === parsed.audio) ?? DEFAULT_VIDEO_SETTINGS.audio : DEFAULT_VIDEO_SETTINGS.audio;
-      return { audio, fps, height };
+      const recordEvery = 'recordEvery' in parsed && parsed.recordEvery === true;
+      return { audio, fps, height, recordEvery };
     }
   } catch {
     // Blocked or malformed storage: the defaults.
