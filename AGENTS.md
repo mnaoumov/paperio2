@@ -191,8 +191,9 @@ neither.
   **Canvas-drawn additions revert while recording** (owner, 2026-10-22: the screen only, enemy modes and bot count
   still apply): `Game.looksOriginal` is true while `screenRecording` (mirrored from recording mode by an App effect)
   or `videoRecorder` is set, unless `recordingAdditions` (the menu's **Additions in recordings**,
-  `paperio2.recordingAdditions`, off by default) is on. It turns off the leaderboard name fit (`fitsLeaderboardNames`
-  in `game-render.ts`, which also redraws the cached rows when it flips) and ignores `cameraFollow`. **A new addition
+  `paperio2.recordingAdditions`, off by default) is on. It ignores `cameraFollow`. The leaderboard name fit is NOT
+  switched off by it (owner, 2026-10-22, reversing the first take): the fit repairs the original's cut-off names, and
+  a cut-off name reads as broken in a video, so `fitsLeaderboardNames` reads only the config flag. **A new addition
   drawn on `game.view` must check `looksOriginal`**; one on its own layer is never in a take and recording mode hides
   it. Proven in `demo-extras.integration.test.ts`.
   Every switch in (R, the menu button, or a load with the mode stored as on) shows `RecordingNotice`, the owner's
@@ -473,7 +474,12 @@ further right the bar starts, and it runs `barWidth` past that, off the right ed
 the edge. At 1280x720 the player's row read `16 – 0.10% mnao`, and on a phone `16 – 0.10`.
 `ts/src/leaderboard-fit.ts` (`fitLeaderboardRow`, unit-tested) moves a bar left only as far as its `measureText` width
 needs. It never goes left of `viewScreenWidth - barWidth`, which is the top bar's position and also the width of the
-cached leaderboard canvas in `drawLeaderboard`, so the cache needs no change. A name that still cannot fit is cut with
+cached leaderboard canvas in `drawLeaderboard`, so the cache needs no change at a device pixel ratio of 1 or more.
+**Below 1 (a zoomed-out page) the original's cache was too small**: the rows are drawn into it at
+`1 / devicePixelRatio`, so they took `barWidth / dpr` canvas pixels of a `barWidth`-wide canvas, and at 0.8 the top
+two rows' text started 51 and 21 px left of it. `leaderboardCacheScale` enlarges the cache by `1 / min(dpr, 1)`, which
+is exactly the original's size at 1 and above, so the differential test (dpr 1) is unaffected. The fit stays on while
+recording. A name that still cannot fit is cut with
 `…`, and the rank and percent are never shortened. That limit is deliberate. On a phone the top bar is about a third
 of the width, and the pause button sits just left of it, so a wider cap would overlap the pause button.
 
