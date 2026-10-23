@@ -84,6 +84,12 @@ interface Flight {
   readonly reached: boolean;
 }
 
+/** A danger seen: where, in frame pixels from where the odometer started, and in which frame. */
+interface RememberedThreat {
+  readonly at: Point;
+  readonly frame: number;
+}
+
 /* eslint-disable no-magic-numbers -- the tuning constants: each is named by its declaration and its comment. */
 /** The share of a color laid over the floor that the player's trail is drawn with. */
 const TRAIL_ALPHA = 0.6;
@@ -111,6 +117,8 @@ const AVATAR_DIAMETER = AVATAR_RADIUS * 2;
 const NAME_TOP = 0.11;
 const NAME_BOTTOM = 0.06;
 const NAME_HALF_WIDTH = 0.06;
+/** The widest the player's name runs either side of the centre, as a share of the frame's height. */
+const NAME_STRIP_HALF_WIDTH = 0.25;
 /** The player's own score labels ("+0.05%") float up above its name, riding with it; colored, they read as a unit. */
 const LABEL_TOP = 0.3;
 const LABEL_HALF_WIDTH = 0.12;
@@ -123,12 +131,16 @@ const SCORE_SAMPLE_BOTTOM = 0.05;
 const QUANTUM = 8;
 /** Foreign pixels this far inside foreign ground are territory, and all within as far of them; the rest is units and trails. */
 const TERRITORY_THICKNESS = 5;
+/** Within this many pixels of the HUD, foreign ground is not told apart from units by thickness. */
+const HUD_MARGIN = 2 * TERRITORY_THICKNESS;
 /** At home, the pilot waits this many frames at most for a nearby unit to go before it leaves away from it. */
 const MAX_HOME_WAIT_FRAMES = 300;
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
 /** A small foreign component this close to the trail or the player, as a share of the frame's height, sends it home. */
 const DANGER_RADIUS = 0.5;
+/** A danger seen is heeded this many frames after it is last seen. */
+const THREAT_MEMORY_FRAMES = 120;
 /** The trail is looked for this many pixels out from the avatar, and this many of its pixels there say it is drawn. */
 const HEAD_TRAIL_REACH = 6;
 const MIN_HEAD_TRAIL = 3;
@@ -150,6 +162,8 @@ const RAY_COUNT = 24;
 const RAY_LENGTH = 0.5;
 /** A way out needs free floor past the territory's edge for at least this share of a ray. */
 const MIN_FREE_SHARE = 0.4;
+/** A way out needs this share of the frame's height of its first stretch past the territory clear of the wall's lookahead. */
+const WALL_ROOM = 0.1;
 /** The remembered trail, drawn this many pixels either side of its line, is what the way back must not touch. */
 const TRACK_CLEARANCE = 3;
 /** Within this many pixels of the remembered trail a foreign pixel is the trail itself, drawn over foreign ground. */
@@ -223,6 +237,8 @@ export class BlackboxPilot {
   /** Where the pilot left its territory, in frame pixels from where the odometer started. */
   private exitPoint: null | Point = null;
   private floor: Color | null = null;
+  /** Frames decided so far. */
+  private frameIndex = 0;
   private framesInPhase = 0;
   /** The heading the pilot believes the player has: the directions it gave, corrected by what the odometer saw. */
   private heading = 0;
@@ -247,7 +263,11 @@ export class BlackboxPilot {
   private sideward: Point = { x: 0, y: 1 };
   /** The player's speed in frame pixels per frame, as the odometer measured it. */
   private speed = DEFAULT_SPEED;
+  /** This frame's foreign units and trails (see {@link thinForeign}). */
+  private thin: Uint8Array = new Uint8Array(0);
   private threat: null | Point = null;
+  /** The dangers seen lately, in frame pixels from where the odometer started, with the frame each was seen in. */
+  private threatMemory: RememberedThreat[] = [];
   /** The way the player came since it left its territory, in frame pixels from where the odometer started, oldest first. */
   private track: Point[] = [];
   /** The index in {@link BlackboxPilot.track} where the player last left its territory, or `null` while it is home. */
@@ -274,10 +294,12 @@ export class BlackboxPilot {
     this.raster = raster;
     this.wall = wallDistance(classes, frame.width, frame.height);
     this.aim = null;
+    this.thin = thinForeign(classes, frame.width, frame.height);
     const atHome = this.isHome(classes);
     this.previousClasses = classes;
     this.previousPosition = this.odometer.position;
-    this.threat = this.findThreat(classes, raster);
+    this.frameIndex++;
+    this.threat = this.recallThreat(this.findThreat(raster));
     const wanted = atHome ? this.stepHome(classes) : this.stepAway(classes, raster);
     this.framesInPhase++;
     // An aim right under the player has no direction: the last one stands, and so does the heading.
@@ -300,6 +322,7 @@ export class BlackboxPilot {
     this.homeMask = null;
     this.homeStreak = 0;
     this.previousClasses = null;
+    this.threatMemory = [];
     this.odometer.reset();
   }
 
@@ -383,8 +406,11 @@ export class BlackboxPilot {
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
       let edge = -1;
       let free = 0;
+      let wallAhead = false;
       for (let along = 1; along < reach; along++) {
-        const pixelClass = this.classAt(classes, this.width * HALF + direction.x * along, this.height * HALF + direction.y * along);
+        const x = this.width * HALF + direction.x * along;
+        const y = this.height * HALF + direction.y * along;
+        const pixelClass = this.classAt(classes, x, y);
         if (edge < 0) {
           if (pixelClass !== OWN && pixelClass !== MASKED) {
             edge = along;
@@ -394,6 +420,10 @@ export class BlackboxPilot {
         }
         if (pixelClass !== FLOOR) {
           break;
+        }
+        // The leg stops where its wall lookahead meets the wall: a way out the wall ends that soon has no room to turn.
+        if (along - edge < this.height * WALL_ROOM && (this.wall[Math.floor(y) * this.width + Math.floor(x)] ?? Infinity) < this.height * FLOOR_LOOKAHEAD) {
+          wallAhead = true;
         }
         free++;
       }
@@ -405,7 +435,7 @@ export class BlackboxPilot {
       let score = free - edge * HALF;
       if (edge < 0) {
         score = -reach;
-      } else if (free < reach * MIN_FREE_SHARE) {
+      } else if (wallAhead || free < reach * MIN_FREE_SHARE) {
         score = free - reach - reach;
       }
       if (towardThreat) {
@@ -459,8 +489,9 @@ export class BlackboxPilot {
         } else if ((color.b - color.r > OUTSIDE_BLUE_MARGIN && color.g - color.r > OUTSIDE_GREEN_MARGIN) || distanceSquared(color, ARENA_EDGE) < MATCH_DISTANCE_SQUARED) {
           classes[index] = OUTSIDE;
         } else if (Math.max(color.r, color.g, color.b) - Math.min(color.r, color.g, color.b) < GREY_SPREAD) {
-          // Greys are text, outlines and shadows: names, score labels and the HUD, not units.
-          classes[index] = MASKED;
+          // A grey is a unit's skin as often as text: a dark grey bot is a bot. The player's own name is told apart by
+          // place; other units' names are thin strokes, which the erosion drops, and float right by their units anyway.
+          classes[index] = this.isOwnNameStrip(column, row) ? MASKED : OTHER;
         } else {
           classes[index] = OTHER;
         }
@@ -517,13 +548,11 @@ export class BlackboxPilot {
    * once out, near its remembered trail, in frame pixels. A unit leaving its territory is joined to it, so territory is
    * told apart by thickness rather than by the size of what is connected.
    *
-   * @param classes - The classified frame.
    * @param raster - The remembered trail.
    * @returns The danger, or `null`.
    */
-  private findThreat(classes: Uint8Array, raster: Uint8Array): null | Point {
-    const { height, width } = this;
-    const thin = thinForeign(classes, width, height);
+  private findThreat(raster: Uint8Array): null | Point {
+    const { height, thin, width } = this;
     const nearTrack = this.phase === 'home' ? null : chamferDistance(raster.map((value) => value === 0 ? 0 : 1), width, height);
     const radius = height * DANGER_RADIUS;
     const trackRadius = height * TRACK_DANGER_RADIUS;
@@ -531,11 +560,15 @@ export class BlackboxPilot {
     const centerY = height * HALF;
     let nearest: null | Point = null;
     let nearestDistance = Infinity;
-    for (let index = 0; index < classes.length; index++) {
+    for (let index = 0; index < thin.length; index++) {
       if (thin[index] === 0) {
         continue;
       }
       const point = { x: index % width, y: Math.floor(index / width) };
+      // The HUD cuts territory into slivers as thin as a trail: beside it, thinness says nothing.
+      if (isHud(point.x / width, point.y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
+        continue;
+      }
       const away = Math.hypot(point.x - centerX, point.y - centerY);
       if (away < nearestDistance && (away < radius || (nearTrack?.[index] ?? Infinity) < trackRadius)) {
         nearest = point;
@@ -672,12 +705,26 @@ export class BlackboxPilot {
     const { height, width } = this;
     const x = column / width;
     const y = row / height;
-    if ((x < SCORE_BAR_WIDTH && y < SCORE_BAR_HEIGHT) || (x > LEADERBOARD_LEFT && y < LEADERBOARD_HEIGHT) || (x > MINIMAP_LEFT && y > MINIMAP_TOP)) {
+    if (isHud(x, y, 0, 0)) {
       return true;
     }
     const dx = (column - width * HALF) / height;
     const dy = (row - height * HALF) / height;
     return Math.hypot(dx, dy) < AVATAR_RADIUS || (Math.abs(dx) < NAME_HALF_WIDTH && dy > -NAME_TOP && dy < -NAME_BOTTOM) || (Math.abs(dx) < LABEL_HALF_WIDTH && dy > -LABEL_TOP && dy <= -NAME_TOP);
+  }
+
+  /**
+   * Whether a pixel lies in the strip the player's own name is drawn in, at its widest. A name is as long as the
+   * player made it, so its grey letters are told from a grey unit by place, not color.
+   *
+   * @param column - The pixel's column.
+   * @param row - Its row.
+   * @returns Whether it does.
+   */
+  private isOwnNameStrip(column: number, row: number): boolean {
+    const dx = (column - this.width * HALF) / this.height;
+    const dy = (row - this.height * HALF) / this.height;
+    return Math.abs(dx) < NAME_STRIP_HALF_WIDTH && dy > -NAME_TOP && dy < -NAME_BOTTOM;
   }
 
   /**
@@ -700,13 +747,16 @@ export class BlackboxPilot {
   }
 
   private ownNearCenter(classes: Uint8Array): boolean {
-    // The avatar hides the pixel under the player; the territory around it decides.
+    // The avatar hides the pixel under the player; the territory around it decides. A unit beside the player hides the
+    // ground under it as the avatar does, and does not make home read as away.
     const radius = this.height * AVATAR_RADIUS * (1 + HALF);
     let own = 0;
     let seen = 0;
     for (let angle = 0; angle < FULL_TURN; angle += SIXTEENTH_TURN) {
-      const pixelClass = this.classAt(classes, this.width * HALF + Math.cos(angle) * radius, this.height * HALF + Math.sin(angle) * radius);
-      if (pixelClass !== MASKED) {
+      const x = this.width * HALF + Math.cos(angle) * radius;
+      const y = this.height * HALF + Math.sin(angle) * radius;
+      const pixelClass = this.classAt(classes, x, y);
+      if (pixelClass !== MASKED && this.thin[Math.floor(y) * this.width + Math.floor(x)] !== 1) {
         seen++;
         if (pixelClass === OWN) {
           own++;
@@ -836,6 +886,37 @@ export class BlackboxPilot {
       }
     }
     return best;
+  }
+
+  /**
+   * Remembers the danger seen this frame, and with none in view, recalls the nearest one seen in the last
+   * {@link THREAT_MEMORY_FRAMES} frames that was within the danger radius: a unit that just left the view, or slipped
+   * out of the radius, has not gone, and the original bots turn on a trail from there.
+   *
+   * @param seen - The danger in view, in frame pixels, or `null`.
+   * @returns The danger to heed, in frame pixels (possibly outside the frame), or `null`.
+   */
+  private recallThreat(seen: null | Point): null | Point {
+    const position = this.odometer.position;
+    const centerX = this.width * HALF;
+    const centerY = this.height * HALF;
+    if (seen) {
+      this.threatMemory.push({ at: { x: seen.x - centerX + position.x, y: seen.y - centerY + position.y }, frame: this.frameIndex });
+    }
+    this.threatMemory = this.threatMemory.filter((memory) => this.frameIndex - memory.frame <= THREAT_MEMORY_FRAMES);
+    if (seen) {
+      return seen;
+    }
+    let nearest: null | Point = null;
+    let nearestDistance = this.height * DANGER_RADIUS;
+    for (const { at } of this.threatMemory) {
+      const away = Math.hypot(at.x - position.x, at.y - position.y);
+      if (away < nearestDistance) {
+        nearest = { x: at.x - position.x + centerX, y: at.y - position.y + centerY };
+        nearestDistance = away;
+      }
+    }
+    return nearest;
   }
 
   /** Remembers where the player is, keeping only the last stretch while it is at home. */
@@ -1001,7 +1082,8 @@ export class BlackboxPilot {
       this.sideFrames = SIDE_FRAMES;
     }
     if (this.phase === 'back') {
-      return this.planReturn(classes, raster);
+      // Back inside but for a capture too small to see: deeper in, not along a stale aim back out over the edge.
+      return this.homeStreak > 0 ? this.stayHome(classes) : this.planReturn(classes, raster);
     }
     const leg = this.phase === 'out' ? this.outward : this.sideward;
     // Foreign ground ahead ends a leg only once it is under way, so it can leave across a neighbor; the wall at once.
@@ -1340,6 +1422,19 @@ function isDarkerShade(color: Color, base: Color): boolean {
   const low = Math.min(...ratios);
   const high = Math.max(...ratios);
   return high < SHADE_MAX && low > SHADE_MIN && high - low < SHADE_SPREAD;
+}
+
+/**
+ * Whether a point lies on the HUD, or within a margin of it: the score bar block, the leaderboard and the minimap.
+ *
+ * @param x - The point's column, as a share of the frame's width.
+ * @param y - Its row, as a share of the frame's height.
+ * @param marginX - The margin across, as a share of the frame's width.
+ * @param marginY - The margin down, as a share of the frame's height.
+ * @returns Whether it does.
+ */
+function isHud(x: number, y: number, marginX: number, marginY: number): boolean {
+  return (x < SCORE_BAR_WIDTH + marginX && y < SCORE_BAR_HEIGHT + marginY) || (x > LEADERBOARD_LEFT - marginX && y < LEADERBOARD_HEIGHT + marginY) || (x > MINIMAP_LEFT - marginX && y > MINIMAP_TOP - marginY);
 }
 
 /**

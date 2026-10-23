@@ -56,6 +56,34 @@ function homeFrame(x: number, y: number): Rgb {
   return Math.hypot(x - (WIDTH / 2 - 10), y - HEIGHT / 2) < TERRITORY_RADIUS ? OWN : FLOOR;
 }
 
+/** A dark grey skin, like the bot that cut the trail unseen when greys were taken for text. */
+const GREY: Rgb = { b: 64, g: 69, r: 74 };
+const FOREIGN: Rgb = { b: 90, g: 110, r: 240 };
+/** The leaderboard's left edge, as the pilot masks it, in pixels of the scaled-down frame. */
+const LEADERBOARD_LEFT = 237;
+
+/**
+ * A grey trail, 4 pixels thick, running down the floor right of the player's territory.
+ *
+ * @param x - The column.
+ * @param y - The row.
+ * @returns Whether the pixel is on it.
+ */
+function isGreyTrail(x: number, y: number): boolean {
+  return x >= WIDTH / 2 + 40 && x < WIDTH / 2 + 44 && y > 40 && y < 140;
+}
+
+/**
+ * Foreign ground that runs under the leaderboard, of which only a 3-pixel sliver shows left of it.
+ *
+ * @param x - The column.
+ * @param y - The row.
+ * @returns Whether the pixel is on it.
+ */
+function isSliverBesideLeaderboard(x: number, y: number): boolean {
+  return x >= LEADERBOARD_LEFT - 3 && y > 20 && y < 50;
+}
+
 describe('blackbox', () => {
   it('finds the most common color of a rectangle', () => {
     const image = frame(homeFrame);
@@ -124,6 +152,25 @@ describe('blackbox', () => {
     expect(away.x).toBeCloseTo(-1);
     expect(away.y).toBeCloseTo(0);
     expect(wallGradient(new Float32Array(width * height).fill(Infinity), width, height, 5, 3)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('sees a grey unit as a danger', () => {
+    const pilot = new BlackboxPilot();
+    pilot.decide(frame((x, y) => isGreyTrail(x, y) ? GREY : homeFrame(x, y)));
+    expect(pilot.debug.threat).not.toBeNull();
+  });
+
+  it('does not take foreign ground cut thin by the leaderboard for a unit', () => {
+    const pilot = new BlackboxPilot();
+    pilot.decide(frame((x, y) => isSliverBesideLeaderboard(x, y) ? FOREIGN : homeFrame(x, y)));
+    expect(pilot.debug.threat).toBeNull();
+  });
+
+  it('remembers a danger that left the view', () => {
+    const pilot = new BlackboxPilot();
+    pilot.decide(frame((x, y) => isGreyTrail(x, y) ? GREY : homeFrame(x, y)));
+    pilot.decide(frame(homeFrame));
+    expect(pilot.debug.threat).not.toBeNull();
   });
 
   it('heads out of its territory toward the nearest free floor', () => {
