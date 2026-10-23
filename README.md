@@ -270,6 +270,25 @@ beyond the view; an earlier version measured on 8 of the same seeds died in 6,
 only a small part of the arena, so the bots that cut its trail come into view
 late.
 
+**Frame rate.** In a live game both pilots do their heavy work in a background
+worker, so the game keeps its full frame rate: the blackbox reads each frame
+there, and the whitebox plans each loop there. `npm run benchmark:frames` in
+`ts/` plays each mode in real time in headless Chrome at 1920x1080 and counts
+the dropped frames, against the original as a baseline. On 2026-10-22, 60-90 s a
+mode:
+
+| Mode | Before | After |
+| --- | --- | --- |
+| Original | 0.03% dropped | (unchanged) |
+| Reconstruction, no pilot | 0% dropped | 0% dropped |
+| Whitebox | 0.9-1.7% dropped, a 40-450 ms stall every few seconds | 0-0.03% dropped, no stall |
+| Blackbox | 30 fps: 27 ms of every frame in the pilot | 60 fps, 0-0.12% dropped |
+| Recording (whitebox) | 0.6% dropped, all from the whitebox | 0.03% dropped |
+
+The in-game recorder takes 0.14 ms a frame. The pilots play as before: the
+benchmark above runs them inside the frame, as it always did, and replays the
+same games.
+
 ### Enemy modes
 
 The reconstruction can change how the bots play. Four menu buttons set it, the

@@ -315,7 +315,7 @@ export function useAutopilot(api: GameApi | null, route: string, restart: () => 
     if (route !== 'game' || mode === 'off' || !api) {
       return;
     }
-    const attached = api.attachAutopilot(mode);
+    const attached = api.attachAutopilot(mode, true);
     attached.onEngagedChange = setEngaged;
     setEngaged(true);
     setAutopilot(attached);
@@ -380,7 +380,7 @@ export function useAutopilot(api: GameApi | null, route: string, restart: () => 
 }
 
 function drawBlackboxView(context: CanvasRenderingContext2D, autopilot: Autopilot, height: number): void {
-  const debug = autopilot.blackbox?.debug;
+  const debug = autopilot.blackboxDebug;
   if (!debug?.classes) {
     return;
   }
@@ -443,7 +443,7 @@ function drawOverlay(canvas: HTMLCanvasElement, autopilot: Autopilot): void {
   }
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.lineWidth = OVERLAY_LINE_WIDTH;
-  if (autopilot.blackbox) {
+  if (autopilot.mode === 'blackbox') {
     drawBlackboxView(context, autopilot, canvas.height);
     return;
   }

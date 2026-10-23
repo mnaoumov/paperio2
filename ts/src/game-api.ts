@@ -17,6 +17,7 @@ import type { GameSkinManager } from './skins/manager.ts';
 import type { GameSnapshot } from './snapshot.ts';
 
 import { Autopilot } from './autopilot/driver.ts';
+import { startAutopilotWorker } from './autopilot/worker-client.ts';
 import {
   Controller,
   KeyboardModeSwitch
@@ -46,8 +47,12 @@ import {
 } from './snapshot.ts';
 
 export interface GameApi {
-  /** Attaches a demo autopilot to the live game, already steering. */
-  attachAutopilot: (mode: Exclude<AutopilotMode, 'off'>) => Autopilot;
+  /**
+   * Attaches a demo autopilot to the live game, already steering. With `offMainThread` its heavy work runs in a worker
+   * where the page can run one, so it never holds up a frame; without it every decision is made in its own frame, as
+   * the benchmark needs to replay a seed.
+   */
+  attachAutopilot: (mode: Exclude<AutopilotMode, 'off'>, offMainThread?: boolean) => Autopilot;
   /** Takes a full snapshot of the live game, between frames. */
   captureSnapshot: () => GameSnapshot;
   /** The config every game is created with, there before the game is, so a page can change it ahead of the first frame. */
@@ -125,8 +130,8 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         applyEnemySettings(gameApi.game, settings);
       }
     };
-    gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>): Autopilot => {
-      const autopilot = new Autopilot(gameApi.game, mode);
+    gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>, offMainThread = false): Autopilot => {
+      const autopilot = new Autopilot(gameApi.game, mode, undefined, offMainThread ? startAutopilotWorker() : null);
       autopilot.attach();
       return autopilot;
     };

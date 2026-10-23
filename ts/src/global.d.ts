@@ -49,6 +49,9 @@ interface ShopApi {
 type StoredChallenges = Record<string, boolean>;
 
 declare global {
+  // The autopilot worker's bundled source, which `build.mjs` defines through esbuild's `define`
+  // (see `autopilot/worker-client.ts`). It is not defined outside that build, such as in the unit tests.
+  const AUTOPILOT_WORKER_SOURCE: string | undefined;
   // `better-typescript-lib` narrows `getElementById` to `Element | null`, which
   // Drops the `.style`/`.value` members every call site in the engine relies on
   // (each id maps to a real `HTMLElement`). Restore lib.dom's `HTMLElement`
