@@ -22,6 +22,7 @@ import type {
   CutResult
 } from './timeline.ts';
 
+import { desiredExposureMix } from '../audio/exposure.ts';
 import { noop } from '../shared/noop.ts';
 import {
   deleteChunksFrom,
@@ -217,6 +218,16 @@ export class VideoRecorder implements FrameRecorder {
     if (request) {
       this.encodeCanvas(request.timestamp, request.keyFrame);
     }
+    // Logged heard or not, like the effects: the download's Sound setting decides whether they go in.
+    this.timeline.exposure(
+      this.game.clock.now(),
+      desiredExposureMix({
+        effectsEnabled: true,
+        inRun: true,
+        paused: this.game.paused,
+        player: this.game.player
+      })
+    );
     this.housekeeping();
   }
 
@@ -414,6 +425,7 @@ export class VideoRecorder implements FrameRecorder {
     this.record.bytes = this.timeline.keptBytes;
     this.record.durationMilliseconds = this.timeline.durationMilliseconds;
     this.record.sounds = this.timeline.sounds.slice();
+    this.record.exposures = this.timeline.exposures.slice();
     this.record.updatedAt = Date.now();
   }
 }

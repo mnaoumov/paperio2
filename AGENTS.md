@@ -272,7 +272,7 @@ neither.
   the shared `SILENT_MIX` then, so nothing (not even an `AudioContext`) is created while silent. Level and pulse rate
   rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each
   change is a 150 ms linear ramp from the current value. The differential page attaches `GameAudio` too, so the observer
-  only reads: it never writes game state or draws `Math.random`. **The loops are not logged on a take**: the timeline logs one-shot cues, and a state would need a new record shape.
+  only reads: it never writes game state or draws `Math.random`.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
   (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged. Music is never
@@ -280,6 +280,15 @@ neither.
   final cut length) with `OfflineAudioContext` in 10 s windows, fed to the muxer as the video packets reach each window,
   and encodes AAC, or Opus where AAC cannot be encoded. The Recordings panel's **Sound** setting (`VideoSettings.audio`)
   picks what goes in.
+- **Warning loops in a take** (2026-10-23): the recorder itself logs the loops' mix after each frame
+  (`RecordingTimeline.exposure`, only when it changes, computed with effects forced on, so heard or not like the cues),
+  stored as the record's `exposures` and cut by a respawn like the cues. `video/exposure-track.ts` turns the log into
+  per-voice level and pulse-rate envelopes with the live 150 ms ramps (`video/envelope.ts` holds the envelope maths the
+  music bed shares) and builds the live voices (`buildExposureVoice`) in each mix window, only with the effects. **A
+  window with a loop in it renders a 2 s lead-in that is trimmed off**, and every oscillator starts inside it at the phase
+  it would have run to since video time 0 (a carrier by frequency x time, the pulse by the area under its rate), so the
+  loops carry on across the 10 s windows with no click at the seam. Measured in Chrome: the sample-to-sample jump at the
+  seam is 0.00075, against steps of up to 0.0086 in the half second before it.
 - **Assets** are in `assets/audio/` (`music/`, `sounds/`, `CREDITS.md`), all CC0 by Juhani Junkala from OpenGameArt.
   `sw.js` precaches the effects; music is cached as each track plays. Only the track playing is kept decoded (about
   25 MB).

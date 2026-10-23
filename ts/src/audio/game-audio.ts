@@ -13,8 +13,8 @@
  * The practice run's own sounds are never logged.
  *
  * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
- * ground, read after every frame. It is an effect, so the effects switch covers it, but no take holds it: a take logs
- * moments, and the loop is a state.
+ * ground, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
+ * itself (`video/recorder.ts`), heard or not, so a download plays them back.
  */
 
 import type {

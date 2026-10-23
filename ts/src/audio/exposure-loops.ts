@@ -20,6 +20,24 @@ export const EXPOSURE_CROSSFADE_SECONDS = 0.15;
 // eslint-disable-next-line no-magic-numbers -- the two levels are a data table.
 export const EXPOSURE_LEVELS = { enemy: 0.22, open: 0.16 } as const;
 
+/** One loop's nodes: its level, its carriers and its pulse. */
+export interface ExposureVoice {
+  readonly level: LoopGain;
+  readonly nodes: readonly LoopNode[];
+  readonly oscillators: readonly LoopOscillator[];
+  readonly pulse: LoopOscillator;
+}
+
+/** How one loop is built. */
+export interface ExposureVoiceSpec {
+  readonly carriers: readonly CarrierSpec[];
+  readonly filterFrequency: number;
+  readonly filterType: BiquadFilterType;
+  /** Rounds the pulse's edges: the pulse oscillator goes through a low-pass at this frequency. */
+  readonly pulseSmoothing: number;
+  readonly pulseType: OscillatorType;
+}
+
 /** The parts of an `AudioContext` the loops use, so a test can stand in for one. */
 export interface LoopContext {
   createBiquadFilter(): LoopFilter;
@@ -65,30 +83,9 @@ interface CarrierSpec {
   readonly type: OscillatorType;
 }
 
-interface Voice {
-  readonly level: LoopGain;
-  readonly nodes: readonly LoopNode[];
-  readonly oscillators: readonly LoopOscillator[];
-  readonly pulse: LoopOscillator;
-}
-
-interface VoicePair {
-  readonly enemy: Voice;
-  readonly open: Voice;
-}
-
-interface VoiceSpec {
-  readonly carriers: readonly CarrierSpec[];
-  readonly filterFrequency: number;
-  readonly filterType: BiquadFilterType;
-  /** Rounds the pulse's edges: the pulse oscillator goes through a low-pass at this frequency. */
-  readonly pulseSmoothing: number;
-  readonly pulseType: OscillatorType;
-}
-
 /* eslint-disable no-magic-numbers -- the voices are data tables of frequencies. */
 /** Open ground: a triangle at A2 over a sine an octave down, dark, pulsing softly. */
-const OPEN_VOICE: VoiceSpec = {
+export const OPEN_VOICE: ExposureVoiceSpec = {
   carriers: [{ frequency: 110, type: 'triangle' }, { frequency: 55, type: 'sine' }],
   filterFrequency: 500,
   filterType: 'lowpass',
@@ -96,7 +93,7 @@ const OPEN_VOICE: VoiceSpec = {
   pulseType: 'sine'
 };
 /** Enemy ground: two sawtooth waves a semitone apart, beating, brighter, throbbing on a rounded square. */
-const ENEMY_VOICE: VoiceSpec = {
+export const ENEMY_VOICE: ExposureVoiceSpec = {
   carriers: [{ frequency: 233.08, type: 'sawtooth' }, { frequency: 246.94, type: 'sawtooth' }],
   filterFrequency: 1400,
   filterType: 'lowpass',
@@ -106,6 +103,13 @@ const ENEMY_VOICE: VoiceSpec = {
 /* eslint-enable no-magic-numbers -- end of the data tables. */
 /** The pulse swings the loop's gain by this much either side of its middle, so the troughs are silent. */
 const PULSE_DEPTH = 0.5;
+/** The pulse's rate, in pulses a second, before the first mix sets it. */
+export const INITIAL_PULSE_RATE = 1;
+
+interface VoicePair {
+  readonly enemy: ExposureVoice;
+  readonly open: ExposureVoice;
+}
 
 export class ExposureLoops {
   private applied: ExposureMix = SILENT_MIX;
@@ -171,52 +175,65 @@ export class ExposureLoops {
     return voices;
   }
 
-  private buildVoice(spec: VoiceSpec): Voice {
-    const context = this.context;
-    const level = context.createGain();
-    level.gain.value = 0;
-    level.connect(this.destination);
-
-    const swing = context.createGain();
-    swing.gain.value = PULSE_DEPTH;
-    swing.connect(level);
-
-    const filter = context.createBiquadFilter();
-    filter.type = spec.filterType;
-    filter.frequency.value = spec.filterFrequency;
-    filter.connect(swing);
-
-    const oscillators = spec.carriers.map(({ frequency, type }: CarrierSpec) => {
-      const oscillator = context.createOscillator();
-      oscillator.type = type;
-      oscillator.frequency.value = frequency;
-      oscillator.connect(filter);
-      return oscillator;
-    });
-
-    // The pulse: an oscillator, rounded by a low-pass, scaled to PULSE_DEPTH, added to the swing gain's own PULSE_DEPTH,
-    // so that gain moves between 0 and 1 at the pulse rate.
-    const pulse = context.createOscillator();
-    pulse.type = spec.pulseType;
-    pulse.frequency.value = 1;
-    const smoothing = context.createBiquadFilter();
-    smoothing.type = 'lowpass';
-    smoothing.frequency.value = spec.pulseSmoothing;
-    const depth = context.createGain();
-    depth.gain.value = PULSE_DEPTH;
-    pulse.connect(smoothing);
-    smoothing.connect(depth);
-    depth.connect(swing.gain);
-
-    for (const oscillator of oscillators) {
+  private buildVoice(spec: ExposureVoiceSpec): ExposureVoice {
+    const voice = buildExposureVoice(this.context, spec, this.destination);
+    for (const oscillator of voice.oscillators) {
       oscillator.start();
     }
-    pulse.start();
-    return { level, nodes: [level, swing, filter, smoothing, depth], oscillators, pulse };
+    voice.pulse.start();
+    return voice;
   }
 }
 
-function disconnect(voice: Voice): void {
+/**
+ * Builds one loop's nodes, silent, with nothing started: the live loops start them at once, and a download's mix starts
+ * each one at the phase it has at the start of the window being rendered.
+ *
+ * @param context - The audio context.
+ * @param spec - The loop.
+ * @param destination - Where its level gain goes.
+ * @returns The nodes; the carriers are in the spec's order.
+ */
+export function buildExposureVoice(context: LoopContext, spec: ExposureVoiceSpec, destination: LoopNode): ExposureVoice {
+  const level = context.createGain();
+  level.gain.value = 0;
+  level.connect(destination);
+
+  const swing = context.createGain();
+  swing.gain.value = PULSE_DEPTH;
+  swing.connect(level);
+
+  const filter = context.createBiquadFilter();
+  filter.type = spec.filterType;
+  filter.frequency.value = spec.filterFrequency;
+  filter.connect(swing);
+
+  const oscillators = spec.carriers.map(({ frequency, type }: CarrierSpec) => {
+    const oscillator = context.createOscillator();
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    oscillator.connect(filter);
+    return oscillator;
+  });
+
+  // The pulse: an oscillator, rounded by a low-pass, scaled to PULSE_DEPTH, added to the swing gain's own PULSE_DEPTH,
+  // so that gain moves between 0 and 1 at the pulse rate.
+  const pulse = context.createOscillator();
+  pulse.type = spec.pulseType;
+  pulse.frequency.value = INITIAL_PULSE_RATE;
+  const smoothing = context.createBiquadFilter();
+  smoothing.type = 'lowpass';
+  smoothing.frequency.value = spec.pulseSmoothing;
+  const depth = context.createGain();
+  depth.gain.value = PULSE_DEPTH;
+  pulse.connect(smoothing);
+  smoothing.connect(depth);
+  depth.connect(swing.gain);
+
+  return { level, nodes: [level, swing, filter, smoothing, depth], oscillators, pulse };
+}
+
+function disconnect(voice: ExposureVoice): void {
   for (const node of [...voice.oscillators, voice.pulse, ...voice.nodes]) {
     node.disconnect();
   }

@@ -63,8 +63,8 @@ The reconstruction has music and sound effects; the original has neither.
   reaching its peak at 1500 units, the length at which the nearest bot comes for
   your trail whatever its nature. It sits below the capture sounds, stops when you
   die or pause, and is part of the effects, so `N` silences it. It is made in the
-  browser, so it adds nothing to download. A downloaded recording does not hold
-  it.
+  browser, so it adds nothing to download. A downloaded recording holds it too,
+  with the effects.
 - Both are on by default. The two buttons left of the pause button, or the
   menu's **Music** and **Sounds** buttons, switch them too, and the browser
   remembers both choices. Browsers allow sound only after you click or press a
@@ -104,8 +104,9 @@ itself when the run ends or the browser's storage is nearly full.
   part of the game, not of the screen, so a recorded run plays with them either
   way.
 - **Sound:** the sound effects of the run are recorded with the take, whether
-  or not you hear them, and cut with it, so a failed attempt's sounds go too. The
-  practice sounds (the respawn chime and the checkpoint clicks) are never
+  or not you hear them, and cut with it, so a failed attempt's sounds go too. So
+  are the warning loops: a download plays them where you left your territory,
+  rising with your trail as they did live. The practice sounds (the respawn chime and the checkpoint clicks) are never
   recorded, since the cut exists to hide where a respawn was. Music is not
   recorded during play, because each cut would make it jump: a download lays one
   continuous music track, crossfading between tracks, under the finished video

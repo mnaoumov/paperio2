@@ -6,7 +6,10 @@
  * one key-range delete. A take a crash or a closed tab left unfinished is marked `recovered` on the next load.
  */
 
-import type { SoundEntry } from './timeline.ts';
+import type {
+  ExposureEntry,
+  SoundEntry
+} from './timeline.ts';
 
 export interface ChunkRecord {
   readonly data: ArrayBuffer;
@@ -24,6 +27,8 @@ export interface RecordingRecord {
   readonly codec: StoredCodec;
   decoderConfig: null | StoredDecoderConfig;
   durationMilliseconds: number;
+  /** The warning loops' changes in the take, which a download plays back; absent from a take recorded before they were logged. */
+  exposures?: readonly ExposureEntry[];
   readonly fps: number;
   readonly height: number;
   readonly id: string;

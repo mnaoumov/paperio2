@@ -7,6 +7,7 @@ import {
 import type {
   ChunkEntry,
   EncodeRequest,
+  ExposureEntry,
   SoundEntry
 } from './timeline.ts';
 
@@ -20,6 +21,9 @@ const FRAME_MILLISECONDS = 1000 / FPS;
 const KEY_FRAME_INTERVAL_MILLISECONDS = 60_000;
 const CLOCK_START = 50_000;
 const CHUNK_BYTES = 100;
+const SILENT_MIX = { enemy: 0, open: 0, rate: 0 } as const;
+const OPEN_MIX = { enemy: 0, open: 0.4, rate: 1.4 } as const;
+const ENEMY_MIX = { enemy: 0.55, open: 0, rate: 4.5 } as const;
 
 /** A timeline with an encoder that hands every frame straight back, as a real one does, only later. */
 class Harness {
@@ -227,6 +231,44 @@ describe('RecordingTimeline', () => {
     harness.timeline.sound(CLOCK_START + 400, 'kill', 1);
     harness.timeline.respawn(99);
     expect(harness.timeline.sounds).toHaveLength(0);
+  });
+
+  it('logs the warning loops only when their mix changes, and none before the take\'s first frame', () => {
+    const harness = new Harness();
+    expect(harness.timeline.exposure(CLOCK_START - 10, OPEN_MIX)).toBeNull();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    // Silent is where a take starts, so a silent mix logs nothing.
+    expect(harness.timeline.exposure(CLOCK_START + 100, SILENT_MIX)).toBeNull();
+    expect(harness.timeline.exposure(CLOCK_START + 200, OPEN_MIX)).toEqual({ ...OPEN_MIX, timestamp: micro(200) });
+    expect(harness.timeline.exposure(CLOCK_START + 300, { ...OPEN_MIX })).toBeNull();
+    expect(harness.timeline.exposure(CLOCK_START + 400, ENEMY_MIX)).toEqual({ ...ENEMY_MIX, timestamp: micro(400) });
+    expect(harness.timeline.exposures).toHaveLength(2);
+  });
+
+  it('cuts the warning loops of the failed attempt with its video, so the mix at the checkpoint holds', () => {
+    const harness = new Harness();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    harness.timeline.exposure(CLOCK_START + 400, OPEN_MIX);
+    harness.checkpoint(1, CLOCK_START + 1000);
+    harness.play(CLOCK_START + 1000, CLOCK_START + 3000);
+    harness.timeline.exposure(CLOCK_START + 2000, ENEMY_MIX);
+    harness.timeline.exposure(CLOCK_START + 2500, SILENT_MIX);
+    harness.drain();
+
+    harness.timeline.respawn(1);
+    expect(harness.timeline.exposures.map((entry: ExposureEntry) => entry.timestamp)).toEqual([micro(400)]);
+    // The next attempt compares with the mix the checkpoint had, not with the abandoned attempt's last one.
+    harness.play(CLOCK_START + 1000, CLOCK_START + 2000);
+    expect(harness.timeline.exposure(CLOCK_START + 1100, OPEN_MIX)).toBeNull();
+    expect(harness.timeline.exposure(CLOCK_START + 1500, SILENT_MIX)).toEqual({ ...SILENT_MIX, timestamp: micro(1500) });
+  });
+
+  it('drops every warning loop change when a respawn restarts the take', () => {
+    const harness = new Harness();
+    harness.play(CLOCK_START, CLOCK_START + 1000);
+    harness.timeline.exposure(CLOCK_START + 400, OPEN_MIX);
+    harness.timeline.respawn(99);
+    expect(harness.timeline.exposures).toHaveLength(0);
   });
 
   it('counts the duration and the kept bytes', () => {
