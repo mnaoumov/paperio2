@@ -373,7 +373,9 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   (`pendingCapture`) would enclose the player in its base is cut wherever is nearest. Only a victim chased in the open is
   left out of the threat check: one cut from home can turn on the player's trail, which was the commonest death.
 - **Benchmark:** `npm run benchmark -- --modes whitebox,blackbox --seeds N --max-minutes M [--why]`
-  (`test/benchmark/autopilot-benchmark.ts`). It reuses the differential harness's page (`openVariant` with
+  (`test/benchmark/autopilot-benchmark.ts`). It builds `dist/` first, because the page plays `dist/app2.js`: before it
+  did, two runs measured a bundle another branch had built and both read as this branch's code. It prints a growth curve
+  (median share of the arena at fixed minutes over the runs still alive) after the outcome table. It reuses the differential harness's page (`openVariant` with
   `traceCanvas: false`, which `installDeterminism` honours by leaving the canvas prototypes alone), starts the run with
   `api.start(..., completePreparation = true)`, and steps the virtual clock one 60 fps frame at a time inside the page.
   The whitebox runs with `game.renderer = null` (rendering changes no game state): 16 fifteen-minute games in parallel

@@ -131,8 +131,11 @@ const CELL_SIZES: readonly number[] = [20, 6];
 const MIN_COARSE_GAIN_CELLS = 3;
 /** Fixed cost of a loop in seconds: the turns and the time to get going. */
 const LOOP_OVERHEAD_SECONDS = 0.6;
-/** The way across the base to the exit weighs this much more than the loop itself. */
-const TRANSIT_WEIGHT = 2;
+/**
+ * The way across the base to the exit weighs this much more than the loop itself: the units move while the player crosses,
+ * so a far exit is often dropped on the way, and an exit near the player is planned again less often.
+ */
+const TRANSIT_WEIGHT = 4;
 /** A loop's trail stays this far under the length at which the nearest bot starts hunting the trail. */
 const TRAIL_LENGTH_SHARE = 0.85;
 /** At planning, every unit must be at least this share of the loop's length away from it, plus the margin. */
@@ -197,8 +200,13 @@ const SWING_ANGLES: readonly number[] = [Math.PI * HALF, -Math.PI * HALF, EIGHTH
 const SWING_CANDIDATES = 12;
 /** The swing follows the wall when the player is within this many wall-contact distances of it. */
 const WALL_SWING_CONTACT_FACTOR = 4;
-/** A passive bot moving toward the trail at least this fast (cosine) is treated as hunting. */
+/** A passive bot moving toward the trail at least this fast (cosine) is treated as hunting... */
 const APPROACH_COSINE = 0.3;
+/**
+ * ...but only within this share of a hunter's reach: it is not aiming at the trail, and a bot drawing its own loop turns
+ * often. At the full reach this rule made every second loop turn home early (2026-10-22).
+ */
+const APPROACH_REACH_SHARE = 0.75;
 /** A passive bot moving away is a danger only within this share of the reach, or near its trigger distance. */
 const PASSIVE_REACH_SHARE = 0.5;
 /** Near its start the simulated way ignores the trail segments next to the player, which it is still on. */
@@ -1232,8 +1240,11 @@ function findWayHome(situation: Situation): Point[] {
     const away = distance(from, point);
     return away < 1 ? point : add(from, scale(subtract(point, from), 1 + RETURN_OVERSHOOT / away));
   }
+  // Ground another unit's capture is about to enclose is no home: the capture kills the player there.
+  const captures = game.units.filter((unit) => unit !== situation.player).map(pendingCapture).filter((capture) => capture !== null);
+  const free = sorted.filter(({ point }) => !captures.some((capture) => pointInPolygon(point, capture)));
   let best: null | WayHome = null;
-  for (const { away, point } of sorted) {
+  for (const { away, point } of free.length > 0 ? free : sorted) {
     if (best && away > best.length) {
       break;
     }
@@ -1377,7 +1388,7 @@ function isDangerous(unit: Unit, player: Unit, toTrail: number, reach: number, t
   if (nearest) {
     const toward = normalize(subtract(nearest, position));
     if (Math.cos(unit.direction) * toward.x + Math.sin(unit.direction) * toward.y > APPROACH_COSINE) {
-      return toTrail < reach;
+      return toTrail < reach * APPROACH_REACH_SHARE;
     }
   }
   const trigger = aggroRange(unit, player);
