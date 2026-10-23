@@ -10,6 +10,7 @@
   "main": "src/main.ts",
   "scripts": {
     "benchmark": "jiti test/benchmark/autopilot-benchmark.ts",
+    "benchmark:frames": "jiti test/benchmark/frame-times.ts",
     "build": "node build.mjs",
     "commit": "jiti scripts/commit.ts",
     "format": "jiti scripts/format.ts",

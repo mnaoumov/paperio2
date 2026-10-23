@@ -37,6 +37,33 @@ import {
   THREE_EIGHTHS_TURN
 } from './plane.ts';
 
+/** Plans a loop from its input and calls back with it, now or later. */
+export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) => void) => void;
+
+/** Everything a loop plan reads, as plain data, so it can be planned in a worker. */
+export interface PlanInput {
+  /** The arena's centre. */
+  readonly center: Point;
+  readonly enemies: readonly EnemyModel[];
+  readonly heading: number;
+  /** The longest trail a loop may lay. */
+  readonly maxTrail: number;
+  /** The player's base. */
+  readonly outline: readonly Point[];
+  readonly position: Point;
+  /** The arena's radius. */
+  readonly radius: number;
+  readonly spaceHeight: number;
+  readonly spaceWidth: number;
+  readonly speed: number;
+}
+
+/** A planned loop: its waypoints, and what it is checked against the units with until it leaves the base. */
+export interface PlannedLoop {
+  readonly check: LoopCheck;
+  readonly waypoints: readonly Point[];
+}
+
 export interface Threat {
   readonly distance: number;
   readonly position: Point;
@@ -65,6 +92,12 @@ interface Candidate {
   readonly gain: number;
   readonly score: number;
   readonly waypoints: readonly Point[];
+}
+
+/** The planner's answer, and which request it answers. */
+interface PlanAnswer {
+  readonly id: number;
+  readonly plan: null | PlannedLoop;
 }
 
 interface Raster {
@@ -116,6 +149,8 @@ const PLAN_STRAY_SHARE = 0.15;
 const PLAN_PASSIVE_SHARE = 0.2;
 /** ...plus this share again for a bot heading straight at it. */
 const PLAN_CLOSING_SHARE = 0.5;
+/** World units added to a bounding-circle test, far more than its rounding can be off by. */
+const BOUND_SLACK = 1;
 /** A bot this close to its trigger distance is treated as hunting already. */
 const TRIGGER_MARGIN = 30;
 /** A bot whose heading passes this close to the trail is treated as hunting. */
@@ -267,10 +302,16 @@ interface HomeVictim {
 
 /** A planned loop's points, how far from home it gets and its trail length, which its safety is judged by. */
 interface LoopCheck {
+  /** The centre of the samples' bounding circle, so a unit far from the whole loop is ruled out without a pass. */
+  readonly center: Point;
   readonly exposure: number;
+  /** The largest of {@link LoopCheck.remaining}. */
+  readonly maxRemaining: number;
   /** For each sample, the length of trail still to lay from there until the player is home. */
   readonly remaining: readonly number[];
   readonly samples: readonly Point[];
+  /** The radius of the samples' bounding circle around {@link LoopCheck.center}. */
+  readonly spread: number;
   readonly trailLength: number;
 }
 
@@ -339,8 +380,14 @@ interface WayHome {
  * `null` when there is no player to fly.
  */
 export class WhiteboxPilot {
+  /**
+   * Plans loops somewhere else, a worker in a live game, so a plan never holds up a frame; `null` plans them right here,
+   * in the update that needs one, as the benchmark does.
+   */
+  public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
   public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
   }
@@ -349,8 +396,15 @@ export class WhiteboxPilot {
   private loop: null | readonly Point[] = null;
   private loopCheck: LoopCheck | null = null;
   private phase: WhiteboxPhase = 'home';
+  /** The planner's last answer, and which request it answers. */
+  private planAnswer: null | PlanAnswer = null;
   /** Updates to wait before planning again after a plan found no safe loop. */
   private planCooldown = 0;
+  /** The update that last waited for a plan. */
+  private planLastAskedUpdate = -1;
+  /** The request the pilot waits for, or `null`. */
+  private planPending: null | number = null;
+  private planRequests = 0;
   private returnPath: Point[] = [];
   private returnUpdates = 0;
   /** The wall sweep under way: the player's last angle around the centre and how far round it has gone. */
@@ -359,6 +413,8 @@ export class WhiteboxPilot {
   private sweepCooldown = 0;
   private target: null | Point = null;
   private threat: null | Threat = null;
+  /** How many times {@link WhiteboxPilot.steer} ran. */
+  private updates = 0;
   private victim: null | Unit = null;
   /**
    * Why the victim was chosen: `home` for a trail through the base, which is then cut only inside the base;
@@ -375,9 +431,12 @@ export class WhiteboxPilot {
     this.target = null;
     this.victim = null;
     this.returnPath = [];
+    this.planPending = null;
+    this.planAnswer = null;
   }
 
   public steer(game: Game): null | Point {
+    this.updates++;
     const player = game.player;
     if (!player || player.death) {
       this.reset();
@@ -634,7 +693,8 @@ export class WhiteboxPilot {
       this.stats.replans++;
     }
     if (this.phase === 'home' && !this.loop && --this.planCooldown <= 0) {
-      this.planCooldown = this.planLoop(situation) ? 0 : PLAN_RETRY_UPDATES;
+      // A plan still out (`null`) is looked for again on the next update.
+      this.planCooldown = this.planLoop(situation) === false ? PLAN_RETRY_UPDATES : 0;
     }
     if (!this.loop) {
       return inBase ? holdTarget(situation) : null;
@@ -664,38 +724,36 @@ export class WhiteboxPilot {
     return null;
   }
 
-  private planLoop(situation: Situation): boolean {
-    const { game, outline, player, position } = situation;
-    const orientation = Math.sign(signedArea(outline)) || 1;
-    const base = {
-      center: toPoint(game.border.center),
-      enemies: game.units.filter((unit) => unit !== player && !unit.death).map((unit) => describeEnemy(unit, player)),
-      maxTrail: game.config.botAttackTrackLength * TRAIL_LENGTH_SHARE,
-      orientation,
-      outline,
-      position,
-      radius: game.border.radius,
-      ring: resampleRing(outline, RING_SPACING, orientation),
-      speed: game.config.unitSpeed
-    };
-    let best: Candidate | null = null;
-    for (const cellSize of CELL_SIZES) {
-      const raster = rasterize(outline, game.space.width, game.space.height, cellSize);
-      const context: PlanContext = { ...base, field: distanceField(raster), raster };
-      const candidates = rankCandidates(context, collectEstimates(context));
-      // The best few are flown in simulation, out and home, and the first that never touches its own trail is taken.
-      best = candidates.slice(0, VERIFIED_CANDIDATES).find((candidate) => candidate.gain > 0 && isFlyable(position, situation.heading, candidate.waypoints, outline, base.center, base.radius, base.speed)) ?? null;
-      if (best && best.gain >= MIN_COARSE_GAIN_CELLS) {
-        break;
-      }
+  /**
+   * Plans the next loop, or asks {@link WhiteboxPilot.planner} for one and holds until it answers.
+   *
+   * @param situation - What the update knows.
+   * @returns Whether a loop was found; `null` while an asked plan is still out.
+   */
+  private planLoop(situation: Situation): boolean | null {
+    if (!this.planner) {
+      return this.takePlan(findLoop(describePlan(situation)));
     }
-    this.loop = best?.waypoints ?? null;
-    this.loopCheck = best?.check ?? null;
-    this.waypointIndex = 0;
-    if (best) {
-      this.stats.loops++;
+    // An answer counts only while the pilot kept waiting for it, update after update; anything else in between (an
+    // attack, a reset) makes the plan stale, and a fresh one is asked for.
+    if (this.planLastAskedUpdate !== this.updates - 1) {
+      this.planPending = null;
     }
-    return best !== null;
+    this.planLastAskedUpdate = this.updates;
+    const answer = this.planAnswer;
+    if (answer?.id === this.planPending) {
+      this.planPending = null;
+      this.planAnswer = null;
+      return this.takePlan(answer.plan);
+    }
+    if (this.planPending === null) {
+      const id = ++this.planRequests;
+      this.planPending = id;
+      this.planner(describePlan(situation), (plan) => {
+        this.planAnswer = { id, plan };
+      });
+    }
+    return null;
   }
 
   private returnTarget(situation: Situation): null | Point {
@@ -767,6 +825,51 @@ export class WhiteboxPilot {
     const ahead = angle + SWEEP_LEAD / radius;
     return add(center, scale({ x: Math.cos(ahead), y: Math.sin(ahead) }, radius + SWEEP_PUSH));
   }
+
+  private takePlan(plan: null | PlannedLoop): boolean {
+    this.loop = plan?.waypoints ?? null;
+    this.loopCheck = plan?.check ?? null;
+    this.waypointIndex = 0;
+    if (plan) {
+      this.stats.loops++;
+    }
+    return plan !== null;
+  }
+}
+
+/**
+ * Plans the next loop: every loop out of the base is weighed, coarsely first, and the best few are flown in simulation.
+ * It reads only its input, so a worker can run it.
+ *
+ * @param input - What the plan reads.
+ * @returns The loop, or `null` when none is safe.
+ */
+export function findLoop(input: PlanInput): null | PlannedLoop {
+  const { outline, position } = input;
+  const orientation = Math.sign(signedArea(outline)) || 1;
+  const base = {
+    center: input.center,
+    enemies: input.enemies,
+    maxTrail: input.maxTrail,
+    orientation,
+    outline,
+    position,
+    radius: input.radius,
+    ring: resampleRing(outline, RING_SPACING, orientation),
+    speed: input.speed
+  };
+  let best: Candidate | null = null;
+  for (const cellSize of CELL_SIZES) {
+    const raster = rasterize(outline, input.spaceWidth, input.spaceHeight, cellSize);
+    const context: PlanContext = { ...base, field: distanceField(raster), raster };
+    const candidates = rankCandidates(context, collectEstimates(context));
+    // The best few are flown in simulation, out and home, and the first that never touches its own trail is taken.
+    best = candidates.slice(0, VERIFIED_CANDIDATES).find((candidate) => candidate.gain > 0 && isFlyable(position, input.heading, candidate.waypoints, outline, base.center, base.radius, base.speed)) ?? null;
+    if (best && best.gain >= MIN_COARSE_GAIN_CELLS) {
+      break;
+    }
+  }
+  return best ? { check: best.check, waypoints: best.waypoints } : null;
 }
 
 /**
@@ -912,7 +1015,7 @@ function considerLoop(context: PlanContext, estimates: Estimate[], loop: LoopSha
   }
   const exposure = farthestHome(route, field, raster) * FLIGHT_THREAT_FACTOR + FLIGHT_THREAT_MARGIN;
   const samples = samplePath([exit, ...route], ROUTE_SAMPLE_SPACING);
-  const check: LoopCheck = { exposure, remaining: remainingAlong(samples, trailLength), samples, trailLength };
+  const check = createLoopCheck(exposure, samples, remainingAlong(samples, trailLength), trailLength);
   if (enemies.some((enemy) => threatens(enemy, check))) {
     return;
   }
@@ -925,12 +1028,34 @@ function considerLoop(context: PlanContext, estimates: Estimate[], loop: LoopSha
 }
 
 /**
- * How far a point is from a polygon's nearest edge.
+ * A loop's check, with the bounding circle of its samples that lets {@link threatens} rule out a far unit at once.
  *
- * @param point - The point.
- * @param polygon - The polygon.
- * @returns The distance.
+ * @param exposure - How close a hunter may get before the player cannot get home first.
+ * @param samples - The loop's points.
+ * @param remaining - For each sample, the trail still to lay from there.
+ * @param trailLength - The loop's trail length.
+ * @returns The check.
  */
+function createLoopCheck(exposure: number, samples: readonly Point[], remaining: readonly number[], trailLength: number): LoopCheck {
+  let sumX = 0;
+  let sumY = 0;
+  for (const sample of samples) {
+    sumX += sample.x;
+    sumY += sample.y;
+  }
+  const count = Math.max(1, samples.length);
+  const center = { x: sumX / count, y: sumY / count };
+  let spread = 0;
+  for (const sample of samples) {
+    spread = Math.max(spread, distance(center, sample));
+  }
+  let maxRemaining = 0;
+  for (const value of remaining) {
+    maxRemaining = Math.max(maxRemaining, value);
+  }
+  return { center, exposure, maxRemaining, remaining, samples, spread, trailLength };
+}
+
 function depthInside(point: Point, polygon: readonly Point[]): number {
   let depth = Infinity;
   for (let index = 0; index < polygon.length; index++) {
@@ -953,6 +1078,35 @@ function depthInside(point: Point, polygon: readonly Point[]): number {
  */
 function describeEnemy(unit: Unit, player: Unit): EnemyModel {
   return { direction: unit.direction, hunting: isHunting(unit), position: toPoint(unit.position), trigger: aggroRange(unit, player) };
+}
+
+/**
+ * How far a point is from a polygon's nearest edge.
+ *
+ * @param point - The point.
+ * @param polygon - The polygon.
+ * @returns The distance.
+ */
+/**
+ * What a loop plan from this update reads.
+ *
+ * @param situation - What the update knows.
+ * @returns The plan's input.
+ */
+function describePlan(situation: Situation): PlanInput {
+  const { game, heading, outline, player, position } = situation;
+  return {
+    center: toPoint(game.border.center),
+    enemies: game.units.filter((unit) => unit !== player && !unit.death).map((unit) => describeEnemy(unit, player)),
+    heading,
+    maxTrail: game.config.botAttackTrackLength * TRAIL_LENGTH_SHARE,
+    outline,
+    position,
+    radius: game.border.radius,
+    spaceHeight: game.space.height,
+    spaceWidth: game.space.width,
+    speed: game.config.unitSpeed
+  };
 }
 
 /**
@@ -1622,14 +1776,35 @@ function simulateApproach(params: ApproachParams): null | number {
  * @returns Whether it is unsafe.
  */
 function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
-  const { exposure, remaining, samples, trailLength } = check;
+  const { exposure, maxRemaining, remaining, samples, trailLength } = check;
   // A unit as fast as the player reaches a point of the trail before the loop closes when it is closer to it than the
   // trail still to lay from there: a hunter must never be, and a bot that is not hunting yet not within half of it.
   const reachShare = enemy.hunting ? HUNTER_REACH_SHARE : PASSIVE_REACH_SHARE_PLAN;
-  if (samples.some((sample, index) => distance(enemy.position, sample) < (remaining[index] ?? 0) * reachShare + PLAN_THREAT_MARGIN)) {
-    return true;
+  // The planner weighs thousands of loops against every unit, so a unit farther from the whole loop than any test below
+  // reaches is ruled out by the bounding circle alone; the tests give the same answer, only slower.
+  const farthestReach = Math.max(
+    maxRemaining * reachShare + PLAN_THREAT_MARGIN,
+    enemy.hunting
+      ? Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE)
+      : enemy.trigger + trailLength * (PLAN_PASSIVE_SHARE + PLAN_CLOSING_SHARE + PLAN_STRAY_SHARE) + PLAN_THREAT_MARGIN
+  );
+  if (distance(enemy.position, check.center) - check.spread > farthestReach + BOUND_SLACK) {
+    return false;
   }
-  const near = nearestDistance(enemy.position, samples);
+  // One pass gives all three: the reach test, the nearest distance and the nearest sample, each distance taken once.
+  let near = Infinity;
+  let closest: null | Point = null;
+  for (let index = 0; index < samples.length; index++) {
+    const sample = samples[index] ?? enemy.position;
+    const away = distance(enemy.position, sample);
+    if (away < (remaining[index] ?? 0) * reachShare + PLAN_THREAT_MARGIN) {
+      return true;
+    }
+    if (away < near) {
+      near = away;
+      closest = sample;
+    }
+  }
   if (enemy.hunting) {
     return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);
   }
@@ -1637,7 +1812,7 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
     return near < trailLength * PLAN_STRAY_SHARE + PLAN_THREAT_MARGIN;
   }
   // A bot heading away from the loop is unlikely to cover much of the way to it while the loop is out.
-  const closest = nearestPoint(enemy.position, samples) ?? enemy.position;
+  closest ??= enemy.position;
   const toward = normalize(subtract(closest, enemy.position));
   const closing = Math.max(0, Math.cos(enemy.direction) * toward.x + Math.sin(enemy.direction) * toward.y);
   return near < enemy.trigger + trailLength * (PLAN_PASSIVE_SHARE + PLAN_CLOSING_SHARE * closing) + PLAN_THREAT_MARGIN;

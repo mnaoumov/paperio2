@@ -311,6 +311,27 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   12 (pressed, the player reads 10, because the avatar hides the edge). `--dump <dir>` on the benchmark writes the
   last 2 s of frames beside their classes, the remembered trail (yellow) and the aim (magenta); the minimap is not
   read, since the odometer already gives the way home beyond the view.
+- **A live game runs the pilots' heavy work in a worker** (`autopilot/worker.ts`, owner report 2026-10-22: "drops
+  frames often"). Measured with `npm run benchmark:frames` (`test/benchmark/frame-times.ts`: real time, real
+  `localhost` server, a rAF probe, hook timings, `--profile` for a CPU profile): the blackbox's frame reading took
+  27 ms of every frame (readback 6, `decide` 20), which held the game at 30 fps, and the whitebox's `planLoop` stalled
+  a frame for 40-450 ms every few seconds. `useAutopilot` attaches with `attachAutopilot(mode, true)`, which starts
+  the worker (`worker-client.ts`); the benchmark and tests call `attachAutopilot(mode)` and stay synchronous, frame
+  for frame, so a seed still replays (verified: `--why` traces identical before and after). The worker is bundled
+  first by `build.mjs` and inlined as the `AUTOPILOT_WORKER_SOURCE` define, started from a blob, so `dist/` is still
+  one file and `pages.yml`/`sw.js` need nothing. **Anything the worker imports must not touch the DOM at module
+  level**: it runs `blackbox.ts` and `whitebox.ts` (which still imports `entities/units.ts`), and the
+  `runs the demo pilots' heavy work in a worker` test in `demo-extras.integration.test.ts` fails if it stops booting.
+  - **Blackbox:** the page scales the canvas with `createImageBitmap(view, { resizeWidth, resizeHeight, resizeQuality:
+    'low' })` (byte-identical to `grabDownscaledFrame`'s `drawImage`, measured) and transfers it; the worker decides
+    on the NEWEST frame it has when free, dropping the rest. A first version sent the next frame only after the last
+    reply, which gave 18 decisions a second and 5-7 deaths per 90 s against 0-1 before; the newest-frame queue gives
+    about 38 and plays as before. A decision lands about a frame later than in-frame, and `epoch` drops one from
+    before a takeover. `Autopilot.blackbox` is `null` in this mode: read `blackboxDebug`.
+  - **Whitebox:** `findLoop(PlanInput)` is the plan as plain data; `WhiteboxPilot.planner` sends it and the pilot holds
+    in its base until the answer, which counts only while the pilot kept waiting update after update (`planPending`).
+    `threatens` also got an exact speed-up (a bounding-circle reject and one pass over the samples), which made the
+    synchronous benchmark about 35% faster with identical traces.
 - **The overlay is its own `pointer-events: none` canvas**, so the recorder, which records `game.view`, never sees it.
   While the human steers and the overlay is on, `Autopilot.coach` keeps the whitebox planning without steering (the
   "assist" mode).

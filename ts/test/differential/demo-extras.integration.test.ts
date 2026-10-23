@@ -191,6 +191,29 @@ describe('the demo extras', () => {
     }
   }, TIMEOUT_MILLISECONDS);
 
+  it('runs the demo pilots\' heavy work in a worker, off the frame', async () => {
+    // The overlay is on, so the worker's blackbox pilot sends its view back, which shows it read a frame.
+    const blackbox = await open({ 'paperio2.autopilot': 'blackbox', 'paperio2.autopilotOverlay': 'on' });
+    try {
+      await play(blackbox);
+      expect(await blackbox.evaluate(() => Reflect.get(Object(Reflect.get(window.paperio2api.game, 'autopilot')), 'blackbox')), 'no blackbox pilot on the page').toBeNull();
+      await stepUntil(blackbox, async () => blackbox.evaluate(() => Reflect.get(Object(Reflect.get(window.paperio2api.game, 'autopilot')), 'blackboxDebug') !== null), 'blackbox decision from the worker');
+    } finally {
+      await blackbox.browserContext().close();
+    }
+    const whitebox = await open({ 'paperio2.autopilot': 'whitebox' });
+    try {
+      await play(whitebox);
+      await stepUntil(whitebox, async () =>
+        whitebox.evaluate(() => {
+          const pilot: unknown = Reflect.get(Object(Reflect.get(window.paperio2api.game, 'autopilot')), 'whitebox');
+          return Reflect.get(Object(pilot), 'planner') !== null && Number(Reflect.get(Object(Reflect.get(Object(pilot), 'stats')), 'loops')) > 0;
+        }), 'loop planned in the worker');
+    } finally {
+      await whitebox.browserContext().close();
+    }
+  }, TIMEOUT_MILLISECONDS);
+
   it('points the showcase camera at the leader', async () => {
     const page = await open({ 'paperio2.autopilot': 'whitebox', 'paperio2.autopilotView': 'on' });
     try {

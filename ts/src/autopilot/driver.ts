@@ -11,7 +11,9 @@ import type {
   AutopilotHook,
   Game
 } from '../engine.ts';
+import type { BlackboxDebug } from './blackbox.ts';
 import type { Point } from './plane.ts';
+import type { AutopilotWorker } from './worker-client.ts';
 
 import {
   KEY_A,
@@ -42,9 +44,11 @@ const STEERING_KEY_CODES: readonly number[] = [KEY_ARROW_LEFT, KEY_ARROW_UP, KEY
 export type FrameGrabber = (view: HTMLCanvasElement) => ImageData | null;
 
 export class Autopilot implements AutopilotHook {
+  /** The blackbox pilot, when it runs on this thread; with a worker it runs there and this is `null`. */
   public readonly blackbox: BlackboxPilot | null;
   /** Whether the whitebox keeps planning while a human steers, for the overlay; set while the overlay is shown. */
   public coach = false;
+
   /** Whether the autopilot is steering; a human's steering input clears it, and {@link Autopilot.engage} sets it. */
   public engaged = true;
   /** Told when {@link Autopilot.engaged} changes. */
@@ -52,21 +56,62 @@ export class Autopilot implements AutopilotHook {
   /** Told after every rendered frame, for the debug overlay. */
   public onFrame: (() => void) | null = null;
   public readonly whitebox: null | WhiteboxPilot;
+  /**
+   * What the blackbox pilot saw last, for the overlay, from whichever thread it runs on.
+   *
+   * @returns The pilot's view, or `null` before it has seen a frame.
+   */
+  public get blackboxDebug(): BlackboxDebug | null {
+    return this.blackbox?.debug ?? this.workerDebug;
+  }
+
   private direction: null | Point = null;
+  /** Counts the takeovers, so a worker's decision on a frame from before one is dropped. */
+  private epoch = 0;
+  /** Whether a frame is being scaled for the worker's blackbox pilot. */
+  private frameScaling = false;
   private readonly grabFrame: FrameGrabber;
   private readonly listeners: (() => void)[] = [];
+  private workerDebug: BlackboxDebug | null = null;
 
-  public constructor(public readonly game: Game, public readonly mode: Exclude<AutopilotMode, 'off'>, grabFrame: FrameGrabber = grabDownscaledFrame) {
+  /**
+   * Creates an autopilot; {@link Autopilot.attach} puts it in the game.
+   *
+   * @param game - The game.
+   * @param mode - The pilot.
+   * @param grabFrame - Reads the canvas for a blackbox pilot on this thread.
+   * @param worker - Runs the heavy work off this thread: the blackbox pilot itself, or the whitebox's loop plans. With
+   *   `null` everything runs in the frame, frame for frame, as the benchmark needs.
+   */
+  public constructor(public readonly game: Game, public readonly mode: Exclude<AutopilotMode, 'off'>, grabFrame: FrameGrabber = grabDownscaledFrame, private readonly worker: AutopilotWorker | null = null) {
     this.whitebox = mode === 'whitebox' ? new WhiteboxPilot() : null;
-    this.blackbox = mode === 'blackbox' ? new BlackboxPilot() : null;
+    this.blackbox = mode === 'blackbox' && !worker ? new BlackboxPilot() : null;
     this.grabFrame = grabFrame;
+    if (worker && this.whitebox) {
+      this.whitebox.planner = (input, answer): void => {
+        worker.plan(input, answer);
+      };
+    }
+    if (worker) {
+      worker.onDirection = (reply): void => {
+        if (reply.epoch !== this.epoch || !this.engaged) {
+          return;
+        }
+        this.workerDebug = reply.debug;
+        this.direction = reply.direction;
+      };
+    }
   }
 
   public afterFrame(): void {
-    if (this.blackbox && this.engaged) {
-      const frame = this.grabFrame(this.game.view);
-      if (frame) {
-        this.direction = this.blackbox.decide(frame);
+    if (this.mode === 'blackbox' && this.engaged) {
+      if (this.blackbox) {
+        const frame = this.grabFrame(this.game.view);
+        if (frame) {
+          this.direction = this.blackbox.decide(frame);
+        }
+      } else {
+        this.sendFrameToWorker();
       }
     }
     this.onFrame?.();
@@ -108,6 +153,7 @@ export class Autopilot implements AutopilotHook {
     for (const remove of this.listeners.splice(0)) {
       remove();
     }
+    this.worker?.terminate();
   }
 
   /** Hands control back to a human. */
@@ -119,6 +165,10 @@ export class Autopilot implements AutopilotHook {
   public engage(): void {
     this.whitebox?.reset();
     this.blackbox?.reset();
+    if (this.worker && this.mode === 'blackbox') {
+      this.epoch++;
+      this.worker.reset();
+    }
     this.setEngaged(true);
   }
 
@@ -147,6 +197,30 @@ export class Autopilot implements AutopilotHook {
       if (event.isTrusted) {
         this.disengage();
       }
+    });
+  }
+
+  /**
+   * Hands the frame just drawn, scaled down, to the worker's blackbox pilot. The worker reads only the newest frame it
+   * has when it is free, so the pilot decides as often as it can keep up with and on the latest view, and the frame
+   * never waits for it. `createImageBitmap` scales and copies the canvas without waiting for the GPU the way reading
+   * its pixels here would; its scaling gives the same pixels as `grabDownscaledFrame`.
+   */
+  private sendFrameToWorker(): void {
+    const { worker } = this;
+    const { view } = this.game;
+    const width = Math.floor(view.width / BLACKBOX_DOWNSCALE);
+    const height = Math.floor(view.height / BLACKBOX_DOWNSCALE);
+    if (!worker || this.frameScaling || width < 1 || height < 1) {
+      return;
+    }
+    this.frameScaling = true;
+    const epoch = this.epoch;
+    createImageBitmap(view, { resizeHeight: height, resizeQuality: 'low', resizeWidth: width }).then((frame) => {
+      this.frameScaling = false;
+      worker.sendFrame(frame, epoch, this.coach);
+    }, () => {
+      this.frameScaling = false;
     });
   }
 

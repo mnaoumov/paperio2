@@ -4,12 +4,27 @@
 // HTTP) to run the game off this readable reconstruction.
 import { build } from 'esbuild';
 
+// The autopilot's worker is bundled first and inlined into the game's bundle as
+// a string (`AUTOPILOT_WORKER_SOURCE`), which the page starts from a blob, so
+// the build still ships one file.
+const worker = await build({
+  entryPoints: ['src/autopilot/worker.ts'],
+  bundle: true,
+  format: 'iife',
+  target: 'es2020',
+  write: false,
+  legalComments: 'none',
+  logLevel: 'info'
+});
+const [workerOutput] = worker.outputFiles;
+
 await build({
   entryPoints: ['src/main.ts'],
   bundle: true,
   format: 'iife',
   target: 'es2020',
   outfile: 'dist/app2.js',
+  define: { AUTOPILOT_WORKER_SOURCE: JSON.stringify(workerOutput.text) },
   legalComments: 'none',
   logLevel: 'info'
 });
