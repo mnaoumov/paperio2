@@ -30,6 +30,7 @@ import type {
 } from './recorder.ts';
 import type { RecordingRecord } from './store.ts';
 
+import { ExportCache } from './export-cache.ts';
 import {
   exportRecording,
   recordingFileName
@@ -107,8 +108,7 @@ const AUDIO_LABELS: Readonly<Record<VideoAudioSetting, string>> = {
   none: 'None'
 };
 
-/** Exported files by take and Sound setting, kept for the session so Play then Download muxes once. */
-const exportedFiles = new Map<string, Blob>();
+const exportedFiles = new ExportCache();
 
 export interface RecordControlProps {
   /** Whether recording mode hides the additions. */
@@ -314,16 +314,7 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
   }, [confirmDelete]);
 
   async function file(record: RecordingRecord): Promise<Blob> {
-    const audio = exportAudio(settings.audio);
-    // The music bed is shuffled on each export, so a cached file keeps Play and then Download the same.
-    const key = `:${settings.audio}`;
-    const cached = exportedFiles.get(key);
-    if (cached) {
-      return cached;
-    }
-    const blob = await exportRecording(record, audio);
-    exportedFiles.set(key, blob);
-    return blob;
+    return exportedFiles.get(record.id, settings.audio, async () => exportRecording(record, exportAudio(settings.audio)));
   }
   function withFile(record: RecordingRecord, action: (blob: Blob) => void): void {
     setBusy(record.id);
@@ -603,11 +594,7 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
   }
 
   function remove(id: string): void {
-    for (const key of [...exportedFiles.keys()]) {
-      if (key.startsWith(':')) {
-        exportedFiles.delete(key);
-      }
-    }
+    exportedFiles.forget(id);
     deleteRecording(id).then(refresh, (error: unknown) => {
       setMessage(`The recording could not be deleted: ${errorText(error)}`);
     });
