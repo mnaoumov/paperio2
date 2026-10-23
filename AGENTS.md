@@ -260,6 +260,15 @@ neither.
   page-side randomness. Sound also never draws on the canvas, so the harness needs no switch for it.
 - **Captures below 0.0001 of the arena are silent** (`captureCue`). Sliding along the base's edge re-enters it many times
   a second, each time taking under a millionth of the arena; the smallest real loop measured took 0.0018.
+- **Warning loops** (`audio/exposure.ts`, `audio/exposure-loops.ts`, owner request 2026-10-22): two oscillator-built
+  loops, open ground and enemy ground, read after every frame from a `game.frameObservers` entry that `GameAudio.attach`
+  adds. The zone is the engine's own `player.in`: `player.base` is home, `null` open ground, any other territory enemy
+  ground (`Territory.handleEnemyIntersect` sets it on crossing in; a capture or a death that removes that ground clears
+  it). `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
+  the shared `SILENT_MIX` then, so nothing (not even an `AudioContext`) is created while silent. Level and pulse rate
+  rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each
+  change is a 150 ms linear ramp from the current value. The differential page attaches `GameAudio` too, so the observer
+  only reads: it never writes game state or draws `Math.random`. **The loops are not logged on a take**: the timeline logs one-shot cues, and a state would need a new record shape.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
   (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged, and recording mode silences them. Music is never

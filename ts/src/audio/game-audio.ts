@@ -11,6 +11,10 @@
  *
  * Every gameplay effect is also logged on the running take's timeline, heard or not, so a download can mix it back in.
  * The practice run's own sounds are never logged, and recording mode silences them.
+ *
+ * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
+ * ground, read after every frame. It is an effect, so the effects switch covers it, but no take holds it: a take logs
+ * moments, and the loop is a state.
  */
 
 import type {
@@ -36,6 +40,11 @@ import {
   SOUND_NAMES,
   soundUrl
 } from './catalog.ts';
+import { ExposureLoops } from './exposure-loops.ts';
+import {
+  desiredExposureMix,
+  SILENT_MIX
+} from './exposure.ts';
 import {
   audioRandom,
   shuffledOrder
@@ -82,7 +91,11 @@ export class GameAudio implements GameSounds {
   private context: AudioContext | null = null;
   private effects: null | Promise<ReadonlyMap<SoundName, AudioBuffer>> = null;
   private effectsGain: GainNode | null = null;
+  /** The warning loops, built on the player's first step off its own territory. */
+  private exposure: ExposureLoops | null = null;
   private game: Game | null = null;
+  /** Whether a run is on screen: the warning loops play only then. */
+  private inRun = false;
   private readonly lastStarted = new Map<SoundName, number>();
   /** Whether a run is on, so the playlist should be playing when the music is on. */
   private musicWanted = false;
@@ -116,15 +129,22 @@ export class GameAudio implements GameSounds {
    * @param game - The live game.
    */
   public attach(game: Game): void {
-    if (this.game && this.game !== game && this.game.sounds === this) {
-      this.game.sounds = null;
+    if (this.game && this.game !== game) {
+      if (this.game.sounds === this) {
+        this.game.sounds = null;
+      }
+      removeObserver(this.game, this.onFrame);
     }
     this.game = game;
     game.sounds = this;
+    if (!game.frameObservers.includes(this.onFrame)) {
+      game.frameObservers.push(this.onFrame);
+    }
   }
 
   /** Fades the music out, for the results screen. */
   public fadeOutMusic(): void {
+    this.stopExposure();
     this.musicWanted = false;
     this.playlistGeneration++;
     this.stopTrack(MUSIC_FADE_OUT_SECONDS);
@@ -169,6 +189,7 @@ export class GameAudio implements GameSounds {
   }
 
   public onPlayerDeath(): void {
+    this.updateExposure();
     this.cue({ gain: 1, sound: 'death' });
   }
 
@@ -178,6 +199,7 @@ export class GameAudio implements GameSounds {
 
   public setEffectsEnabled(enabled: boolean): void {
     this._effectsEnabled = enabled;
+    this.updateExposure();
   }
 
   public setMusicEnabled(enabled: boolean): void {
@@ -196,6 +218,7 @@ export class GameAudio implements GameSounds {
 
   /** Starts the playlist for a run, from a fresh shuffle, and fetches the effects ahead of the first one. */
   public startMusic(): void {
+    this.inRun = true;
     const context = this.ensureContext();
     if (context && this._effectsEnabled) {
       this.loadEffects(context).catch(noop);
@@ -213,6 +236,7 @@ export class GameAudio implements GameSounds {
 
   /** Stops the music at once, for the menu. */
   public stopMusic(): void {
+    this.stopExposure();
     this.musicWanted = false;
     this.playlistGeneration++;
     this.stopTrack(0);
@@ -277,6 +301,10 @@ export class GameAudio implements GameSounds {
     }
     return buffer;
   }
+
+  private readonly onFrame = (): void => {
+    this.updateExposure();
+  };
 
   private play(cue: SoundCue): void {
     if (!this._effectsEnabled) {
@@ -355,6 +383,13 @@ export class GameAudio implements GameSounds {
     }, noop);
   }
 
+  /** Ends the run's warning loops, fading them out. */
+  private stopExposure(): void {
+    this.inRun = false;
+    this.exposure?.stop();
+    this.exposure = null;
+  }
+
   private stopTrack(fadeSeconds: number): void {
     const playing = this.playing;
     const context = this.context;
@@ -372,6 +407,27 @@ export class GameAudio implements GameSounds {
     gain.gain.setValueAtTime(Math.max(SILENT_GAIN, gain.gain.value), now);
     gain.gain.exponentialRampToValueAtTime(SILENT_GAIN, now + fadeSeconds);
     source.stop(now + fadeSeconds);
+  }
+
+  /** Points the warning loops at where the player's head is now. Nothing is created while they would be silent. */
+  private updateExposure(): void {
+    const game = this.game;
+    const mix = desiredExposureMix({
+      effectsEnabled: this._effectsEnabled,
+      inRun: this.inRun,
+      paused: game?.paused ?? false,
+      player: game?.player ?? null
+    });
+    if (mix === SILENT_MIX && !this.exposure) {
+      return;
+    }
+    const context = this.ensureContext();
+    const effectsGain = this.effectsGain;
+    if (!context || !effectsGain) {
+      return;
+    }
+    this.exposure ??= new ExposureLoops(context, effectsGain);
+    this.exposure.apply(mix);
   }
 }
 
@@ -391,5 +447,12 @@ export async function fetchAudio(context: BaseAudioContext, url: string): Promis
     return await context.decodeAudioData(await response.arrayBuffer());
   } catch {
     return null;
+  }
+}
+
+function removeObserver(game: Game, observer: () => void): void {
+  const index = game.frameObservers.indexOf(observer);
+  if (index >= 0) {
+    game.frameObservers.splice(index, 1);
   }
 }
