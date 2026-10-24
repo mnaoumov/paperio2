@@ -262,6 +262,18 @@ const ATTACK_OVERSHOOT = 15;
 /** Other units must be this much farther from the way to the cut than the cut is, plus the margin. */
 const ATTACK_THREAT_FACTOR = 1;
 const ATTACK_THREAT_MARGIN = 40;
+/** How far a unit outside its base may stray from the straight way home, heading home or still drawing its loop. */
+const REENTRY_SLACK_BACK = 30;
+const REENTRY_SLACK = 120;
+/** Inside a pending capture, its trail is cut only when the player gets there this much before the unit can be home. */
+const SURROUND_CUT_MARGIN_SECONDS = 0.15;
+/** Otherwise the player walks out of it: along this many rays, in steps this long up to this far, to a point this deep in its base. */
+const ESCAPE_RAYS = 24;
+const ESCAPE_STEP = 10;
+const ESCAPE_MAX_DISTANCE = 400;
+const ESCAPE_DEPTH = 30;
+/** A unit still drawing its loop is home this much later than its distance says, at the soonest. */
+const LOOP_STATE_SLACK_SECONDS = 1;
 /** The quadratic formula's 2 and 4, and the scanline crossings that bound each span inside a polygon. */
 const QUADRATIC_TWO = 2;
 const QUADRATIC_FOUR = 4;
@@ -400,7 +412,7 @@ export class WhiteboxPilot {
    */
   public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
@@ -508,9 +520,7 @@ export class WhiteboxPilot {
     const { inBase, position } = situation;
     const trailPoints = victim.track.simplyline.map(toPoint);
     if (this.victimMode === 'surround') {
-      // Every moment counts: the nearest point of the trail, inside the base or not.
-      const point = nearestPoint(position, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
-      return point ? add(point, scale(normalize(subtract(point, position)), ATTACK_OVERSHOOT)) : null;
+      return this.surroundTarget(situation, victim);
     }
     const home = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING))?.point ?? null : null;
     // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
@@ -656,6 +666,35 @@ export class WhiteboxPilot {
       this.loop = null;
       this.stats.surrounds++;
     }
+  }
+
+  /**
+   * The way out of ground a unit's capture is about to close around the player: across the unit's trail, which ends the
+   * capture, when the player gets there before the unit can be home; otherwise out of that ground, staying in the base;
+   * and across the trail after all when there is no such way out.
+   *
+   * @param situation - What the update knows.
+   * @param victim - The unit whose capture closes around the player.
+   * @returns The point to steer at, or `null` once the player in its base stands outside every pending capture.
+   */
+  private surroundTarget(situation: Situation, victim: Unit): null | Point {
+    const { game, heading, inBase, player, position } = situation;
+    const captures = game.units.filter((unit) => unit !== player).flatMap(pendingCaptures);
+    if (inBase && !isInsideAny(position, captures)) {
+      return null;
+    }
+    const speed = game.config.unitSpeed;
+    const cut = nearestPoint(position, samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING));
+    if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
+      this.stats.surroundCuts++;
+      return add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
+    }
+    const escape = inBase ? escapePoint(situation, captures) : null;
+    if (escape) {
+      this.stats.surroundEscapes++;
+      return escape;
+    }
+    return cut ? add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT)) : null;
   }
 
   private lookForVictim(situation: Situation): void {
@@ -1647,19 +1686,49 @@ function pendingCaptures(unit: Unit): Point[][] {
   if (!straight || !home || !start) {
     return [];
   }
+  const head = toPoint(unit.position);
+  const trail = unit.track.simplyline.map(toPoint);
   const outline = unit.base.polygon.simplify.map(toPoint);
   const from = nearestIndex(toPoint(home), outline);
   const to = nearestIndex(toPoint(start), outline);
   if (from < 0 || to < 0) {
     return [straight];
   }
-  return SIDES.map((direction) => {
-    const arc: Point[] = [];
-    for (let index = from; index !== to; index = wrapIndex(index + direction, outline.length)) {
-      arc.push(outline[index] ?? home);
+  // A unit heading home goes nearly straight; one still drawing its loop can come back anywhere it reaches along its
+  // base, so the ends of that stretch of outline bound where it re-enters.
+  const reach = distance(head, toPoint(home)) + (unit.fsm?.state === 'back' ? REENTRY_SLACK_BACK : REENTRY_SLACK);
+  const ends = SIDES.map((direction) => {
+    let index = from;
+    for (let step = 0; step < outline.length / CROSSINGS_PER_SPAN; step++) {
+      const next = wrapIndex(index + direction, outline.length);
+      if (distance(head, outline[next] ?? head) > reach) {
+        break;
+      }
+      index = next;
     }
-    return [...straight, ...arc];
+    return index;
   });
+  const captures: Point[][] = [];
+  for (const end of new Set([from, ...ends])) {
+    for (const direction of SIDES) {
+      const arc: Point[] = [];
+      for (let index = end; index !== to; index = wrapIndex(index + direction, outline.length)) {
+        arc.push(outline[index] ?? home);
+      }
+      captures.push([...trail, head, ...arc]);
+    }
+  }
+  // And the fan from the head over that stretch, the ground any of those re-entries cuts off on the way in.
+  const [forwardEnd = from, backEnd = from] = ends;
+  if (forwardEnd !== backEnd) {
+    const fan: Point[] = [head];
+    for (let index = backEnd; index !== forwardEnd; index = wrapIndex(index + 1, outline.length)) {
+      fan.push(outline[index] ?? head);
+    }
+    fan.push(outline[forwardEnd] ?? head);
+    captures.push(fan);
+  }
+  return captures;
 }
 
 function nearestIndex(position: Point, points: readonly Point[]): number {
@@ -1677,6 +1746,66 @@ function nearestIndex(position: Point, points: readonly Point[]): number {
 
 function isInsideAny(point: Point, polygons: readonly (readonly Point[])[]): boolean {
   return polygons.some((polygon) => pointInPolygon(point, polygon));
+}
+
+/**
+ * The quickest point out of every pending capture that the player reaches in a straight line without leaving its base,
+ * and deep enough inside it that the turn there does not take the player out.
+ *
+ * @param situation - What the update knows.
+ * @param captures - The pending captures.
+ * @returns The point, or `null` when no straight way out stays in the base.
+ */
+function escapePoint(situation: Situation, captures: readonly (readonly Point[])[]): null | Point {
+  const { game, heading, outline, position } = situation;
+  const speed = game.config.unitSpeed;
+  let best: null | Point = null;
+  let bestSeconds = Infinity;
+  for (let ray = 0; ray < ESCAPE_RAYS; ray++) {
+    const angle = heading + ray * FULL_TURN / ESCAPE_RAYS;
+    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+    for (let away = ESCAPE_STEP; away <= ESCAPE_MAX_DISTANCE; away += ESCAPE_STEP) {
+      const point = add(position, scale(direction, away));
+      if (!pointInPolygon(point, outline)) {
+        break;
+      }
+      if (depthInside(point, outline) >= ESCAPE_DEPTH && !isInsideAny(point, captures)) {
+        const seconds = travelSeconds(position, heading, point, speed);
+        if (seconds < bestSeconds && isClearOfPolygon(position, point, outline)) {
+          best = point;
+          bestSeconds = seconds;
+        }
+        break;
+      }
+    }
+  }
+  return best;
+}
+
+/**
+ * How soon a unit outside its base can be home: straight there when it is heading home, later when it is still drawing
+ * its loop, which takes it along its base rather than into it.
+ *
+ * @param unit - The unit.
+ * @param speed - The unit speed.
+ * @returns The seconds.
+ */
+function homeSeconds(unit: Unit, speed: number): number {
+  return unit.baseDistance / speed + (unit.fsm?.state === 'back' ? 0 : LOOP_STATE_SLACK_SECONDS);
+}
+
+/**
+ * The seconds a unit at full speed takes to turn toward a point and get there.
+ *
+ * @param position - The unit.
+ * @param heading - Its heading, in radians.
+ * @param point - The point.
+ * @param speed - The unit speed.
+ * @returns The seconds.
+ */
+function travelSeconds(position: Point, heading: number, point: Point, speed: number): number {
+  const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
+  return distance(position, point) / speed + turn / TURN_SPEED_RADIANS_PER_SECOND;
 }
 
 /**
