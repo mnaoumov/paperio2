@@ -207,12 +207,13 @@ speed in headless Chrome and reports, per pilot, the win rate, the median and
 best time to win and how runs end, then a growth curve: the median share of the
 arena at 0:30, 1, 2, 3, 5, 10, 15, 30 and 60 minutes over the runs still alive.
 The same seed replays the same game. It builds `dist/` before it plays. On
-2026-10-22:
+2026-10-22, and for the whitebox against the original bots on 2026-10-23:
 
 | Pilot | Enemies | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
 | --- | --- | --- | --- | --- | --- | --- |
-| Whitebox | Original | 32 | 15 min | 0 | 6 (surrounded 3, trail cut 2, wall 1) | 26 (40.5%) |
-| Whitebox | Original | 16 | 60 min | 0 | 9 (trail cut 5, surrounded 4) | 7 (66.3%) |
+| Whitebox | Original | 32 | 15 min | 0 | 4 (trail cut 4) | 28 (39.1%) |
+| Whitebox | Original | 64 | 30 min | 0 | 18 (trail cut 15, exit point taken 2, surrounded 1) | 46 (50.7%) |
+| Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 4) | 12 (57.5%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
 | Blackbox | Original | 32 | 5 min | 0 | 9 (trail cut 6, surrounded 2, self-intersection 1) | 23 (2.8%) |
 
@@ -221,13 +222,21 @@ human played by hand with the default settings:
 
 | | 1:00 | 2:00 | 3:00 | 5:00 | 10:00 | 15:00 | 30:00 | 60:00 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Whitebox | 4.9% | 8.9% | 12.5% | 19.1% | 32.7% | 40.7% | 53.6% | 66.3% |
+| Whitebox | 4.3% | 7.9% | 11.6% | 19.4% | 32.2% | 39.7% | 53.3% | 57.5% |
 | Human | 3.2-4.5% | 7.6-7.8% | 11.4-14.3% | 17.9% | | | | |
 
-The human's games ended at 17.3% (3:50) and 27.4% (8:00). The whitebox now
-keeps pace with the human for the first five minutes and survives longer, but
-it dies more often than the more cautious version measured before it (4 deaths
-in 16 one-hour runs, 52.6% at the hour), and it has not won yet.
+The human's games ended at 17.3% (3:50) and 27.4% (8:00). The whitebox keeps
+pace with the human for the first five minutes and survives longer. It has not
+won yet; its best one-hour run held 92.0%.
+
+The whitebox predicts a bot's capture the way the engine closes it, along the
+bot's base outline from wherever the bot can still re-enter it, not by a straight
+line home. When such a capture is about to close around it, it cuts the bot's
+trail if it gets there first, and otherwise walks out of the threatened ground
+inside its own base. That took its one-hour deaths from 9 in 16 (5 trail cuts, 4
+surrounded) to 4, all trail cuts, and its 30-minute deaths from 31 in 64 to 18.
+The median at the hour is lower than before (57.5% against 66.3%) because it is
+now taken over 12 surviving runs rather than 7.
 
 The whitebox now slides along the arena's wall without dying there: pressed
 against the wall, it never turns through the wall's outward direction, which
