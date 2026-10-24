@@ -668,35 +668,6 @@ export class WhiteboxPilot {
     }
   }
 
-  /**
-   * The way out of ground a unit's capture is about to close around the player: across the unit's trail, which ends the
-   * capture, when the player gets there before the unit can be home; otherwise out of that ground, staying in the base;
-   * and across the trail after all when there is no such way out.
-   *
-   * @param situation - What the update knows.
-   * @param victim - The unit whose capture closes around the player.
-   * @returns The point to steer at, or `null` once the player in its base stands outside every pending capture.
-   */
-  private surroundTarget(situation: Situation, victim: Unit): null | Point {
-    const { game, heading, inBase, player, position } = situation;
-    const captures = game.units.filter((unit) => unit !== player).flatMap(pendingCaptures);
-    if (inBase && !isInsideAny(position, captures)) {
-      return null;
-    }
-    const speed = game.config.unitSpeed;
-    const cut = nearestPoint(position, samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING));
-    if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
-      this.stats.surroundCuts++;
-      return add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
-    }
-    const escape = inBase ? escapePoint(situation, captures) : null;
-    if (escape) {
-      this.stats.surroundEscapes++;
-      return escape;
-    }
-    return cut ? add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT)) : null;
-  }
-
   private lookForVictim(situation: Situation): void {
     const { game, inBase, player } = situation;
     let best: null | VictimChoice = null;
@@ -828,6 +799,35 @@ export class WhiteboxPilot {
   }
 
   /**
+   * The way out of ground a unit's capture is about to close around the player: across the unit's trail, which ends the
+   * capture, when the player gets there before the unit can be home; otherwise out of that ground, staying in the base;
+   * and across the trail after all when there is no such way out.
+   *
+   * @param situation - What the update knows.
+   * @param victim - The unit whose capture closes around the player.
+   * @returns The point to steer at, or `null` once the player in its base stands outside every pending capture.
+   */
+  private surroundTarget(situation: Situation, victim: Unit): null | Point {
+    const { game, heading, inBase, player, position } = situation;
+    const captures = game.units.filter((unit) => unit !== player).flatMap(pendingCaptures);
+    if (inBase && !isInsideAny(position, captures)) {
+      return null;
+    }
+    const speed = game.config.unitSpeed;
+    const cut = nearestPoint(position, samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING));
+    if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
+      this.stats.surroundCuts++;
+      return add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
+    }
+    const escape = inBase ? escapePoint(situation, captures) : null;
+    if (escape) {
+      this.stats.surroundEscapes++;
+      return escape;
+    }
+    return cut ? add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT)) : null;
+  }
+
+  /**
    * The wall sweep's target when one is due, otherwise whatever the phase calls for.
    *
    * @param situation - What the update knows.
@@ -884,6 +884,16 @@ export class WhiteboxPilot {
     return add(center, scale({ x: Math.cos(ahead), y: Math.sin(ahead) }, radius + SWEEP_PUSH));
   }
 
+  private takePlan(plan: null | PlannedLoop): boolean {
+    this.loop = plan?.waypoints ?? null;
+    this.loopCheck = plan?.check ?? null;
+    this.waypointIndex = 0;
+    if (plan) {
+      this.stats.loops++;
+    }
+    return plan !== null;
+  }
+
   /**
    * Whether steering at the waypoint for the next moment takes the player over its own trail.
    *
@@ -912,16 +922,6 @@ export class WhiteboxPilot {
       speed: game.config.unitSpeed,
       trail
     }) === null;
-  }
-
-  private takePlan(plan: null | PlannedLoop): boolean {
-    this.loop = plan?.waypoints ?? null;
-    this.loopCheck = plan?.check ?? null;
-    this.waypointIndex = 0;
-    if (plan) {
-      this.stats.loops++;
-    }
-    return plan !== null;
   }
 }
 
@@ -1238,6 +1238,40 @@ function distanceField(raster: Raster): Float32Array {
 }
 
 /**
+ * The quickest point out of every pending capture that the player reaches in a straight line without leaving its base,
+ * and deep enough inside it that the turn there does not take the player out.
+ *
+ * @param situation - What the update knows.
+ * @param captures - The pending captures.
+ * @returns The point, or `null` when no straight way out stays in the base.
+ */
+function escapePoint(situation: Situation, captures: readonly (readonly Point[])[]): null | Point {
+  const { game, heading, outline, position } = situation;
+  const speed = game.config.unitSpeed;
+  let best: null | Point = null;
+  let bestSeconds = Infinity;
+  for (let ray = 0; ray < ESCAPE_RAYS; ray++) {
+    const angle = heading + ray * FULL_TURN / ESCAPE_RAYS;
+    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+    for (let away = ESCAPE_STEP; away <= ESCAPE_MAX_DISTANCE; away += ESCAPE_STEP) {
+      const point = add(position, scale(direction, away));
+      if (!pointInPolygon(point, outline)) {
+        break;
+      }
+      if (depthInside(point, outline) >= ESCAPE_DEPTH && !isInsideAny(point, captures)) {
+        const seconds = travelSeconds(position, heading, point, speed);
+        if (seconds < bestSeconds && isClearOfPolygon(position, point, outline)) {
+          best = point;
+          bestSeconds = seconds;
+        }
+        break;
+      }
+    }
+  }
+  return best;
+}
+
+/**
  * The cells a peel loop would take, estimated along the middle of the band it encloses.
  *
  * @param ring - The resampled outline.
@@ -1411,6 +1445,18 @@ function holdTarget(situation: Situation): Point {
 }
 
 /**
+ * How soon a unit outside its base can be home: straight there when it is heading home, later when it is still drawing
+ * its loop, which takes it along its base rather than into it.
+ *
+ * @param unit - The unit.
+ * @param speed - The unit speed.
+ * @returns The seconds.
+ */
+function homeSeconds(unit: Unit, speed: number): number {
+  return unit.baseDistance / speed + (unit.fsm?.state === 'back' ? 0 : LOOP_STATE_SLACK_SECONDS);
+}
+
+/**
  * The nearest point of a unit's trail that the player, in its base, can cut with no risk at all: one inside the base
  * with a straight way to it that stays inside. Trails that only hug the base from outside are left alone: the way to
  * them leaves the base right in front of their owner, which is excluded from the threats while it is the victim.
@@ -1536,6 +1582,10 @@ function isHunting(unit: Unit): boolean {
   return !(unit instanceof Bot) || unit.fsm?.state === 'attack';
 }
 
+function isInsideAny(point: Point, polygons: readonly (readonly Point[])[]): boolean {
+  return polygons.some((polygon) => pointInPolygon(point, polygon));
+}
+
 /**
  * Whether a point lies inside the circle the unit turns on at its full turn rate, toward the point's side: the unit can
  * only orbit such a point, never reach it, so it counts as passed.
@@ -1598,10 +1648,43 @@ function keepInside(point: Point, center: Point, radius: number): Point {
   return distance(point, center) > radius ? add(center, scale(normalize(subtract(point, center)), radius)) : point;
 }
 
+/**
+ * Whether a simulated step touches the trail the simulated flight has laid so far, recording the step's end as part of
+ * that trail every few steps.
+ *
+ * @param laid - The trail laid so far.
+ * @param from - Where the step starts.
+ * @param to - Where it ends.
+ * @param step - The step's index.
+ * @returns Whether it touches.
+ */
+function laysOverItself(laid: Point[], from: Point, to: Point, step: number): boolean {
+  if (touchesPolyline(from, to, laid, laid.length - SELF_GRACE_SAMPLES, null)) {
+    return true;
+  }
+  if (step % SELF_SAMPLE_STEPS === 0) {
+    laid.push(to);
+  }
+  return false;
+}
+
 function nearestDistance(position: Point, points: readonly Point[]): number {
   let nearest = Infinity;
   for (const point of points) {
     nearest = Math.min(nearest, distance(point, position));
+  }
+  return nearest;
+}
+
+function nearestIndex(position: Point, points: readonly Point[]): number {
+  let nearest = -1;
+  let nearestAway = Infinity;
+  for (let index = 0; index < points.length; index++) {
+    const away = distance(points[index] ?? position, position);
+    if (away < nearestAway) {
+      nearestAway = away;
+      nearest = index;
+    }
   }
   return nearest;
 }
@@ -1729,83 +1812,6 @@ function pendingCaptures(unit: Unit): Point[][] {
     captures.push(fan);
   }
   return captures;
-}
-
-function nearestIndex(position: Point, points: readonly Point[]): number {
-  let nearest = -1;
-  let nearestAway = Infinity;
-  for (let index = 0; index < points.length; index++) {
-    const away = distance(points[index] ?? position, position);
-    if (away < nearestAway) {
-      nearestAway = away;
-      nearest = index;
-    }
-  }
-  return nearest;
-}
-
-function isInsideAny(point: Point, polygons: readonly (readonly Point[])[]): boolean {
-  return polygons.some((polygon) => pointInPolygon(point, polygon));
-}
-
-/**
- * The quickest point out of every pending capture that the player reaches in a straight line without leaving its base,
- * and deep enough inside it that the turn there does not take the player out.
- *
- * @param situation - What the update knows.
- * @param captures - The pending captures.
- * @returns The point, or `null` when no straight way out stays in the base.
- */
-function escapePoint(situation: Situation, captures: readonly (readonly Point[])[]): null | Point {
-  const { game, heading, outline, position } = situation;
-  const speed = game.config.unitSpeed;
-  let best: null | Point = null;
-  let bestSeconds = Infinity;
-  for (let ray = 0; ray < ESCAPE_RAYS; ray++) {
-    const angle = heading + ray * FULL_TURN / ESCAPE_RAYS;
-    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-    for (let away = ESCAPE_STEP; away <= ESCAPE_MAX_DISTANCE; away += ESCAPE_STEP) {
-      const point = add(position, scale(direction, away));
-      if (!pointInPolygon(point, outline)) {
-        break;
-      }
-      if (depthInside(point, outline) >= ESCAPE_DEPTH && !isInsideAny(point, captures)) {
-        const seconds = travelSeconds(position, heading, point, speed);
-        if (seconds < bestSeconds && isClearOfPolygon(position, point, outline)) {
-          best = point;
-          bestSeconds = seconds;
-        }
-        break;
-      }
-    }
-  }
-  return best;
-}
-
-/**
- * How soon a unit outside its base can be home: straight there when it is heading home, later when it is still drawing
- * its loop, which takes it along its base rather than into it.
- *
- * @param unit - The unit.
- * @param speed - The unit speed.
- * @returns The seconds.
- */
-function homeSeconds(unit: Unit, speed: number): number {
-  return unit.baseDistance / speed + (unit.fsm?.state === 'back' ? 0 : LOOP_STATE_SLACK_SECONDS);
-}
-
-/**
- * The seconds a unit at full speed takes to turn toward a point and get there.
- *
- * @param position - The unit.
- * @param heading - Its heading, in radians.
- * @param point - The point.
- * @param speed - The unit speed.
- * @returns The seconds.
- */
-function travelSeconds(position: Point, heading: number, point: Point, speed: number): number {
-  const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
-  return distance(position, point) / speed + turn / TURN_SPEED_RADIANS_PER_SECOND;
 }
 
 /**
@@ -1977,13 +1983,8 @@ function simulateApproach(params: ApproachParams): null | number {
     if (touchesPolyline(position, next, trail, trail.length, grace)) {
       return null;
     }
-    if (trackSelf && (!staysInside || leg > 0)) {
-      if (touchesPolyline(position, next, laid, laid.length - SELF_GRACE_SAMPLES, null)) {
-        return null;
-      }
-      if (step % SELF_SAMPLE_STEPS === 0) {
-        laid.push(next);
-      }
+    if (trackSelf && (!staysInside || leg > 0) && laysOverItself(laid, position, next, step)) {
+      return null;
     }
     if (length(moved) > 0) {
       previousMove = moved;
@@ -2075,6 +2076,20 @@ function touchesPolyline(from: Point, to: Point, points: readonly Point[], count
     }
   }
   return false;
+}
+
+/**
+ * The seconds a unit at full speed takes to turn toward a point and get there.
+ *
+ * @param position - The unit.
+ * @param heading - Its heading, in radians.
+ * @param point - The point.
+ * @param speed - The unit speed.
+ * @returns The seconds.
+ */
+function travelSeconds(position: Point, heading: number, point: Point, speed: number): number {
+  const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
+  return distance(position, point) / speed + turn / TURN_SPEED_RADIANS_PER_SECOND;
 }
 
 /**
