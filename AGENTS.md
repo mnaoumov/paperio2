@@ -398,6 +398,12 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   unit's bot state (`*` while in its base), the target (magenta) and the killer (red box). A seed replays exactly, so
   `--seeds 1 --first-seed <n>` with both is the way to study one death. `--enemies` picks the enemy modes to play
   against (see **Enemy modes**); it defaults to the original bots.
+- **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
+  `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes. The replay plays each one
+  several times under whatever pilot `dist/` holds, with the bots' generator and `Math.random` shifted per trial, so two
+  builds face identical trials. `--compare a.json,b.json` pairs them, with an exact McNemar p. Each trial attaches a
+  fresh pilot, and measured on 2026-10-25 that pilot repeated only 5 of 192 recorded deaths. So the death situations do
+  not yet stand for the pilot that died, while the controls already work as a paired check.
 
 ## Racing: seed, ghost and showcase
 
