@@ -392,8 +392,12 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   `api.start(..., completePreparation = true)`, and steps the virtual clock one 60 fps frame at a time inside the page.
   The whitebox runs with `game.renderer = null` (rendering changes no game state): 16 fifteen-minute games in parallel
   took about 4 minutes here. The blackbox renders every frame and runs at about real time. `--why` prints each failed run's last phase changes, the killer's
-  bot state, the whitebox's decision counts and the ground it gained and lost. `--enemies` picks the enemy modes to play against
-  (see **Enemy modes**); it defaults to the original bots.
+  bot state and position, the whitebox's decision counts and the ground it gained and lost. `--trace` adds a line every
+  tenth of a second with the pilot's target and keeps the last 4 seconds of them. For the whitebox, `--dump <dir>` draws
+  the last 4 seconds from the game's own state rather than from the canvas: every base and trail near the player, each
+  unit's bot state (`*` while in its base), the target (magenta) and the killer (red box). A seed replays exactly, so
+  `--seeds 1 --first-seed <n>` with both is the way to study one death. `--enemies` picks the enemy modes to play
+  against (see **Enemy modes**); it defaults to the original bots.
 
 ## Racing: seed, ghost and showcase
 

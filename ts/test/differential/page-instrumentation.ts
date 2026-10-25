@@ -38,6 +38,24 @@ export interface DifferentialPageApi {
   step: (milliseconds: number) => Promise<DifferentialFrameResult>;
 }
 
+/** A unit in a {@link PageWhiteboxShot}. */
+export interface PageShotUnit {
+  readonly base: readonly PagePlainPoint[];
+  readonly inBase: boolean;
+  readonly position: PagePlainPoint;
+  readonly state: string;
+  readonly trail: readonly PagePlainPoint[];
+}
+
+/** What the benchmark's `--dump` keeps of one moment of a whitebox run: the player and the units near it. */
+export interface PageWhiteboxShot {
+  readonly phase: string;
+  readonly player: PageShotUnit;
+  readonly seconds: number;
+  readonly target: null | PagePlainPoint;
+  readonly units: readonly PageShotUnit[];
+}
+
 declare global {
   interface Window {
     /** The share of the arena the player gained and lost, summed frame by frame, for the benchmark's report. */
@@ -49,6 +67,10 @@ declare global {
     __differential: DifferentialPageApi;
     /** The stats log the benchmark's `--stats` attached. */
     __statsLog?: PageStatsLog;
+    /** Records the world around the whitebox pilot, for the benchmark's `--dump`. */
+    __whiteboxShot?: () => void;
+    /** The last records {@link Window.__whiteboxShot} made. */
+    __whiteboxShots?: PageWhiteboxShot[];
     paperio2api: PaperIo2PageApi;
     /** Which engine `index.html`'s engine switch loaded. */
     paperio2engine?: 'original' | 'reconstruction';
@@ -115,7 +137,7 @@ export interface PageAutopilotDebug {
   readonly height?: number;
   readonly loop?: null | readonly PagePlainPoint[];
   readonly phase: string;
-  readonly target?: unknown;
+  readonly target?: null | PagePlainPoint;
   readonly threat: unknown;
   /** The blackbox pilot's remembered trail over the frame. */
   readonly track?: null | Uint8Array;
@@ -181,6 +203,7 @@ export interface PagePlainPoint {
 }
 
 export interface PagePoint {
+  distance(point: PagePlainPoint): number;
   readonly segments: readonly PageSegment[];
   readonly x: number;
   readonly y: number;
@@ -189,6 +212,7 @@ export interface PagePoint {
 export interface PagePolygon {
   inside(point: PagePoint): boolean;
   readonly segments: readonly PageSegment[];
+  readonly simplify: readonly PagePlainPoint[];
 }
 
 export interface PagePractice {
@@ -235,6 +259,11 @@ export interface PageTerritory {
   readonly square: number;
 }
 
+/** A unit's trail, as its simplified polyline. */
+export interface PageTrail {
+  readonly simplyline: readonly PagePlainPoint[];
+}
+
 export interface PageUnit {
   readonly base: PageTerritory;
   readonly death?: boolean;
@@ -244,6 +273,7 @@ export interface PageUnit {
   readonly isPlayer?: boolean;
   readonly percent?: number;
   readonly position: PagePoint;
+  readonly track: PageTrail;
 }
 
 export interface PageWhiteboxPilot extends PagePilot {

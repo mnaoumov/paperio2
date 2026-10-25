@@ -38,7 +38,13 @@ import {
 } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
-import type { PageEnemySettings } from '../differential/page-instrumentation.ts';
+import type {
+  PageEnemySettings,
+  PagePlainPoint,
+  PageShotUnit,
+  PageUnit,
+  PageWhiteboxShot
+} from '../differential/page-instrumentation.ts';
 
 import {
   launchBrowser,
@@ -97,6 +103,38 @@ interface StepUnits {
   readonly fractionDigits: number;
   readonly millisecondsPerSecond: number;
   readonly percentScale: number;
+  /** With `--trace`, a trace line every this many updates, not only on a change of phase; 0 without it. */
+  readonly traceEvery: number;
+}
+
+/** How {@link installWhiteboxShots} records and {@link dumpWhiteboxShots} draws. */
+interface WhiteboxShotStyle {
+  readonly background: string;
+  /** A record every this many updates. */
+  readonly every: number;
+  readonly font: string;
+  readonly fullHue: number;
+  readonly halves: number;
+  readonly hueStep: number;
+  /** How many records are kept. */
+  readonly keep: number;
+  readonly killerBox: number;
+  readonly killerColor: string;
+  readonly lineHeight: number;
+  readonly lineWidth: number;
+  readonly marker: number;
+  readonly millisecondsPerSecond: number;
+  readonly ownFill: string;
+  readonly ownStroke: string;
+  /** The image's side, in pixels. */
+  readonly size: number;
+  /** Every this many kept records is drawn. */
+  readonly stride: number;
+  readonly targetColor: string;
+  readonly text: string;
+  readonly trailStroke: string;
+  /** The image's side, in world units, and how near the player a unit must be to be kept. */
+  readonly view: number;
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
@@ -125,10 +163,37 @@ const DUMP_STYLE: DumpStyle = {
   trackColors: [null, [160, 150, 60, 255], [255, 220, 0, 255]],
   unknownColor: [255, 0, 255, 255]
 };
+/** A whitebox `--dump`: a record every tenth of a second, the last 4 seconds kept, every third drawn, 700 world units across. */
+const WHITEBOX_SHOT_STYLE: WhiteboxShotStyle = {
+  background: '#ffffff',
+  every: 6,
+  font: '13px sans-serif',
+  fullHue: 360,
+  halves: 2,
+  hueStep: 67,
+  keep: 40,
+  killerBox: 8,
+  killerColor: '#ff0000',
+  lineHeight: 16,
+  lineWidth: 2,
+  marker: 4,
+  millisecondsPerSecond: MILLISECONDS_PER_SECOND,
+  ownFill: 'rgba(0, 90, 255, 0.3)',
+  ownStroke: 'rgba(0, 90, 255, 0.8)',
+  size: 700,
+  stride: 3,
+  targetColor: '#ff00ff',
+  text: '#000000',
+  trailStroke: '#0040ff',
+  view: 700
+};
 /* eslint-enable no-magic-numbers -- end of the dump's colors. */
-const STEP_UNITS: StepUnits = { dumpFrames: DUMP_FRAMES, fractionDigits: FRACTION_DIGITS, millisecondsPerSecond: MILLISECONDS_PER_SECOND, percentScale: PERCENT_SCALE };
+/** `--trace` writes a line every tenth of a second and keeps the last 4 seconds of them. */
+const TRACE_EVERY_UPDATES = 6;
+const TRACE_LINES = 40;
 const REASONS: readonly string[] = ['win', 'self-intersection', 'wall', 'trail cut', 'exit point taken', 'surrounded', 'system', 'capital surrounded'];
 const DEFAULT_PARALLEL_SHARE = 2;
+const STEP_UNITS = { dumpFrames: DUMP_FRAMES, fractionDigits: FRACTION_DIGITS, millisecondsPerSecond: MILLISECONDS_PER_SECOND, percentScale: PERCENT_SCALE };
 /** How many trace lines `--why` prints before a death. */
 const WHY_LINES = 12;
 /** The minutes at which the growth curve samples the map share, the human baseline's marks; each is a whole number of chunks. */
@@ -146,6 +211,7 @@ const { values } = parseArgs({
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'seeds': { default: '10', type: 'string' },
     'stats': { type: 'string' },
+    'trace': { default: false, type: 'boolean' },
     'why': { default: false, type: 'boolean' }
   }
 });
@@ -245,9 +311,132 @@ async function dumpFrames(page: Page, directory: string): Promise<void> {
   print(`dumped ${String(images.length)} frames to ${directory}`);
 }
 
+/**
+ * Draws the moments {@link installWhiteboxShots} kept, each centred on the player: every base near it, every trail,
+ * each unit's state (`*` while it is in its base), the pilot's target (magenta) and the killer (red square), as PNGs.
+ *
+ * @param page - The page.
+ * @param directory - Where to write them.
+ */
+async function dumpWhiteboxShots(page: Page, directory: string): Promise<void> {
+  const images = await page.evaluate((style: WhiteboxShotStyle) => {
+    const pending = window.paperio2api.game.pendingGameOver;
+    const killer: unknown = pending ? Reflect.get(Reflect.get(pending, 'player') ?? {}, 'killer') : null;
+    const killerAt: unknown = killer ? Reflect.get(killer, 'position') : null;
+    const shots = window.__whiteboxShots ?? [];
+    return shots.filter((_shot, index) => (shots.length - 1 - index) % style.stride === 0).map((shot) => {
+      const canvas = document.createElement('canvas');
+      canvas.width = style.size;
+      canvas.height = style.size;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        return { data: '', label: '' };
+      }
+      const half = style.size / style.halves;
+      const zoom = style.size / style.view;
+      function place(point: PagePlainPoint): [number, number] {
+        return [(point.x - shot.player.position.x) * zoom + half, (point.y - shot.player.position.y) * zoom + half];
+      }
+      function trace(points: readonly PagePlainPoint[], close: boolean): void {
+        context?.beginPath();
+        for (const point of points) {
+          context?.lineTo(...place(point));
+        }
+        if (close) {
+          context?.closePath();
+        }
+      }
+      context.fillStyle = style.background;
+      context.fillRect(0, 0, style.size, style.size);
+      context.lineWidth = style.lineWidth;
+      context.font = style.font;
+      shot.units.forEach((unit, index) => {
+        const hue = String(index * style.hueStep % style.fullHue);
+        trace(unit.base, true);
+        context.fillStyle = `hsla(${hue}, 60%, 60%, 0.35)`;
+        context.fill();
+        trace([...unit.trail, unit.position], false);
+        context.strokeStyle = `hsl(${hue}, 80%, 40%)`;
+        context.stroke();
+        const [x, y] = place(unit.position);
+        context.fillStyle = `hsl(${hue}, 80%, 30%)`;
+        context.fillRect(x - style.marker, y - style.marker, style.marker * style.halves, style.marker * style.halves);
+        context.fillText(`${unit.state}${unit.inBase ? '*' : ''}`, x + style.marker, y - style.marker);
+      });
+      trace(shot.player.base, true);
+      context.fillStyle = style.ownFill;
+      context.fill();
+      context.strokeStyle = style.ownStroke;
+      context.stroke();
+      trace([...shot.player.trail, shot.player.position], false);
+      context.strokeStyle = style.trailStroke;
+      context.stroke();
+      context.fillStyle = style.text;
+      context.fillRect(half - style.marker, half - style.marker, style.marker * style.halves, style.marker * style.halves);
+      if (shot.target) {
+        const [x, y] = place(shot.target);
+        context.fillStyle = style.targetColor;
+        context.fillRect(x - style.marker, y - style.marker, style.marker * style.halves, style.marker * style.halves);
+      }
+      if (killerAt) {
+        const [x, y] = place({ x: Number(Reflect.get(killerAt, 'x')), y: Number(Reflect.get(killerAt, 'y')) });
+        context.strokeStyle = style.killerColor;
+        context.strokeRect(x - style.killerBox, y - style.killerBox, style.killerBox * style.halves, style.killerBox * style.halves);
+      }
+      context.fillStyle = style.text;
+      context.fillText(`${shot.seconds.toFixed(1)}s ${shot.phase} in=${String(shot.player.inBase)}`, style.marker, style.lineHeight);
+      return { data: canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, ''), label: `${shot.seconds.toFixed(1)}s-${shot.phase}` };
+    });
+  }, WHITEBOX_SHOT_STYLE);
+  await mkdir(directory, { recursive: true });
+  for (const { data, label: shotLabel } of images) {
+    await writeFile(join(directory, `${shotLabel}.png`), Buffer.from(data, 'base64'));
+  }
+  print(`dumped ${String(images.length)} shots to ${directory}`);
+}
+
 function formatTime(seconds: number): string {
   const whole = Math.round(seconds);
   return `${String(Math.floor(whole / SECONDS_PER_MINUTE))}:${String(whole % SECONDS_PER_MINUTE).padStart(SECONDS_DIGITS, '0')}`;
+}
+
+/**
+ * Installs the recorder {@link dumpWhiteboxShots} draws from: every few updates it keeps the player's base and trail,
+ * and those of every unit near it, dropping the oldest past the style's count. It only reads the game.
+ *
+ * @param style - How often it records, how much it keeps and how far around the player it looks.
+ */
+function installWhiteboxShots(style: WhiteboxShotStyle): void {
+  const { game } = window.paperio2api;
+  const shots: PageWhiteboxShot[] = [];
+  window.__whiteboxShots = shots;
+  function copy(points: readonly PagePlainPoint[]): PagePlainPoint[] {
+    return points.map(({ x, y }) => ({ x, y }));
+  }
+  function describeUnit(unit: PageUnit): PageShotUnit {
+    return {
+      base: copy(unit.base.polygon.simplify),
+      inBase: unit.in === unit.base,
+      position: { x: unit.position.x, y: unit.position.y },
+      state: unit.fsm?.state ?? 'unit',
+      trail: copy(unit.track.simplyline)
+    };
+  }
+  window.__whiteboxShot = (): void => {
+    const { player } = game;
+    if (!player || game.cycle % style.every !== 0) {
+      return;
+    }
+    const debug = window.__autopilot?.whitebox?.debug;
+    shots.push({
+      phase: debug?.phase ?? '-',
+      player: describeUnit(player),
+      seconds: (game.clock.now() - (game.startTime ?? 0)) / style.millisecondsPerSecond,
+      target: debug?.target ? { x: debug.target.x, y: debug.target.y } : null,
+      units: game.units.filter((unit) => unit !== player && unit.position.distance(player.position) < style.view).map(describeUnit)
+    });
+    shots.splice(0, Math.max(0, shots.length - style.keep));
+  };
 }
 
 function label(run: Pick<Job, 'enemies' | 'mode'>): string {
@@ -300,6 +489,9 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       mode,
       parseEnemies(enemies)
     );
+    if (values.dump !== undefined && mode === 'whitebox') {
+      await page.evaluate(installWhiteboxShots, WHITEBOX_SHOT_STYLE);
+    }
     const tail: string[] = [];
     let frames = 0;
     let state = await stepFrames(page, 0, tail);
@@ -320,7 +512,8 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       await writeFile(join(values.stats, `${mode}-${enemies.replace(':', '-')}-seed${String(seed)}.jsonl`), text);
     }
     if (values.dump !== undefined && reason !== 'win') {
-      await dumpFrames(page, join(values.dump, `${mode}-${enemies.replace(':', '-')}-seed${String(seed)}`));
+      const directory = join(values.dump, `${mode}-${enemies.replace(':', '-')}-seed${String(seed)}`);
+      await (mode === 'whitebox' ? dumpWhiteboxShots(page, directory) : dumpFrames(page, directory));
     }
     if (values.why && reason !== 'win') {
       print([`--- ${label(job)} seed ${String(seed)}: ${String(reason)}`, ...tail].join('\n'));
@@ -409,19 +602,21 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
             window.__blackboxFrames = kept;
           }
         }
+        window.__whiteboxShot?.();
         if (trace && debug && player) {
-          const line = `${debug.phase} in=${String(player.in === player.base)}`;
+          const line = `${debug.phase} in=${String(player.in === player.base)}${units.traceEvery > 0 ? ` #${String(Math.floor(game.cycle / units.traceEvery))}` : ''}`;
           if (line !== lastLine) {
             lastLine = line;
             const seconds = (game.clock.now() - (game.startTime ?? 0)) / units.millisecondsPerSecond;
-            log.push(`${seconds.toFixed(1)}s ${line} pos=${player.position.x.toFixed(0)},${player.position.y.toFixed(0)} pct=${((player.percent ?? 0) * units.percentScale).toFixed(units.fractionDigits)} threat=${JSON.stringify(debug.threat) ?? '-'}`);
+            log.push(`${seconds.toFixed(1)}s ${line} pos=${player.position.x.toFixed(0)},${player.position.y.toFixed(0)} pct=${((player.percent ?? 0) * units.percentScale).toFixed(units.fractionDigits)} threat=${JSON.stringify(debug.threat) ?? '-'}${units.traceEvery > 0 && 'target' in debug && debug.target ? ` target=${debug.target.x.toFixed(0)},${debug.target.y.toFixed(0)}` : ''}`);
           }
         }
       }
       const pending = game.pendingGameOver ?? null;
       const killer: unknown = pending && trace ? Reflect.get(Reflect.get(pending, 'player') ?? {}, 'killer') : null;
       if (killer) {
-        log.push(`killed by a unit in state ${String(Reflect.get(Reflect.get(killer, 'fsm') ?? {}, 'state'))}`);
+        const at: unknown = Reflect.get(killer, 'position');
+        log.push(`killed by a unit in state ${String(Reflect.get(Reflect.get(killer, 'fsm') ?? {}, 'state'))} at ${String(Reflect.get(at ?? {}, 'x'))},${String(Reflect.get(at ?? {}, 'y'))}`);
       }
       return {
         done: pending !== null || !game.player,
@@ -435,9 +630,9 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
     FRAME_MILLISECONDS,
     values.why,
     values.dump !== undefined,
-    STEP_UNITS
+    { ...STEP_UNITS, traceEvery: values.trace ? TRACE_EVERY_UPDATES : 0 }
   );
   tail.push(...state.log);
-  tail.splice(0, Math.max(0, tail.length - WHY_LINES));
+  tail.splice(0, Math.max(0, tail.length - (values.trace ? TRACE_LINES : WHY_LINES)));
   return state;
 }
