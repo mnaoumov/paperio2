@@ -18,6 +18,9 @@
  *
  * `--stats <dir>` writes each run's stats log there, the same JSONL the page keeps for a human's game, as
  * `<mode>-<enemies>-seed<n>.jsonl`; `npm run stats:report` compares them.
+ *
+ * `--situations <dir>` writes the situations `npm run benchmark:replay` plays again (see `situation-replay.ts`): for
+ * each death, a snapshot from 8 to 13 s before it, and for every run a control snapshot every 10 minutes it lives.
  */
 
 import type {
@@ -42,9 +45,14 @@ import type {
   PageEnemySettings,
   PagePlainPoint,
   PageShotUnit,
+  PageSituationSnapshot,
   PageUnit,
   PageWhiteboxShot
 } from '../differential/page-instrumentation.ts';
+import type {
+  Situation,
+  SituationKind
+} from './situation.ts';
 
 import {
   launchBrowser,
@@ -94,6 +102,12 @@ interface PageState {
   readonly percent: number;
   readonly reason: null | number;
   readonly seconds: number;
+}
+
+/** What {@link playChunks} returns: the growth curve and the run's last state. */
+interface PlayedChunks {
+  readonly curve: readonly (null | number)[];
+  readonly state: PageState;
 }
 
 /** Numbers the page-side step needs, passed in because a function evaluated in the page cannot reach Node's scope. */
@@ -200,6 +214,12 @@ const WHY_LINES = 12;
 // eslint-disable-next-line no-magic-numbers -- the curve's marks.
 const CURVE_MINUTES: readonly number[] = [0.5, 1, 2, 3, 5, 10, 15, 30, 60];
 const CURVE_FRAMES: readonly number[] = CURVE_MINUTES.map((minutes) => Math.round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_SECOND));
+/** `--situations` takes a snapshot every 5 seconds and keeps the last 4, so one from 8 to 13 s before a death is there. */
+const SITUATION_EVERY_FRAMES = 300;
+const SITUATION_KEEP = 4;
+const SITUATION_LEAD_SECONDS = 8;
+/** And a control situation every 10 minutes a run lives, a whole number of chunks. */
+const CONTROL_SITUATION_FRAMES = 36_000;
 
 const { values } = parseArgs({
   options: {
@@ -210,6 +230,7 @@ const { values } = parseArgs({
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'seeds': { default: '10', type: 'string' },
+    'situations': { type: 'string' },
     'stats': { type: 'string' },
     'trace': { default: false, type: 'boolean' },
     'why': { default: false, type: 'boolean' }
@@ -401,6 +422,29 @@ function formatTime(seconds: number): string {
 }
 
 /**
+ * Installs the snapshot ring `--situations` picks a death's situation from: every few frames, while the player lives, a
+ * snapshot of the game, the oldest dropped past the count. Taking one changes no game state.
+ *
+ * @param every - A snapshot every this many frames.
+ * @param keep - How many are kept.
+ * @param millisecondsPerSecond - Passed in, since the page cannot reach this module's constants.
+ */
+function installSituationRing(every: number, keep: number, millisecondsPerSecond: number): void {
+  const api = window.paperio2api;
+  const kept: PageSituationSnapshot[] = [];
+  window.__situations = kept;
+  let frames = 0;
+  window.__situationTick = (): void => {
+    const { game } = api;
+    if (frames++ % every !== 0 || !game.player || game.pendingGameOver || !api.captureSnapshot) {
+      return;
+    }
+    kept.push({ seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() });
+    kept.splice(0, Math.max(0, kept.length - keep));
+  };
+}
+
+/**
  * Installs the recorder {@link dumpWhiteboxShots} draws from: every few updates it keeps the player's base and trail,
  * and those of every unit near it, dropping the oldest past the style's count. It only reads the game.
  *
@@ -492,20 +536,15 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
     if (values.dump !== undefined && mode === 'whitebox') {
       await page.evaluate(installWhiteboxShots, WHITEBOX_SHOT_STYLE);
     }
-    const tail: string[] = [];
-    let frames = 0;
-    let state = await stepFrames(page, 0, tail);
-    const curve: (null | number)[] = CURVE_MINUTES.map(() => null);
-    while (!state.done && frames < maxFrames) {
-      const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
-      state = await stepFrames(page, count, tail);
-      frames += count;
-      const mark = CURVE_FRAMES.indexOf(frames);
-      if (mark >= 0 && !state.done) {
-        curve[mark] = state.percent;
-      }
+    if (values.situations !== undefined) {
+      await page.evaluate(installSituationRing, SITUATION_EVERY_FRAMES, SITUATION_KEEP, MILLISECONDS_PER_SECOND);
     }
+    const tail: string[] = [];
+    const { curve, state } = await playChunks(page, job, tail);
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
+    if (values.situations !== undefined && reason !== null && reason !== 'win') {
+      await saveSituation(page, job, 'death', state.seconds, reason, values.situations);
+    }
     if (values.stats !== undefined) {
       const text = await page.evaluate(() => window.__statsLog?.finish() ?? '');
       await mkdir(values.stats, { recursive: true });
@@ -523,6 +562,34 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
   } finally {
     await page.browserContext().close();
   }
+}
+
+/**
+ * Steps a started run chunk by chunk until it ends or reaches the time limit, sampling the growth curve, and with
+ * `--situations` writing a control situation every {@link CONTROL_SITUATION_FRAMES}.
+ *
+ * @param page - The page.
+ * @param job - The run.
+ * @param tail - The trace lines kept so far.
+ * @returns The growth curve and the last state.
+ */
+async function playChunks(page: Page, job: Job, tail: string[]): Promise<PlayedChunks> {
+  let frames = 0;
+  let state = await stepFrames(page, 0, tail);
+  const curve: (null | number)[] = CURVE_MINUTES.map(() => null);
+  while (!state.done && frames < maxFrames) {
+    const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
+    state = await stepFrames(page, count, tail);
+    frames += count;
+    const mark = CURVE_FRAMES.indexOf(frames);
+    if (mark >= 0 && !state.done) {
+      curve[mark] = state.percent;
+    }
+    if (values.situations !== undefined && !state.done && frames % CONTROL_SITUATION_FRAMES === 0) {
+      await saveSituation(page, job, 'control', null, null, values.situations);
+    }
+  }
+  return { curve, state };
 }
 
 function print(text: string): void {
@@ -560,6 +627,52 @@ function report(results: readonly Outcome[]): string {
     );
   }
   return [...lines, '', curveReport(results)].join('\n');
+}
+
+/**
+ * Writes one situation for `npm run benchmark:replay`: for a death, the latest kept snapshot from at least
+ * {@link SITUATION_LEAD_SECONDS} before it (the oldest kept when none is that old), and for a control, the game now.
+ *
+ * @param page - The page.
+ * @param job - The run.
+ * @param kind - A death's situation or a control.
+ * @param deathSeconds - When the player died, in game seconds; `null` for a control.
+ * @param cause - How it died; `null` for a control.
+ * @param directory - Where to write it.
+ */
+async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSeconds: null | number, cause: null | string, directory: string): Promise<void> {
+  const picked = await page.evaluate(
+    async (death: null | number, lead: number, millisecondsPerSecond: number) => {
+      const api = window.paperio2api;
+      if (!api.captureSnapshot || !api.encodeSnapshot) {
+        return { error: 'This build has no snapshots.', payload: '', seconds: 0 };
+      }
+      const { game } = api;
+      const kept = window.__situations ?? [];
+      const entry = death === null
+        ? { seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() }
+        : [...kept].reverse().find((situation) => situation.seconds <= death - lead) ?? kept[0];
+      if (!entry) {
+        return { error: 'No snapshot was kept.', payload: '', seconds: 0 };
+      }
+      try {
+        return { error: '', payload: await api.encodeSnapshot(entry.snapshot), seconds: entry.seconds };
+      } catch (error) {
+        return { error: String(error), payload: '', seconds: entry.seconds };
+      }
+    },
+    deathSeconds,
+    SITUATION_LEAD_SECONDS,
+    MILLISECONDS_PER_SECOND
+  );
+  const name = `${job.mode}-${job.enemies.replace(':', '-')}-seed${String(job.seed)}-${kind}-${picked.seconds.toFixed(0)}s`;
+  if (picked.error) {
+    print(`situation ${name} not written: ${picked.error}`);
+    return;
+  }
+  const situation: Situation = { cause, deathSeconds, enemies: job.enemies, kind, mode: job.mode, payload: picked.payload, seed: job.seed, snapshotSeconds: picked.seconds };
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, `${name}.json`), JSON.stringify(situation));
 }
 
 async function stepFrames(page: Page, count: number, tail: string[]): Promise<PageState> {
@@ -603,6 +716,7 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
           }
         }
         window.__whiteboxShot?.();
+        window.__situationTick?.();
         if (trace && debug && player) {
           const line = `${debug.phase} in=${String(player.in === player.base)}${units.traceEvery > 0 ? ` #${String(Math.floor(game.cycle / units.traceEvery))}` : ''}`;
           if (line !== lastLine) {

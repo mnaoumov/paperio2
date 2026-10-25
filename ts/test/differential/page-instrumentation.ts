@@ -65,6 +65,12 @@ declare global {
     /** The last frames the blackbox pilot saw, with their classes, for the benchmark's `--dump`. */
     __blackboxFrames?: PageDumpFrame[];
     __differential: DifferentialPageApi;
+    /** The situation `situation-replay.ts` plays again, decoded once and restored for every trial. */
+    __replaySnapshot?: unknown;
+    /** The last snapshots the benchmark's `--situations` keeps, with the game time each was taken at. */
+    __situations?: PageSituationSnapshot[];
+    /** Keeps {@link Window.__situations} up to date; the benchmark calls it after every frame. */
+    __situationTick?: () => void;
     /** The stats log the benchmark's `--stats` attached. */
     __statsLog?: PageStatsLog;
     /** Records the world around the whitebox pilot, for the benchmark's `--dump`. */
@@ -125,6 +131,8 @@ export interface PageAreaTotals {
 /** What the autopilot benchmark's trace reads of an autopilot. */
 export interface PageAutopilot {
   readonly blackbox: null | PagePilot;
+  /** Takes the autopilot out of the game, so the situation replay can attach a fresh one for each trial. */
+  detach(): void;
   readonly whitebox: null | PageWhiteboxPilot;
 }
 
@@ -229,6 +237,12 @@ export interface PageSegment {
   readonly start: PagePoint;
 }
 
+/** A snapshot the benchmark's `--situations` keeps, and the run's game time, in seconds, when it was taken. */
+export interface PageSituationSnapshot {
+  readonly seconds: number;
+  readonly snapshot: unknown;
+}
+
 export interface PageSnapshot {
   readonly clockTime: number;
   readonly timers: readonly unknown[];
@@ -321,6 +335,8 @@ export interface PaperIo2PageGame {
   /** The reconstruction's "Additions in recordings" setting; the recording look test flips it. */
   recordingAdditions?: boolean;
   renderer?: unknown;
+  /** The game's seeded generator, which the bots draw from; the situation replay shifts it per trial. */
+  readonly rng?: (max?: number) => number;
   readonly space: PageSpatialGrid;
   readonly startTime?: number;
   /** Set to redraw the cached leaderboard on the next frame. */
