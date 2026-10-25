@@ -4,9 +4,11 @@
  * The situation replay: a paired measure of a pilot change that does not re-roll every seed. A whole-run benchmark
  * cannot tell 6 deaths in 32 runs from 9, because any change to the pilot sends every seed down another path. This
  * plays the same situations instead (the snapshots the benchmark's `--situations` wrote, from shortly before each
- * death and from runs that were still alive) under whichever pilot `dist/` holds, several times each, with the bots'
- * generator and `Math.random` shifted per trial, so two replays face the same trials and can be compared trial by
- * trial.
+ * death and from runs that were still alive) under whichever pilot `dist/` holds, several times each, so two replays
+ * face the same trials and can be compared trial by trial. Trial 0 is the recorded run again, frame for frame: the page
+ * clock is warped to the recorded one and `Math.random` set to its recorded state. Trial k starts k draws of
+ * `Math.random` further along, which changes the length of the next update and so everything after it. A situation
+ * written before those were kept falls back to shifting the bots' generator and reseeding `Math.random` per trial.
  *
  * `npm run benchmark:replay -- --situations <dir> --out <file> [--label main] [--trials 16] [--control-trials 4] [--death-window 30] [--control-window 60] [--mode whitebox] [--parallel 2] [--fresh-pilot]`
  *
@@ -14,9 +16,8 @@
  *
  * Each trial attaches a new pilot and puts back the whitebox pilot's own state saved with the snapshot (its phase,
  * loop, waypoint, victim and way home), so the pilot carries on with what it was doing; both sides of a comparison
- * start from the same state. `--fresh-pilot`, or a situation saved before the state was kept, starts it fresh, and a
- * fresh pilot rarely repeats the recorded death. A death situation plays for `--death-window`
- * seconds from its snapshot, which is 8 to 13 s before the recorded death; a control plays `--control-window`.
+ * start from the same state. `--fresh-pilot`, or a situation saved before the state was kept, starts it fresh. A death
+ * situation plays for `--death-window` seconds from its snapshot, which is 8 to 13 s before the recorded death; a control plays `--control-window`.
  */
 
 import type { Page } from 'puppeteer-core';
