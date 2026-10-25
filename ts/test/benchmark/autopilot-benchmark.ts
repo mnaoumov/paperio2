@@ -439,7 +439,13 @@ function installSituationRing(every: number, keep: number, millisecondsPerSecond
     if (frames++ % every !== 0 || !game.player || game.pendingGameOver || !api.captureSnapshot) {
       return;
     }
-    kept.push({ seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() });
+    kept.push({
+      host: window.__differential.now(),
+      pilot: window.__autopilot?.whitebox?.saveState(game) ?? null,
+      random: window.__differential.randomState(),
+      seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond,
+      snapshot: api.captureSnapshot()
+    });
     kept.splice(0, Math.max(0, kept.length - keep));
   };
 }
@@ -645,20 +651,26 @@ async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSec
     async (death: null | number, lead: number, millisecondsPerSecond: number) => {
       const api = window.paperio2api;
       if (!api.captureSnapshot || !api.encodeSnapshot) {
-        return { error: 'This build has no snapshots.', payload: '', seconds: 0 };
+        return { error: 'This build has no snapshots.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
       }
       const { game } = api;
       const kept = window.__situations ?? [];
       const entry = death === null
-        ? { seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() }
+        ? {
+          host: window.__differential.now(),
+          pilot: window.__autopilot?.whitebox?.saveState(game) ?? null,
+          random: window.__differential.randomState(),
+          seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond,
+          snapshot: api.captureSnapshot()
+        }
         : [...kept].reverse().find((situation) => situation.seconds <= death - lead) ?? kept[0];
       if (!entry) {
-        return { error: 'No snapshot was kept.', payload: '', seconds: 0 };
+        return { error: 'No snapshot was kept.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
       }
       try {
-        return { error: '', payload: await api.encodeSnapshot(entry.snapshot), seconds: entry.seconds };
+        return { error: '', host: entry.host, payload: await api.encodeSnapshot(entry.snapshot), pilot: entry.pilot, random: entry.random, seconds: entry.seconds };
       } catch (error) {
-        return { error: String(error), payload: '', seconds: entry.seconds };
+        return { error: String(error), host: 0, payload: '', pilot: null, random: 0, seconds: entry.seconds };
       }
     },
     deathSeconds,
@@ -670,7 +682,19 @@ async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSec
     print(`situation ${name} not written: ${picked.error}`);
     return;
   }
-  const situation: Situation = { cause, deathSeconds, enemies: job.enemies, kind, mode: job.mode, payload: picked.payload, seed: job.seed, snapshotSeconds: picked.seconds };
+  const situation: Situation = {
+    cause,
+    deathSeconds,
+    enemies: job.enemies,
+    host: picked.host,
+    kind,
+    mode: job.mode,
+    payload: picked.payload,
+    pilot: picked.pilot,
+    random: picked.random,
+    seed: job.seed,
+    snapshotSeconds: picked.seconds
+  };
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, `${name}.json`), JSON.stringify(situation));
 }

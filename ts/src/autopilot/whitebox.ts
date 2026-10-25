@@ -85,6 +85,25 @@ export interface WhiteboxDebug {
 /** What the pilot is doing, for the readout and the debug overlay. */
 export type WhiteboxPhase = 'attack' | 'home' | 'out' | 'return' | 'sweep';
 
+/** What {@link WhiteboxPilot.saveState} keeps: everything the pilot carries from one update to the next, as plain data. */
+export interface WhiteboxState {
+  readonly lastPosition: null | Point;
+  readonly loop: null | readonly Point[];
+  readonly loopCheck: LoopCheck | null;
+  readonly phase: WhiteboxPhase;
+  readonly planCooldown: number;
+  readonly returnPath: Point[];
+  readonly returnUpdates: number;
+  readonly sweep: null | SweepState;
+  readonly sweepCooldown: number;
+  readonly target: null | Point;
+  readonly threat: null | Threat;
+  /** The victim's index in `game.units`, or `null`. */
+  readonly victim: null | number;
+  readonly victimMode: VictimMode;
+  readonly waypointIndex: number;
+}
+
 interface Candidate {
   /** What the loop is checked against the units with, again on every update until it leaves the base. */
   readonly check: LoopCheck;
@@ -459,6 +478,60 @@ export class WhiteboxPilot {
     this.returnPath = [];
     this.planPending = null;
     this.planAnswer = null;
+  }
+
+  /**
+   * Puts back what {@link WhiteboxPilot.saveState} kept, so a restored snapshot is flown by a pilot in the middle of
+   * what it was doing rather than one starting fresh. A plan the worker was still making is dropped.
+   *
+   * @param state - The saved state.
+   * @param game - The game, restored to the snapshot the state was saved with.
+   */
+  public restoreState(state: WhiteboxState, game: Game): void {
+    const copy = structuredClone(state);
+    this.lastPosition = copy.lastPosition;
+    this.loop = copy.loop;
+    this.loopCheck = copy.loopCheck;
+    this.phase = copy.phase;
+    this.planCooldown = copy.planCooldown;
+    this.planPending = null;
+    this.planAnswer = null;
+    this.returnPath = copy.returnPath;
+    this.returnUpdates = copy.returnUpdates;
+    this.sweep = copy.sweep;
+    this.sweepCooldown = copy.sweepCooldown;
+    this.target = copy.target;
+    this.threat = copy.threat;
+    this.victim = copy.victim === null ? null : game.units[copy.victim] ?? null;
+    this.victimMode = copy.victimMode;
+    this.waypointIndex = copy.waypointIndex;
+  }
+
+  /**
+   * The pilot's state as plain data, to keep beside a snapshot of the game. The victim is kept as its index in
+   * `game.units`, which a snapshot's restore keeps in order.
+   *
+   * @param game - The game the pilot flies.
+   * @returns The state.
+   */
+  public saveState(game: Game): WhiteboxState {
+    const victim = this.victim ? game.units.indexOf(this.victim) : -1;
+    return structuredClone({
+      lastPosition: this.lastPosition,
+      loop: this.loop,
+      loopCheck: this.loopCheck,
+      phase: this.phase,
+      planCooldown: this.planCooldown,
+      returnPath: this.returnPath,
+      returnUpdates: this.returnUpdates,
+      sweep: this.sweep,
+      sweepCooldown: this.sweepCooldown,
+      target: this.target,
+      threat: this.threat,
+      victim: victim < 0 ? null : victim,
+      victimMode: this.victimMode,
+      waypointIndex: this.waypointIndex
+    });
   }
 
   public steer(game: Game): null | Point {

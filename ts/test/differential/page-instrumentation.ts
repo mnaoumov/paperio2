@@ -31,11 +31,19 @@ export interface DifferentialPageApi {
   facts: () => string;
   frameTrace: () => readonly string[];
   key: (keyCode: number, isDown: boolean) => void;
+  /** The virtual clock's time, which `performance.now` reads. */
+  now: () => number;
   /** Where the seeded `Math.random` is in its sequence, for a test that rewinds the game and must rewind it too. */
   randomState: () => number;
   setRandomState: (state: number) => void;
   snapshot: () => DifferentialSnapshot;
   step: (milliseconds: number) => Promise<DifferentialFrameResult>;
+  /**
+   * Moves the virtual clock to a time, and every pending timer with it, as if that much time had passed with nothing
+   * due. A replay warps to the recorded page's time before restoring a snapshot, so the game clock reads the host's
+   * time with no offset, exactly as in the recorded run; any offset rounds every frame's length differently.
+   */
+  warpClock: (time: number) => void;
 }
 
 /** A unit in a {@link PageWhiteboxShot}. */
@@ -239,6 +247,12 @@ export interface PageSegment {
 
 /** A snapshot the benchmark's `--situations` keeps, and the run's game time, in seconds, when it was taken. */
 export interface PageSituationSnapshot {
+  /** The page's virtual clock when the snapshot was taken, which a replay warps to. */
+  readonly host: number;
+  /** The whitebox pilot's own state when the snapshot was taken, or `null` for another pilot. */
+  readonly pilot: unknown;
+  /** The seeded `Math.random`'s state when the snapshot was taken: the engine jitters every update's length with it. */
+  readonly random: number;
   readonly seconds: number;
   readonly snapshot: unknown;
 }
@@ -291,6 +305,8 @@ export interface PageUnit {
 }
 
 export interface PageWhiteboxPilot extends PagePilot {
+  restoreState(state: unknown, game: PaperIo2PageGame): void;
+  saveState(game: PaperIo2PageGame): unknown;
   readonly stats: Readonly<Record<string, number>>;
 }
 
@@ -754,12 +770,20 @@ export function installDeterminism(params: InstallDeterminismParams): void {
     },
     frameTrace: () => lastFrameTrace,
     key: pressKey,
+    now: () => clock,
     randomState: () => randomState,
     setRandomState: (state: number) => {
       randomState = state;
     },
     snapshot,
-    step
+    step,
+    warpClock: (time: number) => {
+      const shift = time - clock;
+      for (const timer of timers.values()) {
+        timer.due += shift;
+      }
+      clock = time;
+    }
   };
   define('__differential', api);
   /* eslint-enable no-magic-numbers, no-bitwise -- end of the instrumentation. */
