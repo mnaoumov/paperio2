@@ -12,6 +12,8 @@ export interface ReplayResults {
   readonly commit: null | string;
   readonly controlWindowSeconds: number;
   readonly deathWindowSeconds: number;
+  /** Whether every trial started a fresh pilot rather than the one saved with the situation; absent in older files. */
+  readonly freshPilot?: boolean;
   readonly label: string;
   readonly situations: readonly SituationResult[];
   readonly trials: number;
@@ -25,11 +27,27 @@ export interface Situation {
   readonly deathSeconds: null | number;
   /** The enemy mode the run played against, as the benchmark's `--enemies` names it. */
   readonly enemies: string;
+  /**
+   * The recorded page's virtual clock at the snapshot. The replay warps its page there before restoring, because the
+   * game clock reads that clock minus an offset, and a nonzero offset rounds every frame's length differently from the
+   * recorded run; absent from situations written before it was kept.
+   */
+  readonly host?: number;
   readonly kind: SituationKind;
   /** The pilot that played the run it came from. */
   readonly mode: string;
   /** The snapshot, encoded as a saved game. */
   readonly payload: string;
+  /**
+   * The whitebox pilot's own state at the snapshot (its phase, loop, waypoint, victim and way home), which the replay
+   * puts back into each trial's pilot; absent from situations written before it was kept, and from other pilots'.
+   */
+  readonly pilot?: unknown;
+  /**
+   * The seeded `Math.random`'s state at the snapshot. The engine adds a draw from it to every update's length, so only
+   * this state replays the recorded run; absent from situations written before it was kept.
+   */
+  readonly random?: number;
   /** The run's seed, which the replay's page is opened with. */
   readonly seed: number;
   /** When the snapshot was taken, in game seconds from the run's start. */

@@ -400,10 +400,18 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   against (see **Enemy modes**); it defaults to the original bots.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
   `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes. The replay plays each one
-  several times under whatever pilot `dist/` holds, with the bots' generator and `Math.random` shifted per trial, so two
-  builds face identical trials. `--compare a.json,b.json` pairs them, with an exact McNemar p. Each trial attaches a
-  fresh pilot, and measured on 2026-10-25 that pilot repeated only 5 of 192 recorded deaths. So the death situations do
-  not yet stand for the pilot that died, while the controls already work as a paired check.
+  several times under whatever pilot `dist/` holds, so two builds face identical trials. `--compare a.json,b.json` pairs
+  them, with an exact McNemar p. **A replay is exact: trial 0 is the recorded run again, frame for frame.** Three things
+  had to travel with the snapshot for that. The whitebox pilot's own state (`WhiteboxPilot.saveState` /
+  `restoreState`) is one. The seeded `Math.random` state is another, because the engine adds a draw to every update's
+  length (`delta / 2 + Math.random()`), so one extra draw changes everything after it. The page's virtual clock is the
+  third: the game clock reads it minus an offset, and a nonzero offset rounds every frame's length differently, so the
+  replay warps the clock there (`__differential.warpClock`) before restoring. Trial k starts k draws of `Math.random`
+  further along, the smallest change there is. The save codec must keep everything as the game had it: it once rebuilt
+  a polygon's `simplify` and `bounds`, which the game lets go stale, and that alone sent seed 23 down another path.
+  Measured on 2026-10-25, a recorded death is either decided already 8-13 s before (all 32 trials die) or a knife edge
+  (0-2 of 32 die), so a comparison needs many trials per situation. Re-record only the seeds that died with
+  `--seed-list '1,11,15'` (quoted in PowerShell).
 
 ## Racing: seed, ghost and showcase
 

@@ -4,17 +4,20 @@
  * The situation replay: a paired measure of a pilot change that does not re-roll every seed. A whole-run benchmark
  * cannot tell 6 deaths in 32 runs from 9, because any change to the pilot sends every seed down another path. This
  * plays the same situations instead (the snapshots the benchmark's `--situations` wrote, from shortly before each
- * death and from runs that were still alive) under whichever pilot `dist/` holds, several times each, with the bots'
- * generator and `Math.random` shifted per trial, so two replays face the same trials and can be compared trial by
- * trial.
+ * death and from runs that were still alive) under whichever pilot `dist/` holds, several times each, so two replays
+ * face the same trials and can be compared trial by trial. Trial 0 is the recorded run again, frame for frame: the page
+ * clock is warped to the recorded one and `Math.random` set to its recorded state. Trial k starts k draws of
+ * `Math.random` further along, which changes the length of the next update and so everything after it. A situation
+ * written before those were kept falls back to shifting the bots' generator and reseeding `Math.random` per trial.
  *
- * `npm run benchmark:replay -- --situations <dir> --out <file> [--label main] [--trials 16] [--control-trials 4] [--death-window 30] [--control-window 60] [--mode whitebox] [--parallel 2]`
+ * `npm run benchmark:replay -- --situations <dir> --out <file> [--label main] [--trials 16] [--control-trials 4] [--death-window 30] [--control-window 60] [--mode whitebox] [--parallel 2] [--fresh-pilot]`
  *
  * `npm run benchmark:replay -- --compare <a.json>,<b.json>` prints the paired comparison of two replays.
  *
- * Each trial attaches a fresh pilot, so a situation is "a pilot that starts here", not the pilot in the middle of
- * what it was doing; both sides of a comparison start the same way. A death situation plays for `--death-window`
- * seconds from its snapshot, which is 8 to 13 s before the recorded death; a control plays `--control-window`.
+ * Each trial attaches a new pilot and puts back the whitebox pilot's own state saved with the snapshot (its phase,
+ * loop, waypoint, victim and way home), so the pilot carries on with what it was doing; both sides of a comparison
+ * start from the same state. `--fresh-pilot`, or a situation saved before the state was kept, starts it fresh. A death
+ * situation plays for `--death-window` seconds from its snapshot, which is 8 to 13 s before the recorded death; a control plays `--control-window`.
  */
 
 import type { Page } from 'puppeteer-core';
@@ -59,6 +62,23 @@ interface StepState {
   readonly seconds: number;
 }
 
+/** How one trial starts, handed to the page. */
+interface TrialSetup {
+  /** The recorded page's virtual clock to warp to, or `null` for a situation saved before it was kept. */
+  readonly host: null | number;
+  readonly millisecondsPerSecond: number;
+  readonly mode: string;
+  /** The pilot's saved state to put back, or `null` for a fresh pilot. */
+  readonly pilot: unknown;
+  /** The recorded `Math.random` state, or `null` for a situation saved before it was kept. */
+  readonly random: null | number;
+  /** Without a recorded state: the `Math.random` state the trial starts from. */
+  readonly randomState: number;
+  /** Without a recorded state: how many draws of the game's generator the trial skips. */
+  readonly rngShift: number;
+  readonly trial: number;
+}
+
 const MILLISECONDS_PER_SECOND = 1000;
 const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
@@ -83,6 +103,7 @@ const { values } = parseArgs({
     'control-trials': { default: '4', type: 'string' },
     'control-window': { default: '60', type: 'string' },
     'death-window': { default: '30', type: 'string' },
+    'fresh-pilot': { default: false, type: 'boolean' },
     'label': { default: 'replay', type: 'string' },
     'mode': { default: 'whitebox', type: 'string' },
     'out': { type: 'string' },
@@ -153,7 +174,12 @@ async function replayAll(): Promise<void> {
           const result = await replaySituation(page, basename(file, '.json'), parsed, trials[parsed.kind], windows[parsed.kind]);
           situations.push(result);
           const deaths = result.outcomes.filter((outcome) => outcome.died).length;
-          print(`${result.name}: ${String(deaths)}/${String(result.outcomes.length)} died (${[...new Set(result.outcomes.map((outcome) => outcome.reason).filter(Boolean))].join(', ') || '-'})`);
+          const [first] = result.outcomes;
+          // With the recorded `Math.random` state, trial 0 is the recorded run again: a death situation's should die as recorded.
+          const replayed = parsed.random === undefined || values['fresh-pilot'] || !first
+            ? ''
+            : `; trial 0 ${first.died ? `died (${String(first.reason)}) at +${first.seconds.toFixed(1)} s` : 'lived'}${parsed.deathSeconds === null ? '' : `, recorded death at +${(parsed.deathSeconds - parsed.snapshotSeconds).toFixed(1)} s`}`;
+          print(`${result.name}: ${String(deaths)}/${String(result.outcomes.length)} died (${[...new Set(result.outcomes.map((outcome) => outcome.reason).filter(Boolean))].join(', ') || '-'})${replayed}`);
         } finally {
           await page.browserContext().close();
         }
@@ -163,7 +189,15 @@ async function replayAll(): Promise<void> {
     await browser.close();
   }
   situations.sort((left, right) => left.name.localeCompare(right.name));
-  const results: ReplayResults = { commit: stdout.trim() || null, controlWindowSeconds: windows.control, deathWindowSeconds: windows.death, label: values.label, situations, trials: trials.death };
+  const results: ReplayResults = {
+    commit: stdout.trim() || null,
+    controlWindowSeconds: windows.control,
+    deathWindowSeconds: windows.death,
+    freshPilot: values['fresh-pilot'],
+    label: values.label,
+    situations,
+    trials: trials.death
+  };
   await writeFile(out, JSON.stringify(results, null, 1));
   print('');
   print(summary(results));
@@ -209,27 +243,46 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
   );
   const outcomes: TrialOutcome[] = [];
   for (let trial = 0; trial < trials; trial++) {
-    const start = await page.evaluate(
-      (mode: string, randomState: number, shift: number, millisecondsPerSecond: number) => {
-        const api = window.paperio2api;
-        if (!api.restoreSnapshot || !api.attachAutopilot) {
-          throw new Error('This build cannot replay situations.');
-        }
-        window.__autopilot?.detach();
-        api.restoreSnapshot(window.__replaySnapshot);
-        window.__differential.setRandomState(randomState);
-        const { game } = api;
-        for (let draw = 0; draw < shift; draw++) {
+    const setup: TrialSetup = {
+      host: situation.host ?? null,
+      millisecondsPerSecond: MILLISECONDS_PER_SECOND,
+      mode: values.mode,
+      pilot: values['fresh-pilot'] ? null : situation.pilot ?? null,
+      random: situation.random ?? null,
+      randomState: (situation.seed * TRIAL_STATE_STRIDE + trial) % UINT32_RANGE,
+      rngShift: trial * TRIAL_RNG_SHIFT,
+      trial
+    };
+    const start = await page.evaluate((trialSetup: TrialSetup) => {
+      const api = window.paperio2api;
+      if (!api.restoreSnapshot || !api.attachAutopilot) {
+        throw new Error('This build cannot replay situations.');
+      }
+      window.__autopilot?.detach();
+      if (trialSetup.host !== null) {
+        window.__differential.warpClock(trialSetup.host);
+      }
+      api.restoreSnapshot(window.__replaySnapshot);
+      const { game } = api;
+      if (trialSetup.random === null) {
+        window.__differential.setRandomState(trialSetup.randomState);
+        for (let draw = 0; draw < trialSetup.rngShift; draw++) {
           game.rng?.();
         }
-        window.__autopilot = api.attachAutopilot(mode === 'blackbox' ? 'blackbox' : 'whitebox');
-        return { percent: game.player?.percent ?? 0, seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond };
-      },
-      values.mode,
-      (situation.seed * TRIAL_STATE_STRIDE + trial) % UINT32_RANGE,
-      trial * TRIAL_RNG_SHIFT,
-      MILLISECONDS_PER_SECOND
-    );
+      } else {
+        // Trial 0 replays the recorded run; each later one is a draw further along, which alone is enough to change
+        // the length of the next update and so everything after it.
+        window.__differential.setRandomState(trialSetup.random);
+        for (let draw = 0; draw < trialSetup.trial; draw++) {
+          Math.random();
+        }
+      }
+      window.__autopilot = api.attachAutopilot(trialSetup.mode === 'blackbox' ? 'blackbox' : 'whitebox');
+      if (trialSetup.pilot !== null) {
+        window.__autopilot.whitebox?.restoreState(structuredClone(trialSetup.pilot), game);
+      }
+      return { percent: game.player?.percent ?? 0, seconds: (game.clock.now() - (game.startTime ?? 0)) / trialSetup.millisecondsPerSecond };
+    }, setup);
     let state: StepState = { done: false, percent: start.percent, reason: null, seconds: start.seconds };
     while (!state.done && state.seconds - start.seconds < windowSeconds) {
       state = await stepTrial(page, Math.min(CHUNK_FRAMES, Math.ceil((windowSeconds - (state.seconds - start.seconds)) * FRAMES_PER_SECOND)));

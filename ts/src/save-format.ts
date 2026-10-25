@@ -473,7 +473,14 @@ function rebuildPath(owner: object): void {
       path.lineTo(segment.end.x, segment.end.y);
     }
     owner.path = path;
-  } else if (owner instanceof Polygon || owner instanceof Territory) {
+  } else if (owner instanceof Polygon) {
+    // `calcPath` also recomputes `simplify` and `bounds`, which the game lets go stale between its own calls, and the
+    // save holds them as they were: a fresh copy sent a restored game down another path.
+    const { bounds, simplify } = owner;
+    owner.calcPath();
+    owner.bounds = bounds;
+    owner.simplify = simplify;
+  } else if (owner instanceof Territory) {
     owner.calcPath();
   }
 }

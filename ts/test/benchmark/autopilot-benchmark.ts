@@ -8,7 +8,7 @@
  * frame, and the same seed replays the same run. The whitebox mode runs with rendering off, which changes no game
  * state; the blackbox mode renders every frame, because pixels are all it sees.
  *
- * `npm run benchmark -- --modes whitebox,blackbox --enemies original,chase:blackbox --seeds 10 --first-seed 1 --max-minutes 20 --parallel 4 [--why] [--stats <dir>]`
+ * `npm run benchmark -- --modes whitebox,blackbox --enemies original,chase:blackbox --seeds 10 --first-seed 1 [--seed-list 3,7] --max-minutes 20 --parallel 4 [--why] [--stats <dir>]`
  *
  * `--enemies` takes the enemy modes to play against, each `<mode>` or `<mode>:<vision>` (`whitebox` by default), and reports a row
  * per autopilot mode and enemy mode.
@@ -229,6 +229,7 @@ const { values } = parseArgs({
     'max-minutes': { default: '20', type: 'string' },
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
+    'seed-list': { type: 'string' },
     'seeds': { default: '10', type: 'string' },
     'situations': { type: 'string' },
     'stats': { type: 'string' },
@@ -244,7 +245,13 @@ const maxFrames = Math.round(Number(values['max-minutes']) * SECONDS_PER_MINUTE 
 const parallel = Math.max(1, Number(values.parallel));
 
 const enemyModes = values.enemies.split(',').map((enemies) => enemies.trim()).filter(Boolean);
-const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => Array.from({ length: seedCount }, (_unused, index) => ({ enemies, mode, seed: firstSeed + index }))));
+// `--seed-list` names the seeds outright, such as the ones a whole run died on, in place of `--seeds` and `--first-seed`.
+const seeds = values['seed-list']?.split(',').map(Number) ?? Array.from({ length: seedCount }, (_unused, index) => firstSeed + index);
+if (seeds.some((seed) => !Number.isInteger(seed))) {
+  // In PowerShell an unquoted `1,2` becomes two arguments, and parseArgs keeps only the first.
+  throw new Error(`--seed-list takes comma-separated whole numbers (quote it in PowerShell): ${String(values['seed-list'])}`);
+}
+const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => seeds.map((seed) => ({ enemies, mode, seed }))));
 // The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
 await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
 const browser = await launchBrowser();
@@ -439,7 +446,13 @@ function installSituationRing(every: number, keep: number, millisecondsPerSecond
     if (frames++ % every !== 0 || !game.player || game.pendingGameOver || !api.captureSnapshot) {
       return;
     }
-    kept.push({ seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() });
+    kept.push({
+      host: window.__differential.now(),
+      pilot: window.__autopilot?.whitebox?.saveState(game) ?? null,
+      random: window.__differential.randomState(),
+      seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond,
+      snapshot: api.captureSnapshot()
+    });
     kept.splice(0, Math.max(0, kept.length - keep));
   };
 }
@@ -645,20 +658,26 @@ async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSec
     async (death: null | number, lead: number, millisecondsPerSecond: number) => {
       const api = window.paperio2api;
       if (!api.captureSnapshot || !api.encodeSnapshot) {
-        return { error: 'This build has no snapshots.', payload: '', seconds: 0 };
+        return { error: 'This build has no snapshots.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
       }
       const { game } = api;
       const kept = window.__situations ?? [];
       const entry = death === null
-        ? { seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond, snapshot: api.captureSnapshot() }
+        ? {
+          host: window.__differential.now(),
+          pilot: window.__autopilot?.whitebox?.saveState(game) ?? null,
+          random: window.__differential.randomState(),
+          seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond,
+          snapshot: api.captureSnapshot()
+        }
         : [...kept].reverse().find((situation) => situation.seconds <= death - lead) ?? kept[0];
       if (!entry) {
-        return { error: 'No snapshot was kept.', payload: '', seconds: 0 };
+        return { error: 'No snapshot was kept.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
       }
       try {
-        return { error: '', payload: await api.encodeSnapshot(entry.snapshot), seconds: entry.seconds };
+        return { error: '', host: entry.host, payload: await api.encodeSnapshot(entry.snapshot), pilot: entry.pilot, random: entry.random, seconds: entry.seconds };
       } catch (error) {
-        return { error: String(error), payload: '', seconds: entry.seconds };
+        return { error: String(error), host: 0, payload: '', pilot: null, random: 0, seconds: entry.seconds };
       }
     },
     deathSeconds,
@@ -670,7 +689,19 @@ async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSec
     print(`situation ${name} not written: ${picked.error}`);
     return;
   }
-  const situation: Situation = { cause, deathSeconds, enemies: job.enemies, kind, mode: job.mode, payload: picked.payload, seed: job.seed, snapshotSeconds: picked.seconds };
+  const situation: Situation = {
+    cause,
+    deathSeconds,
+    enemies: job.enemies,
+    host: picked.host,
+    kind,
+    mode: job.mode,
+    payload: picked.payload,
+    pilot: picked.pilot,
+    random: picked.random,
+    seed: job.seed,
+    snapshotSeconds: picked.seconds
+  };
   await mkdir(directory, { recursive: true });
   await writeFile(join(directory, `${name}.json`), JSON.stringify(situation));
 }
