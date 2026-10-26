@@ -729,7 +729,7 @@ export class WhiteboxPilot {
       return;
     }
     const exit = toPoint(start);
-    const enclosing = game.units.filter((unit) => unit !== player && !unit.death && isInsideAny(exit, pendingCaptures(unit)));
+    const enclosing = game.units.filter((unit) => unit !== player && !unit.death && isInsideAny(exit, exitCaptures(unit, situation.outline)));
     if (enclosing.length === 0) {
       return;
     }
@@ -1302,7 +1302,7 @@ function describeEnemy(unit: Unit, player: Unit): EnemyModel {
 function describePlan(situation: Situation): PlanInput {
   const { game, heading, outline, player, position } = situation;
   return {
-    captures: game.units.filter((unit) => unit !== player).flatMap(pendingCaptures),
+    captures: game.units.filter((unit) => unit !== player && !unit.death).flatMap((unit) => exitCaptures(unit, outline)),
     center: toPoint(game.border.center),
     enemies: game.units.filter((unit) => unit !== player && !unit.death).map((unit) => describeEnemy(unit, player)),
     heading,
@@ -1934,12 +1934,30 @@ function pendingCapture(unit: Unit): null | Point[] {
  * The ground a unit outside its base would take if it went straight home now, closed the way the engine closes a capture:
  * its trail, its head and the nearest point of its base, then along its base's outline back to where the trail left it.
  * Which way round the outline the engine goes depends on the winding, so both are returned; ground in the player's base
- * inside either is ground the capture takes, since the other way only adds the unit's own base.
+ * inside either is ground the capture takes, since the other way only adds the unit's own base. A fan over the stretch of
+ * base it can re-enter along is added for a unit still drawing its loop.
  *
  * @param unit - The unit.
- * @returns The two polygons, or none for a unit with no trail out.
+ * @returns The polygons, or none for a unit with no trail out.
  */
 function pendingCaptures(unit: Unit): Point[][] {
+  return captureShapes(unit, true);
+}
+
+/**
+ * The captures that can take the player's exit point: those of a unit whose trail runs through the player's base, which
+ * is how a capture comes to enclose a stretch of the base's edge. The fan is left out: it is drawn generously for a home
+ * to avoid, and an exit inside it would drop nearly every loop that sets out beside a neighbour.
+ *
+ * @param unit - The unit.
+ * @param outline - The player's base.
+ * @returns The polygons, or none.
+ */
+function exitCaptures(unit: Unit, outline: readonly Point[]): Point[][] {
+  return unit.track.simplyline.some((point) => pointInPolygon(point, outline)) ? captureShapes(unit, false) : [];
+}
+
+function captureShapes(unit: Unit, withFan: boolean): Point[][] {
   const straight = pendingCapture(unit);
   const home = unit.baseNearestPoint;
   const start = unit.track.simplyline[0];
@@ -1980,7 +1998,7 @@ function pendingCaptures(unit: Unit): Point[][] {
   }
   // And the fan from the head over that stretch, the ground any of those re-entries cuts off on the way in.
   const [forwardEnd = from, backEnd = from] = ends;
-  if (forwardEnd !== backEnd) {
+  if (withFan && forwardEnd !== backEnd) {
     const fan: Point[] = [head];
     for (let index = backEnd; index !== forwardEnd; index = wrapIndex(index + 1, outline.length)) {
       fan.push(outline[index] ?? head);
