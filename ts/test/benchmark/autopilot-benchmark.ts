@@ -751,9 +751,15 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
         const before = game.player.percent ?? 0;
         await window.__differential.step(milliseconds);
         const change = (currentPlayer()?.percent ?? before) - before;
-        const totals = window.__areaTotals ?? { gained: 0, lost: 0 };
-        window.__areaTotals = { gained: totals.gained + Math.max(0, change), lost: totals.lost + Math.max(0, -change) };
         const debug = window.__autopilot?.whitebox?.debug ?? window.__autopilot?.blackbox?.debug;
+        const totals = window.__areaTotals ?? { gained: 0, lost: 0 };
+        const phases = { ...totals.phases };
+        const inBase = game.player.in === game.player.base;
+        if (debug) {
+          const key = `${debug.phase}${debug.threat ? '!' : ''}${inBase ? '' : '@out'}`;
+          phases[key] = (phases[key] ?? 0) + 1;
+        }
+        window.__areaTotals = { gained: totals.gained + Math.max(0, change), lost: totals.lost + Math.max(0, -change), phases };
         const player = currentPlayer();
         if (dump && debug?.classes && debug.width && debug.height) {
           const canvas = document.createElement('canvas');

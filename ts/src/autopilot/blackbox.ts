@@ -78,6 +78,12 @@ interface ColorBucket {
   r: number;
 }
 
+/** A pixel of a foreign trail across the player's ground, and how far it is from the player. */
+interface CutCandidate {
+  readonly away: number;
+  readonly point: Point;
+}
+
 /** A simulated way back: whether it reached the territory, and after how many frames it ended. */
 interface Flight {
   readonly frames: number;
@@ -88,6 +94,12 @@ interface Flight {
 interface RememberedThreat {
   readonly at: Point;
   readonly frame: number;
+}
+
+/** The way out of the territory, and whether it keeps clear of every unit in view. */
+interface WayOut {
+  readonly clear: boolean;
+  readonly direction: Point;
 }
 
 /* eslint-disable no-magic-numbers -- the tuning constants: each is named by its declaration and its comment. */
@@ -144,8 +156,14 @@ const SAFE_DEPTH_WEIGHT = 3;
 /** A foreign trail is across the territory when its ground lies within this many pixels on both sides along an axis. */
 const CUT_REACH = 5;
 const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
+/** Cuts are tried nearest first, this many at most, each this many pixels from the last; one this close is reached. */
+const CUT_CANDIDATES = 8;
+const CUT_SPACING = 4;
+const CUT_ARRIVAL = 2;
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
+/** A way out keeps this share of the frame's height from every unit in view along its out leg, or the pilot waits. */
+const LEAVE_CLEARANCE = 0.3;
 /** A small foreign component this close to the trail or the player, as a share of the frame's height, sends it home. */
 const DANGER_RADIUS = 0.5;
 /** A danger seen is heeded this many frames after it is last seen. */
@@ -159,8 +177,7 @@ const HOME_CONFIRM_FRAMES = 10;
 const SIDE_OWN_MARGIN = 0.1;
 /** The loop, in frames: out and sideways. */
 const OUT_FRAMES = 35;
-const SIDE_FRAMES = 50;
-/** A leg runs at least this many frames before foreign ground ahead can end it. */
+const SIDE_FRAMES = 50;/** A leg runs at least this many frames before foreign ground ahead can end it. */
 const MIN_LEG_FRAMES = 8;
 /** How far ahead a leg looks for foreign ground, as a share of the frame's height. */
 const FLOOR_LOOKAHEAD = 0.25;
@@ -217,6 +234,11 @@ const CAPTURE_PIXELS = 30;
 const CAPTURE_MARGIN = 4;
 /** Once out, the ring around the avatar must read as home for this many frames running to stand in for a capture. */
 const HOME_STREAK_FRAMES = 45;
+/** The remembered trail has closed when this many of its pixels in view, and this share of its drawn ones, are own ground. */
+const CLOSED_TRAIL_PIXELS = 20;
+const CLOSED_TRAIL_SHARE = 0.9;
+/** A trail shorter than this many pixels ends when the ring around the avatar reads as home. */
+const SHORT_TRAIL_LENGTH = 2 * RECENT_TRACK_LENGTH;
 /** Each measured frame moves the speed this share of the way to the odometer's, and the heading this share. */
 const SPEED_SMOOTHING = 0.2;
 const HEADING_CORRECTION = 0.15;
@@ -439,10 +461,14 @@ export class BlackboxPilot {
    * @param classes - The classified frame.
    * @returns The direction.
    */
-  private chooseWayOut(classes: Uint8Array): Point {
+  private chooseWayOut(classes: Uint8Array): WayOut {
     const reach = this.height * RAY_LENGTH;
+    const unitDistance = this.unitDistance();
+    const clearance = this.height * LEAVE_CLEARANCE;
+    const legLength = OUT_FRAMES * this.speed;
     let best: Point = this.outward;
     let bestScore = -Infinity;
+    let bestClear = false;
     for (let ray = 0; ray < RAY_COUNT; ray++) {
       const angle = ray / RAY_COUNT * FULL_TURN;
       const direction = { x: Math.cos(angle), y: Math.sin(angle) };
@@ -483,12 +509,19 @@ export class BlackboxPilot {
       if (towardThreat) {
         score -= reach * HALF;
       }
+      // A unit near the way out, even one beyond the danger radius, can close its own loop round the exit point while
+      // the player is out: such a way scores below every clear one.
+      const clear = edge >= 0 && this.rayClearance(unitDistance, direction, edge + legLength) >= clearance;
+      if (!clear) {
+        score -= reach * CHANNELS;
+      }
       if (score > bestScore) {
         bestScore = score;
         best = direction;
+        bestClear = clear;
       }
     }
-    return best;
+    return { clear: bestClear, direction: best };
   }
 
   private classAt(classes: Uint8Array, x: number, y: number): number {
@@ -551,6 +584,34 @@ export class BlackboxPilot {
       }
     }
     return count;
+  }
+
+  /**
+   * Whether the player reaches a cut on a foreign trail without leaving its own ground: flown in simulation at the
+   * measured speed and the turn rate, every pixel on the way is its ground, hidden, or the thin unit or trail it cuts.
+   *
+   * @param classes - The classified frame.
+   * @param target - The cut, in frame pixels.
+   * @returns Whether it does.
+   */
+  private cutStaysHome(classes: Uint8Array, target: Point): boolean {
+    let x = this.width * HALF;
+    let y = this.height * HALF;
+    let heading = this.heading;
+    for (let frame = 1; frame <= MAX_SIMULATION_FRAMES; frame++) {
+      heading += Math.max(-TURN_PER_FRAME, Math.min(TURN_PER_FRAME, wrapAngle(Math.atan2(target.y - y, target.x - x) - heading)));
+      x += Math.cos(heading) * this.speed;
+      y += Math.sin(heading) * this.speed;
+      if (Math.hypot(target.x - x, target.y - y) < CUT_ARRIVAL) {
+        return true;
+      }
+      const pixelClass = this.classAt(classes, x, y);
+      const thin = this.thin[Math.floor(y) * this.width + Math.floor(x)] === 1;
+      if (pixelClass === FLOOR || pixelClass === OUTSIDE || (pixelClass === OTHER && !thin)) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -745,7 +806,8 @@ export class BlackboxPilot {
     const ground = this.homeGround(classes);
     const ringHome = this.ownNearCenter(classes, ground) && !this.trailAtHead(classes);
     this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
-    return this.capturedPixels(classes, ground) >= CAPTURE_PIXELS || this.homeStreak >= HOME_STREAK_FRAMES;
+    // A trail no longer than the stretch under the head was never drawn clear of the avatar: back on the ground at once.
+    return this.capturedPixels(classes, ground) >= CAPTURE_PIXELS || this.homeStreak >= HOME_STREAK_FRAMES || (ringHome && (this.trailClosed(classes) || this.trailLength() < SHORT_TRAIL_LENGTH));
   }
 
   private isMasked(column: number, row: number): boolean {
@@ -791,6 +853,30 @@ export class BlackboxPilot {
     // The averaged velocity lags a turn, so it corrects the steered heading only part of the way, every frame.
     const difference = wrapAngle(Math.atan2(velocity.y, velocity.x) - this.heading);
     this.heading += difference * HEADING_CORRECTION;
+  }
+
+  /**
+   * The nearest pixel of a foreign unit or trail in view, beside the HUD or not.
+   *
+   * @returns It, in frame pixels, or `null`.
+   */
+  private nearestUnit(): null | Point {
+    const { height, thin, width } = this;
+    let nearest: null | Point = null;
+    let nearestDistance = Infinity;
+    for (let index = 0; index < thin.length; index++) {
+      const x = index % width;
+      const y = Math.floor(index / width);
+      if (thin[index] === 0 || isHud(x / width, y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
+        continue;
+      }
+      const away = Math.hypot(x - width * HALF, y - height * HALF);
+      if (away < nearestDistance) {
+        nearest = { x, y };
+        nearestDistance = away;
+      }
+    }
+    return nearest;
   }
 
   private ownNearCenter(classes: Uint8Array, ground: null | Uint8Array): boolean {
@@ -957,6 +1043,27 @@ export class BlackboxPilot {
       }
     }
     return best;
+  }
+
+  /**
+   * How near a ray from the centre comes to a foreign unit or trail.
+   *
+   * @param unitDistance - Each pixel's distance to the nearest unit (see {@link unitDistance}).
+   * @param direction - The ray's direction.
+   * @param length - How far it runs, in pixels.
+   * @returns The least distance along it; `Infinity` with no unit in view.
+   */
+  private rayClearance(unitDistance: Float32Array, direction: Point, length: number): number {
+    let least = Infinity;
+    for (let along = 1; along < length; along++) {
+      const column = Math.floor(this.width * HALF + direction.x * along);
+      const row = Math.floor(this.height * HALF + direction.y * along);
+      if (column < 0 || row < 0 || column >= this.width || row >= this.height) {
+        break;
+      }
+      least = Math.min(least, unitDistance[row * this.width + column] ?? Infinity);
+    }
+    return least;
   }
 
   /**
@@ -1154,7 +1261,11 @@ export class BlackboxPilot {
     }
     if (this.phase === 'back') {
       // Back inside but for a capture too small to see: deeper in, not along a stale aim back out over the edge.
-      return this.homeStreak > 0 ? this.stayHome(classes) : this.planReturn(classes, raster);
+      if (this.homeStreak === 0) {
+        return this.planReturn(classes, raster);
+      }
+      // With a unit near, the far side from it, as at home.
+      return this.threat ? this.awayFromThreat(classes, this.threat) : this.stayHome(classes);
     }
     const leg = this.phase === 'out' ? this.outward : this.sideward;
     // Foreign ground ahead ends a leg only once it is under way, so it can leave across a neighbor; the wall at once.
@@ -1201,7 +1312,13 @@ export class BlackboxPilot {
       // it, where a capture of its that bites into the territory does not enclose the player.
       return this.awayFromThreat(classes, this.threat);
     }
-    this.outward = this.chooseWayOut(classes);
+    const wayOut = this.chooseWayOut(classes);
+    if (!wayOut.clear && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
+      // Every way out passes a unit: wait inside, as for a unit near, until one clears.
+      const unit = this.nearestUnit();
+      return unit ? this.awayFromThreat(classes, unit) : this.stayHome(classes);
+    }
+    this.outward = wayOut.direction;
     return this.outward;
   }
 
@@ -1276,6 +1393,35 @@ export class BlackboxPilot {
   }
 
   /**
+   * Whether the remembered trail has turned into the player's ground: a closed loop takes its trail into the
+   * territory, while a trail still open stays drawn as a trail (or, for a pale skin, as the floor). A capture too thin to
+   * count by {@link capturedPixels} still turns its trail.
+   *
+   * @param classes - The classified frame.
+   * @returns Whether it has.
+   */
+  private trailClosed(classes: Uint8Array): boolean {
+    const { raster } = this;
+    if (!raster) {
+      return false;
+    }
+    let own = 0;
+    let other = 0;
+    for (let index = 0; index < raster.length; index++) {
+      if (raster[index] !== TRACK_SOLID) {
+        continue;
+      }
+      const pixelClass = classes[index];
+      if (pixelClass === OWN) {
+        own++;
+      } else if (pixelClass === TRAIL || pixelClass === OTHER) {
+        other++;
+      }
+    }
+    return own >= CLOSED_TRAIL_PIXELS && own > (own + other) * CLOSED_TRAIL_SHARE;
+  }
+
+  /**
    * The nearest pixel of a foreign unit or trail lying across the player's own ground: one with the player's ground on
    * both sides of it, close, along some line through it.
    *
@@ -1286,32 +1432,73 @@ export class BlackboxPilot {
     const { height, thin, width } = this;
     const centerX = width * HALF;
     const centerY = height * HALF;
-    let nearest: null | Point = null;
-    let nearestDistance = Infinity;
+    const candidates: CutCandidate[] = [];
     for (let index = 0; index < thin.length; index++) {
       if (thin[index] === 0) {
         continue;
       }
       const x = index % width;
       const y = Math.floor(index / width);
-      const away = Math.hypot(x - centerX, y - centerY);
-      if (away >= nearestDistance || isHud(x / width, y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
+      if (isHud(x / width, y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
         continue;
       }
       for (const [dx, dy] of CUT_AXES) {
         if (this.ownWithin(classes, x, y, dx, dy) && this.ownWithin(classes, x, y, -dx, -dy)) {
-          nearest = { x, y };
-          nearestDistance = away;
+          candidates.push({ away: Math.hypot(x - centerX, y - centerY), point: { x, y } });
           break;
         }
       }
     }
-    return nearest;
+    candidates.sort((a, b) => a.away - b.away);
+    // The nearest cut whose way there stays on the player's ground: one reached across the floor lays a trail, and the
+    // unit closing its loop round the player's edge then takes the trail's start, the player with it.
+    const tried: Point[] = [];
+    for (const { point } of candidates) {
+      if (tried.length >= CUT_CANDIDATES) {
+        break;
+      }
+      if (tried.some((other) => Math.hypot(other.x - point.x, other.y - point.y) < CUT_SPACING)) {
+        continue;
+      }
+      tried.push(point);
+      if (this.cutStaysHome(classes, point)) {
+        return point;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * How far the player has come since it left its territory.
+   *
+   * @returns The length, in frame pixels; 0 while it is home.
+   */
+  private trailLength(): number {
+    if (this.trailStart === null) {
+      return 0;
+    }
+    let length = 0;
+    for (let index = this.trailStart + 1; index < this.track.length; index++) {
+      const end = this.track[index] ?? this.odometer.position;
+      const start = this.track[index - 1] ?? end;
+      length += Math.hypot(end.x - start.x, end.y - start.y);
+    }
+    return length;
   }
 
   private turnToward(wanted: Point): void {
     const difference = wrapAngle(Math.atan2(wanted.y, wanted.x) - this.heading);
     this.heading = wrapAngle(this.heading + Math.max(-TURN_PER_FRAME, Math.min(TURN_PER_FRAME, difference)));
+  }
+
+  /**
+   * Each pixel's distance to the nearest foreign unit or trail in view, those beside the HUD left out.
+   *
+   * @returns The distances; `Infinity` everywhere with none in view.
+   */
+  private unitDistance(): Float32Array {
+    const { height, thin, width } = this;
+    return chamferDistance(thin.map((value, index) => value !== 0 && !isHud(index % width / width, Math.floor(index / width) / height, HUD_MARGIN / width, HUD_MARGIN / height) ? 1 : 0), width, height);
   }
 }
 

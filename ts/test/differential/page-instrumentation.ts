@@ -134,6 +134,8 @@ export interface InstallDeterminismParams {
 export interface PageAreaTotals {
   readonly gained: number;
   readonly lost: number;
+  /** Frames the pilot spent in each phase, a phase seen with a threat marked `!`, and outside its base `@out`. */
+  readonly phases?: Readonly<Record<string, number>>;
 }
 
 /** What the autopilot benchmark's trace reads of an autopilot. */
