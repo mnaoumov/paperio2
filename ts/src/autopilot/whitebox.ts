@@ -42,6 +42,8 @@ export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) 
 
 /** Everything a loop plan reads, as plain data, so it can be planned in a worker. */
 export interface PlanInput {
+  /** The ground other units' captures are about to take: an exit there is taken with the trail still on it. */
+  readonly captures: readonly (readonly Point[])[];
   /** The arena's centre. */
   readonly center: Point;
   readonly enemies: readonly EnemyModel[];
@@ -376,6 +378,7 @@ interface PeelLoop {
 
 /** What a plan weighs every loop with. */
 interface PlanContext {
+  readonly captures: readonly (readonly Point[])[];
   readonly center: Point;
   readonly enemies: readonly EnemyModel[];
   readonly field: Float32Array;
@@ -412,7 +415,7 @@ interface VictimChoice {
 }
 
 /** Why the pilot cuts its victim's trail, which decides where it may follow it. */
-type VictimMode = 'chase' | 'home' | 'surround';
+type VictimMode = 'chase' | 'exit' | 'home' | 'surround';
 
 /** A way home that the simulation approved, and how long it is. */
 interface WayHome {
@@ -431,7 +434,7 @@ export class WhiteboxPilot {
    */
   public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, exitCuts: 0, exitThreats: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
@@ -572,6 +575,7 @@ export class WhiteboxPilot {
     }
     if (!situation.inBase) {
       this.checkThreats(situation);
+      this.lookForCaptureAroundExit(situation);
     }
     if (situation.inBase) {
       this.lookForCaptureAroundPlayer(situation);
@@ -594,6 +598,9 @@ export class WhiteboxPilot {
     const trailPoints = victim.track.simplyline.map(toPoint);
     if (this.victimMode === 'surround') {
       return this.surroundTarget(situation, victim);
+    }
+    if (this.victimMode === 'exit') {
+      return exitCut(situation, victim);
     }
     const home = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING))?.point ?? null : null;
     // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
@@ -706,6 +713,42 @@ export class WhiteboxPilot {
   private isVictimValid(): boolean {
     const victim = this.victim;
     return victim !== null && !victim.death && victim.in !== victim.base && victim.track.simplyline.length > 0;
+  }
+
+  /**
+   * When the player is out and its exit point lies in ground a unit's trail is about to close around, the capture kills
+   * it wherever it is. Cutting that trail ends the capture, so the unit becomes the victim when the player gets there
+   * before the unit can be home; otherwise the loop is dropped and the player heads home, which closes the trail first.
+   *
+   * @param situation - What the update knows.
+   */
+  private lookForCaptureAroundExit(situation: Situation): void {
+    const { game, player } = situation;
+    const start = player.track.simplyline[0];
+    if (!start || (this.phase === 'attack' && this.victimMode !== 'chase')) {
+      return;
+    }
+    const exit = toPoint(start);
+    const enclosing = game.units.filter((unit) => unit !== player && !unit.death && isInsideAny(exit, pendingCaptures(unit)));
+    if (enclosing.length === 0) {
+      return;
+    }
+    this.stats.exitThreats++;
+    const victim = enclosing.find((unit) => exitCut(situation, unit) !== null);
+    if (victim && enclosing.length === 1) {
+      this.victim = victim;
+      this.victimMode = 'exit';
+      this.phase = 'attack';
+      this.loop = null;
+      this.stats.exitCuts++;
+      return;
+    }
+    if (this.phase !== 'return') {
+      this.phase = 'return';
+      this.victim = null;
+      this.loop = null;
+      this.returnPath = [];
+    }
   }
 
   /**
@@ -1009,6 +1052,7 @@ export function findLoop(input: PlanInput): null | PlannedLoop {
   const { outline, position } = input;
   const orientation = Math.sign(signedArea(outline)) || 1;
   const base = {
+    captures: input.captures,
     center: input.center,
     enemies: input.enemies,
     maxTrail: input.maxTrail,
@@ -1120,12 +1164,13 @@ function clampToWall(from: Point, to: Point, center: Point, radius: number): Poi
  * @returns The loops, unranked.
  */
 function collectEstimates(context: PlanContext): Estimate[] {
-  const { center, orientation, outline, position, radius, ring } = context;
+  const { captures, center, orientation, outline, position, radius, ring } = context;
   const estimates: Estimate[] = [];
   const step = Math.max(1, Math.floor(ring.length / EXIT_SAMPLES));
   for (let index = 0; index < ring.length; index += step) {
     const { normal, point: exit } = ring[index] ?? { normal: ORIGIN, point: position };
-    if (!isClearOfPolygon(position, subtract(exit, scale(normal, EXIT_INSET)), outline)) {
+    // The exit is where the trail starts, and a capture that takes it kills the player wherever it is.
+    if (!isClearOfPolygon(position, subtract(exit, scale(normal, EXIT_INSET)), outline) || isInsideAny(exit, captures)) {
       continue;
     }
     const tangent = { x: -normal.y * orientation, y: normal.x * orientation };
@@ -1257,6 +1302,7 @@ function describeEnemy(unit: Unit, player: Unit): EnemyModel {
 function describePlan(situation: Situation): PlanInput {
   const { game, heading, outline, player, position } = situation;
   return {
+    captures: game.units.filter((unit) => unit !== player).flatMap(pendingCaptures),
     center: toPoint(game.border.center),
     enemies: game.units.filter((unit) => unit !== player && !unit.death).map((unit) => describeEnemy(unit, player)),
     heading,
@@ -1342,6 +1388,27 @@ function escapePoint(situation: Situation, captures: readonly (readonly Point[])
     }
   }
   return best;
+}
+
+/**
+ * Where to cut a unit's trail when its capture is about to take the player's exit point: past the trail's nearest
+ * point, when the player gets there before the unit can be home and the way there does not cross the player's own trail.
+ *
+ * @param situation - What the update knows.
+ * @param unit - The unit whose capture takes the exit point.
+ * @returns The point to steer at, or `null` when the cut is too late or blocked.
+ */
+function exitCut(situation: Situation, unit: Unit): null | Point {
+  const { game, heading, position, trail } = situation;
+  const speed = game.config.unitSpeed;
+  const cut = nearestPoint(position, samplePath(unit.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING));
+  if (!cut || travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS >= homeSeconds(unit, speed)) {
+    return null;
+  }
+  const past = add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
+  const center = toPoint(game.border.center);
+  const ownTrail = trail.slice(0, -1);
+  return simulateApproach({ center, heading, path: [past], position, radius: game.border.radius, speed, trail: ownTrail }) === null ? null : past;
 }
 
 /**
@@ -1503,7 +1570,7 @@ function gainCells(shape: readonly Point[], raster: Raster, center: Point, radiu
  * @returns The point to steer at.
  */
 function holdTarget(situation: Situation): Point {
-  const { heading, outline, position } = situation;
+  const { outline, position } = situation;
   let sumX = 0;
   let sumY = 0;
   for (const point of outline) {
@@ -1511,9 +1578,46 @@ function holdTarget(situation: Situation): Point {
     sumY += point.y;
   }
   const centroid = { x: sumX / Math.max(1, outline.length), y: sumY / Math.max(1, outline.length) };
-  if (pointInPolygon(centroid, outline) && distance(centroid, position) > WAYPOINT_REACHED) {
+  if (distance(centroid, position) <= WAYPOINT_REACHED) {
+    return orbitTarget(situation);
+  }
+  // A base is rarely convex: the way to its centroid can cross open ground, which lays a trail while the player waits.
+  if (pointInPolygon(centroid, outline) && isClearOfPolygon(position, centroid, outline)) {
     return centroid;
   }
+  return deepestReachable(situation) ?? orbitTarget(situation);
+}
+
+/**
+ * The point deepest inside the base that the player reaches in a straight line without leaving it.
+ *
+ * @param situation - What the update knows.
+ * @returns The point, or `null` when no straight way leads deeper than {@link ESCAPE_DEPTH}.
+ */
+function deepestReachable(situation: Situation): null | Point {
+  const { heading, outline, position } = situation;
+  let best: null | Point = null;
+  let bestDepth = ESCAPE_DEPTH;
+  for (let ray = 0; ray < ESCAPE_RAYS; ray++) {
+    const angle = heading + ray * FULL_TURN / ESCAPE_RAYS;
+    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
+    for (let away = ESCAPE_STEP; away <= ESCAPE_MAX_DISTANCE; away += ESCAPE_STEP) {
+      const point = add(position, scale(direction, away));
+      if (!pointInPolygon(point, outline)) {
+        break;
+      }
+      const depth = depthInside(point, outline);
+      if (depth > bestDepth && isClearOfPolygon(position, point, outline)) {
+        best = point;
+        bestDepth = depth;
+      }
+    }
+  }
+  return best;
+}
+
+function orbitTarget(situation: Situation): Point {
+  const { heading, position } = situation;
   return { x: position.x + Math.cos(heading + Math.PI * HALF) * HOLD_RADIUS, y: position.y + Math.sin(heading + Math.PI * HALF) * HOLD_RADIUS };
 }
 
