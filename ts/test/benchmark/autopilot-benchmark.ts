@@ -21,6 +21,8 @@
  *
  * `--situations <dir>` writes the situations `npm run benchmark:replay` plays again (see `situation-replay.ts`): for
  * each death, a snapshot from 8 to 13 s before it, and for every run a control snapshot every 10 minutes it lives.
+ * `--situation-leads 8,20,40` writes one death situation per lead instead, each the latest snapshot at least that many
+ * seconds before the death, to find how far back a death that is already decided at 8 s was still open.
  */
 
 import type {
@@ -214,10 +216,14 @@ const WHY_LINES = 12;
 // eslint-disable-next-line no-magic-numbers -- the curve's marks.
 const CURVE_MINUTES: readonly number[] = [0.5, 1, 2, 3, 5, 10, 15, 30, 60];
 const CURVE_FRAMES: readonly number[] = CURVE_MINUTES.map((minutes) => Math.round(minutes * SECONDS_PER_MINUTE * FRAMES_PER_SECOND));
-/** `--situations` takes a snapshot every 5 seconds and keeps the last 4, so one from 8 to 13 s before a death is there. */
+/**
+ * `--situations` takes a snapshot every 5 seconds and keeps enough for the longest lead, so by default one from 8 to 13 s
+ * before a death is there.
+ */
 const SITUATION_EVERY_FRAMES = 300;
-const SITUATION_KEEP = 4;
-const SITUATION_LEAD_SECONDS = 8;
+const SITUATION_EVERY_SECONDS = SITUATION_EVERY_FRAMES / FRAMES_PER_SECOND;
+/** The ring keeps this many snapshots beyond the longest lead's, so the latest one that old is always there. */
+const SITUATION_SPARE = 2;
 /** And a control situation every 10 minutes a run lives, a whole number of chunks. */
 const CONTROL_SITUATION_FRAMES = 36_000;
 
@@ -231,6 +237,7 @@ const { values } = parseArgs({
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'seed-list': { type: 'string' },
     'seeds': { default: '10', type: 'string' },
+    'situation-leads': { default: '8', type: 'string' },
     'situations': { type: 'string' },
     'stats': { type: 'string' },
     'trace': { default: false, type: 'boolean' },
@@ -251,6 +258,11 @@ if (seeds.some((seed) => !Number.isInteger(seed))) {
   // In PowerShell an unquoted `1,2` becomes two arguments, and parseArgs keeps only the first.
   throw new Error(`--seed-list takes comma-separated whole numbers (quote it in PowerShell): ${String(values['seed-list'])}`);
 }
+const situationLeads = values['situation-leads'].split(',').map(Number);
+if (situationLeads.some((lead) => !(lead >= 0))) {
+  throw new Error(`--situation-leads takes comma-separated seconds (quote it in PowerShell): ${values['situation-leads']}`);
+}
+const situationKeep = Math.ceil(Math.max(...situationLeads) / SITUATION_EVERY_SECONDS) + SITUATION_SPARE;
 const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => seeds.map((seed) => ({ enemies, mode, seed }))));
 // The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
 await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
@@ -550,13 +562,16 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       await page.evaluate(installWhiteboxShots, WHITEBOX_SHOT_STYLE);
     }
     if (values.situations !== undefined) {
-      await page.evaluate(installSituationRing, SITUATION_EVERY_FRAMES, SITUATION_KEEP, MILLISECONDS_PER_SECOND);
+      await page.evaluate(installSituationRing, SITUATION_EVERY_FRAMES, situationKeep, MILLISECONDS_PER_SECOND);
     }
     const tail: string[] = [];
     const { curve, state } = await playChunks(page, job, tail);
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     if (values.situations !== undefined && reason !== null && reason !== 'win') {
-      await saveSituation(page, job, 'death', state.seconds, reason, values.situations);
+      const written = new Set<string>();
+      for (const lead of situationLeads) {
+        await saveSituation(page, job, 'death', state.seconds, reason, values.situations, lead, written);
+      }
     }
     if (values.stats !== undefined) {
       const text = await page.evaluate(() => window.__statsLog?.finish() ?? '');
@@ -643,8 +658,8 @@ function report(results: readonly Outcome[]): string {
 }
 
 /**
- * Writes one situation for `npm run benchmark:replay`: for a death, the latest kept snapshot from at least
- * {@link SITUATION_LEAD_SECONDS} before it (the oldest kept when none is that old), and for a control, the game now.
+ * Writes one situation for `npm run benchmark:replay`: for a death, the latest kept snapshot from at least `lead`
+ * seconds before it (the oldest kept when none is that old), and for a control, the game now.
  *
  * @param page - The page.
  * @param job - The run.
@@ -652,8 +667,19 @@ function report(results: readonly Outcome[]): string {
  * @param deathSeconds - When the player died, in game seconds; `null` for a control.
  * @param cause - How it died; `null` for a control.
  * @param directory - Where to write it.
+ * @param lead - For a death, how long before it the snapshot must be.
+ * @param written - The names written for this death so far, so two leads that pick one snapshot write it once.
  */
-async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSeconds: null | number, cause: null | string, directory: string): Promise<void> {
+async function saveSituation(
+  page: Page,
+  job: Job,
+  kind: SituationKind,
+  deathSeconds: null | number,
+  cause: null | string,
+  directory: string,
+  lead = 0,
+  written = new Set<string>()
+): Promise<void> {
   const picked = await page.evaluate(
     async (death: null | number, lead: number, millisecondsPerSecond: number) => {
       const api = window.paperio2api;
@@ -681,10 +707,14 @@ async function saveSituation(page: Page, job: Job, kind: SituationKind, deathSec
       }
     },
     deathSeconds,
-    SITUATION_LEAD_SECONDS,
+    lead,
     MILLISECONDS_PER_SECOND
   );
   const name = `${job.mode}-${job.enemies.replace(':', '-')}-seed${String(job.seed)}-${kind}-${picked.seconds.toFixed(0)}s`;
+  if (written.has(name)) {
+    return;
+  }
+  written.add(name);
   if (picked.error) {
     print(`situation ${name} not written: ${picked.error}`);
     return;
