@@ -96,7 +96,10 @@ const TRAIL_ALPHA = 0.6;
 /** Squared RGB distances within which a pixel matches a learned color. */
 const MATCH_DISTANCE_SQUARED = 30 * 30;
 const TRAIL_MATCH_DISTANCE_SQUARED = 22 * 22;
-/** Beyond the arena the sky is far bluer and greener than red, and the arena's edge is a grey green. */
+/**
+ * Beyond the arena the sky is far bluer and greener than red, and the arena's edge is a grey green. A cyan skin is too,
+ * so a thin line of those colors away from the sky is a unit's trail (see {@link reclassifyThinOutside}).
+ */
 const OUTSIDE_BLUE_MARGIN = 60;
 const OUTSIDE_GREEN_MARGIN = 40;
 /** A color whose channels lie within this spread is a grey. */
@@ -134,7 +137,13 @@ const TERRITORY_THICKNESS = 5;
 /** Within this many pixels of the HUD, foreign ground is not told apart from units by thickness. */
 const HUD_MARGIN = 2 * TERRITORY_THICKNESS;
 /** At home, the pilot waits this many frames at most for a nearby unit to go before it leaves away from it. */
-const MAX_HOME_WAIT_FRAMES = 300;
+const MAX_HOME_WAIT_FRAMES = 1200;
+/** Waiting, the pilot heads for ground this many pixels inside its territory, each worth this many pixels of distance. */
+const SAFE_DEPTH = 16;
+const SAFE_DEPTH_WEIGHT = 3;
+/** A foreign trail is across the territory when its ground lies within this many pixels on both sides along an axis. */
+const CUT_REACH = 5;
+const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
 /** A small foreign component this close to the trail or the player, as a share of the frame's height, sends it home. */
@@ -286,7 +295,9 @@ export class BlackboxPilot {
     this.width = frame.width;
     this.height = frame.height;
     this.calibrate(frame);
-    const classes = erodeThin(this.classify(frame), frame.width, frame.height);
+    const raw = this.classify(frame);
+    reclassifyThinOutside(raw, frame.width, frame.height);
+    const classes = erodeThin(raw, frame.width, frame.height);
     this.classes = classes;
     this.measureMotion(classes);
     this.recordTrack();
@@ -327,6 +338,35 @@ export class BlackboxPilot {
   }
 
   /**
+   * Toward the inside of the territory in view farthest from a danger, or circling when already there.
+   *
+   * @param classes - The classified frame.
+   * @param threat - The danger, in frame pixels.
+   * @returns The direction.
+   */
+  private awayFromThreat(classes: Uint8Array, threat: Point): Point {
+    const { height, width } = this;
+    // An aim on the territory's edge would carry the player over it while it turns: depth counts too, up to a turn's width.
+    const depth = chamferDistance(classes.map((pixelClass) => pixelClass === OWN || pixelClass === MASKED ? 0 : 1), width, height);
+    let best: null | Point = null;
+    let bestScore = -Infinity;
+    for (let row = 1; row < height - 1; row++) {
+      for (let column = 1; column < width - 1; column++) {
+        const index = row * width + column;
+        const score = Math.hypot(column - threat.x, row - threat.y) + Math.min(depth[index] ?? 0, SAFE_DEPTH) * SAFE_DEPTH_WEIGHT;
+        if (score > bestScore && isOwnInside(classes, width, index)) {
+          best = { x: column - width * HALF, y: row - height * HALF };
+          bestScore = score;
+        }
+      }
+    }
+    if (!best || Math.hypot(best.x, best.y) < height * AVATAR_RADIUS) {
+      return this.stayHome(classes);
+    }
+    return normalize(best);
+  }
+
+  /**
    * Learns the floor's color (what covers most of the frame) and the player's own color (the score bar's) once.
    *
    * @param frame - The frame.
@@ -342,9 +382,10 @@ export class BlackboxPilot {
    * where it was was own ground, so an edge that shifts by a pixel, or the view scrolling, counts nothing.
    *
    * @param classes - The classified frame.
+   * @param ground - The ground joined to the territory the trail left from, 0 elsewhere.
    * @returns The count; 0 with no last frame.
    */
-  private capturedPixels(classes: Uint8Array): number {
+  private capturedPixels(classes: Uint8Array, ground: Uint8Array): number {
     const previous = this.previousClasses;
     if (previous?.length !== classes.length) {
       return 0;
@@ -356,7 +397,8 @@ export class BlackboxPilot {
     for (let row = CAPTURE_MARGIN; row < height - CAPTURE_MARGIN; row++) {
       for (let column = CAPTURE_MARGIN; column < width - CAPTURE_MARGIN; column++) {
         // Only the inside of own ground counts: the wall's dotted stroke blends into specks of the player's color.
-        if (isOwnInside(classes, width, row * width + column) && wasForeignAround(previous, width, height, column + shiftX, row + shiftY)) {
+        // A closed loop joins the ground it left from; a bot in the player's skin closing its own does not.
+        if (ground[row * width + column] !== 0 && isOwnInside(classes, width, row * width + column) && wasForeignAround(previous, width, height, column + shiftX, row + shiftY)) {
           captured++;
         }
       }
@@ -693,12 +735,17 @@ export class BlackboxPilot {
    * @returns Whether it is.
    */
   private isHome(classes: Uint8Array): boolean {
-    const ringHome = this.ownNearCenter(classes) && !this.trailAtHead(classes);
-    this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
     if (this.trailStart === null) {
+      const ringHome = this.ownNearCenter(classes, null) && !this.trailAtHead(classes);
+      this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
       return ringHome;
     }
-    return this.capturedPixels(classes) >= CAPTURE_PIXELS || this.homeStreak >= HOME_STREAK_FRAMES;
+    // Once out, only the ground joined to the territory it left counts: a bot can wear the player's skin, and its
+    // territory then reads as the player's color all round.
+    const ground = this.homeGround(classes);
+    const ringHome = this.ownNearCenter(classes, ground) && !this.trailAtHead(classes);
+    this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
+    return this.capturedPixels(classes, ground) >= CAPTURE_PIXELS || this.homeStreak >= HOME_STREAK_FRAMES;
   }
 
   private isMasked(column: number, row: number): boolean {
@@ -746,7 +793,7 @@ export class BlackboxPilot {
     this.heading += difference * HEADING_CORRECTION;
   }
 
-  private ownNearCenter(classes: Uint8Array): boolean {
+  private ownNearCenter(classes: Uint8Array, ground: null | Uint8Array): boolean {
     // The avatar hides the pixel under the player; the territory around it decides. A unit beside the player hides the
     // ground under it as the avatar does, and does not make home read as away.
     const radius = this.height * AVATAR_RADIUS * (1 + HALF);
@@ -758,12 +805,36 @@ export class BlackboxPilot {
       const pixelClass = this.classAt(classes, x, y);
       if (pixelClass !== MASKED && this.thin[Math.floor(y) * this.width + Math.floor(x)] !== 1) {
         seen++;
-        if (pixelClass === OWN) {
+        if (pixelClass === OWN && (ground?.[Math.floor(y) * this.width + Math.floor(x)] ?? 1) !== 0) {
           own++;
         }
       }
     }
     return seen > 0 && own / seen > HALF + HALF * HALF;
+  }
+
+  /**
+   * Whether the player's own ground lies within {@link CUT_REACH} pixels of a pixel in one direction, past whatever
+   * foreign pixels lie between.
+   *
+   * @param classes - The classified frame.
+   * @param x - The pixel's column.
+   * @param y - Its row.
+   * @param dx - The direction across.
+   * @param dy - The direction down.
+   * @returns Whether it does.
+   */
+  private ownWithin(classes: Uint8Array, x: number, y: number, dx: number, dy: number): boolean {
+    for (let step = 1; step <= CUT_REACH; step++) {
+      const pixelClass = this.classAt(classes, x + dx * step + HALF, y + dy * step + HALF);
+      if (pixelClass === OWN) {
+        return true;
+      }
+      if (pixelClass !== OTHER) {
+        return false;
+      }
+    }
+    return false;
   }
 
   /**
@@ -1118,9 +1189,17 @@ export class BlackboxPilot {
       // The loop's trail is the territory's edge now: forget it at once, or its memory walls the territory off.
       this.forgetTrack();
     }
+    // A unit's trail across the territory is cut from inside it, where the player lays no trail: crossing a trail kills
+    // its owner, and that trail is the start of a capture that would take the player's ground, the player with it.
+    const cut = this.trailInTerritory(classes);
+    if (cut) {
+      this.aim = cut;
+      return normalize({ x: cut.x - this.width * HALF, y: cut.y - this.height * HALF });
+    }
     if (this.threat && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
-      // A unit near: stay inside, where it cannot cut anything, until it goes.
-      return this.stayHome(classes);
+      // A unit near: stay inside, where it cannot cut anything, until it goes; on the far side of the territory from
+      // it, where a capture of its that bites into the territory does not enclose the player.
+      return this.awayFromThreat(classes, this.threat);
     }
     this.outward = this.chooseWayOut(classes);
     return this.outward;
@@ -1194,6 +1273,40 @@ export class BlackboxPilot {
       }
     }
     return count >= MIN_HEAD_TRAIL;
+  }
+
+  /**
+   * The nearest pixel of a foreign unit or trail lying across the player's own ground: one with the player's ground on
+   * both sides of it, close, along some line through it.
+   *
+   * @param classes - The classified frame.
+   * @returns It, in frame pixels, or `null`.
+   */
+  private trailInTerritory(classes: Uint8Array): null | Point {
+    const { height, thin, width } = this;
+    const centerX = width * HALF;
+    const centerY = height * HALF;
+    let nearest: null | Point = null;
+    let nearestDistance = Infinity;
+    for (let index = 0; index < thin.length; index++) {
+      if (thin[index] === 0) {
+        continue;
+      }
+      const x = index % width;
+      const y = Math.floor(index / width);
+      const away = Math.hypot(x - centerX, y - centerY);
+      if (away >= nearestDistance || isHud(x / width, y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
+        continue;
+      }
+      for (const [dx, dy] of CUT_AXES) {
+        if (this.ownWithin(classes, x, y, dx, dy) && this.ownWithin(classes, x, y, -dx, -dy)) {
+          nearest = { x, y };
+          nearestDistance = away;
+          break;
+        }
+      }
+    }
+    return nearest;
   }
 
   private turnToward(wanted: Point): void {
@@ -1454,6 +1567,25 @@ function isOwnInside(classes: Uint8Array, width: number, index: number): boolean
     }
   }
   return true;
+}
+
+/**
+ * Relabels as foreign, in place, the outside pixels that lie farther than {@link WALL_THICKNESS} from any outside pixel
+ * that deep in the outside: the sky is never that thin, but a cyan unit's trail across the floor or the territory is.
+ * The blends at the sky's own edge lie within that distance of it and stay outside.
+ *
+ * @param classes - The classes.
+ * @param width - The frame's width.
+ * @param height - The frame's height.
+ */
+function reclassifyThinOutside(classes: Uint8Array, width: number, height: number): void {
+  const depth = chamferDistance(classes.map((pixelClass) => pixelClass === OUTSIDE || pixelClass === MASKED ? 0 : 1), width, height);
+  const core = chamferDistance(depth.map((distance, index) => distance >= WALL_THICKNESS && classes[index] === OUTSIDE ? 1 : 0), width, height);
+  for (let index = 0; index < classes.length; index++) {
+    if (classes[index] === OUTSIDE && (core[index] ?? Infinity) > WALL_THICKNESS) {
+      classes[index] = OTHER;
+    }
+  }
 }
 
 /**

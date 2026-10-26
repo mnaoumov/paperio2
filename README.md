@@ -207,7 +207,8 @@ speed in headless Chrome and reports, per pilot, the win rate, the median and
 best time to win and how runs end, then a growth curve: the median share of the
 arena at 0:30, 1, 2, 3, 5, 10, 15, 30 and 60 minutes over the runs still alive.
 The same seed replays the same game. It builds `dist/` before it plays. On
-2026-10-22, and for the whitebox against the original bots on 2026-10-23:
+2026-10-22, for the whitebox against the original bots on 2026-10-23, and for
+the blackbox on 2026-10-24:
 
 | Pilot | Enemies | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -215,7 +216,12 @@ The same seed replays the same game. It builds `dist/` before it plays. On
 | Whitebox | Original | 64 | 30 min | 0 | 18 (trail cut 15, exit point taken 2, surrounded 1) | 46 (50.7%) |
 | Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 4) | 12 (57.5%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
-| Blackbox | Original | 32 | 5 min | 0 | 9 (trail cut 6, surrounded 2, self-intersection 1) | 23 (2.8%) |
+| Blackbox | Original | 32 | 5 min | 0 | 7 (exit point taken 3, trail cut 2, surrounded 1, self-intersection 1) | 25 (3.6%) |
+
+The blackbox waits inside its territory while a unit is near, on the side of it
+farthest from that unit, for up to 20 seconds. It cuts a unit's trail where the
+trail lies across its own ground, and it counts only ground joined to the
+territory it left from as home, so a bot wearing its skin does not read as home.
 
 The whitebox's growth over those 16 one-hour runs, against two games a skilled
 human played by hand with the default settings:
