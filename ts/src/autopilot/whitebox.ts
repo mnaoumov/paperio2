@@ -1917,7 +1917,10 @@ function pendingCaptures(unit: Unit): Point[][] {
  * @returns The polygons, or none.
  */
 function exitCaptures(unit: Unit, outline: readonly Point[]): Point[][] {
-  return unit.track.simplyline.some((point) => pointInPolygon(point, outline)) ? captureShapes(unit, false) : [];
+  // The trail is simplified, so it can cross the base between two of its points: each leg is checked, up to the head.
+  const trail = [...unit.track.simplyline.map(toPoint), toPoint(unit.position)];
+  const crosses = trail.some((point, index) => pointInPolygon(point, outline) || (index > 0 && !isClearOfPolygon(trail[index - 1] ?? point, point, outline)));
+  return crosses ? captureShapes(unit, false) : [];
 }
 
 function captureShapes(unit: Unit, withFan: boolean): Point[][] {
