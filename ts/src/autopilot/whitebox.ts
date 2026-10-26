@@ -1570,7 +1570,7 @@ function gainCells(shape: readonly Point[], raster: Raster, center: Point, radiu
  * @returns The point to steer at.
  */
 function holdTarget(situation: Situation): Point {
-  const { outline, position } = situation;
+  const { heading, outline, position } = situation;
   let sumX = 0;
   let sumY = 0;
   for (const point of outline) {
@@ -1578,46 +1578,9 @@ function holdTarget(situation: Situation): Point {
     sumY += point.y;
   }
   const centroid = { x: sumX / Math.max(1, outline.length), y: sumY / Math.max(1, outline.length) };
-  if (distance(centroid, position) <= WAYPOINT_REACHED) {
-    return orbitTarget(situation);
-  }
-  // A base is rarely convex: the way to its centroid can cross open ground, which lays a trail while the player waits.
-  if (pointInPolygon(centroid, outline) && isClearOfPolygon(position, centroid, outline)) {
+  if (pointInPolygon(centroid, outline) && distance(centroid, position) > WAYPOINT_REACHED) {
     return centroid;
   }
-  return deepestReachable(situation) ?? orbitTarget(situation);
-}
-
-/**
- * The point deepest inside the base that the player reaches in a straight line without leaving it.
- *
- * @param situation - What the update knows.
- * @returns The point, or `null` when no straight way leads deeper than {@link ESCAPE_DEPTH}.
- */
-function deepestReachable(situation: Situation): null | Point {
-  const { heading, outline, position } = situation;
-  let best: null | Point = null;
-  let bestDepth = ESCAPE_DEPTH;
-  for (let ray = 0; ray < ESCAPE_RAYS; ray++) {
-    const angle = heading + ray * FULL_TURN / ESCAPE_RAYS;
-    const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-    for (let away = ESCAPE_STEP; away <= ESCAPE_MAX_DISTANCE; away += ESCAPE_STEP) {
-      const point = add(position, scale(direction, away));
-      if (!pointInPolygon(point, outline)) {
-        break;
-      }
-      const depth = depthInside(point, outline);
-      if (depth > bestDepth && isClearOfPolygon(position, point, outline)) {
-        best = point;
-        bestDepth = depth;
-      }
-    }
-  }
-  return best;
-}
-
-function orbitTarget(situation: Situation): Point {
-  const { heading, position } = situation;
   return { x: position.x + Math.cos(heading + Math.PI * HALF) * HOLD_RADIUS, y: position.y + Math.sin(heading + Math.PI * HALF) * HOLD_RADIUS };
 }
 
