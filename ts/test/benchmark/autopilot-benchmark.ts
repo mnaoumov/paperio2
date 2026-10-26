@@ -681,7 +681,7 @@ async function saveSituation(
   written = new Set<string>()
 ): Promise<void> {
   const picked = await page.evaluate(
-    async (death: null | number, lead: number, millisecondsPerSecond: number) => {
+    async (death: null | number, leadSeconds: number, millisecondsPerSecond: number) => {
       const api = window.paperio2api;
       if (!api.captureSnapshot || !api.encodeSnapshot) {
         return { error: 'This build has no snapshots.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
@@ -696,7 +696,7 @@ async function saveSituation(
           seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond,
           snapshot: api.captureSnapshot()
         }
-        : [...kept].reverse().find((situation) => situation.seconds <= death - lead) ?? kept[0];
+        : [...kept].reverse().find((situation) => situation.seconds <= death - leadSeconds) ?? kept[0];
       if (!entry) {
         return { error: 'No snapshot was kept.', host: 0, payload: '', pilot: null, random: 0, seconds: 0 };
       }

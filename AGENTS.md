@@ -399,7 +399,8 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   `--seeds 1 --first-seed <n>` with both is the way to study one death. `--enemies` picks the enemy modes to play
   against (see **Enemy modes**); it defaults to the original bots.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
-  `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes. The replay plays each one
+  `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes; `--situation-leads
+  8,25,60` saves one per lead instead, which brackets when a death became certain. The replay plays each one
   several times under whatever pilot `dist/` holds, so two builds face identical trials. `--compare a.json,b.json` pairs
   them, with an exact McNemar p. **A replay is exact: trial 0 is the recorded run again, frame for frame.** Three things
   had to travel with the snapshot for that. The whitebox pilot's own state (`WhiteboxPilot.saveState` /
