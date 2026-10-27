@@ -301,6 +301,8 @@ const ESCAPE_DEPTH = 30;
 const EDGE_GUARD_DISTANCE = 130;
 const EDGE_GUARD_STEPS = 60;
 const EDGE_GUARD_RAYS = 24;
+/** Incidental home movement keeps two turning radii of clearance once it has reached that depth. */
+const EDGE_GUARD_DEPTH = 30;
 /** A unit still drawing its loop is home this much later than its distance says, at the soonest. */
 const LOOP_STATE_SLACK_SECONDS = 1;
 /** The quadratic formula's 2 and 4, and the scanline crossings that bound each span inside a polygon. */
@@ -1113,6 +1115,7 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
   const { allowExit, enemies, heading, outline, position, speed, wanted } = params;
   const reachOfGuard = EDGE_GUARD_DISTANCE + speed * SIMULATION_STEP_SECONDS * EDGE_GUARD_STEPS;
   const near = enemies.filter((unit) => distance(unit, position) < reachOfGuard);
+  const minimumDepth = allowExit ? 0 : Math.min(EDGE_GUARD_DEPTH, depthInside(position, outline));
   if (allowExit && near.length === 0) {
     return wanted;
   }
@@ -1144,7 +1147,7 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
     for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
       simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
       simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
-      if (!pointInPolygon(simulated, outline)) {
+      if (!pointInPolygon(simulated, outline) || depthInside(simulated, outline) < minimumDepth) {
         return { point: simulated, step };
       }
     }
