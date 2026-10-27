@@ -9,7 +9,8 @@ import {
   findLoop,
   guardBaseExit,
   guardWallTurn,
-  homeFlightLength
+  homeFlightLength,
+  returnEntryPoint
 } from './whitebox.ts';
 
 const CENTER = { x: 0, y: 0 };
@@ -18,6 +19,18 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('returnEntryPoint', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 90 }, { x: 300, y: 90 }, { x: 300, y: 110 }, { x: 200, y: 110 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+
+  it('rejects re-entry into a narrow spit with no room for the next turn', () => {
+    expect(returnEntryPoint({ edge: { x: 250, y: 110 }, outline, position: { x: 250, y: 150 } })).toBeNull();
+  });
+
+  it('accepts re-entry into the broad part of the base', () => {
+    expect(returnEntryPoint({ edge: { x: 100, y: 200 }, outline, position: { x: 100, y: 250 } })).toEqual({ x: 100, y: 155 });
+  });
+});
 
 describe('guardBaseExit', () => {
   const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];

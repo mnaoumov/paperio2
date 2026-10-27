@@ -199,7 +199,9 @@ const WALL_HOLD_ANGLE = 0.3;
 /** Spacing of the waypoints that follow the wall's arc. */
 const WALL_ARC_STEP = 40;
 /** The return aims this far past the base's edge, so it crosses into the base. */
-const RETURN_OVERSHOOT = 15;
+const RETURN_OVERSHOOT = 45;
+/** A re-entry needs this much room inside the base, rather than a thin spit that traps the turn after arriving. */
+const RETURN_CORE_DEPTH = 30;
 /** How many of the nearest base points are tried as the way home. */
 const RETURN_CANDIDATES = 40;
 /** The way home is chosen again every this many updates. */
@@ -418,6 +420,22 @@ interface PlanContext {
   readonly raster: Raster;
   readonly ring: readonly RingPoint[];
   readonly speed: number;
+}
+
+interface ReturnCandidate {
+  readonly away: number;
+  readonly point: Point;
+}
+
+interface ReturnCandidatesParams {
+  readonly outline: readonly Point[];
+  readonly position: Point;
+}
+
+interface ReturnEntryPointParams {
+  readonly edge: Point;
+  readonly outline: readonly Point[];
+  readonly position: Point;
 }
 
 interface RingPoint {
@@ -1198,6 +1216,13 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
   return null;
 }
 
+export function returnEntryPoint(params: ReturnEntryPointParams): null | Point {
+  const { edge, outline, position } = params;
+  const away = distance(position, edge);
+  const target = away < 1 ? edge : add(position, scale(subtract(edge, position), 1 + RETURN_OVERSHOOT / away));
+  return pointInPolygon(target, outline) && depthInside(target, outline) >= RETURN_CORE_DEPTH ? target : null;
+}
+
 /**
  * How close a bot must get to the player's trail before it starts hunting it, as the engine's `isPlayerTrailInRange`
  * measures it.
@@ -1555,7 +1580,7 @@ function findWayHome(situation: Situation): Point[] {
   const center = toPoint(game.border.center);
   const radius = game.border.radius;
   const speed = game.config.unitSpeed;
-  const sorted = outline.map((point) => ({ away: distance(point, position), point })).sort((a, b) => a.away - b.away).slice(0, RETURN_CANDIDATES);
+  const sorted = returnCandidates({ outline, position });
   function aimPast(from: Point, point: Point): Point {
     const away = distance(from, point);
     return away < 1 ? point : add(from, scale(subtract(point, from), 1 + RETURN_OVERSHOOT / away));
@@ -2111,6 +2136,13 @@ function resampleRing(outline: readonly Point[], spacing: number, orientation: n
     const tangent = normalize(subtract(points[wrapIndex(index + 1, points.length)] ?? point, points[wrapIndex(index - 1, points.length)] ?? point));
     return { normal: { x: tangent.y * orientation, y: -tangent.x * orientation }, point };
   });
+}
+
+function returnCandidates(params: ReturnCandidatesParams): ReturnCandidate[] {
+  const { outline, position } = params;
+  const all = outline.map((point) => ({ away: distance(point, position), point })).sort((a, b) => a.away - b.away);
+  const roomy = all.filter(({ point }) => returnEntryPoint({ edge: point, outline, position }) !== null);
+  return (roomy.length > 0 ? roomy : all).slice(0, RETURN_CANDIDATES);
 }
 
 function samplePath(points: readonly Point[], spacing: number): Point[] {
