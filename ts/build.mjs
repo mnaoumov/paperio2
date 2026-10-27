@@ -3,6 +3,7 @@
 // obfuscated `app2.js`. Drop the output in place of `app2.js` (served over
 // HTTP) to run the game off this readable reconstruction.
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 
 import { build } from 'esbuild';
 
@@ -28,6 +29,17 @@ const worker = await build({
   logLevel: 'info'
 });
 const [workerOutput] = worker.outputFiles;
+const realm = await build({
+  entryPoints: ['src/rollout/runtime.ts'],
+  bundle: true,
+  format: 'iife',
+  target: 'es2020',
+  write: false,
+  define: { ROLLOUT_SKINS_SOURCE: JSON.stringify(readFileSync('../assets/skins/skins.json', 'utf8')) },
+  legalComments: 'none',
+  logLevel: 'info'
+});
+const [realmOutput] = realm.outputFiles;
 
 await build({
   entryPoints: ['src/main.ts'],
@@ -35,7 +47,7 @@ await build({
   format: 'iife',
   target: 'es2020',
   outfile: 'dist/app2.js',
-  define: { AUTOPILOT_WORKER_SOURCE: JSON.stringify(workerOutput.text), BUILD_COMMIT: JSON.stringify(commit ?? null) },
+  define: { ROLLOUT_SOURCE: JSON.stringify(realmOutput.text), AUTOPILOT_WORKER_SOURCE: JSON.stringify(workerOutput.text), BUILD_COMMIT: JSON.stringify(commit ?? null) },
   legalComments: 'none',
   logLevel: 'info'
 });

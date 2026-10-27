@@ -49,6 +49,8 @@ interface ShopApi {
 type StoredChallenges = Record<string, boolean>;
 
 declare global {
+  const ROLLOUT_SOURCE: string;
+  const ROLLOUT_SKINS_SOURCE: string;
   // The autopilot worker's bundled source, which `build.mjs` defines through esbuild's `define`
   // (see `autopilot/worker-client.ts`). It is not defined outside that build, such as in the unit tests.
   const AUTOPILOT_WORKER_SOURCE: string | undefined;

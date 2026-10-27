@@ -218,6 +218,20 @@ neither.
   `spawnBot` now follows the original key for key (`String(type)` keys, `Number(...)` reads), and the scenario
   `capture loop on paperio.site, a 16th bot` pins it.
 
+## Experimental engine rollouts
+
+`paperio2api.rollout(request, signal?)` (`ts/src/rollout/`) captures a game and runs
+the real engine in an opaque, disposable iframe, with local module globals, DOM,
+assets, Path2D, ids, pool and RNG. It uses the save graph codec, explicit mulberry32
+state and a 20 ms fixed-step direction schedule; it never restores the live game
+or enables a pilot. Requests are bounded to 600 frames, 64 units and 20,000 segments.
+Particle callbacks, pending timers and unsupported extensions are rejected.
+The iframe's achievement store cannot save cookies. `Game` accepts an optional
+`GameClock` at construction; ordinary games retain the default browser clock.
+See `ts/src/rollout/README.md` for the exact contract, limitations, parity tests
+and measurements. It shares the browser renderer and costs hundreds of milliseconds
+to seconds per request; it is not suitable for per-frame live planning.
+
 ## In-game video recorder
 
 **The `ts/` reconstruction records its own canvas** (`ts/src/video/`, owner request 2026-10-21); the README's
