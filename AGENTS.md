@@ -316,7 +316,8 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   `DEMO_RESTART_SECONDS` (5) through the App's `start`, the same path as the results screen's Play, and the readout counts
   it down; leaving `results` (Continue) cancels it. The menu's default stays Off (owner, 2026-10-22). Both halves are
   proven in `test/differential/demo-extras.integration.test.ts`.
-- **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts`, and `blackbox.test.ts` asserts it. The driver
+- **Blackbox purity:** `autopilot/blackbox.ts` imports only `./plane.ts` and `./odometry.ts`, and
+  `test/autopilot/blackbox-purity.test.ts` checks those imports and their dependencies. The driver
   hands it `grabDownscaledFrame(game.view)` (the canvas scaled down 4x) after each rendered frame, nothing else.
 - **How the blackbox keeps its bearings and gets home** (`blackbox.ts`, `odometry.ts`): an odometer matches each
   classified frame's edges against a key frame, so the pilot knows its position, speed and heading from the ground
@@ -338,8 +339,10 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   hid dark grey bots and their trails entirely, so only the player's own name strip (`isOwnNameStrip`) stays masked;
   other names are thin strokes the erosion drops. Foreign ground within `HUD_MARGIN` of the HUD is skipped, because
   the leaderboard and minimap cut territory into trail-thin slivers. A threat is remembered in odometer coordinates for
-  `THREAT_MEMORY_FRAMES` (120) and recalled while within the danger radius, so a bot that leaves the view or the radius
-  still sends the pilot home (60 measured worse). A way out whose first stretch meets the wall's lookahead scores as
+  `THREAT_MEMORY_FRAMES` (120) and recalled while within the danger radius, so a bot that leaves the view
+  still sends the pilot home (60 measured worse). At home, a remembered danger within 0.65 frame heights keeps the
+  pilot waiting even beyond the normal 0.5-height danger radius; this does not renew the sighting's expiry.
+  A way out whose first stretch meets the wall's lookahead scores as
   blocked (`WALL_ROOM`).
 - **A live game runs the pilots' heavy work in a worker** (`autopilot/worker.ts`, owner report 2026-10-22: "drops
   frames often"). Measured with `npm run benchmark:frames` (`test/benchmark/frame-times.ts`: real time, real
