@@ -140,8 +140,8 @@ interface Situation {
 
 /* eslint-disable no-magic-numbers -- the tuning constants: each is named by its declaration and its comment. */
 /** The loop depths and widths tried, in world units. */
-const DEPTHS: readonly number[] = [60, 110, 180, 260, 360, 480];
-const WIDTHS: readonly number[] = [70, 140, 240, 360, 500, 700];
+const DEPTHS: readonly number[] = [20, 35, 60, 110, 180, 260, 360, 480];
+const WIDTHS: readonly number[] = [35, 40, 70, 140, 240, 360, 500, 700];
 /** How many points of the base's outline are tried as the exit. */
 const EXIT_SAMPLES = 72;
 /** The raster cell sizes: a coarse one first, a fine one once the coarse one sees nothing left to take. */
@@ -1428,7 +1428,8 @@ function considerLoop(context: PlanContext, estimates: Estimate[], loop: LoopSha
   }
   const exposure = farthestHome(route, field, raster) * FLIGHT_THREAT_FACTOR + FLIGHT_THREAT_MARGIN;
   const samples = samplePath([exit, ...route], ROUTE_SAMPLE_SPACING);
-  const check = createLoopCheck(exposure, samples, remainingAlong(samples, trailLength), trailLength);
+  const exposureLength = trailLength + speed * LOOP_OVERHEAD_SECONDS + RETURN_OVERSHOOT;
+  const check = createLoopCheck(exposure, samples, remainingAlong(samples, exposureLength), exposureLength);
   if (enemies.some((enemy) => threatens(enemy, check))) {
     return;
   }
@@ -1450,7 +1451,7 @@ function continuedLoopHome(situation: Situation, route: readonly Point[]): null 
   const away = distance(last, home);
   const aim = away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away));
   const path = [...route, aim];
-  const flown = simulateApproach({ center: toPoint(game.border.center), heading, path, position, radius: game.border.radius, speed: game.config.unitSpeed, trail });
+  const flown = simulateApproach({ center: toPoint(game.border.center), heading, path, position, radius: game.border.radius, speed: game.config.unitSpeed, trackSelf: true, trail });
   return flown === null ? null : { length: flown, path };
 }
 
@@ -1648,6 +1649,25 @@ function exposureCost(params: ExposureCostParams): number {
   return !params.skipFirstLegCost || params.leg > 0 ? params.stepLength : 0;
 }
 
+function fallbackReturn(situation: Situation, nearest: Point | undefined): Point[] {
+  const { game, heading, position, trail } = situation;
+  if (!nearest) {
+    return [];
+  }
+  const wanted = Math.atan2(nearest.y - position.y, nearest.x - position.x);
+  for (let index = 0; index <= EDGE_GUARD_RAYS * HALF; index++) {
+    for (const side of SIDES) {
+      const angle = wanted + side * index * FULL_TURN / EDGE_GUARD_RAYS;
+      const target = { x: position.x + Math.cos(angle) * ESCAPE_MAX_DISTANCE, y: position.y + Math.sin(angle) * ESCAPE_MAX_DISTANCE };
+      const clear = simulateApproach({ center: toPoint(game.border.center), heading, horizon: true, maxSteps: SELF_CHECK_STEPS, path: [target], position, radius: game.border.radius, speed: game.config.unitSpeed, trackSelf: true, trail });
+      if (clear !== null) {
+        return [target];
+      }
+    }
+  }
+  return [nearest];
+}
+
 /**
  * The farthest the loop gets from the base, along its route.
  *
@@ -1707,7 +1727,7 @@ function findWayHome(situation: Situation, route: readonly Point[]): Point[] {
       break;
     }
     const path = [aimPast(position, point)];
-    const flown = simulateApproach({ center, heading, path, position, radius, speed, trail });
+    const flown = simulateApproach({ center, heading, path, position, radius, speed, trackSelf: true, trail });
     if (flown !== null && (!best || flown < best.length)) {
       best = { length: flown, path };
     }
@@ -1726,14 +1746,14 @@ function findWayHome(situation: Situation, route: readonly Point[]): Point[] {
   for (const via of vias) {
     for (const { point } of sorted.slice(0, SWING_CANDIDATES)) {
       const path = [via, aimPast(via, point)];
-      const flown = simulateApproach({ center, heading, path, position, radius, speed, trail });
+      const flown = simulateApproach({ center, heading, path, position, radius, speed, trackSelf: true, trail });
       if (flown !== null && (!best || flown < best.length)) {
         best = { length: flown, path };
       }
     }
   }
   const nearest = sorted[0]?.point;
-  return best?.path ?? (nearest ? [nearest] : []);
+  return best?.path ?? fallbackReturn(situation, nearest);
 }
 
 function gainCells(shape: readonly Point[], raster: Raster, center: Point, radius: number): number {

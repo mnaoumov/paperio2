@@ -36,6 +36,10 @@ describe('simulateApproach', () => {
   it('counts a second sliding at the wall as a full second of exposure', () => {
     expect(simulateApproach({ center: CENTER, heading: HEADING, horizon: true, maxSteps: 60, path: [{ x: 200, y: 200 }], position: PRESSED, radius: RADIUS, speed: 100, trail: [] })).toBeCloseTo(100);
   });
+
+  it('rejects a return that crosses the trail laid during its own turn', () => {
+    expect(simulateApproach({ center: CENTER, heading: Math.PI / 2, horizon: true, maxSteps: 120, path: [{ x: 5, y: 0 }], position: CENTER, radius: 1000, speed: 100, trackSelf: true, trail: [] })).toBeNull();
+  });
 });
 
 describe('returnEntryPoint', () => {
@@ -73,6 +77,7 @@ describe('findLoop', () => {
   it('keeps every bot beyond the distance it can cover before the whole loop closes', () => {
     const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, trigger: 80 }));
     const plan = findLoop({ center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 });
+    expect(plan).not.toBeNull();
     expect(plan === null || enemies.every((enemy) => plan.check.samples.every((point) => Math.hypot(point.x - enemy.position.x, point.y - enemy.position.y) >= plan.check.trailLength + 40))).toBe(true);
   });
 });
