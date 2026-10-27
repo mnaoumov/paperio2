@@ -291,14 +291,6 @@ const ESCAPE_RAYS = 24;
 const ESCAPE_STEP = 10;
 const ESCAPE_MAX_DISTANCE = 400;
 const ESCAPE_DEPTH = 30;
-/**
- * In its base, the player does not step out where another unit is closer than this: a trail laid that close is cut before
- * the player is back (2026-10-26, half of the deaths on seeds 1-64). The steer is flown this many simulated steps ahead,
- * a U-turn's worth, and the headings tried instead are this many around the circle.
- */
-const EDGE_GUARD_DISTANCE = 130;
-const EDGE_GUARD_STEPS = 30;
-const EDGE_GUARD_RAYS = 24;
 /** A unit still drawing its loop is home this much later than its distance says, at the soonest. */
 const LOOP_STATE_SLACK_SECONDS = 1;
 /** The quadratic formula's 2 and 4, and the scanline crossings that bound each span inside a polygon. */
@@ -439,7 +431,7 @@ export class WhiteboxPilot {
    */
   public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, edgeHolds: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
@@ -592,15 +584,7 @@ export class WhiteboxPilot {
     if (!this.target) {
       return null;
     }
-    let wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
-    // A surround cut must cross its unit's trail, wherever that runs.
-    if (situation.inBase && !(this.phase === 'attack' && this.victimMode === 'surround')) {
-      const kept = keepInBase(situation, wanted);
-      if (kept !== wanted) {
-        this.stats.edgeHolds++;
-        wanted = kept;
-      }
-    }
+    const wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
     const steered = guardWallTurn(position, situation.heading, wanted, toPoint(game.border.center), game.border.radius);
     return { x: Math.cos(steered), y: Math.sin(steered) };
   }
@@ -1733,59 +1717,6 @@ function isReached(position: Point, heading: number, target: Point, final: boole
  * @param radius - The arena's radius.
  * @returns The point, inside.
  */
-/**
- * The direction to steer at in the base, so that the player does not step out of it next to another unit: the wanted one
- * when its next U-turn's worth of flight stays in the base or leaves it with every unit far from the exit, otherwise the
- * nearest direction to it that stays in the base, or that leaves it latest.
- *
- * @param situation - What the update knows, with the player in its base.
- * @param wanted - The direction the phase steers at, in radians.
- * @returns The direction to steer at, in radians; `wanted` itself when it is safe.
- */
-function keepInBase(situation: Situation, wanted: number): number {
-  const { game, heading, outline, player, position } = situation;
-  const speed = game.config.unitSpeed;
-  const reachOfGuard = EDGE_GUARD_DISTANCE + speed * SIMULATION_STEP_SECONDS * EDGE_GUARD_STEPS;
-  const near = game.units.filter((unit) => unit !== player && !unit.death && distance(toPoint(unit.position), position) < reachOfGuard).map((unit) => toPoint(unit.position));
-  if (near.length === 0) {
-    return wanted;
-  }
-  const exitStep = (direction: number): null | { point: Point; step: number } => {
-    const stepLength = speed * SIMULATION_STEP_SECONDS;
-    const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
-    let simulated = position;
-    let simulatedHeading = heading;
-    for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
-      simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
-      simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
-      if (!pointInPolygon(simulated, outline)) {
-        return { point: simulated, step };
-      }
-    }
-    return null;
-  };
-  const isSafe = (exit: null | { point: Point; step: number }): boolean => !exit || near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE);
-  if (isSafe(exitStep(wanted))) {
-    return wanted;
-  }
-  let best = wanted;
-  let bestStep = -1;
-  for (let index = 1; index <= EDGE_GUARD_RAYS / 2; index++) {
-    for (const side of [1, -1]) {
-      const direction = wanted + side * index * FULL_TURN / EDGE_GUARD_RAYS;
-      const exit = exitStep(direction);
-      if (isSafe(exit)) {
-        return direction;
-      }
-      if (exit && exit.step > bestStep) {
-        best = direction;
-        bestStep = exit.step;
-      }
-    }
-  }
-  return best;
-}
-
 function keepInside(point: Point, center: Point, radius: number): Point {
   return distance(point, center) > radius ? add(center, scale(normalize(subtract(point, center)), radius)) : point;
 }
