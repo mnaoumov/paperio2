@@ -1134,7 +1134,9 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
   const { allowExit, enemies, heading, outline, position, speed, wanted } = params;
   const reachOfGuard = EDGE_GUARD_DISTANCE + speed * SIMULATION_STEP_SECONDS * EDGE_GUARD_STEPS;
   const near = enemies.filter((unit) => distance(unit, position) < reachOfGuard);
-  const minimumDepth = allowExit ? 0 : Math.min(EDGE_GUARD_DEPTH, depthInside(position, outline));
+  const turnDiameter = speed / TURN_SPEED_RADIANS_PER_SECOND / HALF;
+  const availableDepth = Math.max(0, Math.sqrt(Math.abs(signedArea(outline)) / Math.PI) - turnDiameter);
+  const minimumDepth = allowExit ? 0 : Math.min(EDGE_GUARD_DEPTH, availableDepth, depthInside(position, outline));
   if (allowExit && near.length === 0) {
     return wanted;
   }
