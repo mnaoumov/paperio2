@@ -10,7 +10,8 @@ import {
   guardBaseExit,
   guardWallTurn,
   homeFlightLength,
-  returnEntryPoint
+  returnEntryPoint,
+  simulateApproach
 } from './whitebox.ts';
 
 const CENTER = { x: 0, y: 0 };
@@ -19,6 +20,12 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('simulateApproach', () => {
+  it('counts a second sliding at the wall as a full second of exposure', () => {
+    expect(simulateApproach({ center: CENTER, heading: HEADING, horizon: true, maxSteps: 60, path: [{ x: 200, y: 200 }], position: PRESSED, radius: RADIUS, speed: 100, trail: [] })).toBeCloseTo(100);
+  });
+});
 
 describe('returnEntryPoint', () => {
   const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 90 }, { x: 300, y: 90 }, { x: 300, y: 110 }, { x: 200, y: 110 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
