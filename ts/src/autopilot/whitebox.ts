@@ -10,6 +10,10 @@
 
 import type { Game } from '../engine.ts';
 import type { Unit } from '../entities/units.ts';
+import type {
+  Polygon,
+  Polyline
+} from '../geometry/shapes.ts';
 import type { Point } from './plane.ts';
 
 import { AGGRO_RANGE_FACTOR } from '../entities/bot-ai.ts';
@@ -36,6 +40,23 @@ import {
   subtract,
   THREE_EIGHTHS_TURN
 } from './plane.ts';
+import { simplifyGeometry } from './precision.ts';
+
+interface PreciseOutline {
+  readonly points: readonly Point[];
+  readonly source: readonly Point[];
+}
+
+interface PreciseTrail {
+  readonly end: Polyline['end'];
+  readonly length: number;
+  readonly points: readonly Point[];
+  readonly start: Polyline['start'];
+}
+
+const preciseOutlines = new WeakMap<Polygon, PreciseOutline>();
+const preciseTrails = new WeakMap<Polyline, PreciseTrail>();
+const GEOMETRY_TOLERANCE = 1;
 
 /** Plans a loop from its input and calls back with it, now or later. */
 export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) => void) => void;
@@ -611,13 +632,13 @@ export class WhiteboxPilot {
       this.reset();
     }
     this.lastPosition = position;
-    const trail = player.track.simplyline.map(toPoint);
+    const trail = [...readTrail(player)];
     trail.push(position);
     const situation: Situation = {
       game,
       heading: player.direction,
       inBase: player.in === player.base,
-      outline: player.base.polygon.simplify.map(toPoint),
+      outline: readOutline(player.base.polygon),
       player,
       position,
       trail
@@ -650,7 +671,7 @@ export class WhiteboxPilot {
 
   private attackTarget(situation: Situation, victim: Unit): null | Point {
     const { game, inBase, position } = situation;
-    const trailPoints = victim.track.simplyline.map(toPoint);
+    const trailPoints = readTrail(victim);
     if (this.victimMode === 'surround') {
       return this.surroundTarget(situation, victim);
     }
@@ -786,7 +807,7 @@ export class WhiteboxPilot {
       if (unit === player || !isInsideAny(position, pendingCaptures(unit))) {
         continue;
       }
-      const reach = nearestDistance(position, unit.track.simplyline.map(toPoint));
+      const reach = nearestDistance(position, readTrail(unit));
       if (reach < bestReach) {
         best = unit;
         bestReach = reach;
@@ -808,7 +829,7 @@ export class WhiteboxPilot {
       if (unit === player || unit.death || unit.in === unit.base) {
         continue;
       }
-      const trailPoints = unit.track.simplyline.map(toPoint);
+      const trailPoints = readTrail(unit);
       if (inBase) {
         // A trail run through the player's own base is about to take ground from it, and cutting it costs the player no
         // time outside: the nearest such trail is cut first.
@@ -968,7 +989,7 @@ export class WhiteboxPilot {
       return escape;
     }
     const speed = game.config.unitSpeed;
-    const samples = samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING);
+    const samples = samplePath(readTrail(victim), ROUTE_SAMPLE_SPACING);
     const cut = (inBase ? homeVictimPoint(situation, samples)?.point : null) ?? nearestPoint(position, samples);
     if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
       this.stats.surroundCuts++;
@@ -2094,7 +2115,7 @@ function pendingCapture(unit: Unit): null | Point[] {
   if (unit.death || unit.in === unit.base || !home || unit.track.simplyline.length === 0) {
     return null;
   }
-  return [...unit.track.simplyline.map(toPoint), toPoint(unit.position), toPoint(home)];
+  return [...readTrail(unit), toPoint(unit.position), toPoint(home)];
 }
 
 /**
@@ -2114,8 +2135,8 @@ function pendingCaptures(unit: Unit): Point[][] {
     return [];
   }
   const head = toPoint(unit.position);
-  const trail = unit.track.simplyline.map(toPoint);
-  const outline = unit.base.polygon.simplify.map(toPoint);
+  const trail = readTrail(unit);
+  const outline = readOutline(unit.base.polygon);
   const from = nearestIndex(toPoint(home), outline);
   const to = nearestIndex(toPoint(start), outline);
   if (from < 0 || to < 0) {
@@ -2209,6 +2230,32 @@ function rasterize(outline: readonly Point[], width: number, height: number, cel
     }
   }
   return { cellSize, columns, own, rows };
+}
+
+function readOutline(polygon: Polygon): readonly Point[] {
+  const cached = preciseOutlines.get(polygon);
+  if (cached?.source === polygon.simplify) {
+    return cached.points;
+  }
+  const points = simplifyGeometry({ closed: true, points: polygon.points().map(toPoint), tolerance: GEOMETRY_TOLERANCE });
+  preciseOutlines.set(polygon, { points, source: polygon.simplify });
+  return points;
+}
+
+function readTrail(unit: Unit): readonly Point[] {
+  const { polyline } = unit.track;
+  const cached = preciseTrails.get(polyline);
+  const count = polyline.segments.length;
+  if (cached?.length === count && cached.end === polyline.end && cached.start === polyline.start) {
+    return cached.points;
+  }
+  const raw = polyline.points();
+  if (raw.length === 0 && polyline.start) {
+    raw.push(polyline.start);
+  }
+  const points = simplifyGeometry({ closed: false, points: raw.map(toPoint), tolerance: GEOMETRY_TOLERANCE });
+  preciseTrails.set(polyline, { end: polyline.end, length: count, points, start: polyline.start });
+  return points;
 }
 
 /**
