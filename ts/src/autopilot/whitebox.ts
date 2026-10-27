@@ -352,12 +352,6 @@ interface GuardBaseExitParams {
   readonly wanted: number;
 }
 
-interface HomeArrivalReadyParams {
-  readonly outline: readonly Point[];
-  readonly position: Point;
-  readonly speed: number;
-}
-
 interface HomeFlightLengthParams {
   readonly heading: number;
   readonly outline: readonly Point[];
@@ -628,7 +622,9 @@ export class WhiteboxPilot {
       position,
       trail
     };
-    this.settleArrival(situation);
+    if (situation.inBase && (this.phase === 'out' || this.phase === 'return')) {
+      this.reset();
+    }
     // A cut from home never follows its trail out of the base: out there the player has a trail of its own to lose.
     if (this.phase === 'attack' && (!this.isVictimValid() || (this.victimMode === 'home' && !situation.inBase))) {
       this.victim = null;
@@ -924,10 +920,6 @@ export class WhiteboxPilot {
 
   private returnTarget(situation: Situation): null | Point {
     const { game, position } = situation;
-    if (situation.inBase) {
-      const target = this.returnPath[this.returnPath.length - 1];
-      return target && pointInPolygon(target, situation.outline) ? target : holdTarget(situation);
-    }
     if (this.returnPath.length === 0 || --this.returnUpdates <= 0) {
       this.returnPath = findWayHome(situation, (this.loop ?? []).slice(this.waypointIndex));
       this.returnUpdates = RETURN_REPLAN_UPDATES;
@@ -937,20 +929,6 @@ export class WhiteboxPilot {
       this.returnPath.shift();
     }
     return this.returnPath[0] ?? null;
-  }
-
-  private settleArrival(situation: Situation): void {
-    const { game, position } = situation;
-    if (situation.inBase && (this.phase === 'out' || this.phase === 'return')) {
-      if (homeArrivalReady({ outline: situation.outline, position, speed: game.config.unitSpeed })) {
-        this.reset();
-      } else if (this.phase === 'out') {
-        this.reset();
-        this.phase = 'return';
-        const forward = { x: position.x + Math.cos(situation.heading) * RETURN_OVERSHOOT, y: position.y + Math.sin(situation.heading) * RETURN_OVERSHOOT };
-        this.returnPath = [pointInPolygon(forward, situation.outline) ? forward : holdTarget(situation)];
-      }
-    }
   }
 
   private steerAtTarget(situation: Situation): null | Point {
@@ -1234,12 +1212,6 @@ export function guardWallTurn(position: Point, heading: number, wanted: number, 
   return heading + Math.sign(longWay) * Math.min(Math.abs(longWay), THREE_EIGHTHS_TURN);
 }
 
-export function homeArrivalReady(params: HomeArrivalReadyParams): boolean {
-  const { outline, position, speed } = params;
-  const availableDepth = Math.max(0, Math.sqrt(Math.abs(signedArea(outline)) / Math.PI) - speed / TURN_SPEED_RADIANS_PER_SECOND);
-  return depthInside(position, outline) >= Math.min(RETURN_CORE_DEPTH, availableDepth);
-}
-
 /**
  * Flies a target at the player's speed and turn rate, rejecting a turn that leaves the base even when the straight
  * line to the target stays inside. This is conservative at the arena wall: an outward step is rejected before a slide.
@@ -1478,7 +1450,7 @@ function continuedLoopHome(situation: Situation, route: readonly Point[]): null 
   const away = distance(last, home);
   const aim = away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away));
   const path = [...route, aim];
-  const flown = simulateApproach({ center: toPoint(game.border.center), heading, path, position, radius: game.border.radius, speed: game.config.unitSpeed, trackSelf: true, trail });
+  const flown = simulateApproach({ center: toPoint(game.border.center), heading, path, position, radius: game.border.radius, speed: game.config.unitSpeed, trail });
   return flown === null ? null : { length: flown, path };
 }
 
@@ -1735,7 +1707,7 @@ function findWayHome(situation: Situation, route: readonly Point[]): Point[] {
       break;
     }
     const path = [aimPast(position, point)];
-    const flown = simulateApproach({ center, heading, path, position, radius, speed, trackSelf: true, trail });
+    const flown = simulateApproach({ center, heading, path, position, radius, speed, trail });
     if (flown !== null && (!best || flown < best.length)) {
       best = { length: flown, path };
     }
@@ -1754,7 +1726,7 @@ function findWayHome(situation: Situation, route: readonly Point[]): Point[] {
   for (const via of vias) {
     for (const { point } of sorted.slice(0, SWING_CANDIDATES)) {
       const path = [via, aimPast(via, point)];
-      const flown = simulateApproach({ center, heading, path, position, radius, speed, trackSelf: true, trail });
+      const flown = simulateApproach({ center, heading, path, position, radius, speed, trail });
       if (flown !== null && (!best || flown < best.length)) {
         best = { length: flown, path };
       }
