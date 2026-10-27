@@ -4,7 +4,10 @@ import {
   it
 } from 'vitest';
 
-import { THREE_EIGHTHS_TURN } from './plane.ts';
+import {
+  pointInPolygon,
+  THREE_EIGHTHS_TURN
+} from './plane.ts';
 import {
   findLoop,
   guardBaseExit,
@@ -44,6 +47,10 @@ describe('reachesInTime', () => {
 });
 
 describe('simulateApproach', () => {
+  it('rejects a curved approach that enters a pending capture', () => {
+    const obstacle = { bottom: 20, left: 40, points: [{ x: 40, y: -20 }, { x: 60, y: -20 }, { x: 60, y: 20 }, { x: 40, y: 20 }], right: 60, top: -20 };
+    expect(simulateApproach({ avoids: [obstacle], center: CENTER, heading: 0, horizon: true, maxSteps: 60, path: [{ x: 200, y: 0 }], position: CENTER, radius: 1000, speed: 100, trail: [] })).toBeNull();
+  });
   it('counts a second sliding at the wall as a full second of exposure', () => {
     expect(simulateApproach({ center: CENTER, heading: HEADING, horizon: true, maxSteps: 60, path: [{ x: 200, y: 200 }], position: PRESSED, radius: RADIUS, speed: 100, trail: [] })).toBeCloseTo(100);
   });
@@ -95,10 +102,23 @@ describe('guardBaseExit', () => {
 });
 
 describe('findLoop', () => {
+  it('plans a different exit when a pending capture covers the preferred one', () => {
+    const input = { captures: [], center: { x: 1000, y: 1000 }, enemies: [], heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 };
+    const first = findLoop(input)?.waypoints[0];
+    expect(first).toBeDefined();
+    if (!first) {
+      throw new Error('The clear fixture needs a loop');
+    }
+    const capture = [{ x: first.x - 30, y: first.y - 30 }, { x: first.x + 30, y: first.y - 30 }, { x: first.x + 30, y: first.y + 30 }, { x: first.x - 30, y: first.y + 30 }];
+    const next = findLoop({ ...input, captures: [capture] })?.waypoints[0];
+    expect(next).toBeDefined();
+    expect(next && pointInPolygon(next, capture)).toBe(false);
+  });
   it('finds a flyable loop while passive bots surround the base', () => {
     const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, trigger: 80 }));
-    const plan = findLoop({ center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 });
+    const plan = findLoop({ captures: [], center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 });
     expect(plan).not.toBeNull();
+    expect(plan === null || enemies.every((enemy) => plan.check.samples.every((point) => Math.hypot(point.x - enemy.position.x, point.y - enemy.position.y) >= plan.check.trailLength + 40))).toBe(true);
   });
 });
 

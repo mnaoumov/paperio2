@@ -74,6 +74,7 @@ export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) 
 
 /** Everything a loop plan reads, as plain data, so it can be planned in a worker. */
 export interface PlanInput {
+  readonly captures: readonly (readonly Point[])[];
   /** The arena's centre. */
   readonly center: Point;
   readonly enemies: readonly EnemyModel[];
@@ -364,6 +365,12 @@ interface CaptureObstaclesParams {
   readonly position: Point;
 }
 
+interface CrossesCaptureParams {
+  readonly from: Point;
+  readonly obstacles: readonly CaptureObstacle[];
+  readonly to: Point;
+}
+
 interface EnemyModel {
   /** Where it is heading, in radians. */
   readonly direction: number;
@@ -452,10 +459,12 @@ interface PeelLoop {
 
 /** What a plan weighs every loop with. */
 interface PlanContext {
+  readonly captures: readonly (readonly Point[])[];
   readonly center: Point;
   readonly enemies: readonly EnemyModel[];
   readonly field: Float32Array;
   readonly maxTrail: number;
+  readonly obstacles: readonly CaptureObstacle[];
   readonly orientation: number;
   readonly outline: readonly Point[];
   readonly position: Point;
@@ -487,7 +496,16 @@ interface RingPoint {
   readonly point: Point;
 }
 
+interface SafeApproachStepParams {
+  readonly flight: SimulateApproachParams;
+  readonly from: Point;
+  readonly leg: number;
+  readonly next: Point;
+  readonly target: Point;
+}
+
 interface SimulateApproachParams {
+  readonly avoids?: readonly CaptureObstacle[];
   readonly center: Point;
   readonly heading: number;
   /** Whether running out of steps before arriving still counts as a clear flight, for a look only so far ahead. */
@@ -825,9 +843,8 @@ export class WhiteboxPilot {
   }
 
   /**
-   * When the player, in its base, stands in ground a unit's trail is about to close around, which would kill it there,
-   * that unit becomes the victim, whatever the player was doing: getting out of that ground means crossing the trail
-   * anyway, so the nearest point of the trail is the quickest way out and ends the capture too.
+   * A bot already heading home can take the active exit while the player is elsewhere. Request the quickest return,
+   * retaining the remaining loop as one candidate rather than automatically making a U-turn.
    *
    * @param situation - What the update knows.
    */
@@ -1160,9 +1177,11 @@ export function findLoop(input: PlanInput): null | PlannedLoop {
   const { outline, position } = input;
   const orientation = Math.sign(signedArea(outline)) || 1;
   const base = {
+    captures: input.captures,
     center: input.center,
     enemies: input.enemies,
     maxTrail: input.maxTrail,
+    obstacles: captureObstacles({ captures: input.captures, position }),
     orientation,
     outline,
     position,
@@ -1376,7 +1395,7 @@ export function simulateApproach(params: SimulateApproachParams): null | number 
     const wanted = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
     heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(wanted, heading)));
     const next = keepInside({ x: position.x + Math.cos(heading) * stepLength, y: position.y + Math.sin(heading) * stepLength }, center, radius);
-    if (staysInside && leg === 0 && distance(next, target) > WAYPOINT_REACHED && !pointInPolygon(next, staysInside)) {
+    if (!safeApproachStep({ flight: params, from: position, leg, next, target })) {
       return null;
     }
     const moved = subtract(next, position);
@@ -1537,12 +1556,12 @@ function clampToWall(from: Point, to: Point, center: Point, radius: number): Poi
  * @returns The loops, unranked.
  */
 function collectEstimates(context: PlanContext): Estimate[] {
-  const { center, orientation, outline, position, radius, ring } = context;
+  const { captures, center, obstacles, orientation, outline, position, radius, ring } = context;
   const estimates: Estimate[] = [];
   const step = Math.max(1, Math.floor(ring.length / EXIT_SAMPLES));
   for (let index = 0; index < ring.length; index += step) {
     const { normal, point: exit } = ring[index] ?? { normal: ORIGIN, point: position };
-    if (!isClearOfPolygon(position, subtract(exit, scale(normal, EXIT_INSET)), outline)) {
+    if (!isClearOfPolygon(position, subtract(exit, scale(normal, EXIT_INSET)), outline) || isInsideAny(exit, captures) || crossesCapture({ from: position, obstacles, to: exit })) {
       continue;
     }
     const tangent = { x: -normal.y * orientation, y: normal.x * orientation };
@@ -1649,6 +1668,20 @@ function createLoopCheck(exposure: number, samples: readonly Point[], remaining:
   return { center, exposure, maxRemaining, remaining, samples, spread, trailLength };
 }
 
+function crossesCapture(params: CrossesCaptureParams): boolean {
+  const { from, obstacles, to } = params;
+  const left = Math.min(from.x, to.x);
+  const right = Math.max(from.x, to.x);
+  const top = Math.min(from.y, to.y);
+  const bottom = Math.max(from.y, to.y);
+  return obstacles.some((obstacle) => {
+    if (right < obstacle.left || left > obstacle.right || bottom < obstacle.top || top > obstacle.bottom) {
+      return false;
+    }
+    return pointInPolygon(to, obstacle.points) || !isClearOfPolygon(from, to, obstacle.points);
+  });
+}
+
 function depthInside(point: Point, polygon: readonly Point[]): number {
   let depth = Infinity;
   for (let index = 0; index < polygon.length; index++) {
@@ -1689,6 +1722,7 @@ function describeEnemy(unit: Unit, player: Unit): EnemyModel {
 function describePlan(situation: Situation): PlanInput {
   const { game, heading, outline, player, position } = situation;
   return {
+    captures: game.units.filter((unit) => unit !== player && !unit.death).flatMap(pendingCaptures),
     center: toPoint(game.border.center),
     enemies: game.units.filter((unit) => unit !== player && !unit.death).map((unit) => describeEnemy(unit, player)),
     heading,
@@ -2151,7 +2185,7 @@ function laysOverItself(laid: Point[], from: Point, to: Point, step: number): bo
  *
  * @param input - The player, base, arena and speed.
  * @param waypoints - The loop, starting at its exit.
- * @returns Exposure time multiplied by speed, or null when the flight is unsafe.
+ * @returns Exposure time multiplied by speed, or `null` when the flight is unsafe.
  */
 function loopFlightLength(input: PlanInput, waypoints: readonly Point[]): null | number {
   const { center, heading, outline, position: start, radius, speed } = input;
@@ -2167,6 +2201,7 @@ function loopFlightLength(input: PlanInput, waypoints: readonly Point[]): null |
   const away = distance(last, home);
   const aim = away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away));
   return simulateApproach({
+    avoids: captureObstacles({ captures: input.captures, position: start }),
     center,
     heading,
     maxSteps: LOOP_SIMULATION_MAX_STEPS,
@@ -2405,6 +2440,17 @@ function returnCandidates(params: ReturnCandidatesParams): ReturnCandidate[] {
   return (roomy.length > 0 ? roomy : all).slice(0, RETURN_CANDIDATES);
 }
 
+function safeApproachStep(params: SafeApproachStepParams): boolean {
+  const { flight, from, leg, next, target } = params;
+  if (leg !== 0) {
+    return true;
+  }
+  if (flight.staysInside && distance(next, target) > WAYPOINT_REACHED && (!pointInPolygon(next, flight.staysInside) || !isClearOfPolygon(from, next, flight.staysInside))) {
+    return false;
+  }
+  return !flight.avoids || !crossesCapture({ from, obstacles: flight.avoids, to: next });
+}
+
 function samplePath(points: readonly Point[], spacing: number): Point[] {
   const samples: Point[] = [];
   for (let index = 1; index < points.length; index++) {
@@ -2440,6 +2486,7 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   // The planner weighs thousands of loops against every unit, so a unit farther from the whole loop than any test below
   // reaches is ruled out by the bounding circle alone; the tests give the same answer, only slower.
   const farthestReach = Math.max(
+    trailLength + PLAN_THREAT_MARGIN,
     maxRemaining * reachShare + PLAN_THREAT_MARGIN,
     enemy.hunting
       ? Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE)
@@ -2461,6 +2508,9 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
       near = away;
       closest = sample;
     }
+  }
+  if (near < trailLength + PLAN_THREAT_MARGIN) {
+    return true;
   }
   if (enemy.hunting) {
     return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);
