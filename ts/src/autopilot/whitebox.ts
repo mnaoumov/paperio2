@@ -338,6 +338,14 @@ interface Estimate {
   readonly waypoints: readonly Point[];
 }
 
+interface HomeFlightLengthParams {
+  readonly heading: number;
+  readonly outline: readonly Point[];
+  readonly position: Point;
+  readonly speed: number;
+  readonly target: Point;
+}
+
 /** A trail point the player can cut from its base, how far it is and how soon it is reached. */
 interface HomeVictim {
   readonly point: Point;
@@ -1066,6 +1074,35 @@ export function guardWallTurn(position: Point, heading: number, wanted: number, 
 }
 
 /**
+ * Flies a target at the player's speed and turn rate, rejecting a turn that leaves the base even when the straight
+ * line to the target stays inside. This is conservative at the arena wall: an outward step is rejected before a slide.
+ *
+ * @param params - The start, target, base and speed.
+ * @returns The length flown, or `null` when the target cannot be reached inside the base.
+ */
+export function homeFlightLength(params: HomeFlightLengthParams): null | number {
+  const { outline, speed, target } = params;
+  const stepLength = speed * SIMULATION_STEP_SECONDS;
+  const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
+  let { heading, position } = params;
+  let flown = 0;
+  for (let step = 0; step < SIMULATION_MAX_STEPS; step++) {
+    if (distance(position, target) < SIMULATION_ARRIVAL) {
+      return flown;
+    }
+    const wanted = Math.atan2(target.y - position.y, target.x - position.x);
+    heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(wanted, heading)));
+    const next = { x: position.x + Math.cos(heading) * stepLength, y: position.y + Math.sin(heading) * stepLength };
+    if (!pointInPolygon(next, outline) || !isClearOfPolygon(position, next, outline)) {
+      return null;
+    }
+    flown += distance(position, next);
+    position = next;
+  }
+  return null;
+}
+
+/**
  * How close a bot must get to the player's trail before it starts hunting it, as the engine's `isPlayerTrailInRange`
  * measures it.
  *
@@ -1332,10 +1369,10 @@ function escapePoint(situation: Situation, captures: readonly (readonly Point[])
         break;
       }
       if (depthInside(point, outline) >= ESCAPE_DEPTH && !isInsideAny(point, captures)) {
-        const seconds = travelSeconds(position, heading, point, speed);
-        if (seconds < bestSeconds && isClearOfPolygon(position, point, outline)) {
+        const flown = homeFlightLength({ heading, outline, position, speed, target: point });
+        if (flown !== null && flown / speed < bestSeconds) {
           best = point;
-          bestSeconds = seconds;
+          bestSeconds = flown / speed;
         }
         break;
       }
@@ -1529,15 +1566,6 @@ function homeSeconds(unit: Unit, speed: number): number {
   return unit.baseDistance / speed + (unit.fsm?.state === 'back' ? 0 : LOOP_STATE_SLACK_SECONDS);
 }
 
-/**
- * The nearest point of a unit's trail that the player, in its base, can cut with no risk at all: one inside the base
- * with a straight way to it that stays inside. Trails that only hug the base from outside are left alone: the way to
- * them leaves the base right in front of their owner, which is excluded from the threats while it is the victim.
- *
- * @param situation - What the update knows.
- * @param trailPoints - The trail's points.
- * @returns The point and the seconds to reach it, or `null` when there is none.
- */
 function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): HomeVictim | null {
   const { game, heading, outline, position } = situation;
   const speed = game.config.unitSpeed;
@@ -1550,8 +1578,10 @@ function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): H
     if (!pointInPolygon(point, outline) || depthInside(point, outline) < HOME_CUT_DEPTH || !isClearOfPolygon(position, point, outline)) {
       continue;
     }
-    const turn = Math.abs(angleDifference(Math.atan2(point.y - position.y, point.x - position.x), heading));
-    best = { point, reach, seconds: reach / speed + turn / TURN_SPEED_RADIANS_PER_SECOND };
+    const flown = homeFlightLength({ heading, outline, position, speed, target: point });
+    if (flown !== null) {
+      best = { point, reach, seconds: flown / speed };
+    }
   }
   return best;
 }

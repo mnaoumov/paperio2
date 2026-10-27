@@ -5,7 +5,10 @@ import {
 } from 'vitest';
 
 import { THREE_EIGHTHS_TURN } from './plane.ts';
-import { guardWallTurn } from './whitebox.ts';
+import {
+  guardWallTurn,
+  homeFlightLength
+} from './whitebox.ts';
 
 const CENTER = { x: 0, y: 0 };
 const RADIUS = 100;
@@ -13,6 +16,23 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('homeFlightLength', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+
+  it('rejects a straight-clear target when the turn first leaves the base', () => {
+    expect(homeFlightLength({ heading: Math.PI, outline, position: { x: 1, y: 100 }, speed: 100, target: { x: 100, y: 100 } })).toBeNull();
+  });
+
+  it('accepts a reachable target when the flight stays inside', () => {
+    expect(homeFlightLength({ heading: 0, outline, position: { x: 50, y: 100 }, speed: 100, target: { x: 100, y: 100 } })).toBeGreaterThan(45);
+  });
+
+  it('rejects a target across a concave gap in the base', () => {
+    const bent = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 150, y: 200 }, { x: 150, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 200 }, { x: 0, y: 200 }];
+    expect(homeFlightLength({ heading: 0, outline: bent, position: { x: 25, y: 150 }, speed: 100, target: { x: 175, y: 150 } })).toBeNull();
+  });
+});
 
 describe('guardWallTurn', () => {
   it('leaves a turn away from the wall alone', () => {
