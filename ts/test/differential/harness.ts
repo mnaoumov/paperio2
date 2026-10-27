@@ -33,6 +33,7 @@ import type {
   DifferentialRemovedUnit,
   DifferentialSnapshot
 } from './page-instrumentation.ts';
+import type { PinnedBundle } from './pinned-bundle.ts';
 
 import { installDeterminism } from './page-instrumentation.ts';
 
@@ -109,6 +110,8 @@ export interface Scenario {
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface OpenVariantOptions {
+  /** The reconstruction captured at run startup, shared by every page of a benchmark. */
+  readonly bundle?: PinnedBundle;
   /** Query parameters added to the page's URL, such as `seed=race` (without the `?`). */
   readonly query?: string;
   /** `localStorage` entries written before the page's own scripts run, as a returning visitor's settings. */
@@ -182,7 +185,7 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
     }, options.storage);
   }
   const pageOrigin = `http://${scenario.host ?? DEFAULT_HOST}`;
-  await interceptHost(page, pageOrigin);
+  await interceptHost(page, pageOrigin, options.bundle);
   const query = [...variant === 'original' ? ['original'] : [], ...options.query ? [options.query] : []].join('&');
   await page.goto(`${pageOrigin}/${variant}/index.html${query ? `?${query}` : ''}`, { waitUntil: 'load' });
   // `waitForFunction` polls through the page's `requestAnimationFrame` or `setTimeout`, which the instrumentation
@@ -275,13 +278,13 @@ export async function stepPage(page: Page, frameMilliseconds = FRAME_MILLISECOND
   return page.evaluate(async (milliseconds: number) => window.__differential.step(milliseconds), frameMilliseconds);
 }
 
-async function answerRequest(request: HTTPRequest, pageOrigin: string): Promise<void> {
+async function answerRequest(request: HTTPRequest, pageOrigin: string, bundle: PinnedBundle | undefined): Promise<void> {
   if (!request.url().startsWith(`${pageOrigin}/`)) {
     await request.abort();
     return;
   }
   try {
-    const { body, status, type } = await serveFile(request.url());
+    const { body, status, type } = await serveFile(request.url(), bundle);
     await request.respond({ body, contentType: type, status });
   } catch {
     await request.abort();
@@ -328,16 +331,16 @@ async function describeTraceDivergence(original: Page, reconstruction: Page, fra
 // Every request is answered from the repository files inside the browser, and any request to another host fails.
 // Nothing goes over the network, so nothing on the machine can rewrite a response either: a real HTTP server let
 // A desktop ad blocker inject a userscript into the page, and its one Math.random call shifted the seeded stream.
-async function interceptHost(page: Page, pageOrigin: string): Promise<void> {
+async function interceptHost(page: Page, pageOrigin: string, bundle: PinnedBundle | undefined): Promise<void> {
   await page.setRequestInterception(true);
   page.on('request', (request) => {
-    answerRequest(request, pageOrigin).catch((error: unknown) => {
+    answerRequest(request, pageOrigin, bundle).catch((error: unknown) => {
       console.error(error);
     });
   });
 }
 
-async function serveFile(url: string): Promise<ServedFile> {
+async function serveFile(url: string, bundle: PinnedBundle | undefined): Promise<ServedFile> {
   const pathname = decodeURIComponent(new URL(url, 'http://localhost').pathname);
   const [, variant, ...rest] = pathname.split('/');
   const relativePath = normalize(rest.join('/'));
@@ -345,5 +348,8 @@ async function serveFile(url: string): Promise<ServedFile> {
     return { body: Buffer.from('not found'), status: HTTP_NOT_FOUND, type: 'text/plain' };
   }
   const filePath = join(SITE_ROOT, relativePath);
+  if (variant === 'reconstruction' && relativePath === normalize('ts/dist/app2.js') && bundle) {
+    return { body: Buffer.from(bundle.body, 'utf8'), status: HTTP_OK, type: 'text/javascript' };
+  }
   return { body: await readFile(filePath), status: HTTP_OK, type: CONTENT_TYPES[extname(filePath)] ?? 'application/octet-stream' };
 }

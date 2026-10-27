@@ -30,17 +30,13 @@ import type {
   Page
 } from 'puppeteer-core';
 
-import { execFile } from 'node:child_process';
 import {
   mkdir,
   writeFile
 } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
-import {
-  parseArgs,
-  promisify
-} from 'node:util';
+import { parseArgs } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
 import type {
@@ -58,9 +54,9 @@ import type {
 
 import {
   launchBrowser,
-  openVariant,
-  TS_ROOT
+  openVariant
 } from '../differential/harness.ts';
+import { buildBenchmark } from './build.ts';
 
 /** How `--dump` draws a frame: the frame, and beside it the pilot's classes, its remembered trail and its aim. */
 interface DumpStyle {
@@ -265,7 +261,8 @@ if (situationLeads.some((lead) => !(lead >= 0))) {
 const situationKeep = Math.ceil(Math.max(...situationLeads) / SITUATION_EVERY_SECONDS) + SITUATION_SPARE;
 const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => seeds.map((seed) => ({ enemies, mode, seed }))));
 // The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
-await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
+const build = await buildBenchmark();
+print(`Build: ${JSON.stringify(build.identity)}`);
 const browser = await launchBrowser();
 const outcomes: Outcome[] = [];
 try {
@@ -281,6 +278,7 @@ try {
   await browser.close();
 }
 print('');
+print(`Build: ${JSON.stringify(build.identity)}`);
 print(report(outcomes));
 /**
  * The growth curve: per mode and enemy mode, the median map share at each mark over the runs still alive there, and how
@@ -530,7 +528,7 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
   const { enemies, mode, seed } = job;
   const started = performance.now();
   const scenario: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: `${mode} ${String(seed)}`, seed, startFrame: 0 };
-  const page = await openVariant(browserToUse, 'reconstruction', scenario, { traceCanvas: false });
+  const page = await openVariant(browserToUse, 'reconstruction', scenario, { bundle: build.bundle, traceCanvas: false });
   try {
     await page.evaluate(
       async (frames: number, milliseconds: number) => {

@@ -389,7 +389,13 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   left out of the threat check: one cut from home can turn on the player's trail, which was the commonest death.
 - **Benchmark:** `npm run benchmark -- --modes whitebox,blackbox --seeds N --max-minutes M [--why]`
   (`test/benchmark/autopilot-benchmark.ts`). It builds `dist/` first, because the page plays `dist/app2.js`: before it
-  did, two runs measured a bundle another branch had built and both read as this branch's code. It prints a growth curve
+  did, two runs measured a bundle another branch had built and both read as this branch's code. Benchmark and situation
+  replay capture the built JavaScript bytes once (`test/benchmark/build.ts`, `test/differential/pinned-bundle.ts`)
+  and pass that immutable capture to every `openVariant`; rebuilding dist during a run cannot change later seeds.
+  Both print the bundle SHA-256, full commit, dirty build-input flag and source-input SHA-256 before and after the run;
+  replay saves that identity in its results JSON too. The source digest includes tracked and untracked files under
+  `src/`, the build script and package manifests; input changes during the build abort the run. The browser regression
+  changes a temporary bundle between pages, never the real dist. The benchmark prints a growth curve
   (median share of the arena at fixed minutes over the runs still alive) after the outcome table. It reuses the differential harness's page (`openVariant` with
   `traceCanvas: false`, which `installDeterminism` honours by leaving the canvas prototypes alone), starts the run with
   `api.start(..., completePreparation = true)`, and steps the virtual clock one 60 fps frame at a time inside the page.
@@ -410,7 +416,7 @@ autopilot* section is the user-facing contract and holds the benchmark table.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
   `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes; `--situation-leads
   8,25,60` saves one per lead instead, which brackets when a death became certain. The replay plays each one
-  several times under whatever pilot `dist/` holds, so two builds face identical trials. `--compare a.json,b.json` pairs
+  several times under its startup bundle capture, so two builds face identical trials. `--compare a.json,b.json` pairs
   them, with an exact McNemar p. **A replay is exact: trial 0 is the recorded run again, frame for frame.** Three things
   had to travel with the snapshot for that. The whitebox pilot's own state (`WhiteboxPilot.saveState` /
   `restoreState`) is one. The seeded `Math.random` state is another, because the engine adds a draw to every update's
@@ -422,6 +428,12 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   Measured on 2026-10-25, a recorded death is either decided already 8-13 s before (all 32 trials die) or a knife edge
   (0-2 of 32 die), so a comparison needs many trials per situation. Re-record only the seeds that died with
   `--seed-list '1,11,15'` (quoted in PowerShell).
+- **Judge a pilot change on seeds it was not tuned on.** The whitebox has been tuned against seeds 1-64 for weeks, and
+  main dies in 18 of them (28%) but in 16 of seeds 65-104 (40%), measured on 2026-10-26. So "worse than main on seeds
+  1-64" can be regression to main's true rate rather than harm, and it may be what refuted every pilot change measured on 2026-10-25 and 26.
+  Measure both main and the change on held-out seeds (`--first-seed 65` or higher). The same bias, stronger, makes
+  "it fixes the seeds main dies on" no evidence at all: any change that moves the runs onto other paths saves some of
+  those seeds by chance.
 
 ## Racing: seed, ghost and showcase
 
