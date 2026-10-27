@@ -371,11 +371,18 @@ interface CrossesCaptureParams {
   readonly to: Point;
 }
 
+interface EnemyCrossesLoopParams {
+  readonly enemy: EnemyModel;
+  readonly samples: readonly Point[];
+  readonly trailLength: number;
+}
+
 interface EnemyModel {
   /** Where it is heading, in radians. */
   readonly direction: number;
   readonly hunting: boolean;
   readonly position: Point;
+  readonly target: null | Point;
   readonly trigger: number;
 }
 
@@ -398,11 +405,14 @@ interface ExposureCostParams {
 interface GuardBaseExitParams {
   readonly allowExit: boolean;
   readonly captures: readonly (readonly Point[])[];
+  readonly center: Point;
   readonly enemies: readonly Point[];
   readonly heading: number;
   readonly outline: readonly Point[];
   readonly position: Point;
+  readonly radius: number;
   readonly speed: number;
+  readonly target: Point;
   readonly wanted: number;
 }
 
@@ -1025,7 +1035,7 @@ export class WhiteboxPilot {
     }
     let wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
     if (situation.inBase) {
-      const kept = guardBaseExit({ allowExit: (this.phase === 'home' && this.loop !== null) || this.phase === 'sweep', captures: game.units.filter((unit) => unit !== situation.player && !unit.death).flatMap(pendingCaptures), enemies: game.units.filter((unit) => unit !== situation.player && !unit.death).map((unit) => toPoint(unit.position)), heading: situation.heading, outline: situation.outline, position, speed: game.config.unitSpeed, wanted });
+      const kept = guardBaseExit({ allowExit: (this.phase === 'home' && this.loop !== null) || this.phase === 'sweep', captures: game.units.filter((unit) => unit !== situation.player && !unit.death).flatMap(pendingCaptures), center: toPoint(game.border.center), enemies: game.units.filter((unit) => unit !== situation.player && !unit.death).map((unit) => toPoint(unit.position)), heading: situation.heading, outline: situation.outline, position, radius: game.border.radius, speed: game.config.unitSpeed, target: this.target, wanted });
       if (kept !== wanted) {
         this.stats.edgeHolds++;
         wanted = kept;
@@ -1167,6 +1177,37 @@ export class WhiteboxPilot {
 }
 
 /**
+ * Whether an enemy's committed leg crosses a planned trail before the player can close it. This is a conservative
+ * straight corridor to the current target, bounded by the available flight time; it does not predict later targets.
+ *
+ * @param params - The enemy's current target, the loop samples and its exposure length.
+ * @returns Whether the committed leg can cross the trail.
+ */
+export function enemyCrossesLoop(params: EnemyCrossesLoopParams): boolean {
+  const { enemy, samples, trailLength } = params;
+  if (!enemy.target) {
+    return false;
+  }
+  const reach = Math.min(trailLength, distance(enemy.position, enemy.target));
+  const end = add(enemy.position, scale(normalize(subtract(enemy.target, enemy.position)), reach));
+  const left = Math.min(enemy.position.x, end.x) - PLAN_THREAT_MARGIN;
+  const right = Math.max(enemy.position.x, end.x) + PLAN_THREAT_MARGIN;
+  const top = Math.min(enemy.position.y, end.y) - PLAN_THREAT_MARGIN;
+  const bottom = Math.max(enemy.position.y, end.y) + PLAN_THREAT_MARGIN;
+  for (let index = 1; index < samples.length; index++) {
+    const from = samples[index - 1] ?? enemy.position;
+    const to = samples[index] ?? from;
+    if (Math.max(from.x, to.x) < left || Math.min(from.x, to.x) > right || Math.max(from.y, to.y) < top || Math.min(from.y, to.y) > bottom) {
+      continue;
+    }
+    if (segmentDistance(enemy.position, end, from, to) < PLAN_THREAT_MARGIN) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Plans the next loop: every loop out of the base is weighed, coarsely first, and the best few are flown in simulation.
  * It reads only its input, so a worker can run it.
  *
@@ -1235,7 +1276,7 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
   if (allowExit && near.length === 0 && obstacles.length === 0) {
     return wanted;
   }
-  if (isSafe(exitStep(wanted))) {
+  if (isSafe(exitStep(wanted, true))) {
     return wanted;
   }
   let best = wanted;
@@ -1255,14 +1296,19 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
   }
   return best;
 
-  function exitStep(direction: number): BaseExit | null {
+  function exitStep(direction: number, followsTarget = false): BaseExit | null {
     const stepLength = speed * SIMULATION_STEP_SECONDS;
     const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
     let simulated = position;
     let simulatedHeading = heading;
     for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
-      simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
-      simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
+      if (followsTarget && isReached(simulated, simulatedHeading, params.target, false, params.center, params.radius, speed)) {
+        return null;
+      }
+      const desired = followsTarget ? Math.atan2(params.target.y - simulated.y, params.target.x - simulated.x) : direction;
+      const steered = guardWallTurn(simulated, simulatedHeading, desired, params.center, params.radius);
+      simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(steered, simulatedHeading)));
+      simulated = keepInside({ x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength }, params.center, params.radius);
       const visited = simulated;
       if (obstacles.some((obstacle) => insideObstacle(visited, obstacle))) {
         return { blocked: true, point: simulated, step };
@@ -1703,7 +1749,7 @@ function depthInside(point: Point, polygon: readonly Point[]): number {
  * @returns The model.
  */
 function describeEnemy(unit: Unit, player: Unit): EnemyModel {
-  return { direction: unit.direction, hunting: isHunting(unit), position: toPoint(unit.position), trigger: aggroRange(unit, player) };
+  return { direction: unit.direction, hunting: isHunting(unit), position: toPoint(unit.position), target: unit.target ? toPoint(unit.target) : null, trigger: aggroRange(unit, player) };
 }
 
 /**
@@ -2442,10 +2488,7 @@ function returnCandidates(params: ReturnCandidatesParams): ReturnCandidate[] {
 
 function safeApproachStep(params: SafeApproachStepParams): boolean {
   const { flight, from, leg, next, target } = params;
-  if (leg !== 0) {
-    return true;
-  }
-  if (flight.staysInside && distance(next, target) > WAYPOINT_REACHED && (!pointInPolygon(next, flight.staysInside) || !isClearOfPolygon(from, next, flight.staysInside))) {
+  if (leg === 0 && flight.staysInside && distance(next, target) > WAYPOINT_REACHED && (!pointInPolygon(next, flight.staysInside) || !isClearOfPolygon(from, next, flight.staysInside))) {
     return false;
   }
   return !flight.avoids || !crossesCapture({ from, obstacles: flight.avoids, to: next });
@@ -2468,16 +2511,6 @@ function samplePath(points: readonly Point[], spacing: number): Point[] {
   return samples;
 }
 
-/**
- * Whether a unit makes a planned loop unsafe. A hunting unit must be farther from the loop than the player will ever be
- * from home, and than the share of the loop a chase would cover. A bot that is not hunting yet must stay beyond its
- * trigger distance for most of the loop, unless the loop is so shallow that the player wins any race home it starts.
- *
- * @param enemy - The unit.
- * @param check - The loop's points, the trail still to lay from each, how close a hunter may get before the player
- *   cannot get home first, and the loop's trail length.
- * @returns Whether it is unsafe.
- */
 function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   const { exposure, maxRemaining, remaining, samples, trailLength } = check;
   // A unit as fast as the player reaches a point of the trail before the loop closes when it is closer to it than the
@@ -2486,7 +2519,7 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   // The planner weighs thousands of loops against every unit, so a unit farther from the whole loop than any test below
   // reaches is ruled out by the bounding circle alone; the tests give the same answer, only slower.
   const farthestReach = Math.max(
-    trailLength + PLAN_THREAT_MARGIN,
+    enemy.target ? trailLength + PLAN_THREAT_MARGIN : 0,
     maxRemaining * reachShare + PLAN_THREAT_MARGIN,
     enemy.hunting
       ? Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE)
@@ -2494,6 +2527,9 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   );
   if (distance(enemy.position, check.center) - check.spread > farthestReach + BOUND_SLACK) {
     return false;
+  }
+  if (enemyCrossesLoop({ enemy, samples, trailLength })) {
+    return true;
   }
   // One pass gives all three: the reach test, the nearest distance and the nearest sample, each distance taken once.
   let near = Infinity;
@@ -2508,9 +2544,6 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
       near = away;
       closest = sample;
     }
-  }
-  if (near < trailLength + PLAN_THREAT_MARGIN) {
-    return true;
   }
   if (enemy.hunting) {
     return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);

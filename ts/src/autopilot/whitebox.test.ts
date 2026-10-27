@@ -9,6 +9,7 @@ import {
   THREE_EIGHTHS_TURN
 } from './plane.ts';
 import {
+  enemyCrossesLoop,
   findLoop,
   guardBaseExit,
   guardWallTurn,
@@ -47,6 +48,10 @@ describe('reachesInTime', () => {
 });
 
 describe('simulateApproach', () => {
+  it('rejects a pending capture crossed after the first waypoint', () => {
+    const obstacle = { bottom: 20, left: 40, points: [{ x: 40, y: -20 }, { x: 60, y: -20 }, { x: 60, y: 20 }, { x: 40, y: 20 }], right: 60, top: -20 };
+    expect(simulateApproach({ avoids: [obstacle], center: CENTER, heading: 0, horizon: true, maxSteps: 60, path: [{ x: 20, y: 0 }, { x: 200, y: 0 }], position: CENTER, radius: 1000, speed: 100, trail: [] })).toBeNull();
+  });
   it('rejects a curved approach that enters a pending capture', () => {
     const obstacle = { bottom: 20, left: 40, points: [{ x: 40, y: -20 }, { x: 60, y: -20 }, { x: 60, y: 20 }, { x: 40, y: 20 }], right: 60, top: -20 };
     expect(simulateApproach({ avoids: [obstacle], center: CENTER, heading: 0, horizon: true, maxSteps: 60, path: [{ x: 200, y: 0 }], position: CENTER, radius: 1000, speed: 100, trail: [] })).toBeNull();
@@ -73,35 +78,50 @@ describe('returnEntryPoint', () => {
 });
 
 describe('guardBaseExit', () => {
+  it('does not reject an interior target because a fixed heading would later leave the base', () => {
+    const base = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+    expect(guardBaseExit({ allowExit: false, captures: [], center: CENTER, enemies: [], heading: 0, outline: base, position: { x: 140, y: 100 }, radius: 10000, speed: 100, target: { x: 160, y: 100 }, wanted: 0 })).toBe(0);
+  });
   const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
 
   it('avoids entering a pending capture even during a planned departure', () => {
     const captures = [[{ x: 175, y: 80 }, { x: 200, y: 80 }, { x: 200, y: 120 }, { x: 175, y: 120 }]];
-    expect(guardBaseExit({ allowExit: true, captures, enemies: [], heading: 0, outline, position: { x: 140, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
+    expect(guardBaseExit({ allowExit: true, captures, center: CENTER, enemies: [], heading: 0, outline, position: { x: 140, y: 100 }, radius: 10000, speed: 100, target: { x: 10000, y: 100 }, wanted: 0 })).not.toBe(0);
   });
 
   it('allows escaping a capture that already encloses the player', () => {
     const captures = [[{ x: 150, y: 80 }, { x: 190, y: 80 }, { x: 190, y: 120 }, { x: 150, y: 120 }]];
-    expect(guardBaseExit({ allowExit: true, captures, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
+    expect(guardBaseExit({ allowExit: true, captures, center: CENTER, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, radius: 10000, speed: 100, target: { x: 10000, y: 100 }, wanted: 0 })).toBe(0);
   });
 
   it('turns away from an unplanned exit even without a nearby enemy', () => {
-    expect(guardBaseExit({ allowExit: false, captures: [], enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
+    expect(guardBaseExit({ allowExit: false, captures: [], center: CENTER, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, radius: 10000, speed: 100, target: { x: 10000, y: 100 }, wanted: 0 })).not.toBe(0);
   });
 
   it('lets a planned loop leave when no enemy is near the exit', () => {
-    expect(guardBaseExit({ allowExit: true, captures: [], enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
+    expect(guardBaseExit({ allowExit: true, captures: [], center: CENTER, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, radius: 10000, speed: 100, target: { x: 10000, y: 100 }, wanted: 0 })).toBe(0);
   });
 
   it('keeps room for a turn instead of skimming the edge during incidental movement', () => {
     const position = { x: 150, y: 100 };
-    const direction = guardBaseExit({ allowExit: false, captures: [], enemies: [], heading: 0, outline, position, speed: 100, wanted: 0 });
+    const direction = guardBaseExit({ allowExit: false, captures: [], center: CENTER, enemies: [], heading: 0, outline, position, radius: 10000, speed: 100, target: { x: 10000, y: 100 }, wanted: 0 });
     const core = [{ x: 30, y: 30 }, { x: 170, y: 30 }, { x: 170, y: 170 }, { x: 30, y: 170 }];
     expect(homeFlightLength({ heading: 0, outline: core, position, speed: 100, target: { x: position.x + Math.cos(direction) * 100, y: position.y + Math.sin(direction) * 100 } })).not.toBeNull();
   });
 });
 
 describe('findLoop', () => {
+  it('does not select a loop crossed by a passive bot on its committed leg', () => {
+    const input = { captures: [], center: { x: 1000, y: 1000 }, enemies: [], heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 };
+    const clear = findLoop(input);
+    expect(clear).not.toBeNull();
+    if (!clear) {
+      throw new Error('The clear fixture needs a loop');
+    }
+    const enemy = { direction: Math.PI, hunting: false, position: { x: clear.check.center.x - 600, y: clear.check.center.y }, target: { x: clear.check.center.x + 600, y: clear.check.center.y }, trigger: 0 };
+    const plan = findLoop({ ...input, enemies: [enemy] });
+    expect(plan === null || !enemyCrossesLoop({ enemy, samples: plan.check.samples, trailLength: plan.check.trailLength })).toBe(true);
+  });
   it('plans a different exit when a pending capture covers the preferred one', () => {
     const input = { captures: [], center: { x: 1000, y: 1000 }, enemies: [], heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 };
     const first = findLoop(input)?.waypoints[0];
@@ -115,10 +135,9 @@ describe('findLoop', () => {
     expect(next && pointInPolygon(next, capture)).toBe(false);
   });
   it('finds a flyable loop while passive bots surround the base', () => {
-    const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, trigger: 80 }));
+    const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, target: null, trigger: 80 }));
     const plan = findLoop({ captures: [], center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 });
     expect(plan).not.toBeNull();
-    expect(plan === null || enemies.every((enemy) => plan.check.samples.every((point) => Math.hypot(point.x - enemy.position.x, point.y - enemy.position.y) >= plan.check.trailLength + 40))).toBe(true);
   });
 });
 
@@ -155,5 +174,19 @@ describe('guardWallTurn', () => {
 
   it('turns the long way round, through the inward side, when the target lies inward and behind', () => {
     expect(guardWallTurn(PRESSED, HEADING, -2.5, CENTER, RADIUS)).toBeCloseTo(HEADING + THREE_EIGHTHS_TURN);
+  });
+});
+
+describe('enemyCrossesLoop', () => {
+  it('sees a passive bot returning across a future trail even when its current heading points away', () => {
+    expect(enemyCrossesLoop({ enemy: { direction: Math.PI, hunting: false, position: { x: 0, y: 0 }, target: { x: 300, y: 0 }, trigger: 0 }, samples: [{ x: 200, y: -100 }, { x: 200, y: 100 }], trailLength: 300 })).toBe(true);
+  });
+
+  it('allows a committed leg that cannot reach the loop before closure', () => {
+    expect(enemyCrossesLoop({ enemy: { direction: 0, hunting: false, position: { x: 0, y: 0 }, target: { x: 1000, y: 0 }, trigger: 0 }, samples: [{ x: 700, y: -100 }, { x: 700, y: 100 }], trailLength: 300 })).toBe(false);
+  });
+
+  it('allows a bot whose current target takes it away from the loop', () => {
+    expect(enemyCrossesLoop({ enemy: { direction: 0, hunting: false, position: { x: 0, y: 0 }, target: { x: -300, y: 0 }, trigger: 0 }, samples: [{ x: 200, y: -100 }, { x: 200, y: 100 }], trailLength: 300 })).toBe(false);
   });
 });
