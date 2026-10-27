@@ -346,6 +346,11 @@ interface Estimate {
   readonly waypoints: readonly Point[];
 }
 
+interface BaseExit {
+  readonly point: Point;
+  readonly step: number;
+}
+
 interface HomeFlightLengthParams {
   readonly heading: number;
   readonly outline: readonly Point[];
@@ -597,20 +602,7 @@ export class WhiteboxPilot {
     if (this.phase === 'home' && !this.loop) {
       this.stats.holdUpdates++;
     }
-    if (!this.target) {
-      return null;
-    }
-    let wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
-    // A surround cut must cross its unit's trail, wherever that runs.
-    if (situation.inBase && !(this.phase === 'attack' && this.victimMode === 'surround')) {
-      const kept = keepInBase(situation, wanted);
-      if (kept !== wanted) {
-        this.stats.edgeHolds++;
-        wanted = kept;
-      }
-    }
-    const steered = guardWallTurn(position, situation.heading, wanted, toPoint(game.border.center), game.border.radius);
-    return { x: Math.cos(steered), y: Math.sin(steered) };
+    return this.steerAtTarget(situation);
   }
 
   private attackTarget(situation: Situation, victim: Unit): null | Point {
@@ -895,14 +887,30 @@ export class WhiteboxPilot {
     return this.returnPath[0] ?? null;
   }
 
+  private steerAtTarget(situation: Situation): null | Point {
+    const { game, position } = situation;
+    if (!this.target) {
+      return null;
+    }
+    let wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
+    if (situation.inBase) {
+      const kept = keepInBase(situation, wanted);
+      if (kept !== wanted) {
+        this.stats.edgeHolds++;
+        wanted = kept;
+      }
+    }
+    const steered = guardWallTurn(position, situation.heading, wanted, toPoint(game.border.center), game.border.radius);
+    return { x: Math.cos(steered), y: Math.sin(steered) };
+  }
+
   /**
-   * The way out of ground a unit's capture is about to close around the player: across the unit's trail, which ends the
-   * capture, when the player gets there before the unit can be home; otherwise out of that ground, staying in the base;
-   * and across the trail after all when there is no such way out.
+   * Escapes a pending capture inside the base when possible, otherwise cuts its trail, preferring a reachable point
+   * inside the base. The edge guard also applies to this response.
    *
    * @param situation - What the update knows.
    * @param victim - The unit whose capture closes around the player.
-   * @returns The point to steer at, or `null` once the player in its base stands outside every pending capture.
+   * @returns The point to steer at, or `null` once the player stands outside every pending capture.
    */
   private surroundTarget(situation: Situation, victim: Unit): null | Point {
     const { game, heading, inBase, player, position } = situation;
@@ -910,16 +918,17 @@ export class WhiteboxPilot {
     if (inBase && !isInsideAny(position, captures)) {
       return null;
     }
-    const speed = game.config.unitSpeed;
-    const cut = nearestPoint(position, samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING));
-    if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
-      this.stats.surroundCuts++;
-      return add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
-    }
     const escape = inBase ? escapePoint(situation, captures) : null;
     if (escape) {
       this.stats.surroundEscapes++;
       return escape;
+    }
+    const speed = game.config.unitSpeed;
+    const samples = samplePath(victim.track.simplyline.map(toPoint), ROUTE_SAMPLE_SPACING);
+    const cut = (inBase ? homeVictimPoint(situation, samples)?.point : null) ?? nearestPoint(position, samples);
+    if (cut && travelSeconds(position, heading, cut, speed) + SURROUND_CUT_MARGIN_SECONDS < homeSeconds(victim, speed)) {
+      this.stats.surroundCuts++;
+      return add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT));
     }
     return cut ? add(cut, scale(normalize(subtract(cut, position)), ATTACK_OVERSHOOT)) : null;
   }
@@ -1780,27 +1789,12 @@ function keepInBase(situation: Situation, wanted: number): number {
   if (near.length === 0) {
     return wanted;
   }
-  const exitStep = (direction: number): { point: Point; step: number } | null => {
-    const stepLength = speed * SIMULATION_STEP_SECONDS;
-    const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
-    let simulated = position;
-    let simulatedHeading = heading;
-    for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
-      simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
-      simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
-      if (!pointInPolygon(simulated, outline)) {
-        return { point: simulated, step };
-      }
-    }
-    return null;
-  };
-  const isSafe = (exit: { point: Point; step: number } | null): boolean => !exit || near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE);
   if (isSafe(exitStep(wanted))) {
     return wanted;
   }
   let best = wanted;
   let bestStep = -1;
-  for (let index = 1; index <= EDGE_GUARD_RAYS / 2; index++) {
+  for (let index = 1; index <= EDGE_GUARD_RAYS * HALF; index++) {
     for (const side of [1, -1]) {
       const direction = wanted + side * index * FULL_TURN / EDGE_GUARD_RAYS;
       const exit = exitStep(direction);
@@ -1814,6 +1808,24 @@ function keepInBase(situation: Situation, wanted: number): number {
     }
   }
   return best;
+
+  function exitStep(direction: number): BaseExit | null {
+    const stepLength = speed * SIMULATION_STEP_SECONDS;
+    const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
+    let simulated = position;
+    let simulatedHeading = heading;
+    for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
+      simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
+      simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
+      if (!pointInPolygon(simulated, outline)) {
+        return { point: simulated, step };
+      }
+    }
+    return null;
+  }
+  function isSafe(exit: BaseExit | null): boolean {
+    return !exit || near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE);
+  }
 }
 
 function keepInside(point: Point, center: Point, radius: number): Point {
