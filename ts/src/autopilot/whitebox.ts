@@ -1780,7 +1780,7 @@ function keepInBase(situation: Situation, wanted: number): number {
   if (near.length === 0) {
     return wanted;
   }
-  const exitStep = (direction: number): null | { point: Point; step: number } => {
+  const exitStep = (direction: number): { point: Point; step: number } | null => {
     const stepLength = speed * SIMULATION_STEP_SECONDS;
     const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * SIMULATION_STEP_SECONDS;
     let simulated = position;
@@ -1794,7 +1794,7 @@ function keepInBase(situation: Situation, wanted: number): number {
     }
     return null;
   };
-  const isSafe = (exit: null | { point: Point; step: number }): boolean => !exit || near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE);
+  const isSafe = (exit: { point: Point; step: number } | null): boolean => !exit || near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE);
   if (isSafe(exitStep(wanted))) {
     return wanted;
   }
@@ -2185,6 +2185,7 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   // The planner weighs thousands of loops against every unit, so a unit farther from the whole loop than any test below
   // reaches is ruled out by the bounding circle alone; the tests give the same answer, only slower.
   const farthestReach = Math.max(
+    trailLength + PLAN_THREAT_MARGIN,
     maxRemaining * reachShare + PLAN_THREAT_MARGIN,
     enemy.hunting
       ? Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE)
@@ -2206,6 +2207,11 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
       near = away;
       closest = sample;
     }
+  }
+  // A passive bot can become a hunter while the loop is out. Its current heading or state cannot reduce the distance
+  // it can cover before the entire trail closes, including time spent approaching a point before that point is laid.
+  if (near < trailLength + PLAN_THREAT_MARGIN) {
+    return true;
   }
   if (enemy.hunting) {
     return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);
