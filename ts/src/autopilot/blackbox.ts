@@ -166,6 +166,8 @@ const TRACK_DANGER_RADIUS = 0.2;
 const LEAVE_CLEARANCE = 0.3;
 /** A small foreign component this close to the trail or the player, as a share of the frame's height, sends it home. */
 const DANGER_RADIUS = 0.5;
+/** At home, a recently seen danger must be farther away before the pilot leaves again. */
+const LEAVE_MEMORY_RADIUS = 0.65;
 /** A danger seen is heeded this many frames after it is last seen. */
 const THREAT_MEMORY_FRAMES = 120;
 /** The trail is looked for this many pixels out from the avatar, and this many of its pixels there say it is drawn. */
@@ -177,7 +179,8 @@ const HOME_CONFIRM_FRAMES = 10;
 const SIDE_OWN_MARGIN = 0.1;
 /** The loop, in frames: out and sideways. */
 const OUT_FRAMES = 35;
-const SIDE_FRAMES = 50;/** A leg runs at least this many frames before foreign ground ahead can end it. */
+const SIDE_FRAMES = 50;
+/** A leg runs at least this many frames before foreign ground ahead can end it. */
 const MIN_LEG_FRAMES = 8;
 /** How far ahead a leg looks for foreign ground, as a share of the frame's height. */
 const FLOOR_LOOKAHEAD = 0.25;
@@ -1085,16 +1088,7 @@ export class BlackboxPilot {
     if (seen) {
       return seen;
     }
-    let nearest: null | Point = null;
-    let nearestDistance = this.height * DANGER_RADIUS;
-    for (const { at } of this.threatMemory) {
-      const away = Math.hypot(at.x - position.x, at.y - position.y);
-      if (away < nearestDistance) {
-        nearest = { x: at.x - position.x + centerX, y: at.y - position.y + centerY };
-        nearestDistance = away;
-      }
-    }
-    return nearest;
+    return this.rememberedThreat(this.height * DANGER_RADIUS);
   }
 
   /** Remembers where the player is, keeping only the last stretch while it is at home. */
@@ -1128,6 +1122,28 @@ export class BlackboxPilot {
       }
     }
     return aims;
+  }
+
+  /**
+   * The nearest unexpired danger within the requested radius, relative to the current view.
+   *
+   * @param radius - The distance to heed, in frame pixels.
+   * @returns The remembered danger, or `null`.
+   */
+  private rememberedThreat(radius: number): null | Point {
+    const position = this.odometer.position;
+    const centerX = this.width * HALF;
+    const centerY = this.height * HALF;
+    let nearest: null | Point = null;
+    let nearestDistance = radius;
+    for (const { at } of this.threatMemory) {
+      const away = Math.hypot(at.x - position.x, at.y - position.y);
+      if (away < nearestDistance) {
+        nearest = { x: at.x - position.x + centerX, y: at.y - position.y + centerY };
+        nearestDistance = away;
+      }
+    }
+    return nearest;
   }
 
   /**
@@ -1311,6 +1327,13 @@ export class BlackboxPilot {
       // A unit near: stay inside, where it cannot cut anything, until it goes; on the far side of the territory from
       // it, where a capture of its that bites into the territory does not enclose the player.
       return this.awayFromThreat(classes, this.threat);
+    }
+    // A unit seen lately that slipped out of the danger radius, or out of view, comes back as fast as it went: the
+    // original bots hunt a fresh trail from there. Leaving waits until it is farther still.
+    const lingering = this.rememberedThreat(this.height * LEAVE_MEMORY_RADIUS);
+    if (lingering && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
+      this.threat = lingering;
+      return this.awayFromThreat(classes, lingering);
     }
     const wayOut = this.chooseWayOut(classes);
     if (!wayOut.clear && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {

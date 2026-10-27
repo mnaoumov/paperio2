@@ -4,6 +4,8 @@ import {
   it
 } from 'vitest';
 
+import type { Point } from './plane.ts';
+
 import {
   BlackboxPilot,
   chamferDistance,
@@ -171,6 +173,34 @@ describe('blackbox', () => {
     pilot.decide(frame((x, y) => isGreyTrail(x, y) ? GREY : homeFrame(x, y)));
     pilot.decide(frame(homeFrame));
     expect(pilot.debug.threat).not.toBeNull();
+  });
+
+  it('waits at home when a remembered danger has only just left the danger radius', () => {
+    const pilot = new BlackboxPilot();
+    const threatLeft = WIDTH / 2 + 80;
+    pilot.decide(frame((x, y) => x >= threatLeft && x < threatLeft + 4 && y > 70 && y < 140 ? GREY : wideHome(x, y)));
+    expect(pilot.debug.threat).not.toBeNull();
+    // The camera moves gradually right as the player moves left. The last sighting is now beyond the danger
+    // radius, but close enough to turn back onto a new trail. Its two-second memory has not expired.
+    let direction: null | Point = null;
+    const shift = 26;
+    for (let offset = 2; offset <= shift; offset += 2) {
+      direction = pilot.decide(frame((x, y) => wideHome(x - offset, y)));
+    }
+    const remembered = pilot.debug.threat;
+    expect(remembered).not.toBeNull();
+    expect(Math.hypot((remembered?.x ?? 0) - WIDTH / 2, (remembered?.y ?? 0) - HEIGHT / 2)).toBeGreaterThan(HEIGHT / 2);
+    expect(direction).not.toBeNull();
+    // Waiting cannot renew the sighting: after two seconds with no unit in view it expires.
+    const unseen = frame((x, y) => wideHome(x - shift, y));
+    for (let index = 0; index < 120; index++) {
+      pilot.decide(unseen);
+    }
+    expect(pilot.debug.threat).toBeNull();
+
+    function wideHome(x: number, y: number): Rgb {
+      return Math.hypot(x - (WIDTH / 2 - 10), y - HEIGHT / 2) < TERRITORY_RADIUS * 2 ? OWN : homeFrame(x, y);
+    }
   });
 
   it('heads out of its territory toward the nearest free floor', () => {
