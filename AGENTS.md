@@ -352,6 +352,13 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   one file and `pages.yml`/`sw.js` need nothing. **Anything the worker imports must not touch the DOM at module
   level**: it runs `blackbox.ts` and `whitebox.ts` (which still imports `entities/units.ts`), and the
   `runs the demo pilots' heavy work in a worker` test in `demo-extras.integration.test.ts` fails if it stops booting.
+  - **Whitebox delayed answers:** matching request ids and consecutive waiting updates do not freeze the player's
+    pose. Before adopting a worker route, `planLoop` reruns the bounded `isFlyable` simulation for that single route
+    from the current position and heading, against the current base and arena, and checks current enemies. An unsafe
+    answer immediately requests a fresh plan; a still-flyable answer remains usable after movement. Candidate search
+    stays in the worker. `whitebox.test.ts` covers delayed answers across consecutive waits, including opposite
+    headings at the same moved position. These checks and the worker boot test establish no survival-rate parity
+    with synchronous benchmarks; live-worker survival requires its own measurement.
   - **Blackbox:** the page scales the canvas with `createImageBitmap(view, { resizeWidth, resizeHeight, resizeQuality:
     'low' })` (byte-identical to `grabDownscaledFrame`'s `drawImage`, measured) and transfers it; the worker decides
     on the NEWEST frame it has when free, dropping the rest. A first version sent the next frame only after the last

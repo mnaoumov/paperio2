@@ -790,7 +790,7 @@ export class WhiteboxPilot {
     }
     if (this.phase === 'home' && !this.loop && --this.planCooldown <= 0) {
       // A plan still out (`null`) is looked for again on the next update.
-      this.planCooldown = this.planLoop(situation) === false ? PLAN_RETRY_UPDATES : 0;
+      this.planCooldown = this.planLoop(describePlan(situation)) === false ? PLAN_RETRY_UPDATES : 0;
     }
     if (!this.loop) {
       return inBase ? holdTarget(situation) : null;
@@ -829,12 +829,12 @@ export class WhiteboxPilot {
   /**
    * Plans the next loop, or asks {@link WhiteboxPilot.planner} for one and holds until it answers.
    *
-   * @param situation - What the update knows.
+   * @param input - What the current update knows.
    * @returns Whether a loop was found; `null` while an asked plan is still out.
    */
-  private planLoop(situation: Situation): boolean | null {
+  private planLoop(input: PlanInput): boolean | null {
     if (!this.planner) {
-      return this.takePlan(findLoop(describePlan(situation)));
+      return this.takePlan(findLoop(input));
     }
     // An answer counts only while the pilot kept waiting for it, update after update; anything else in between (an
     // attack, a reset) makes the plan stale, and a fresh one is asked for.
@@ -846,12 +846,21 @@ export class WhiteboxPilot {
     if (answer?.id === this.planPending) {
       this.planPending = null;
       this.planAnswer = null;
-      return this.takePlan(answer.plan);
+      const plan = answer.plan;
+      // Waiting does not freeze the player or the arena. Recheck one route, rather than repeating the worker's search.
+      if (
+        plan && (!isFlyable(input.position, input.heading, plan.waypoints, input.outline, input.center, input.radius, input.speed)
+          || input.enemies.some((enemy) => threatens(enemy, plan.check)))
+      ) {
+        this.stats.replans++;
+      } else {
+        return this.takePlan(plan);
+      }
     }
     if (this.planPending === null) {
       const id = ++this.planRequests;
       this.planPending = id;
-      this.planner(describePlan(situation), (plan) => {
+      this.planner(input, (plan) => {
         this.planAnswer = { id, plan };
       });
     }
