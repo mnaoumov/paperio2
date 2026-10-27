@@ -4,8 +4,29 @@ import {
   it
 } from 'vitest';
 
-import { pointInPolygon } from './plane.ts';
-import { simplifyGeometry } from './precision.ts';
+import {
+  distanceToSegment,
+  pointInPolygon
+} from './plane.ts';
+import {
+  hasOutlineClearance,
+  simplifyGeometry
+} from './precision.ts';
+
+describe('hasOutlineClearance', () => {
+  it('matches exact edge distance across points, corners and clearances', () => {
+    const outline = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 10, y: 10 }, { x: 0, y: 20 }];
+    for (let x = -5; x <= 25; x += 5) {
+      for (let y = -5; y <= 25; y += 5) {
+        const point = { x, y };
+        const distance = Math.min(...outline.map((start, index) => distanceToSegment(point, start, outline[(index + 1) % outline.length] ?? start)));
+        for (const clearance of [0, 1, 3, 10]) {
+          expect(hasOutlineClearance({ clearance, outline, point })).toBe(distance >= clearance);
+        }
+      }
+    }
+  });
+});
 
 describe('simplifyGeometry', () => {
   it('preserves a narrow notch that a proximity-only simplification can erase', () => {

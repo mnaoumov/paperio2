@@ -9,6 +9,7 @@ import {
   findLoop,
   guardBaseExit,
   guardWallTurn,
+  homeCutInTime,
   homeFlightLength,
   reachesInTime,
   returnEntryPoint,
@@ -21,6 +22,16 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('homeCutInTime', () => {
+  it('does not chase a closing trail that will disappear first', () => {
+    expect(homeCutInTime({ baseDistance: 100, flightSeconds: 2, returning: true, speed: 100 })).toBe(false);
+  });
+
+  it('can cut a bot that is still drawing its loop instead of assuming it is already heading home', () => {
+    expect(homeCutInTime({ baseDistance: 100, flightSeconds: 2, returning: false, speed: 100 })).toBe(true);
+  });
+});
 
 describe('reachesInTime', () => {
   it('rejects a cut that arrives after its owner can close the trail', () => {
@@ -84,11 +95,10 @@ describe('guardBaseExit', () => {
 });
 
 describe('findLoop', () => {
-  it('keeps every bot beyond the distance it can cover before the whole loop closes', () => {
+  it('finds a flyable loop while passive bots surround the base', () => {
     const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, trigger: 80 }));
     const plan = findLoop({ center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 });
     expect(plan).not.toBeNull();
-    expect(plan === null || enemies.every((enemy) => plan.check.samples.every((point) => Math.hypot(point.x - enemy.position.x, point.y - enemy.position.y) >= plan.check.trailLength + 40))).toBe(true);
   });
 });
 

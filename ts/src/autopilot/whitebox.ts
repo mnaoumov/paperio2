@@ -40,7 +40,10 @@ import {
   subtract,
   THREE_EIGHTHS_TURN
 } from './plane.ts';
-import { simplifyGeometry } from './precision.ts';
+import {
+  hasOutlineClearance,
+  simplifyGeometry
+} from './precision.ts';
 
 interface PreciseOutline {
   readonly points: readonly Point[];
@@ -58,7 +61,13 @@ const preciseOutlines = new WeakMap<Polygon, PreciseOutline>();
 const preciseTrails = new WeakMap<Polyline, PreciseTrail>();
 const GEOMETRY_TOLERANCE = 1;
 
+interface CachedCaptures {
+  readonly generation: number;
+  readonly shapes: Point[][];
+}
 
+const cachedCaptures = new WeakMap<Unit, CachedCaptures>();
+let captureReadGeneration = 0;
 
 /** Plans a loop from its input and calls back with it, now or later. */
 export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) => void) => void;
@@ -390,6 +399,13 @@ interface GuardBaseExitParams {
   readonly wanted: number;
 }
 
+interface HomeCutInTimeParams {
+  readonly baseDistance: number;
+  readonly flightSeconds: number;
+  readonly returning: boolean;
+  readonly speed: number;
+}
+
 interface HomeFlightLengthParams {
   readonly heading: number;
   readonly outline: readonly Point[];
@@ -637,6 +653,7 @@ export class WhiteboxPilot {
   }
 
   public steer(game: Game): null | Point {
+    captureReadGeneration++;
     this.updates++;
     const player = game.player;
     if (!player || player.death) {
@@ -674,6 +691,7 @@ export class WhiteboxPilot {
     }
     if (!situation.inBase) {
       this.checkThreats(situation);
+      this.lookForCaptureAroundExit(situation);
     }
     if (situation.inBase) {
       this.lookForCaptureAroundPlayer(situation);
@@ -693,7 +711,7 @@ export class WhiteboxPilot {
       return this.surroundTarget(situation, victim);
     }
     const candidate = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING)) : null;
-    const home = candidate && reachesInTime(candidate.seconds, victim, game.config.unitSpeed) ? candidate.point : null;
+    const home = candidate && homeCutInTime({ baseDistance: victim.baseDistance, flightSeconds: candidate.seconds, returning: !(victim instanceof Bot) || victim.fsm?.state === 'back', speed: game.config.unitSpeed }) ? candidate.point : null;
     // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
     const point = this.victimMode === 'home' ? home : home ?? nearestPoint(position, trailPoints);
     if (!point) {
@@ -813,6 +831,20 @@ export class WhiteboxPilot {
    *
    * @param situation - What the update knows.
    */
+  private lookForCaptureAroundExit(situation: Situation): void {
+    if (this.phase === 'return') {
+      return;
+    }
+    const { game, player } = situation;
+    const exit = player.track.polyline.start;
+    if (exit && game.units.some((unit) => unit !== player && !unit.death && unit.fsm?.state === 'back' && isInsideAny(toPoint(exit), pendingCaptures(unit)))) {
+      this.phase = 'return';
+      this.victim = null;
+      this.returnPath = [];
+      this.stats.aborts++;
+    }
+  }
+
   private lookForCaptureAroundPlayer(situation: Situation): void {
     const { game, player, position } = situation;
     if (this.phase === 'attack' && this.victimMode === 'surround') {
@@ -851,7 +883,7 @@ export class WhiteboxPilot {
         // A trail run through the player's own base is about to take ground from it, and cutting it costs the player no
         // time outside: the nearest such trail is cut first.
         const home = homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
-        if (home && reachesInTime(home.seconds, unit, game.config.unitSpeed) && (!best || !best.home || home.seconds < best.seconds)) {
+        if (home && homeCutInTime({ baseDistance: unit.baseDistance, flightSeconds: home.seconds, returning: !(unit instanceof Bot) || unit.fsm?.state === 'back', speed: game.config.unitSpeed }) && (!best || !best.home || home.seconds < best.seconds)) {
           best = { home: true, seconds: home.seconds, unit };
         }
         if (best?.home) {
@@ -980,6 +1012,10 @@ export class WhiteboxPilot {
       if (kept !== wanted) {
         this.stats.edgeHolds++;
         wanted = kept;
+        if (this.phase === 'home' && this.loop) {
+          this.reset();
+          this.planCooldown = 0;
+        }
       }
     }
     const steered = guardWallTurn(position, situation.heading, wanted, toPoint(game.border.center), game.border.radius);
@@ -1212,7 +1248,7 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
       if (obstacles.some((obstacle) => insideObstacle(visited, obstacle))) {
         return { blocked: true, point: simulated, step };
       }
-      if (!pointInPolygon(simulated, outline) || (minimumDepth > 0 && depthInside(simulated, outline) < minimumDepth)) {
+      if (!pointInPolygon(simulated, outline) || (minimumDepth > 0 && !hasOutlineClearance({ clearance: minimumDepth, outline, point: simulated }))) {
         return { blocked: false, point: simulated, step };
       }
     }
@@ -1253,6 +1289,10 @@ export function guardWallTurn(position: Point, heading: number, wanted: number, 
   }
   const longWay = turn - Math.sign(turn) * FULL_TURN;
   return heading + Math.sign(longWay) * Math.min(Math.abs(longWay), THREE_EIGHTHS_TURN);
+}
+
+export function homeCutInTime(params: HomeCutInTimeParams): boolean {
+  return !params.returning || reachesInTime(params.flightSeconds, { baseDistance: params.baseDistance }, params.speed);
 }
 
 /**
@@ -1380,6 +1420,67 @@ function angleDifference(a: number, b: number): number {
     difference += FULL_TURN;
   }
   return difference;
+}
+
+/**
+ * The ground a unit outside its base would take if it went straight home now, closed the way the engine closes a capture:
+ * its trail, its head and the nearest point of its base, then along its base's outline back to where the trail left it.
+ * Which way round the outline the engine goes depends on the winding, so both are returned; ground in the player's base
+ * inside either is ground the capture takes, since the other way only adds the unit's own base.
+ *
+ * @param unit - The unit.
+ * @returns The two polygons, or none for a unit with no trail out.
+ */
+function buildPendingCaptures(unit: Unit): Point[][] {
+  const straight = pendingCapture(unit);
+  const home = unit.baseNearestPoint;
+  const start = unit.track.simplyline[0];
+  if (!straight || !home || !start) {
+    return [];
+  }
+  const head = toPoint(unit.position);
+  const trail = readTrail(unit);
+  const outline = readOutline(unit.base.polygon);
+  const from = nearestIndex(toPoint(home), outline);
+  const to = nearestIndex(toPoint(start), outline);
+  if (from < 0 || to < 0) {
+    return [straight];
+  }
+  // A unit heading home goes nearly straight; one still drawing its loop can come back anywhere it reaches along its
+  // base, so the ends of that stretch of outline bound where it re-enters.
+  const reach = distance(head, toPoint(home)) + (unit.fsm?.state === 'back' ? REENTRY_SLACK_BACK : REENTRY_SLACK);
+  const ends = SIDES.map((direction) => {
+    let index = from;
+    for (let step = 0; step < outline.length / CROSSINGS_PER_SPAN; step++) {
+      const next = wrapIndex(index + direction, outline.length);
+      if (distance(head, outline[next] ?? head) > reach) {
+        break;
+      }
+      index = next;
+    }
+    return index;
+  });
+  const captures: Point[][] = [];
+  for (const end of new Set([from, ...ends])) {
+    for (const direction of SIDES) {
+      const arc: Point[] = [];
+      for (let index = end; index !== to; index = wrapIndex(index + direction, outline.length)) {
+        arc.push(outline[index] ?? home);
+      }
+      captures.push([...trail, head, ...arc]);
+    }
+  }
+  // And the fan from the head over that stretch, the ground any of those re-entries cuts off on the way in.
+  const [forwardEnd = from, backEnd = from] = ends;
+  if (forwardEnd !== backEnd) {
+    const fan: Point[] = [head];
+    for (let index = backEnd; index !== forwardEnd; index = wrapIndex(index + 1, outline.length)) {
+      fan.push(outline[index] ?? head);
+    }
+    fan.push(outline[forwardEnd] ?? head);
+    captures.push(fan);
+  }
+  return captures;
 }
 
 function captureObstacles(params: CaptureObstaclesParams): CaptureObstacle[] {
@@ -2165,65 +2266,14 @@ function pendingCapture(unit: Unit): null | Point[] {
   return [...readTrail(unit), toPoint(unit.position), toPoint(home)];
 }
 
-/**
- * The ground a unit outside its base would take if it went straight home now, closed the way the engine closes a capture:
- * its trail, its head and the nearest point of its base, then along its base's outline back to where the trail left it.
- * Which way round the outline the engine goes depends on the winding, so both are returned; ground in the player's base
- * inside either is ground the capture takes, since the other way only adds the unit's own base.
- *
- * @param unit - The unit.
- * @returns The two polygons, or none for a unit with no trail out.
- */
 function pendingCaptures(unit: Unit): Point[][] {
-  const straight = pendingCapture(unit);
-  const home = unit.baseNearestPoint;
-  const start = unit.track.simplyline[0];
-  if (!straight || !home || !start) {
-    return [];
+  const cached = cachedCaptures.get(unit);
+  if (cached?.generation === captureReadGeneration) {
+    return cached.shapes;
   }
-  const head = toPoint(unit.position);
-  const trail = readTrail(unit);
-  const outline = readOutline(unit.base.polygon);
-  const from = nearestIndex(toPoint(home), outline);
-  const to = nearestIndex(toPoint(start), outline);
-  if (from < 0 || to < 0) {
-    return [straight];
-  }
-  // A unit heading home goes nearly straight; one still drawing its loop can come back anywhere it reaches along its
-  // base, so the ends of that stretch of outline bound where it re-enters.
-  const reach = distance(head, toPoint(home)) + (unit.fsm?.state === 'back' ? REENTRY_SLACK_BACK : REENTRY_SLACK);
-  const ends = SIDES.map((direction) => {
-    let index = from;
-    for (let step = 0; step < outline.length / CROSSINGS_PER_SPAN; step++) {
-      const next = wrapIndex(index + direction, outline.length);
-      if (distance(head, outline[next] ?? head) > reach) {
-        break;
-      }
-      index = next;
-    }
-    return index;
-  });
-  const captures: Point[][] = [];
-  for (const end of new Set([from, ...ends])) {
-    for (const direction of SIDES) {
-      const arc: Point[] = [];
-      for (let index = end; index !== to; index = wrapIndex(index + direction, outline.length)) {
-        arc.push(outline[index] ?? home);
-      }
-      captures.push([...trail, head, ...arc]);
-    }
-  }
-  // And the fan from the head over that stretch, the ground any of those re-entries cuts off on the way in.
-  const [forwardEnd = from, backEnd = from] = ends;
-  if (forwardEnd !== backEnd) {
-    const fan: Point[] = [head];
-    for (let index = backEnd; index !== forwardEnd; index = wrapIndex(index + 1, outline.length)) {
-      fan.push(outline[index] ?? head);
-    }
-    fan.push(outline[forwardEnd] ?? head);
-    captures.push(fan);
-  }
-  return captures;
+  const shapes = buildPendingCaptures(unit);
+  cachedCaptures.set(unit, { generation: captureReadGeneration, shapes });
+  return shapes;
 }
 
 /**
@@ -2390,7 +2440,6 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   // The planner weighs thousands of loops against every unit, so a unit farther from the whole loop than any test below
   // reaches is ruled out by the bounding circle alone; the tests give the same answer, only slower.
   const farthestReach = Math.max(
-    trailLength + PLAN_THREAT_MARGIN,
     maxRemaining * reachShare + PLAN_THREAT_MARGIN,
     enemy.hunting
       ? Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE)
@@ -2413,11 +2462,6 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
       closest = sample;
     }
   }
-  // A passive bot can become a hunter while the loop is out. Its current heading or state cannot reduce the distance
-  // it can cover before the entire trail closes, including time spent approaching a point before that point is laid.
-  if (near < trailLength + PLAN_THREAT_MARGIN) {
-    return true;
-  }
   if (enemy.hunting) {
     return near < Math.max(exposure, trailLength * PLAN_THREAT_SHARE + PLAN_THREAT_MARGIN, HUNTER_MIN_DISTANCE);
   }
@@ -2430,7 +2474,6 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   const closing = Math.max(0, Math.cos(enemy.direction) * toward.x + Math.sin(enemy.direction) * toward.y);
   return near < enemy.trigger + trailLength * (PLAN_PASSIVE_SHARE + PLAN_CLOSING_SHARE * closing) + PLAN_THREAT_MARGIN;
 }
-
 
 function toPoint(vector: Point): Point {
   return { x: vector.x, y: vector.y };

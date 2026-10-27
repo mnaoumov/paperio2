@@ -4,6 +4,23 @@ import { distanceToSegment } from './plane.ts';
 
 const MIN_REDUCIBLE_POINTS = 3;
 
+interface HasOutlineClearanceParams {
+  readonly clearance: number;
+  readonly outline: readonly Point[];
+  readonly point: Point;
+}
+
+interface OutlineEdge {
+  readonly bottom: number;
+  readonly end: Point;
+  readonly left: number;
+  readonly right: number;
+  readonly start: Point;
+  readonly top: number;
+}
+
+const outlineEdges = new WeakMap<readonly Point[], readonly OutlineEdge[]>();
+
 interface SimplifyGeometryParams {
   readonly closed: boolean;
   readonly points: readonly Point[];
@@ -13,6 +30,25 @@ interface SimplifyGeometryParams {
 interface Span {
   readonly first: number;
   readonly last: number;
+}
+
+/**
+ * Tests edge clearance, rejecting far segments by bounds before measuring their distance. The outline must be immutable.
+ *
+ * @param params - The point, polygon edges and required distance.
+ * @returns Whether every edge is at least the requested distance away; this does not test polygon containment.
+ */
+export function hasOutlineClearance(params: HasOutlineClearanceParams): boolean {
+  const { clearance, outline, point } = params;
+  for (const edge of edgesOf(outline)) {
+    if (point.x < edge.left - clearance || point.x > edge.right + clearance || point.y < edge.top - clearance || point.y > edge.bottom + clearance) {
+      continue;
+    }
+    if (distanceToSegment(point, edge.start, edge.end) < clearance) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -63,4 +99,21 @@ export function simplifyGeometry(params: SimplifyGeometryParams): Point[] {
     points.pop();
   }
   return points.filter((_point, index) => kept[index] === 1);
+}
+
+function edgesOf(outline: readonly Point[]): readonly OutlineEdge[] {
+  const cached = outlineEdges.get(outline);
+  if (cached) {
+    return cached;
+  }
+  const edges: OutlineEdge[] = [];
+  for (let index = 0; index < outline.length; index++) {
+    const start = outline[index];
+    const end = outline[(index + 1) % outline.length];
+    if (start && end) {
+      edges.push({ bottom: Math.max(start.y, end.y), end, left: Math.min(start.x, end.x), right: Math.max(start.x, end.x), start, top: Math.min(start.y, end.y) });
+    }
+  }
+  outlineEdges.set(outline, edges);
+  return edges;
 }
