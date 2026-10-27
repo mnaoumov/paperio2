@@ -57,17 +57,27 @@ describe('returnEntryPoint', () => {
 describe('guardBaseExit', () => {
   const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
 
+  it('avoids entering a pending capture even during a planned departure', () => {
+    const captures = [[{ x: 175, y: 80 }, { x: 200, y: 80 }, { x: 200, y: 120 }, { x: 175, y: 120 }]];
+    expect(guardBaseExit({ allowExit: true, captures, enemies: [], heading: 0, outline, position: { x: 140, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
+  });
+
+  it('allows escaping a capture that already encloses the player', () => {
+    const captures = [[{ x: 150, y: 80 }, { x: 190, y: 80 }, { x: 190, y: 120 }, { x: 150, y: 120 }]];
+    expect(guardBaseExit({ allowExit: true, captures, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
+  });
+
   it('turns away from an unplanned exit even without a nearby enemy', () => {
-    expect(guardBaseExit({ allowExit: false, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
+    expect(guardBaseExit({ allowExit: false, captures: [], enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
   });
 
   it('lets a planned loop leave when no enemy is near the exit', () => {
-    expect(guardBaseExit({ allowExit: true, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
+    expect(guardBaseExit({ allowExit: true, captures: [], enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
   });
 
   it('keeps room for a turn instead of skimming the edge during incidental movement', () => {
     const position = { x: 150, y: 100 };
-    const direction = guardBaseExit({ allowExit: false, enemies: [], heading: 0, outline, position, speed: 100, wanted: 0 });
+    const direction = guardBaseExit({ allowExit: false, captures: [], enemies: [], heading: 0, outline, position, speed: 100, wanted: 0 });
     const core = [{ x: 30, y: 30 }, { x: 170, y: 30 }, { x: 170, y: 170 }, { x: 30, y: 170 }];
     expect(homeFlightLength({ heading: 0, outline: core, position, speed: 100, target: { x: position.x + Math.cos(direction) * 100, y: position.y + Math.sin(direction) * 100 } })).not.toBeNull();
   });

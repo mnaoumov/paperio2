@@ -58,6 +58,8 @@ const preciseOutlines = new WeakMap<Polygon, PreciseOutline>();
 const preciseTrails = new WeakMap<Polyline, PreciseTrail>();
 const GEOMETRY_TOLERANCE = 1;
 
+
+
 /** Plans a loop from its input and calls back with it, now or later. */
 export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) => void) => void;
 
@@ -335,8 +337,22 @@ const SIDES: readonly number[] = [1, -1];
 /* eslint-enable no-magic-numbers -- end of the tuning constants. */
 
 interface BaseExit {
+  readonly blocked: boolean;
   readonly point: Point;
   readonly step: number;
+}
+
+interface CaptureObstacle {
+  readonly bottom: number;
+  readonly left: number;
+  readonly points: readonly Point[];
+  readonly right: number;
+  readonly top: number;
+}
+
+interface CaptureObstaclesParams {
+  readonly captures: readonly (readonly Point[])[];
+  readonly position: Point;
 }
 
 interface EnemyModel {
@@ -365,6 +381,7 @@ interface ExposureCostParams {
 
 interface GuardBaseExitParams {
   readonly allowExit: boolean;
+  readonly captures: readonly (readonly Point[])[];
   readonly enemies: readonly Point[];
   readonly heading: number;
   readonly outline: readonly Point[];
@@ -959,7 +976,7 @@ export class WhiteboxPilot {
     }
     let wanted = Math.atan2(this.target.y - position.y, this.target.x - position.x);
     if (situation.inBase) {
-      const kept = guardBaseExit({ allowExit: (this.phase === 'home' && this.loop !== null) || this.phase === 'sweep', enemies: game.units.filter((unit) => unit !== situation.player && !unit.death).map((unit) => toPoint(unit.position)), heading: situation.heading, outline: situation.outline, position, speed: game.config.unitSpeed, wanted });
+      const kept = guardBaseExit({ allowExit: (this.phase === 'home' && this.loop !== null) || this.phase === 'sweep', captures: game.units.filter((unit) => unit !== situation.player && !unit.death).flatMap(pendingCaptures), enemies: game.units.filter((unit) => unit !== situation.player && !unit.death).map((unit) => toPoint(unit.position)), heading: situation.heading, outline: situation.outline, position, speed: game.config.unitSpeed, wanted });
       if (kept !== wanted) {
         this.stats.edgeHolds++;
         wanted = kept;
@@ -1156,10 +1173,11 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
   const { allowExit, enemies, heading, outline, position, speed, wanted } = params;
   const reachOfGuard = EDGE_GUARD_DISTANCE + speed * SIMULATION_STEP_SECONDS * EDGE_GUARD_STEPS;
   const near = enemies.filter((unit) => distance(unit, position) < reachOfGuard);
+  const obstacles = captureObstacles({ captures: params.captures, position });
   const turnDiameter = speed / TURN_SPEED_RADIANS_PER_SECOND / HALF;
   const availableDepth = Math.max(0, Math.sqrt(Math.abs(signedArea(outline)) / Math.PI) - turnDiameter);
   const minimumDepth = allowExit ? 0 : Math.min(EDGE_GUARD_DEPTH, availableDepth, depthInside(position, outline));
-  if (allowExit && near.length === 0) {
+  if (allowExit && near.length === 0 && obstacles.length === 0) {
     return wanted;
   }
   if (isSafe(exitStep(wanted))) {
@@ -1190,14 +1208,18 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
     for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
       simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
       simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
+      const visited = simulated;
+      if (obstacles.some((obstacle) => insideObstacle(visited, obstacle))) {
+        return { blocked: true, point: simulated, step };
+      }
       if (!pointInPolygon(simulated, outline) || (minimumDepth > 0 && depthInside(simulated, outline) < minimumDepth)) {
-        return { point: simulated, step };
+        return { blocked: false, point: simulated, step };
       }
     }
     return null;
   }
   function isSafe(exit: BaseExit | null): boolean {
-    return !exit || (allowExit && near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE));
+    return !exit || (!exit.blocked && allowExit && near.every((unit) => distance(unit, exit.point) >= EDGE_GUARD_DISTANCE));
   }
 }
 
@@ -1358,6 +1380,27 @@ function angleDifference(a: number, b: number): number {
     difference += FULL_TURN;
   }
   return difference;
+}
+
+function captureObstacles(params: CaptureObstaclesParams): CaptureObstacle[] {
+  const obstacles: CaptureObstacle[] = [];
+  for (const points of params.captures) {
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (const point of points) {
+      left = Math.min(left, point.x);
+      right = Math.max(right, point.x);
+      top = Math.min(top, point.y);
+      bottom = Math.max(bottom, point.y);
+    }
+    const obstacle = { bottom, left, points, right, top };
+    if (!insideObstacle(params.position, obstacle)) {
+      obstacles.push(obstacle);
+    }
+  }
+  return obstacles;
 }
 
 /**
@@ -1859,6 +1902,10 @@ function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): H
     }
   }
   return best;
+}
+
+function insideObstacle(point: Point, obstacle: CaptureObstacle): boolean {
+  return point.x >= obstacle.left && point.x <= obstacle.right && point.y >= obstacle.top && point.y <= obstacle.bottom && pointInPolygon(point, obstacle.points);
 }
 
 function isClearOfPolygon(from: Point, to: Point, polygon: readonly Point[]): boolean {
@@ -2383,6 +2430,7 @@ function threatens(enemy: EnemyModel, check: LoopCheck): boolean {
   const closing = Math.max(0, Math.cos(enemy.direction) * toward.x + Math.sin(enemy.direction) * toward.y);
   return near < enemy.trigger + trailLength * (PLAN_PASSIVE_SHARE + PLAN_CLOSING_SHARE * closing) + PLAN_THREAT_MARGIN;
 }
+
 
 function toPoint(vector: Point): Point {
   return { x: vector.x, y: vector.y };
