@@ -7,6 +7,7 @@ import {
 import { THREE_EIGHTHS_TURN } from './plane.ts';
 import {
   findLoop,
+  guardBaseExit,
   guardWallTurn,
   homeFlightLength
 } from './whitebox.ts';
@@ -17,6 +18,18 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('guardBaseExit', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+
+  it('turns away from an unplanned exit even without a nearby enemy', () => {
+    expect(guardBaseExit({ allowExit: false, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).not.toBe(0);
+  });
+
+  it('lets a planned loop leave when no enemy is near the exit', () => {
+    expect(guardBaseExit({ allowExit: true, enemies: [], heading: 0, outline, position: { x: 170, y: 100 }, speed: 100, wanted: 0 })).toBe(0);
+  });
+});
 
 describe('findLoop', () => {
   it('keeps every bot beyond the distance it can cover before the whole loop closes', () => {
