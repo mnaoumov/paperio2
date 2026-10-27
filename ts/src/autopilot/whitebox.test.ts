@@ -9,6 +9,7 @@ import {
   findLoop,
   guardBaseExit,
   guardWallTurn,
+  homeArrivalReady,
   homeFlightLength,
   reachesInTime,
   returnEntryPoint,
@@ -21,6 +22,23 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('homeArrivalReady', () => {
+  const outline = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 0, y: 200 }];
+
+  it('keeps returning at first contact instead of turning at the edge', () => {
+    expect(homeArrivalReady({ outline, position: { x: 1, y: 100 }, speed: 100 })).toBe(false);
+  });
+
+  it('releases the return once there is room to turn inside', () => {
+    expect(homeArrivalReady({ outline, position: { x: 40, y: 100 }, speed: 100 })).toBe(true);
+  });
+
+  it('does not demand an impossible depth in the tiny initial base', () => {
+    const tiny = Array.from({ length: 32 }, (_unused, index) => ({ x: Math.cos(index * Math.PI * 2 / 32) * 30, y: Math.sin(index * Math.PI * 2 / 32) * 30 }));
+    expect(homeArrivalReady({ outline: tiny, position: CENTER, speed: 100 })).toBe(true);
+  });
+});
 
 describe('reachesInTime', () => {
   it('rejects a cut that arrives after its owner can close the trail', () => {
@@ -35,6 +53,10 @@ describe('reachesInTime', () => {
 describe('simulateApproach', () => {
   it('counts a second sliding at the wall as a full second of exposure', () => {
     expect(simulateApproach({ center: CENTER, heading: HEADING, horizon: true, maxSteps: 60, path: [{ x: 200, y: 200 }], position: PRESSED, radius: RADIUS, speed: 100, trail: [] })).toBeCloseTo(100);
+  });
+
+  it('rejects a return that crosses the trail laid during its own turn', () => {
+    expect(simulateApproach({ center: CENTER, heading: Math.PI / 2, horizon: true, maxSteps: 120, path: [{ x: 5, y: 0 }], position: CENTER, radius: 1000, speed: 100, trackSelf: true, trail: [] })).toBeNull();
   });
 });
 
