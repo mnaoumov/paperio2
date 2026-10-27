@@ -35,6 +35,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Lint accommodations for the split (user decisions).** `jsdoc/require-jsdoc` and `jsdoc/require-file-overview` are **off** for source files (`scripts/eslint-config.ts`) — the split turns ~150 engine symbols into exports and documenting them all was scoped out of the mechanical move. `perfectionist/sort-modules` stays **on**, but it would alphabetize top-level declarations and reorder `extends` subclasses before their base classes (breaking class-init at runtime), so each engine module that has such a declaration carries a **file-wide `/* eslint-disable perfectionist/sort-modules -- … */` block**: the first line opens it and the last line closes it with `/* eslint-enable … */`, because `disable-enable-pair` requires the pair. The other `src/` files stay fully checked. These files used to carry per-line `eslint-disable-next-line` comments, but per-line disables stopped working in perfectionist 5.12.0. That release's fix "Honor eslint-disable directives with a description" makes every disabled node a fixed point, and the rule then sorts every other declaration around those points. All of our disables carry a `-- reason`, so each one pinned a node and moved where the rest should go, and adding a disable for one finding produced new findings at other lines. Do not go back to per-line disables in these files. Declaration-merged interfaces need care: TypeScript requires all-or-none `export` on merged declarations, while `import-x/export` flags two exports of the same name — so `Config` (load-bearing merge: named fields + index signature) is exported on both copies with an `import-x/export` disable, while the accidental duplicate `Bounds`/`RenderContext`/`Metric` interfaces are kept local (unexported).
 - **Peel workflow** (each peel is independently verifiable because `engine.ts` remains to satisfy type back-edges): move the declarations verbatim into the new module (no dedent — engine code is already column-0), wire the imports (let `tsc` enumerate missing/unused), **put the file-wide `sort-modules` disable/enable pair on any new module with order-carrying declarations BEFORE running `lint:fix`** (otherwise its `sort-modules` autofix reorders the file and breaks `extends` order and block-level `no-magic-numbers` disables), then verify: `npm run typecheck` + `npm run build` + a headless-Chrome boot (16 units, player, 0 console errors) + `npm test`.
 
+Root documentation has an explicit Markdown check too: from `ts/`, run `npx --no-install markdownlint-cli2 ../AGENTS.md`. It uses the same configuration as `npm run lint:md` and includes the root instructions alongside the `ts/` Markdown files. The normal `npm run lint:md` gate checks only `ts/` documentation.
+
 ## What this is
 
 A local, self-contained offline copy of the browser game Paper.io 2 (originally from <https://paperio.site/>). It runs entirely client-side (JavaScript + Canvas) with AI bots — there is **no server-side game logic**, so it works fully offline. This repo is a preservation/offline-play copy, not an active development project; most files are the original site's unmodified content.
@@ -215,6 +217,20 @@ neither.
   once asserted on that bag and threw, which ended the rAF chain and froze the game, practice respawns included.
   `spawnBot` now follows the original key for key (`String(type)` keys, `Number(...)` reads), and the scenario
   `capture loop on paperio.site, a 16th bot` pins it.
+
+## Experimental engine rollouts
+
+`paperio2api.rollout(request, signal?)` (`ts/src/rollout/`) captures a game and runs
+the real engine in an opaque, disposable iframe, with local module globals, DOM,
+assets, Path2D, ids, pool and RNG. It uses the save graph codec, explicit mulberry32
+state and a 20 ms fixed-step direction schedule; it never restores the live game
+or enables a pilot. Requests are bounded to 600 frames, 64 units and 20,000 segments.
+Particle callbacks, pending timers and unsupported extensions are rejected.
+The iframe's achievement store cannot save cookies. `Game` accepts an optional
+`GameClock` at construction; ordinary games retain the default browser clock.
+See `ts/src/rollout/README.md` for the exact contract, limitations, parity tests
+and measurements. It shares the browser renderer and costs hundreds of milliseconds
+to seconds per request; it is not suitable for per-frame live planning.
 
 ## In-game video recorder
 
