@@ -207,13 +207,16 @@ speed in headless Chrome and reports, per pilot, the win rate, the median and
 best time to win and how runs end, then a growth curve: the median share of the
 arena at 0:30, 1, 2, 3, 5, 10, 15, 30 and 60 minutes over the runs still alive.
 The same seed replays the same game. It builds `dist/` before it plays. On
-2026-10-22, for the whitebox against the original bots on 2026-10-23, and for
-the blackbox on 2026-10-24:
+2026-10-22, for the whitebox against the original bots on 2026-10-23, for the
+blackbox on 2026-10-24, and for the whitebox on seeds 65-104 on 2026-10-26.
+The whitebox was tuned on seeds 1-64, and on seeds it was never tuned on it
+dies more often (40% against 28%):
 
 | Pilot | Enemies | Runs | Limit | Wins | Deaths (cause) | Alive at the limit (median %) |
 | --- | --- | --- | --- | --- | --- | --- |
 | Whitebox | Original | 32 | 15 min | 0 | 4 (trail cut 4) | 28 (39.1%) |
 | Whitebox | Original | 64 | 30 min | 0 | 18 (trail cut 15, exit point taken 2, surrounded 1) | 46 (50.7%) |
+| Whitebox | Original | 40 (seeds 65-104) | 30 min | 0 | 16 (trail cut 13, surrounded 2, exit point taken 1) | 24 (47.8%) |
 | Whitebox | Original | 16 | 60 min | 0 | 4 (trail cut 4) | 12 (57.5%) |
 | Whitebox | Passive | 8 | 30 min | 0 | 0 | 8 (38.1%) |
 | Blackbox | Original | 32 | 5 min | 0 | 7 (exit point taken 3, trail cut 2, surrounded 1, self-intersection 1) | 25 (3.6%) |

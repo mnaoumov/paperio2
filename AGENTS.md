@@ -413,6 +413,12 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   Measured on 2026-10-25, a recorded death is either decided already 8-13 s before (all 32 trials die) or a knife edge
   (0-2 of 32 die), so a comparison needs many trials per situation. Re-record only the seeds that died with
   `--seed-list '1,11,15'` (quoted in PowerShell).
+- **Judge a pilot change on seeds it was not tuned on.** The whitebox has been tuned against seeds 1-64 for weeks, and
+  main dies in 18 of them (28%) but in 16 of seeds 65-104 (40%), measured on 2026-10-26. So "worse than main on seeds
+  1-64" can be regression to main's true rate rather than harm, and it may be what refuted every pilot change measured on 2026-10-25 and 26.
+  Measure both main and the change on held-out seeds (`--first-seed 65` or higher). The same bias, stronger, makes
+  "it fixes the seeds main dies on" no evidence at all: any change that moves the runs onto other paths saves some of
+  those seeds by chance.
 
 ## Racing: seed, ghost and showcase
 
