@@ -6,8 +6,12 @@
  * unit-tested.
  */
 
+import type { BuildIdentity } from './build.ts';
+
 /** One replay's results file. */
 export interface ReplayResults {
+  /** Exact served bundle and build inputs; absent in historical results. */
+  readonly build?: BuildIdentity;
   /** The commit the replayed bundle was built from, when the checkout has one. */
   readonly commit: null | string;
   readonly controlWindowSeconds: number;

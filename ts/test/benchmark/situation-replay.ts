@@ -22,7 +22,6 @@
 
 import type { Page } from 'puppeteer-core';
 
-import { execFile } from 'node:child_process';
 import {
   readdir,
   readFile,
@@ -33,10 +32,7 @@ import {
   basename,
   join
 } from 'node:path';
-import {
-  parseArgs,
-  promisify
-} from 'node:util';
+import { parseArgs } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
 import type { PageEnemySettings } from '../differential/page-instrumentation.ts';
@@ -49,9 +45,9 @@ import type {
 
 import {
   launchBrowser,
-  openVariant,
-  TS_ROOT
+  openVariant
 } from '../differential/harness.ts';
+import { buildBenchmark } from './build.ts';
 import { compareReplays } from './situation.ts';
 
 /** What a trial's step reports back. */
@@ -156,8 +152,8 @@ async function replayAll(): Promise<void> {
   const windows = { control: Number(values['control-window']), death: Number(values['death-window']) };
   const files = (await readdir(directory)).filter((file) => file.endsWith('.json')).sort();
   // The page plays `dist/app2.js`, so build it first, as the benchmark does.
-  await promisify(execFile)(process.execPath, ['build.mjs'], { cwd: TS_ROOT });
-  const { stdout } = await promisify(execFile)('git', ['rev-parse', '--short', 'HEAD'], { cwd: TS_ROOT }).catch(() => ({ stdout: '' }));
+  const build = await buildBenchmark();
+  print(`Build: ${JSON.stringify(build.identity)}`);
   const browser = await launchBrowser();
   const situations: SituationResult[] = [];
   try {
@@ -169,7 +165,7 @@ async function replayAll(): Promise<void> {
           print(`${file}: not a situation, skipped`);
           continue;
         }
-        const page = await openVariant(browser, 'reconstruction', { expectedCoverage: {}, frames: 0, keys: [], name: file, seed: parsed.seed, startFrame: 0 } satisfies Scenario, { traceCanvas: false });
+        const page = await openVariant(browser, 'reconstruction', { expectedCoverage: {}, frames: 0, keys: [], name: file, seed: parsed.seed, startFrame: 0 } satisfies Scenario, { bundle: build.bundle, traceCanvas: false });
         try {
           const result = await replaySituation(page, basename(file, '.json'), parsed, trials[parsed.kind], windows[parsed.kind]);
           situations.push(result);
@@ -190,7 +186,8 @@ async function replayAll(): Promise<void> {
   }
   situations.sort((left, right) => left.name.localeCompare(right.name));
   const results: ReplayResults = {
-    commit: stdout.trim() || null,
+    build: build.identity,
+    commit: build.identity.commit,
     controlWindowSeconds: windows.control,
     deathWindowSeconds: windows.death,
     freshPilot: values['fresh-pilot'],
@@ -200,6 +197,7 @@ async function replayAll(): Promise<void> {
   };
   await writeFile(out, JSON.stringify(results, null, 1));
   print('');
+  print(`Build: ${JSON.stringify(build.identity)}`);
   print(summary(results));
 }
 
