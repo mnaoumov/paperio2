@@ -10,6 +10,7 @@ import {
   guardBaseExit,
   guardWallTurn,
   homeFlightLength,
+  reachesInTime,
   returnEntryPoint,
   simulateApproach
 } from './whitebox.ts';
@@ -20,6 +21,16 @@ const RADIUS = 100;
 const PRESSED = { x: 100, y: 0 };
 /** Sliding along the wall towards positive angles. */
 const HEADING = 0.5;
+
+describe('reachesInTime', () => {
+  it('rejects a cut that arrives after its owner can close the trail', () => {
+    expect(reachesInTime(2, { baseDistance: 100 }, 100)).toBe(false);
+  });
+
+  it('allows a cut with time to spare before its owner can get home', () => {
+    expect(reachesInTime(0.5, { baseDistance: 300 }, 100)).toBe(true);
+  });
+});
 
 describe('simulateApproach', () => {
   it('counts a second sliding at the wall as a full second of exposure', () => {

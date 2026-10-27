@@ -649,12 +649,13 @@ export class WhiteboxPilot {
   }
 
   private attackTarget(situation: Situation, victim: Unit): null | Point {
-    const { inBase, position } = situation;
+    const { game, inBase, position } = situation;
     const trailPoints = victim.track.simplyline.map(toPoint);
     if (this.victimMode === 'surround') {
       return this.surroundTarget(situation, victim);
     }
-    const home = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING))?.point ?? null : null;
+    const candidate = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING)) : null;
+    const home = candidate && reachesInTime(candidate.seconds, victim, game.config.unitSpeed) ? candidate.point : null;
     // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
     const point = this.victimMode === 'home' ? home : home ?? nearestPoint(position, trailPoints);
     if (!point) {
@@ -812,7 +813,7 @@ export class WhiteboxPilot {
         // A trail run through the player's own base is about to take ground from it, and cutting it costs the player no
         // time outside: the nearest such trail is cut first.
         const home = homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
-        if (home && (!best || !best.home || home.seconds < best.seconds)) {
+        if (home && reachesInTime(home.seconds, unit, game.config.unitSpeed) && (!best || !best.home || home.seconds < best.seconds)) {
           best = { home: true, seconds: home.seconds, unit };
         }
         if (best?.home) {
@@ -1168,7 +1169,7 @@ export function guardBaseExit(params: GuardBaseExitParams): number {
     for (let step = 0; step < EDGE_GUARD_STEPS; step++) {
       simulatedHeading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(direction, simulatedHeading)));
       simulated = { x: simulated.x + Math.cos(simulatedHeading) * stepLength, y: simulated.y + Math.sin(simulatedHeading) * stepLength };
-      if (!pointInPolygon(simulated, outline) || depthInside(simulated, outline) < minimumDepth) {
+      if (!pointInPolygon(simulated, outline) || (minimumDepth > 0 && depthInside(simulated, outline) < minimumDepth)) {
         return { point: simulated, step };
       }
     }
@@ -1238,6 +1239,18 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
     position = next;
   }
   return null;
+}
+
+/**
+ * Whether the player, `seconds` from a unit's trail, gets there in good time before the unit is home.
+ *
+ * @param seconds - The player's time to the trail.
+ * @param unit - The trail's owner.
+ * @param speed - The unit speed.
+ * @returns Whether it does.
+ */
+export function reachesInTime(seconds: number, unit: Pick<Unit, 'baseDistance'>, speed: number): boolean {
+  return seconds <= unit.baseDistance / speed * ATTACK_TIME_SHARE - ATTACK_MARGIN_SECONDS;
 }
 
 export function returnEntryPoint(params: ReturnEntryPointParams): null | Point {
@@ -2176,18 +2189,6 @@ function rasterize(outline: readonly Point[], width: number, height: number, cel
     }
   }
   return { cellSize, columns, own, rows };
-}
-
-/**
- * Whether the player, `seconds` from a unit's trail, gets there in good time before the unit is home.
- *
- * @param seconds - The player's time to the trail.
- * @param unit - The trail's owner.
- * @param speed - The unit speed.
- * @returns Whether it does.
- */
-function reachesInTime(seconds: number, unit: Unit, speed: number): boolean {
-  return seconds <= unit.baseDistance / speed * ATTACK_TIME_SHARE - ATTACK_MARGIN_SECONDS;
 }
 
 /**
