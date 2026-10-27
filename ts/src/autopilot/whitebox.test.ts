@@ -4,6 +4,11 @@ import {
   it
 } from 'vitest';
 
+import type {
+  LoopPlanner,
+  PlanInput
+} from './whitebox.ts';
+
 import {
   pointInPolygon,
   THREE_EIGHTHS_TURN
@@ -17,7 +22,8 @@ import {
   homeFlightLength,
   reachesInTime,
   returnEntryPoint,
-  simulateApproach
+  simulateApproach,
+  WhiteboxPilot
 } from './whitebox.ts';
 
 const CENTER = { x: 0, y: 0 };
@@ -157,6 +163,62 @@ describe('homeFlightLength', () => {
     expect(homeFlightLength({ heading: 0, outline: bent, position: { x: 25, y: 150 }, speed: 100, target: { x: 175, y: 150 } })).toBeNull();
   });
 });
+/* eslint-disable @typescript-eslint/dot-notation -- bracket access exercises the private planner boundary with typed inputs. */
+describe('delayed whitebox plans', () => {
+  const input: PlanInput = {
+    captures: [],
+    center: CENTER,
+    enemies: [],
+    heading: 0,
+    maxTrail: 1000,
+    outline: [{ x: -100, y: -100 }, { x: 100, y: -100 }, { x: 100, y: 100 }, { x: -100, y: 100 }],
+    position: CENTER,
+    radius: 1000,
+    spaceHeight: 2000,
+    spaceWidth: 2000,
+    speed: 60
+  };
+
+  it.each([
+    { danger: false, heading: 0, position: { x: 99, y: 0 }, safe: false },
+    { danger: false, heading: 0, position: { x: 1, y: 0 }, safe: true },
+    { danger: false, heading: Math.PI, position: { x: 99, y: 0 }, safe: true },
+    { danger: true, heading: 0, position: { x: 1, y: 0 }, safe: false }
+  ])('checks a delayed route from the latest pose ($safe)', ({ danger, heading, position, safe }) => {
+    const pilot = new WhiteboxPilot();
+    const answers: Parameters<LoopPlanner>[1][] = [];
+    const requests: PlanInput[] = [];
+    pilot.planner = (request, answer): void => {
+      requests.push(request);
+      answers.push(answer);
+    };
+    const plan = findLoop(input);
+    expect(plan).not.toBeNull();
+    // These calls model consecutive steer updates while waiting, without needing a canvas or a game instance.
+    pilot['updates']++;
+    expect(pilot['planLoop'](input)).toBeNull();
+    pilot['updates']++;
+    const current: PlanInput = {
+      ...input,
+      enemies: danger ? [{ direction: 0, hunting: true, position: plan?.check.samples[0] ?? CENTER, target: null, trigger: 100 }] : [],
+      heading,
+      position
+    };
+    expect(pilot['planLoop'](current)).toBeNull();
+    answers[0]?.(plan);
+    pilot['updates']++;
+    const accepted = pilot['planLoop'](current);
+    expect(pilot.stats.loops).toBe(safe ? 1 : 0);
+    expect(accepted).toBe(safe ? true : null);
+    expect(requests).toHaveLength(safe ? 1 : 2);
+    if (!safe) {
+      expect(requests[1]).toEqual(current);
+      expect(pilot.debug.loop).toBeNull();
+    }
+  });
+});
+
+/* eslint-enable @typescript-eslint/dot-notation -- the remaining tests use only public methods. */
 
 describe('guardWallTurn', () => {
   it('leaves a turn away from the wall alone', () => {
