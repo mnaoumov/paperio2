@@ -112,6 +112,8 @@ export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKi
 export interface OpenVariantOptions {
   /** The reconstruction captured at run startup, shared by every page of a benchmark. */
   readonly bundle?: PinnedBundle;
+  /** Native-clock smoke tests can opt out of the deterministic scheduler. */
+  readonly deterministic?: boolean;
   /** Query parameters added to the page's URL, such as `seed=race` (without the `?`). */
   readonly query?: string;
   /** `localStorage` entries written before the page's own scripts run, as a returning visitor's settings. */
@@ -176,7 +178,9 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
   page.on('pageerror', (error) => {
     errors.push(String(error));
   });
-  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
+  if (options.deterministic !== false) {
+    await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
+  }
   if (options.storage) {
     await page.evaluateOnNewDocument((entries: Readonly<Record<string, string>>) => {
       for (const [key, value] of Object.entries(entries)) {
