@@ -23,6 +23,7 @@ import {
   reachesInTime,
   returnEntryPoint,
   simulateApproach,
+  threatens,
   WhiteboxPilot
 } from './whitebox.ts';
 
@@ -117,6 +118,22 @@ describe('guardBaseExit', () => {
 });
 
 describe('findLoop', () => {
+  it('leaves threat headroom while approaching the exit instead of choosing a knife-edge loop', () => {
+    const enemies = Array.from({ length: 15 }, (_unused, index) => ({ direction: index, hunting: false, position: { x: 1000 + Math.cos(index * Math.PI * 2 / 15) * 350, y: 1000 + Math.sin(index * Math.PI * 2 / 15) * 350 }, target: null, trigger: 80 }));
+    const input: PlanInput = { captures: [], center: { x: 1000, y: 1000 }, enemies, heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 };
+    const plan = findLoop(input);
+    expect(plan).not.toBeNull();
+    if (!plan) {
+      throw new Error('The surrounding bots still leave room for a small loop');
+    }
+    const exit = plan.waypoints[0] ?? input.position;
+    const transit = Math.min(Math.hypot(exit.x - input.position.x, exit.y - input.position.y), input.speed / 4);
+    for (const enemy of enemies) {
+      const toward = Math.atan2(plan.check.center.y - enemy.position.y, plan.check.center.x - enemy.position.x);
+      const position = { x: enemy.position.x + Math.cos(toward) * transit, y: enemy.position.y + Math.sin(toward) * transit };
+      expect(threatens({ check: plan.check, enemy: { ...enemy, position } })).toBe(false);
+    }
+  });
   it('does not select a loop crossed by a passive bot on its committed leg', () => {
     const input = { captures: [], center: { x: 1000, y: 1000 }, enemies: [], heading: 0, maxTrail: 900, outline: [{ x: 900, y: 900 }, { x: 1100, y: 900 }, { x: 1100, y: 1100 }, { x: 900, y: 1100 }], position: { x: 1000, y: 1000 }, radius: 1000, spaceHeight: 2000, spaceWidth: 2000, speed: 100 };
     const clear = findLoop(input);
@@ -240,6 +257,13 @@ describe('guardWallTurn', () => {
 });
 
 describe('enemyCrossesLoop', () => {
+  it('does not let the circle bound hide an extended corridor with admission headroom', () => {
+    const enemy = { direction: 0, hunting: false, position: CENTER, target: { x: 1000, y: 0 }, trigger: 0 };
+    const samples = [{ x: 225, y: -5 }, { x: 225, y: 5 }];
+    const check = { center: { x: 225, y: 0 }, exposure: 100, maxRemaining: 100, remaining: [100, 90], samples, spread: 5, trailLength: 100 };
+    expect(enemyCrossesLoop({ enemy, reserve: 50, samples, trailLength: 100 })).toBe(true);
+    expect(threatens({ check, enemy, reserve: 50 })).toBe(true);
+  });
   it('sees a passive bot returning across a future trail even when its current heading points away', () => {
     expect(enemyCrossesLoop({ enemy: { direction: Math.PI, hunting: false, position: { x: 0, y: 0 }, target: { x: 300, y: 0 }, trigger: 0 }, samples: [{ x: 200, y: -100 }, { x: 200, y: 100 }], trailLength: 300 })).toBe(true);
   });
