@@ -83,8 +83,10 @@ async function continuation(page: Page, request: RolloutRequest): Promise<Rollou
         game.direction.normalize();
         index++;
       }
-      game.clock.setNow(game.clock.now() + 20);
-      game.update(20);
+      // As a live frame: the update's length is the difference of two clock readings.
+      const before = game.clock.now();
+      game.clock.setNow(before + (input.stepMs ?? 20));
+      game.update(game.clock.now() - before);
       frames.push(window.__readRolloutFrame(game, frame, (window.__differential.randomState() + 4294967296) % 4294967296));
       if (game.pendingGameOver) {
         break;
@@ -237,6 +239,18 @@ it.each(['control', 'capture', 'self', 'cut', 'wall'])('matches %s continuation 
   }
 });
 
+it('matches a continuation at 60 fps frames', async () => {
+  const page = await prepared();
+  try {
+    const request: RolloutRequest = { frames: 120, inputs: [{ frame: 0, x: 1, y: 0 }, { frame: 60, x: 0, y: -1 }], randomState: 12345, stepMs: 1000 / 60 };
+    const result = await page.evaluate(async (input) => window.__rollout.rollout(input), request);
+    expect(result.frames).toHaveLength(120);
+    expect(result.frames).toEqual(await continuation(page, request));
+  } finally {
+    await page.browserContext().close();
+  }
+});
+
 it('rejects invalid, aborted and unsupported requests without touching the live game', async () => {
   const page = await prepared();
   try {
@@ -248,6 +262,13 @@ it('rejects invalid, aborted and unsupported requests without touching the live 
       for (const frames of [0, 601, NaN]) {
         try {
           await api.rollout({ ...request, frames });
+        } catch (error) {
+          results.push(String(error));
+        }
+      }
+      for (const stepMs of [0, 35]) {
+        try {
+          await api.rollout({ ...request, stepMs });
         } catch (error) {
           results.push(String(error));
         }
@@ -289,7 +310,7 @@ it('rejects invalid, aborted and unsupported requests without touching the live 
       }
       return results;
     });
-    expect(errors).toHaveLength(7);
+    expect(errors).toHaveLength(9);
     expect(await facts(page)).toBe(before);
     expect(await page.evaluate(() => window.__rolloutIdentity() && window.__poolAllocations === 0)).toBe(true);
     // A valid graph referring to an unavailable skin fails inside the child after capture.

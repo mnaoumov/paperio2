@@ -1,5 +1,8 @@
 export const MAX_ROLLOUT_FRAMES = 600;
 export const ROLLOUT_STEP_MS = 20;
+export const MIN_ROLLOUT_STEP_MS = 1;
+/** Just above two 60 fps frames, the longest single update a live frame takes without being split. */
+export const MAX_ROLLOUT_STEP_MS = 34;
 export const MAX_ROLLOUT_CHARACTERS = 4_000_000;
 export const ROLLOUT_TIMEOUT_MS = 30_000;
 export const MAX_ROLLOUT_UNITS = 64;
@@ -39,6 +42,8 @@ export interface RolloutRequest {
   readonly inputs: readonly RolloutInput[];
   /** Explicit mulberry32 state. Native Math.random has no readable state. */
   readonly randomState: number;
+  /** The length of every frame, {@link ROLLOUT_STEP_MS} when left out; `1000 / 60` matches a 60 fps live game. */
+  readonly stepMs?: number | undefined;
 }
 
 export interface RolloutResult {
@@ -68,6 +73,7 @@ export function validateRollout(request: RolloutRequest): void {
     !Number.isInteger(request.frames) || request.frames < 1 || request.frames > MAX_ROLLOUT_FRAMES
     || !Number.isInteger(request.randomState) || request.randomState < 0 || request.randomState > MAX_RANDOM_STATE
     || request.inputs.length > request.frames
+    || (request.stepMs !== undefined && !(request.stepMs >= MIN_ROLLOUT_STEP_MS && request.stepMs <= MAX_ROLLOUT_STEP_MS))
   ) {
     throw new Error('Invalid rollout bounds');
   }
