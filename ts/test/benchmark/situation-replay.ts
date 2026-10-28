@@ -53,6 +53,8 @@ import { compareReplays } from './situation.ts';
 /** What a trial's step reports back. */
 interface StepState {
   readonly done: boolean;
+  /** With `--trace`, trial 0's lines from this step. */
+  readonly lines: readonly string[];
   readonly percent: number;
   readonly reason: null | number;
   readonly seconds: number;
@@ -94,6 +96,8 @@ const DEFAULT_PARALLEL_SHARE = 2;
 const REASONS: readonly string[] = ['win', 'self-intersection', 'wall', 'trail cut', 'exit point taken', 'surrounded', 'system', 'capital surrounded'];
 const SECONDS_PER_HOUR = 3600;
 const RATE_DIGITS = 1;
+/** `--trace` prints game time to the hundredth of a second, finer than one 60 fps frame apart. */
+const TRACE_SECONDS_DIGITS = 2;
 
 const { values } = parseArgs({
   options: {
@@ -108,6 +112,7 @@ const { values } = parseArgs({
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'rollout': { default: false, type: 'boolean' },
     'situations': { type: 'string' },
+    'trace': { default: false, type: 'boolean' },
     'trials': { default: '16', type: 'string' }
   }
 });
@@ -285,9 +290,13 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
       }
       return { percent: game.player?.percent ?? 0, seconds: (game.clock.now() - (game.startTime ?? 0)) / trialSetup.millisecondsPerSecond };
     }, setup);
-    let state: StepState = { done: false, percent: start.percent, reason: null, seconds: start.seconds };
+    let state: StepState = { done: false, lines: [], percent: start.percent, reason: null, seconds: start.seconds };
+    const traced = values.trace && trial === 0;
     while (!state.done && state.seconds - start.seconds < windowSeconds) {
-      state = await stepTrial(page, Math.min(CHUNK_FRAMES, Math.ceil((windowSeconds - (state.seconds - start.seconds)) * FRAMES_PER_SECOND)));
+      state = await stepTrial(page, Math.min(CHUNK_FRAMES, Math.ceil((windowSeconds - (state.seconds - start.seconds)) * FRAMES_PER_SECOND)), traced);
+      for (const line of state.lines) {
+        print(`${name} ${line}`);
+      }
     }
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     outcomes.push({ died: reason !== null && reason !== 'win', gain: state.percent - start.percent, reason, seconds: Math.min(windowSeconds, state.seconds - start.seconds) });
@@ -295,17 +304,38 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
   return { kind: situation.kind, name, outcomes };
 }
 
-async function stepTrial(page: Page, frames: number): Promise<StepState> {
+async function stepTrial(page: Page, frames: number, traced: boolean): Promise<StepState> {
   return page.evaluate(
-    async (count: number, milliseconds: number, millisecondsPerSecond: number): Promise<StepState> => {
+    async (count: number, milliseconds: number, millisecondsPerSecond: number, trace: boolean, digits: number): Promise<StepState> => {
       const { game } = window.paperio2api;
+      const lines: string[] = [];
+      let last = '';
+      // A line on every change of phase, of base, of loop or of whether the loop was checked in a rollout.
+      function traceFrame(): void {
+        const pilot = window.__autopilot?.whitebox;
+        const player = game.player;
+        if (!pilot || !player) {
+          return;
+        }
+        const checked: unknown = Reflect.get(Object(pilot.saveState(game)), 'loopChecked');
+        const line = `${pilot.debug.phase} in=${String(player.in === player.base)} loop=${String(pilot.debug.loop?.length ?? 0)} checked=${String(checked)}`;
+        if (line !== last) {
+          last = line;
+          const seconds = (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond;
+          lines.push(`${seconds.toFixed(digits)}s ${line} pos=${player.position.x.toFixed(0)},${player.position.y.toFixed(0)} threat=${JSON.stringify(pilot.debug.threat) ?? '-'} stats=${JSON.stringify(pilot.stats)} rollout=${JSON.stringify(window.__autopilot?.rolloutPlanner?.stats ?? null)}`);
+        }
+      }
       for (let frame = 0; frame < count && !game.pendingGameOver && game.player; frame++) {
         await window.__autopilot?.rolloutPlanner?.pending;
         await window.__differential.step(milliseconds);
+        if (trace) {
+          traceFrame();
+        }
       }
       const pending = game.pendingGameOver ?? null;
       return {
         done: pending !== null || !game.player,
+        lines,
         percent: game.player?.percent ?? 0,
         reason: pending?.reason ?? null,
         seconds: (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond
@@ -313,7 +343,9 @@ async function stepTrial(page: Page, frames: number): Promise<StepState> {
     },
     frames,
     FRAME_MILLISECONDS,
-    MILLISECONDS_PER_SECOND
+    MILLISECONDS_PER_SECOND,
+    traced,
+    TRACE_SECONDS_DIGITS
   );
 }
 

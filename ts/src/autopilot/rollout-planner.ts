@@ -117,7 +117,7 @@ export class RolloutPlanner {
       const verdict = judgeRollout(result, name);
       if (verdict === 'safe') {
         this.stats.accepted++;
-        return { ...loop, checked: true };
+        return { ...loop, checked: true, schedule: { directions, stepSeconds } };
       }
       if (verdict === 'death') {
         this.stats.rejectedDeath++;

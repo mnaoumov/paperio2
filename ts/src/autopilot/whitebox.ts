@@ -69,8 +69,20 @@ interface CachedCaptures {
 const cachedCaptures = new WeakMap<Unit, CachedCaptures>();
 let captureReadGeneration = 0;
 
+/** A schedule being flown, and the game time in seconds its first step starts at. */
+export interface ActiveSchedule {
+  readonly flight: LoopSchedule;
+  readonly start: number;
+}
+
 /** Plans a loop from its input and calls back with it, now or later. */
 export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) => void) => void;
+
+/** An open-loop flight: one unit direction per fixed step of game time, from the moment the loop is taken. */
+export interface LoopSchedule {
+  readonly directions: readonly Point[];
+  readonly stepSeconds: number;
+}
 
 /** Everything a loop plan reads, as plain data, so it can be planned in a worker. */
 export interface PlanInput {
@@ -96,6 +108,8 @@ export interface PlannedLoop {
   readonly check: LoopCheck;
   /** Whether an engine rollout flew this loop and closed it alive; the pilot then flies it out without heuristic aborts. */
   readonly checked?: boolean;
+  /** The directions the rollout steered by, which a checked loop is flown by instead of its waypoints. */
+  readonly schedule?: LoopSchedule;
   readonly waypoints: readonly Point[];
 }
 
@@ -131,6 +145,8 @@ export interface WhiteboxState {
   readonly planCooldown: number;
   readonly returnPath: Point[];
   readonly returnUpdates: number;
+  /** The checked loop's schedule and the game time in seconds it started at; absent in older states. */
+  readonly schedule?: ActiveSchedule | null;
   readonly sweep: null | SweepState;
   readonly sweepCooldown: number;
   readonly target: null | Point;
@@ -319,6 +335,9 @@ const ATTACK_TIME_SHARE = 0.8;
 const ATTACK_MARGIN_SECONDS = 0.25;
 /** The cut aims this far past the trail point, so the player crosses the trail. */
 const ATTACK_OVERSHOOT = 15;
+const MILLISECONDS_PER_SECOND = 1000;
+/** How far ahead along a scheduled direction the debug target is drawn. */
+const SCHEDULE_TARGET_DISTANCE = 60;
 /** Other units must be this much farther from the way to the cut than the cut is, plus the margin. */
 const ATTACK_THREAT_FACTOR = 1;
 const ATTACK_THREAT_MARGIN = 40;
@@ -602,7 +621,7 @@ export class WhiteboxPilot {
   public checkedDeparturesOnly = false;
   public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, corridorReplans: 0, edgeHolds: 0, guardReplans: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, trustedThreats: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, corridorReplans: 0, edgeHolds: 0, guardReplans: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, scheduledUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, trustedThreats: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
@@ -612,9 +631,13 @@ export class WhiteboxPilot {
   private loop: null | readonly Point[] = null;
   private loopCheck: LoopCheck | null = null;
   private loopChecked = false;
+  /** The game time in seconds at the current update. */
+  private now = 0;
   private phase: WhiteboxPhase = 'home';
   /** The planner's last answer, and which request it answers. */
   private planAnswer: null | PlanAnswer = null;
+  /** The game time in seconds the plan still out was asked at, which its schedule starts from. */
+  private planAskedAt = 0;
   /** Updates to wait before planning again after a plan found no safe loop. */
   private planCooldown = 0;
   /** The update that last waited for a plan. */
@@ -624,6 +647,7 @@ export class WhiteboxPilot {
   private planRequests = 0;
   private returnPath: Point[] = [];
   private returnUpdates = 0;
+  private schedule: ActiveSchedule | null = null;
   /** The wall sweep under way: the player's last angle around the centre and how far round it has gone. */
   private sweep: null | SweepState = null;
   /** Updates to wait before the next wall sweep. */
@@ -650,6 +674,7 @@ export class WhiteboxPilot {
     this.returnPath = [];
     this.planPending = null;
     this.planAnswer = null;
+    this.schedule = null;
   }
 
   /**
@@ -666,6 +691,7 @@ export class WhiteboxPilot {
     this.loopCheck = copy.loopCheck;
     this.loopChecked = copy.loopChecked ?? false;
     this.phase = copy.phase;
+    this.schedule = copy.schedule ?? null;
     this.planCooldown = copy.planCooldown;
     this.planPending = null;
     this.planAnswer = null;
@@ -698,6 +724,7 @@ export class WhiteboxPilot {
       planCooldown: this.planCooldown,
       returnPath: this.returnPath,
       returnUpdates: this.returnUpdates,
+      schedule: this.schedule,
       sweep: this.sweep,
       sweepCooldown: this.sweepCooldown,
       target: this.target,
@@ -711,6 +738,7 @@ export class WhiteboxPilot {
   public steer(game: Game): null | Point {
     captureReadGeneration++;
     this.updates++;
+    this.now = game.clock.now() / MILLISECONDS_PER_SECOND;
     const player = game.player;
     if (!player || player.death) {
       this.reset();
@@ -743,12 +771,19 @@ export class WhiteboxPilot {
       this.loop = null;
     }
     this.lookAround(situation);
-    this.target = this.sweepOrChooseTarget(situation);
+    // A checked loop is flown by the directions its rollout steered by, from the plan's own moment, or the flight that
+    // was forecast is not the one flown.
+    let scheduled = this.scheduledDirection(situation);
+    if (!scheduled) {
+      this.target = this.sweepOrChooseTarget(situation);
+      // A loop taken in this very update starts its schedule at once.
+      scheduled = this.scheduledDirection(situation);
+    }
     this.stats[`${this.phase}Updates`]++;
     if (this.phase === 'home' && !this.loop) {
       this.stats.holdUpdates++;
     }
-    return this.steerAtTarget(situation);
+    return scheduled ?? this.steerAtTarget(situation);
   }
 
   private attackTarget(situation: Situation, victim: Unit): null | Point {
@@ -1067,12 +1102,13 @@ export class WhiteboxPilot {
       ) {
         this.stats.replans++;
       } else {
-        return this.takePlan(plan);
+        return this.takePlan(plan, this.planAskedAt);
       }
     }
     if (this.planPending === null) {
       const id = ++this.planRequests;
       this.planPending = id;
+      this.planAskedAt = this.now;
       this.planner(input, (plan) => {
         this.planAnswer = { id, plan };
       });
@@ -1091,6 +1127,33 @@ export class WhiteboxPilot {
       this.returnPath.shift();
     }
     return this.returnPath[0] ?? null;
+  }
+
+  /**
+   * The checked loop's scheduled direction for now, dropping the schedule once it has run out or the pilot has turned
+   * to something else (an attack, a sweep, a reset).
+   *
+   * @param situation - What the update knows.
+   * @returns The direction, or `null` when no schedule is being flown.
+   */
+  private scheduledDirection(situation: Pick<Situation, 'inBase' | 'position'>): null | Point {
+    const schedule = this.schedule;
+    if (!schedule) {
+      return null;
+    }
+    const direction = this.loop && (this.phase === 'home' || this.phase === 'out')
+      ? schedule.flight.directions[Math.max(0, Math.floor((this.now - schedule.start) / schedule.flight.stepSeconds))]
+      : undefined;
+    if (!direction) {
+      this.schedule = null;
+      return null;
+    }
+    if (!situation.inBase) {
+      this.phase = 'out';
+    }
+    this.stats.scheduledUpdates++;
+    this.target = add(situation.position, scale(direction, SCHEDULE_TARGET_DISTANCE));
+    return direction;
   }
 
   private steerAtTarget(situation: Situation): null | Point {
@@ -1201,10 +1264,11 @@ export class WhiteboxPilot {
     return add(center, scale({ x: Math.cos(ahead), y: Math.sin(ahead) }, radius + SWEEP_PUSH));
   }
 
-  private takePlan(plan: null | PlannedLoop): boolean {
+  private takePlan(plan: null | PlannedLoop, start = this.now): boolean {
     this.loop = plan?.waypoints ?? null;
     this.loopCheck = plan?.check ?? null;
     this.loopChecked = plan?.checked === true;
+    this.schedule = plan?.checked && plan.schedule ? { flight: plan.schedule, start } : null;
     this.waypointIndex = 0;
     if (plan) {
       this.stats.loops++;

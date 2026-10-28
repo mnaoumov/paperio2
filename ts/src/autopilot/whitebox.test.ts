@@ -246,6 +246,33 @@ describe('delayed whitebox plans', () => {
     pilot['takePlan'](plan);
     expect(pilot['loopChecked']).toBe(false);
   });
+
+  it('flies a checked loop by its schedule from the moment the plan was asked', () => {
+    const plan = findLoop(input);
+    expect(plan).not.toBeNull();
+    if (!plan) {
+      return;
+    }
+    const east = { x: 1, y: 0 };
+    const north = { x: 0, y: -1 };
+    const schedule = { directions: [east, east, north], stepSeconds: 0.5 };
+    const pilot = new WhiteboxPilot();
+    pilot['now'] = 11;
+    pilot['takePlan']({ ...plan, checked: true, schedule }, 10);
+    const outside = { inBase: false, position: CENTER };
+    expect(pilot['scheduledDirection'](outside)).toBe(north);
+    expect(pilot.debug.phase).toBe('out');
+    pilot['now'] = 10.2;
+    expect(pilot['scheduledDirection'](outside)).toBe(east);
+    pilot['now'] = 11.5;
+    expect(pilot['scheduledDirection'](outside)).toBeNull();
+    // Once run out, the schedule is gone, and the waypoints fly the rest.
+    pilot['now'] = 10;
+    expect(pilot['scheduledDirection'](outside)).toBeNull();
+    // An unchecked loop has no schedule to fly.
+    pilot['takePlan']({ ...plan, schedule }, 10);
+    expect(pilot['scheduledDirection'](outside)).toBeNull();
+  });
 });
 
 /* eslint-enable @typescript-eslint/dot-notation -- the remaining tests use only public methods. */

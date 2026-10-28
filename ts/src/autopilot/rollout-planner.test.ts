@@ -126,7 +126,8 @@ describe('RolloutPlanner', () => {
       answered = plan;
     });
     await planner.pending;
-    expect(answered).toEqual({ ...loops[1], checked: true });
+    expect(answered).toMatchObject({ ...loops[1], checked: true });
+    expect(answered).toHaveProperty('schedule.stepSeconds', 0.02);
     expect(planner.stats).toMatchObject({ accepted: 1, rejectedDeath: 1, rollouts: 2 });
   });
   it('answers no loop when every rollout dies', async () => {
