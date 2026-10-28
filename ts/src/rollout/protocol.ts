@@ -36,6 +36,11 @@ export interface RolloutReply {
 
 export interface RolloutRequest {
   readonly frames: number;
+  /**
+   * Starts even with live particles, which the transfer leaves out anyway. Their callbacks draw from the live
+   * `Math.random`, so the live game's random stream then no longer matches this forecast: for planning, not parity.
+   */
+  readonly ignoreParticles?: boolean | undefined;
   readonly inputs: readonly RolloutInput[];
   /** Explicit mulberry32 state. Native Math.random has no readable state. */
   readonly randomState: number;

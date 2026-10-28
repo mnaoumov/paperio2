@@ -1258,6 +1258,17 @@ export function enemyCrossesLoop(params: EnemyCrossesLoopParams): boolean {
  * @returns The loop, or `null` when none is safe.
  */
 export function findLoop(input: PlanInput): null | PlannedLoop {
+  return findLoops(input, 1)[0] ?? null;
+}
+
+/**
+ * The best few loops that pass {@link findLoop}'s simulation, best first, for a planner that checks them further.
+ *
+ * @param input - What the plan reads.
+ * @param limit - How many to return at most.
+ * @returns The loops; the first is {@link findLoop}'s.
+ */
+export function findLoops(input: PlanInput, limit: number): PlannedLoop[] {
   const { outline, position } = input;
   const orientation = Math.sign(signedArea(outline)) || 1;
   const base = {
@@ -1273,24 +1284,67 @@ export function findLoop(input: PlanInput): null | PlannedLoop {
     ring: resampleRing(outline, RING_SPACING, orientation),
     speed: input.speed
   };
-  let best: Candidate | null = null;
+  let found: Candidate[] = [];
   for (const cellSize of CELL_SIZES) {
     const raster = rasterize(outline, input.spaceWidth, input.spaceHeight, cellSize);
     const context: PlanContext = { ...base, field: distanceField(raster), raster };
     const candidates = rankCandidates(context, collectEstimates(context));
-    best = null;
+    found = [];
     // The best few are flown in simulation, out and home, and the first that never touches its own trail is taken.
     for (const candidate of candidates.slice(0, VERIFIED_CANDIDATES)) {
-      best = verifyCandidate({ candidate, input });
-      if (best) {
-        break;
+      const verified = verifyCandidate({ candidate, input });
+      if (verified) {
+        found.push(verified);
+        if (found.length >= limit) {
+          break;
+        }
       }
     }
-    if (best && best.gain >= MIN_COARSE_GAIN_CELLS) {
+    if ((found[0]?.gain ?? 0) >= MIN_COARSE_GAIN_CELLS) {
       break;
     }
   }
-  return best ? { check: best.check, waypoints: best.waypoints } : null;
+  return found.map((candidate) => ({ check: candidate.check, waypoints: candidate.waypoints }));
+}
+
+/**
+ * Flies a planned loop the way the pilot steers it, out and home, at a fixed step, and gives the direction it would
+ * steer at on every step: an open-loop schedule for an engine rollout. It models the turn rate, the wall's slide and the
+ * pilot's wall guard, not the engine's exact motion, so the schedule drifts from a real flight over its length.
+ *
+ * @param input - What the plan read.
+ * @param waypoints - The loop, starting at its exit.
+ * @param stepSeconds - The rollout's step.
+ * @param maxSteps - The most steps to schedule.
+ * @returns One unit direction per step, ending when the flight is home past its overshoot.
+ */
+export function loopSchedule(input: PlanInput, waypoints: readonly Point[], stepSeconds: number, maxSteps: number): Point[] {
+  const { center, outline, radius, speed } = input;
+  const last = waypoints[waypoints.length - 1];
+  const home = last ? nearestPoint(last, outline) : null;
+  if (!last || !home) {
+    return [];
+  }
+  const away = distance(last, home);
+  const path = [...waypoints, away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away))];
+  const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * stepSeconds;
+  let { heading, position } = input;
+  let leg = 0;
+  const directions: Point[] = [];
+  while (directions.length < maxSteps) {
+    let target = path[leg];
+    while (target && isReached(position, heading, target, leg === path.length - 1, center, radius, speed)) {
+      target = path[++leg];
+    }
+    if (!target) {
+      break;
+    }
+    const steered = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
+    directions.push({ x: Math.cos(steered), y: Math.sin(steered) });
+    heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(steered, heading)));
+    position = keepInside({ x: position.x + Math.cos(heading) * speed * stepSeconds, y: position.y + Math.sin(heading) * speed * stepSeconds }, center, radius);
+  }
+  return directions;
 }
 
 /**

@@ -141,6 +141,8 @@ export interface PageAutopilot {
   readonly blackbox: null | PagePilot;
   /** Takes the autopilot out of the game, so the situation replay can attach a fresh one for each trial. */
   detach(): void;
+  /** The experimental rollout-checked planner, when attached: its checks in flight and its counts. */
+  readonly rolloutPlanner?: null | { readonly pending: null | Promise<void>; readonly stats: Record<string, number> };
   readonly whitebox: null | PageWhiteboxPilot;
 }
 
@@ -316,7 +318,7 @@ export interface PageWhiteboxPilot extends PagePilot {
  */
 export interface PaperIo2PageApi {
   /** The reconstruction's demo autopilot, which the autopilot benchmark attaches; the original has none. */
-  readonly attachAutopilot?: (mode: 'blackbox' | 'whitebox') => PageAutopilot;
+  readonly attachAutopilot?: (mode: 'blackbox' | 'whitebox', offMainThread?: boolean, rolloutChecked?: boolean) => PageAutopilot;
   /** The reconstruction's full game snapshot, which the checkpoint test keeps inside the page. */
   readonly captureSnapshot?: () => unknown;
   /** The reconstruction's config, there from boot; the original exposes none. */

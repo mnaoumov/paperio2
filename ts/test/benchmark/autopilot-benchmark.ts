@@ -231,6 +231,7 @@ const { values } = parseArgs({
     'max-minutes': { default: '20', type: 'string' },
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
+    'rollout': { default: false, type: 'boolean' },
     'seed-list': { type: 'string' },
     'seeds': { default: '10', type: 'string' },
     'situation-leads': { default: '8', type: 'string' },
@@ -540,21 +541,22 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       FRAME_MILLISECONDS
     );
     await page.evaluate(
-      (pilot: Mode, enemySettings: PageEnemySettings) => {
+      (pilot: Mode, enemySettings: PageEnemySettings, rolloutChecked: boolean) => {
         const api = window.paperio2api;
         if (!api.start || !api.attachAutopilot || !api.setEnemySettings || !api.createStatsLog) {
           throw new Error('This build has no autopilot.');
         }
         api.setEnemySettings(enemySettings);
         api.start('Autopilot', '', undefined, undefined, undefined, true);
-        window.__autopilot = api.attachAutopilot(pilot);
+        window.__autopilot = api.attachAutopilot(pilot, false, rolloutChecked);
         window.__statsLog = api.createStatsLog(pilot);
         if (pilot === 'whitebox') {
           api.game.renderer = null;
         }
       },
       mode,
-      parseEnemies(enemies)
+      parseEnemies(enemies),
+      values.rollout
     );
     if (values.dump !== undefined && mode === 'whitebox') {
       await page.evaluate(installWhiteboxShots, WHITEBOX_SHOT_STYLE);
@@ -583,6 +585,9 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
     if (values.why && reason !== 'win') {
       print([`--- ${label(job)} seed ${String(seed)}: ${String(reason)}`, ...tail].join('\n'));
       print(`stats ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify({ ...window.__autopilot?.whitebox?.stats, area: window.__areaTotals }))}`);
+    }
+    if (values.rollout) {
+      print(`rollout ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify(window.__autopilot?.rolloutPlanner?.stats ?? null))}`);
     }
     return { curve, enemies, mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
   } finally {
@@ -747,6 +752,8 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
       let lastLine = '';
       for (let frame = 0; frame < frames && !game.pendingGameOver && game.player; frame++) {
         const before = game.player.percent ?? 0;
+        // A rollout-checked plan is answered before the next frame, so the run stays frame for frame.
+        await window.__autopilot?.rolloutPlanner?.pending;
         await window.__differential.step(milliseconds);
         const change = (currentPlayer()?.percent ?? before) - before;
         const totals = window.__areaTotals ?? { gained: 0, lost: 0 };

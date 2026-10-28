@@ -13,6 +13,7 @@ import type {
 } from '../engine.ts';
 import type { BlackboxDebug } from './blackbox.ts';
 import type { Point } from './plane.ts';
+import type { RolloutPlanner } from './rollout-planner.ts';
 import type { AutopilotWorker } from './worker-client.ts';
 
 import {
@@ -55,6 +56,8 @@ export class Autopilot implements AutopilotHook {
   public onEngagedChange: ((engaged: boolean) => void) | null = null;
   /** Told after every rendered frame, for the debug overlay. */
   public onFrame: (() => void) | null = null;
+  /** The experimental planner that checks the whitebox's loops in engine rollouts, when one is attached. */
+  public rolloutPlanner: null | RolloutPlanner = null;
   public readonly whitebox: null | WhiteboxPilot;
   /**
    * What the blackbox pilot saw last, for the overlay, from whichever thread it runs on.

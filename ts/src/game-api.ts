@@ -40,6 +40,7 @@ import { Border } from './geometry/border.ts';
 import { SpatialGrid } from './geometry/spatial-grid.ts';
 import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
+import { RolloutPlanner } from './autopilot/rollout-planner.ts';
 import { rollout } from './rollout/client.ts';
 import {
   decodeSave,
@@ -56,9 +57,10 @@ export interface GameApi {
   /**
    * Attaches a demo autopilot to the live game, already steering. With `offMainThread` its heavy work runs in a worker
    * where the page can run one, so it never holds up a frame; without it every decision is made in its own frame, as
-   * the benchmark needs to replay a seed.
+   * the benchmark needs to replay a seed. With `rolloutChecked` (experimental) the whitebox checks each loop in an engine
+   * rollout first (`autopilot/rollout-planner.ts`); a benchmark waits for `rolloutPlanner.pending` between frames.
    */
-  attachAutopilot: (mode: Exclude<AutopilotMode, 'off'>, offMainThread?: boolean) => Autopilot;
+  attachAutopilot: (mode: Exclude<AutopilotMode, 'off'>, offMainThread?: boolean, rolloutChecked?: boolean) => Autopilot;
   /** Takes a full snapshot of the live game, between frames. */
   captureSnapshot: () => GameSnapshot;
   /** The config every game is created with, there before the game is, so a page can change it ahead of the first frame. */
@@ -145,8 +147,13 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         applyEnemySettings(gameApi.game, settings);
       }
     };
-    gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>, offMainThread = false): Autopilot => {
+    gameApi.attachAutopilot = (mode: Exclude<AutopilotMode, 'off'>, offMainThread = false, rolloutChecked = false): Autopilot => {
       const autopilot = new Autopilot(gameApi.game, mode, undefined, offMainThread ? startAutopilotWorker() : null);
+      if (rolloutChecked && autopilot.whitebox) {
+        const planner = new RolloutPlanner(() => gameApi.game.player?.name ?? null, (request) => rollout(gameApi.game, request));
+        autopilot.whitebox.planner = planner.plan;
+        autopilot.rolloutPlanner = planner;
+      }
       autopilot.attach();
       return autopilot;
     };

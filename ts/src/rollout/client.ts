@@ -32,7 +32,7 @@ export async function rollout(game: Game, request: RolloutRequest, signal?: Abor
     throw new Error('Rollout busy or aborted');
   }
   if (
-    game.stopped || game.pendingGameOver || game.clock.pendingTimers > 0 || game.particles.length > 0
+    game.stopped || game.pendingGameOver || game.clock.pendingTimers > 0 || (game.particles.length > 0 && request.ignoreParticles !== true)
     || game.enemies || game.practice || game.replaying || game.recording || game.citiesManager || game.isTest
     || game.achievementsProfile.achievements.length > 0
   ) {
