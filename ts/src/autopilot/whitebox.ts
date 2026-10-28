@@ -868,8 +868,10 @@ export class WhiteboxPilot {
       return;
     }
     if (danger && trusted) {
+      // A rollout is one sample of a chaotic future, so even a checked loop turns home when the heuristic sees danger.
       this.stats.trustedThreats++;
-    } else if (danger) {
+    }
+    if (danger) {
       this.phase = 'return';
       this.victim = null;
       this.returnPath = [];
@@ -932,8 +934,7 @@ export class WhiteboxPilot {
    * @param situation - What the update knows.
    */
   private lookAround(situation: Situation): void {
-    // A loop an engine rollout flew to a live close is flown as checked: the heuristic aborts and chases would trade its
-    // forecast for an unchecked route home.
+    // A loop an engine rollout flew to a live close is not left for a chase, which no rollout has checked.
     const flying = this.phase === 'home' || this.phase === 'out';
     const flyingChecked = flying && this.loopChecked && this.loop !== null && !situation.inBase;
     if (flying && !flyingChecked) {
@@ -944,9 +945,7 @@ export class WhiteboxPilot {
       return;
     }
     this.checkThreats(situation, flyingChecked);
-    if (!flyingChecked) {
-      this.lookForCaptureAroundExit(situation);
-    }
+    this.lookForCaptureAroundExit(situation);
   }
 
   private lookForCaptureAroundExit(situation: Situation): void {

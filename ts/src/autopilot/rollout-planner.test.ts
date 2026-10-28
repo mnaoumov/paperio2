@@ -128,7 +128,24 @@ describe('RolloutPlanner', () => {
     await planner.pending;
     expect(answered).toMatchObject({ ...loops[1], checked: true });
     expect(answered).toHaveProperty('schedule.stepSeconds', 0.02);
-    expect(planner.stats).toMatchObject({ accepted: 1, rejectedDeath: 1, rollouts: 2 });
+    expect(planner.stats).toMatchObject({ accepted: 1, rejectedDeath: 1, rollouts: 3 });
+  });
+  it('rejects a loop that dies in any of its rollouts', async () => {
+    const loops = findLoops(NEAR_INPUT, 3);
+    const randomStates: number[] = [];
+    const planner = new RolloutPlanner(() => 'me', (request: RolloutRequest) => {
+      randomStates.push(request.randomState);
+      // Every loop's first rollout closes it; its second dies.
+      return Promise.resolve(randomStates.length % 2 === 1 ? result([frame(0, false, '1:1:1'), frame(1, true, EMPTY_TRAIL)]) : result([], { frame: 0, reason: 3, time: 0 }));
+    });
+    let answered: unknown = 'none';
+    planner.plan(NEAR_INPUT, (plan) => {
+      answered = plan;
+    });
+    await planner.pending;
+    expect(answered).toBeNull();
+    expect(planner.stats).toMatchObject({ accepted: 0, rejectedDeath: loops.length, rollouts: loops.length * 2 });
+    expect(new Set(randomStates).size).toBe(randomStates.length);
   });
   it('answers no loop when every rollout dies', async () => {
     const planner = new RolloutPlanner(() => 'me', () => Promise.resolve(result([], { frame: 0, reason: 3, time: 0 })));

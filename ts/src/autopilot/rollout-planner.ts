@@ -29,6 +29,8 @@ import {
 
 /** How many loops are tried in rollouts, best first. */
 const ROLLOUT_CANDIDATES = 3;
+/** A loop is taken only when this many rollouts, each from its own random state, all close it alive. */
+const ROLLOUT_TRIALS = 2;
 /** The rollout carries on this many frames past the scheduled return, so a cut just after closing still counts. */
 const RETURN_MARGIN_FRAMES = 25;
 const MILLISECONDS_IN_SECOND = 1000;
@@ -105,16 +107,18 @@ export class RolloutPlanner {
         this.stats.skipped++;
         return loop;
       }
-      let result: RolloutResult;
+      let verdict: RolloutVerdict = 'safe';
       try {
-        this.stats.rollouts++;
-        result = await this.run(rolloutRequest(directions, ++this.requests));
+        // Each trial starts from its own random state, so the frame lengths and every bot after them differ.
+        for (let trial = 0; trial < ROLLOUT_TRIALS && verdict === 'safe'; trial++) {
+          this.stats.rollouts++;
+          verdict = judgeRollout(await this.run(rolloutRequest(directions, ++this.requests)), name);
+        }
       } catch {
         // An unchecked loop is no better than none here: the pilot holds and asks again after its cooldown.
         this.stats.errors++;
         return null;
       }
-      const verdict = judgeRollout(result, name);
       if (verdict === 'safe') {
         this.stats.accepted++;
         return { ...loop, checked: true, schedule: { directions, stepSeconds } };
