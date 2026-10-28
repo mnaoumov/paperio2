@@ -152,6 +152,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
       if (rolloutChecked && autopilot.whitebox) {
         const planner = new RolloutPlanner(() => gameApi.game.player?.name ?? null, (request) => rollout(gameApi.game, request));
         autopilot.whitebox.planner = planner.plan;
+        autopilot.whitebox.checkedDeparturesOnly = true;
         autopilot.rolloutPlanner = planner;
       }
       autopilot.attach();

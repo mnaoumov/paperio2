@@ -126,7 +126,7 @@ describe('RolloutPlanner', () => {
       answered = plan;
     });
     await planner.pending;
-    expect(answered).toEqual(loops[1]);
+    expect(answered).toEqual({ ...loops[1], checked: true });
     expect(planner.stats).toMatchObject({ accepted: 1, rejectedDeath: 1, rollouts: 2 });
   });
   it('answers no loop when every rollout dies', async () => {
@@ -138,5 +138,15 @@ describe('RolloutPlanner', () => {
     await planner.pending;
     expect(answered).toBeNull();
     expect(planner.stats.rejectedAll).toBe(1);
+  });
+  it('answers no loop when a rollout cannot run', async () => {
+    const planner = new RolloutPlanner(() => 'me', () => Promise.reject(new Error('unsupported start')));
+    let answered: unknown = 'none';
+    planner.plan(NEAR_INPUT, (plan) => {
+      answered = plan;
+    });
+    await planner.pending;
+    expect(answered).toBeNull();
+    expect(planner.stats.errors).toBe(1);
   });
 });

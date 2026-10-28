@@ -94,6 +94,8 @@ export interface PlanInput {
 /** A planned loop: its waypoints, and what it is checked against the units with until it leaves the base. */
 export interface PlannedLoop {
   readonly check: LoopCheck;
+  /** Whether an engine rollout flew this loop and closed it alive; the pilot then flies it out without heuristic aborts. */
+  readonly checked?: boolean;
   readonly waypoints: readonly Point[];
 }
 
@@ -123,6 +125,8 @@ export interface WhiteboxState {
   readonly lastPosition: null | Point;
   readonly loop: null | readonly Point[];
   readonly loopCheck: LoopCheck | null;
+  /** Absent in states saved before rollout-checked loops existed. */
+  readonly loopChecked?: boolean;
   readonly phase: WhiteboxPhase;
   readonly planCooldown: number;
   readonly returnPath: Point[];
@@ -594,9 +598,11 @@ export class WhiteboxPilot {
    * Plans loops somewhere else, a worker in a live game, so a plan never holds up a frame; `null` plans them right here,
    * in the update that needs one, as the benchmark does.
    */
+  /** Leaves the base only on checked loops: no trail is chased out in the open (set with a rollout-checking planner). */
+  public checkedDeparturesOnly = false;
   public planner: LoopPlanner | null = null;
   /** Counts of what the pilot decided, for the benchmark's report. */
-  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, corridorReplans: 0, edgeHolds: 0, guardReplans: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
+  public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, corridorReplans: 0, edgeHolds: 0, guardReplans: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, trustedThreats: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
   public get debug(): WhiteboxDebug {
     return { loop: this.loop, phase: this.phase, target: this.target, threat: this.threat };
@@ -605,6 +611,7 @@ export class WhiteboxPilot {
   private lastPosition: null | Point = null;
   private loop: null | readonly Point[] = null;
   private loopCheck: LoopCheck | null = null;
+  private loopChecked = false;
   private phase: WhiteboxPhase = 'home';
   /** The planner's last answer, and which request it answers. */
   private planAnswer: null | PlanAnswer = null;
@@ -657,6 +664,7 @@ export class WhiteboxPilot {
     this.lastPosition = copy.lastPosition;
     this.loop = copy.loop;
     this.loopCheck = copy.loopCheck;
+    this.loopChecked = copy.loopChecked ?? false;
     this.phase = copy.phase;
     this.planCooldown = copy.planCooldown;
     this.planPending = null;
@@ -685,6 +693,7 @@ export class WhiteboxPilot {
       lastPosition: this.lastPosition,
       loop: this.loop,
       loopCheck: this.loopCheck,
+      loopChecked: this.loopChecked,
       phase: this.phase,
       planCooldown: this.planCooldown,
       returnPath: this.returnPath,
@@ -733,16 +742,7 @@ export class WhiteboxPilot {
       this.phase = situation.inBase ? 'home' : 'return';
       this.loop = null;
     }
-    if (this.phase === 'home' || this.phase === 'out') {
-      this.lookForVictim(situation);
-    }
-    if (!situation.inBase) {
-      this.checkThreats(situation);
-      this.lookForCaptureAroundExit(situation);
-    }
-    if (situation.inBase) {
-      this.lookForCaptureAroundPlayer(situation);
-    }
+    this.lookAround(situation);
     this.target = this.sweepOrChooseTarget(situation);
     this.stats[`${this.phase}Updates`]++;
     if (this.phase === 'home' && !this.loop) {
@@ -781,7 +781,7 @@ export class WhiteboxPilot {
   private chaseSeconds(situation: Situation, unit: Unit, trailPoints: readonly Point[]): null | number {
     const { game, heading, inBase, outline, player, position } = situation;
     const speed = game.config.unitSpeed;
-    const point = nearestPoint(position, trailPoints);
+    const point = this.checkedDeparturesOnly ? null : nearestPoint(position, trailPoints);
     if (!point) {
       return null;
     }
@@ -805,7 +805,7 @@ export class WhiteboxPilot {
     return seconds;
   }
 
-  private checkThreats(situation: Situation): void {
+  private checkThreats(situation: Situation, trusted: boolean): void {
     const { game, player, trail } = situation;
     const homePoint = nearestPoint(situation.position, situation.outline);
     const home = homePoint ? distance(homePoint, situation.position) : 0;
@@ -832,7 +832,9 @@ export class WhiteboxPilot {
     if (this.phase === 'return' || !closest) {
       return;
     }
-    if (danger) {
+    if (danger && trusted) {
+      this.stats.trustedThreats++;
+    } else if (danger) {
       this.phase = 'return';
       this.victim = null;
       this.returnPath = [];
@@ -889,6 +891,29 @@ export class WhiteboxPilot {
    *
    * @param situation - What the update knows.
    */
+  /**
+   * Looks for victims, threats and captures, any of which can change the phase.
+   *
+   * @param situation - What the update knows.
+   */
+  private lookAround(situation: Situation): void {
+    // A loop an engine rollout flew to a live close is flown as checked: the heuristic aborts and chases would trade its
+    // forecast for an unchecked route home.
+    const flying = this.phase === 'home' || this.phase === 'out';
+    const flyingChecked = flying && this.loopChecked && this.loop !== null && !situation.inBase;
+    if (flying && !flyingChecked) {
+      this.lookForVictim(situation);
+    }
+    if (situation.inBase) {
+      this.lookForCaptureAroundPlayer(situation);
+      return;
+    }
+    this.checkThreats(situation, flyingChecked);
+    if (!flyingChecked) {
+      this.lookForCaptureAroundExit(situation);
+    }
+  }
+
   private lookForCaptureAroundExit(situation: Situation): void {
     if (this.phase === 'return') {
       return;
@@ -1179,6 +1204,7 @@ export class WhiteboxPilot {
   private takePlan(plan: null | PlannedLoop): boolean {
     this.loop = plan?.waypoints ?? null;
     this.loopCheck = plan?.check ?? null;
+    this.loopChecked = plan?.checked === true;
     this.waypointIndex = 0;
     if (plan) {
       this.stats.loops++;

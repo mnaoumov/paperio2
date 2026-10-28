@@ -40,7 +40,7 @@ const REACH_MARGIN_SECONDS = 1;
 
 export interface RolloutPlannerStats {
   accepted: number;
-  /** Requests whose rollout could not run, answered with the first loop unchecked. */
+  /** Requests whose rollout could not run, answered with no loop. */
   errors: number;
   /** Requests with no loop to try. */
   none: number;
@@ -110,13 +110,14 @@ export class RolloutPlanner {
         this.stats.rollouts++;
         result = await this.run(rolloutRequest(directions, ++this.requests));
       } catch {
+        // An unchecked loop is no better than none here: the pilot holds and asks again after its cooldown.
         this.stats.errors++;
-        return loops[0] ?? null;
+        return null;
       }
       const verdict = judgeRollout(result, name);
       if (verdict === 'safe') {
         this.stats.accepted++;
-        return loop;
+        return { ...loop, checked: true };
       }
       if (verdict === 'death') {
         this.stats.rejectedDeath++;

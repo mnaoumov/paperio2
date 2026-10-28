@@ -233,6 +233,19 @@ describe('delayed whitebox plans', () => {
       expect(pilot.debug.loop).toBeNull();
     }
   });
+
+  it('keeps whether the loop it flies was checked', () => {
+    const plan = findLoop(input);
+    expect(plan).not.toBeNull();
+    if (!plan) {
+      return;
+    }
+    const pilot = new WhiteboxPilot();
+    pilot['takePlan']({ ...plan, checked: true });
+    expect(pilot['loopChecked']).toBe(true);
+    pilot['takePlan'](plan);
+    expect(pilot['loopChecked']).toBe(false);
+  });
 });
 
 /* eslint-enable @typescript-eslint/dot-notation -- the remaining tests use only public methods. */
