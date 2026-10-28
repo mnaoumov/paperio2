@@ -35,6 +35,8 @@ const MILLISECONDS_IN_SECOND = 1000;
 /** Golden-ratio increments give each request its own explicit random state without drawing `Math.random`. */
 const RANDOM_STATE_STEP = 0x9e37_79b9;
 const EMPTY_TRAIL_PREFIX = '0:';
+/** The out-of-reach skip adds this much flight time to every unit's reach. */
+const REACH_MARGIN_SECONDS = 1;
 
 export interface RolloutPlannerStats {
   accepted: number;
@@ -42,13 +44,15 @@ export interface RolloutPlannerStats {
   errors: number;
   /** Requests with no loop to try. */
   none: number;
+  /** Requests where every loop was rejected. */
+  rejectedAll: number;
   rejectedDeath: number;
   rejectedNoReturn: number;
   /** Loops too long for one rollout. */
   rejectedTooLong: number;
-  /** Requests where every loop was rejected. */
-  rejectedAll: number;
   rollouts: number;
+  /** Loops taken without a rollout, because no unit could reach them during the flight. */
+  skipped: number;
 }
 
 export type RolloutRunner = (request: RolloutRequest) => Promise<RolloutResult>;
@@ -58,16 +62,23 @@ export type RolloutVerdict = 'death' | 'no-return' | 'safe';
 export class RolloutPlanner {
   /** The checks in flight, so a benchmark can wait for them before its next frame and stay frame for frame. */
   public pending: null | Promise<void> = null;
-  public readonly stats: RolloutPlannerStats = { accepted: 0, errors: 0, none: 0, rejectedAll: 0, rejectedDeath: 0, rejectedNoReturn: 0, rejectedTooLong: 0, rollouts: 0 };
+  public readonly stats: RolloutPlannerStats = { accepted: 0, errors: 0, none: 0, rejectedAll: 0, rejectedDeath: 0, rejectedNoReturn: 0, rejectedTooLong: 0, rollouts: 0, skipped: 0 };
   private requests = 0;
 
   /**
+   * Creates a planner; give {@link RolloutPlanner.plan} to the whitebox pilot.
+   *
    * @param playerName - Reads the player's name, to find it in a rollout's frames.
    * @param run - Runs one rollout.
    */
   public constructor(private readonly playerName: () => null | string, private readonly run: RolloutRunner) {}
 
-  /** The planner to give the whitebox pilot. */
+  /**
+   * The planner to give the whitebox pilot.
+   *
+   * @param input - What the plan reads.
+   * @param answer - Told the checked loop, or `null`.
+   */
   public readonly plan: LoopPlanner = (input, answer): void => {
     this.pending = this.check(input).then(answer, () => {
       answer(null);
@@ -90,10 +101,13 @@ export class RolloutPlanner {
         this.stats.rejectedTooLong++;
         continue;
       }
+      if (isOutOfReach(input, loop, (directions.length + RETURN_MARGIN_FRAMES) * stepSeconds)) {
+        this.stats.skipped++;
+        return loop;
+      }
       let result: RolloutResult;
       try {
         this.stats.rollouts++;
-        // eslint-disable-next-line no-await-in-loop -- the rollouts run one at a time; the next is needed only when this one fails.
         result = await this.run(rolloutRequest(directions, ++this.requests));
       } catch {
         this.stats.errors++;
@@ -113,6 +127,23 @@ export class RolloutPlanner {
     this.stats.rejectedAll++;
     return null;
   }
+}
+
+/**
+ * Whether every unit is too far from the loop and the player to touch either during the flight. Every unit moves at
+ * the player's speed, so one farther than the flight's length plus a margin cannot cut the trail or meet the player.
+ * A far bot whose own capture closes around the loop is not ruled out by this; the rollout skip accepts that.
+ *
+ * @param input - What the plan read.
+ * @param loop - The loop.
+ * @param seconds - How long the flight lasts, margin included.
+ * @returns Whether no unit can reach it.
+ */
+export function isOutOfReach(input: PlanInput, loop: PlannedLoop, seconds: number): boolean {
+  const reach = input.speed * (seconds + REACH_MARGIN_SECONDS);
+  const { center, spread } = loop.check;
+  return input.enemies.every((enemy) => Math.hypot(enemy.position.x - center.x, enemy.position.y - center.y) - spread > reach
+    && Math.hypot(enemy.position.x - input.position.x, enemy.position.y - input.position.y) > reach);
 }
 
 /**

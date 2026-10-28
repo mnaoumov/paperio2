@@ -142,7 +142,7 @@ export interface PageAutopilot {
   /** Takes the autopilot out of the game, so the situation replay can attach a fresh one for each trial. */
   detach(): void;
   /** The experimental rollout-checked planner, when attached: its checks in flight and its counts. */
-  readonly rolloutPlanner?: null | { readonly pending: null | Promise<void>; readonly stats: Record<string, number> };
+  readonly rolloutPlanner?: null | PageRolloutPlanner;
   readonly whitebox: null | PageWhiteboxPilot;
 }
 
@@ -241,6 +241,12 @@ export interface PagePractice {
 
 export interface PagePracticeOptions {
   readonly autoIntervalMilliseconds: number;
+}
+
+/** The experimental rollout-checked planner, as the benchmark reads it. */
+export interface PageRolloutPlanner {
+  readonly pending: null | Promise<void>;
+  readonly stats: Record<string, number>;
 }
 
 export interface PageSegment {

@@ -21,6 +21,7 @@ import type { GameSkinManager } from './skins/manager.ts';
 import type { GameSnapshot } from './snapshot.ts';
 
 import { Autopilot } from './autopilot/driver.ts';
+import { RolloutPlanner } from './autopilot/rollout-planner.ts';
 import { startAutopilotWorker } from './autopilot/worker-client.ts';
 import {
   Controller,
@@ -40,7 +41,6 @@ import { Border } from './geometry/border.ts';
 import { SpatialGrid } from './geometry/spatial-grid.ts';
 import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
-import { RolloutPlanner } from './autopilot/rollout-planner.ts';
 import { rollout } from './rollout/client.ts';
 import {
   decodeSave,

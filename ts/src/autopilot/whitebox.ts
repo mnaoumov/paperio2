@@ -1308,46 +1308,6 @@ export function findLoops(input: PlanInput, limit: number): PlannedLoop[] {
 }
 
 /**
- * Flies a planned loop the way the pilot steers it, out and home, at a fixed step, and gives the direction it would
- * steer at on every step: an open-loop schedule for an engine rollout. It models the turn rate, the wall's slide and the
- * pilot's wall guard, not the engine's exact motion, so the schedule drifts from a real flight over its length.
- *
- * @param input - What the plan read.
- * @param waypoints - The loop, starting at its exit.
- * @param stepSeconds - The rollout's step.
- * @param maxSteps - The most steps to schedule.
- * @returns One unit direction per step, ending when the flight is home past its overshoot.
- */
-export function loopSchedule(input: PlanInput, waypoints: readonly Point[], stepSeconds: number, maxSteps: number): Point[] {
-  const { center, outline, radius, speed } = input;
-  const last = waypoints[waypoints.length - 1];
-  const home = last ? nearestPoint(last, outline) : null;
-  if (!last || !home) {
-    return [];
-  }
-  const away = distance(last, home);
-  const path = [...waypoints, away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away))];
-  const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * stepSeconds;
-  let { heading, position } = input;
-  let leg = 0;
-  const directions: Point[] = [];
-  while (directions.length < maxSteps) {
-    let target = path[leg];
-    while (target && isReached(position, heading, target, leg === path.length - 1, center, radius, speed)) {
-      target = path[++leg];
-    }
-    if (!target) {
-      break;
-    }
-    const steered = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
-    directions.push({ x: Math.cos(steered), y: Math.sin(steered) });
-    heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(steered, heading)));
-    position = keepInside({ x: position.x + Math.cos(heading) * speed * stepSeconds, y: position.y + Math.sin(heading) * speed * stepSeconds }, center, radius);
-  }
-  return directions;
-}
-
-/**
  * A point beyond the wall moved back onto it, as the wall's slide leaves the unit there.
  *
  * @param point - The point.
@@ -1484,6 +1444,46 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
     position = next;
   }
   return null;
+}
+
+/**
+ * Flies a planned loop the way the pilot steers it, out and home, at a fixed step, and gives the direction it would
+ * steer at on every step: an open-loop schedule for an engine rollout. It models the turn rate, the wall's slide and the
+ * pilot's wall guard, not the engine's exact motion, so the schedule drifts from a real flight over its length.
+ *
+ * @param input - What the plan read.
+ * @param waypoints - The loop, starting at its exit.
+ * @param stepSeconds - The rollout's step.
+ * @param maxSteps - The most steps to schedule.
+ * @returns One unit direction per step, ending when the flight is home past its overshoot.
+ */
+export function loopSchedule(input: PlanInput, waypoints: readonly Point[], stepSeconds: number, maxSteps: number): Point[] {
+  const { center, outline, radius, speed } = input;
+  const last = waypoints[waypoints.length - 1];
+  const home = last ? nearestPoint(last, outline) : null;
+  if (!last || !home) {
+    return [];
+  }
+  const away = distance(last, home);
+  const path = [...waypoints, away < 1 ? home : add(last, scale(subtract(home, last), 1 + RETURN_OVERSHOOT / away))];
+  const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * stepSeconds;
+  let { heading, position } = input;
+  let leg = 0;
+  const directions: Point[] = [];
+  while (directions.length < maxSteps) {
+    let target = path[leg];
+    while (target && isReached(position, heading, target, leg === path.length - 1, center, radius, speed)) {
+      target = path[++leg];
+    }
+    if (!target) {
+      break;
+    }
+    const steered = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
+    directions.push({ x: Math.cos(steered), y: Math.sin(steered) });
+    heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(steered, heading)));
+    position = keepInside({ x: position.x + Math.cos(heading) * speed * stepSeconds, y: position.y + Math.sin(heading) * speed * stepSeconds }, center, radius);
+  }
+  return directions;
 }
 
 /**

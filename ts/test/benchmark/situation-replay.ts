@@ -251,8 +251,8 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
       pilot: values['fresh-pilot'] ? null : situation.pilot ?? null,
       random: situation.random ?? null,
       randomState: (situation.seed * TRIAL_STATE_STRIDE + trial) % UINT32_RANGE,
-      rollout: values.rollout,
       rngShift: trial * TRIAL_RNG_SHIFT,
+      rollout: values.rollout,
       trial
     };
     const start = await page.evaluate((trialSetup: TrialSetup) => {

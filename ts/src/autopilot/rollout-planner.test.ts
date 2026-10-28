@@ -12,6 +12,7 @@ import type {
 import type { PlanInput } from './whitebox.ts';
 
 import {
+  isOutOfReach,
   judgeRollout,
   RolloutPlanner,
   rolloutRequest
@@ -84,9 +85,36 @@ describe('findLoops and loopSchedule', () => {
   });
 });
 
+/** A passive unit right beside the base, near enough to reach any loop during its flight. */
+const NEAR_INPUT: PlanInput = { ...INPUT, enemies: [{ direction: 0, hunting: false, position: { x: 1000, y: 1250 }, target: null, trigger: 0 }] };
+
+describe('isOutOfReach', () => {
+  it('skips the rollout when every unit is farther than the flight lets it travel', () => {
+    const loop = findLoop(INPUT);
+    expect(loop).not.toBeNull();
+    const far = { ...INPUT, enemies: [{ direction: 0, hunting: false, position: { x: 1000, y: 1950 }, target: null, trigger: 0 }] };
+    expect(loop && isOutOfReach(far, loop, 3)).toBe(true);
+  });
+  it('checks a loop that a unit can reach during the flight', () => {
+    const loop = findLoop(NEAR_INPUT);
+    expect(loop).not.toBeNull();
+    expect(loop && isOutOfReach(NEAR_INPUT, loop, 3)).toBe(false);
+  });
+});
+
 describe('RolloutPlanner', () => {
+  it('takes a loop no unit can reach without a rollout', async () => {
+    const planner = new RolloutPlanner(() => 'me', () => Promise.reject(new Error('no rollout expected')));
+    let answered: unknown = 'none';
+    planner.plan(INPUT, (plan) => {
+      answered = plan;
+    });
+    await planner.pending;
+    expect(answered).toEqual(findLoop(INPUT));
+    expect(planner.stats).toMatchObject({ rollouts: 0, skipped: 1 });
+  });
   it('takes the next loop when the first one dies in its rollout', async () => {
-    const loops = findLoops(INPUT, 3);
+    const loops = findLoops(NEAR_INPUT, 3);
     expect(loops.length).toBeGreaterThan(1);
     let calls = 0;
     const planner = new RolloutPlanner(() => 'me', (_request: RolloutRequest) => {
@@ -94,7 +122,7 @@ describe('RolloutPlanner', () => {
       return Promise.resolve(calls === 1 ? result([frame(0, false, '1:1:1')], { frame: 0, reason: 3, time: 0 }) : result([frame(0, false, '1:1:1'), frame(1, true, EMPTY_TRAIL)]));
     });
     let answered: unknown = 'none';
-    planner.plan(INPUT, (plan) => {
+    planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
     await planner.pending;
@@ -104,7 +132,7 @@ describe('RolloutPlanner', () => {
   it('answers no loop when every rollout dies', async () => {
     const planner = new RolloutPlanner(() => 'me', () => Promise.resolve(result([], { frame: 0, reason: 3, time: 0 })));
     let answered: unknown = 'none';
-    planner.plan(INPUT, (plan) => {
+    planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
     await planner.pending;
