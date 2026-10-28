@@ -72,6 +72,8 @@ interface TrialSetup {
   readonly randomState: number;
   /** Without a recorded state: how many draws of the game's generator the trial skips. */
   readonly rngShift: number;
+  /** Whether the whitebox checks its loops in engine rollouts. */
+  readonly rollout: boolean;
   readonly trial: number;
 }
 
@@ -104,6 +106,7 @@ const { values } = parseArgs({
     'mode': { default: 'whitebox', type: 'string' },
     'out': { type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
+    'rollout': { default: false, type: 'boolean' },
     'situations': { type: 'string' },
     'trials': { default: '16', type: 'string' }
   }
@@ -248,6 +251,7 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
       pilot: values['fresh-pilot'] ? null : situation.pilot ?? null,
       random: situation.random ?? null,
       randomState: (situation.seed * TRIAL_STATE_STRIDE + trial) % UINT32_RANGE,
+      rollout: values.rollout,
       rngShift: trial * TRIAL_RNG_SHIFT,
       trial
     };
@@ -275,7 +279,7 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
           Math.random();
         }
       }
-      window.__autopilot = api.attachAutopilot(trialSetup.mode === 'blackbox' ? 'blackbox' : 'whitebox');
+      window.__autopilot = api.attachAutopilot(trialSetup.mode === 'blackbox' ? 'blackbox' : 'whitebox', false, trialSetup.rollout);
       if (trialSetup.pilot !== null) {
         window.__autopilot.whitebox?.restoreState(structuredClone(trialSetup.pilot), game);
       }
@@ -296,6 +300,7 @@ async function stepTrial(page: Page, frames: number): Promise<StepState> {
     async (count: number, milliseconds: number, millisecondsPerSecond: number): Promise<StepState> => {
       const { game } = window.paperio2api;
       for (let frame = 0; frame < count && !game.pendingGameOver && game.player; frame++) {
+        await window.__autopilot?.rolloutPlanner?.pending;
         await window.__differential.step(milliseconds);
       }
       const pending = game.pendingGameOver ?? null;
