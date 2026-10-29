@@ -87,11 +87,7 @@ export interface LoopSchedule {
    * without looking around: a heuristic turn would trade the forecast flight for an unchecked one.
    */
   readonly exact?: boolean | undefined;
-  /**
-   * How many steps past its directions the rollout ran on, holding the last one. An exact schedule is flown through
-   * them too, back in the base, since that stretch is part of what the rollout checked.
-   */
-  readonly holdSteps?: number | undefined;
+
   readonly stepSeconds: number;
 }
 
@@ -920,7 +916,7 @@ export class WhiteboxPilot {
     if (!this.schedule || flight?.exact !== true || this.loop === null || (this.phase !== 'home' && this.phase !== 'out')) {
       return false;
     }
-    return scheduleStep(this.now - this.schedule.start, flight.stepSeconds) < flight.directions.length + (flight.holdSteps ?? 0);
+    return scheduleStep(this.now - this.schedule.start, flight.stepSeconds) < flight.directions.length;
   }
 
   private isLoopStillSafe(situation: Situation, check: LoopCheck): boolean {
@@ -1164,10 +1160,8 @@ export class WhiteboxPilot {
     if (!schedule) {
       return null;
     }
-    const { directions, exact, holdSteps = 0, stepSeconds } = schedule.flight;
-    const step = scheduleStep(this.now - schedule.start, stepSeconds);
-    const held = exact === true && step < directions.length + holdSteps ? directions[directions.length - 1] : undefined;
-    const direction = this.loop && (this.phase === 'home' || this.phase === 'out') ? directions[step] ?? held : undefined;
+    const { directions, stepSeconds } = schedule.flight;
+    const direction = this.loop && (this.phase === 'home' || this.phase === 'out') ? directions[scheduleStep(this.now - schedule.start, stepSeconds)] : undefined;
     if (!direction) {
       this.schedule = null;
       return null;
@@ -1569,9 +1563,11 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
  * @param waypoints - The loop, starting at its exit.
  * @param stepSeconds - The rollout's step.
  * @param maxSteps - The most steps to schedule.
- * @returns One unit direction per step, ending when the flight is home past its overshoot.
+ * @param settleSteps - Steps flown after the overshoot back towards where the plan started, inside the base, so a
+ *   rollout's margin past the return stays home whatever the base's shape.
+ * @returns One unit direction per step, ending when the flight is home past its overshoot and settled.
  */
-export function loopSchedule(input: PlanInput, waypoints: readonly Point[], stepSeconds: number, maxSteps: number): Point[] {
+export function loopSchedule(input: PlanInput, waypoints: readonly Point[], stepSeconds: number, maxSteps: number, settleSteps = 0): Point[] {
   const { center, outline, radius, speed } = input;
   const last = waypoints[waypoints.length - 1];
   const home = last ? nearestPoint(last, outline) : null;
@@ -1583,6 +1579,7 @@ export function loopSchedule(input: PlanInput, waypoints: readonly Point[], step
   const maxTurn = TURN_SPEED_RADIANS_PER_SECOND * stepSeconds;
   let { heading, position } = input;
   let leg = 0;
+  let settled = 0;
   const directions: Point[] = [];
   while (directions.length < maxSteps) {
     let target = path[leg];
@@ -1590,7 +1587,11 @@ export function loopSchedule(input: PlanInput, waypoints: readonly Point[], step
       target = path[++leg];
     }
     if (!target) {
-      break;
+      if (settled >= settleSteps) {
+        break;
+      }
+      settled++;
+      target = input.position;
     }
     const steered = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
     directions.push({ x: Math.cos(steered), y: Math.sin(steered) });

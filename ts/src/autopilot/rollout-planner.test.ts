@@ -56,10 +56,10 @@ describe('judgeRollout', () => {
 });
 
 describe('rolloutRequest', () => {
-  it('sends an input only where the direction changes and runs past the schedule', () => {
+  it('sends an input only where the direction changes, one frame per step', () => {
     const request = rolloutRequest([{ x: 1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], 7, 1000 / 60);
     expect(request.inputs).toEqual([{ frame: 0, x: 1, y: 0 }, { frame: 2, x: 0, y: 1 }]);
-    expect(request.frames).toBeGreaterThan(3);
+    expect(request.frames).toBe(3);
     expect(request.ignoreParticles).toBe(true);
     expect(request).toMatchObject({ randomState: 7, stepMs: 1000 / 60 });
   });
@@ -86,6 +86,22 @@ describe('findLoops and loopSchedule', () => {
     }
     expect(left).toBe(true);
     expect(Math.abs(position.x - 1000) <= 100 && Math.abs(position.y - 1000) <= 100).toBe(true);
+  });
+  it('settles back towards where the plan started, staying inside the base', () => {
+    const plan = findLoop(INPUT);
+    const plain = loopSchedule(INPUT, plan?.waypoints ?? [], 1 / 60, 1200);
+    const settled = loopSchedule(INPUT, plan?.waypoints ?? [], 1 / 60, 1200, 90);
+    expect(settled).toHaveLength(plain.length + 90);
+    let { heading, position } = INPUT;
+    const maxTurn = 2 * Math.PI / 60;
+    for (const [step, direction] of settled.entries()) {
+      const wanted = Math.atan2(direction.y, direction.x);
+      heading += Math.max(-maxTurn, Math.min(maxTurn, Math.atan2(Math.sin(wanted - heading), Math.cos(wanted - heading))));
+      position = { x: position.x + Math.cos(heading) * 100 / 60, y: position.y + Math.sin(heading) * 100 / 60 };
+      if (step >= plain.length) {
+        expect(Math.abs(position.x - 1000) <= 100 && Math.abs(position.y - 1000) <= 100).toBe(true);
+      }
+    }
   });
 });
 

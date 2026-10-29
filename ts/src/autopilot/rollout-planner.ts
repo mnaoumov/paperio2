@@ -34,8 +34,11 @@ const ROLLOUT_CANDIDATES = 3;
 /** Without the live random state, a loop is taken only when this many rollouts, each from its own state, all close it. */
 const FOREIGN_TRIALS = 2;
 
-/** The rollout carries on this many frames past the scheduled return, so a cut just after closing still counts. */
-const RETURN_MARGIN_FRAMES = 90;
+/**
+ * The schedule flies this many frames past the return, back into the base, and the rollout and the pilot fly them too,
+ * so a cut or a capture just after closing still counts.
+ */
+const SETTLE_FRAMES = 90;
 const MILLISECONDS_IN_SECOND = 1000;
 const LIVE_FRAMES_PER_SECOND = 60;
 /** The live game's frame, which a rollout must step by for its bots to stay with the live ones. */
@@ -134,12 +137,12 @@ export class RolloutPlanner {
     const trials = live === null ? FOREIGN_TRIALS : 1;
     const stepSeconds = LIVE_FRAME_MS / MILLISECONDS_IN_SECOND;
     for (const loop of loops) {
-      const directions = loopSchedule(input, loop.waypoints, stepSeconds, MAX_ROLLOUT_FRAMES - RETURN_MARGIN_FRAMES);
-      if (directions.length === 0 || directions.length >= MAX_ROLLOUT_FRAMES - RETURN_MARGIN_FRAMES) {
+      const directions = loopSchedule(input, loop.waypoints, stepSeconds, MAX_ROLLOUT_FRAMES, SETTLE_FRAMES);
+      if (directions.length === 0 || directions.length >= MAX_ROLLOUT_FRAMES) {
         this.stats.rejectedTooLong++;
         continue;
       }
-      if (isOutOfReach(input, loop, (directions.length + RETURN_MARGIN_FRAMES) * stepSeconds)) {
+      if (isOutOfReach(input, loop, directions.length * stepSeconds)) {
         this.stats.skipped++;
         return loop;
       }
@@ -157,7 +160,7 @@ export class RolloutPlanner {
       }
       if (verdict === 'safe') {
         this.stats.accepted++;
-        return { ...loop, checked: true, schedule: { directions, exact: live !== null, holdSteps: RETURN_MARGIN_FRAMES, stepSeconds } };
+        return { ...loop, checked: true, schedule: { directions, exact: live !== null, stepSeconds } };
       }
       if (verdict === 'death') {
         this.stats.rejectedDeath++;
@@ -230,7 +233,7 @@ export function judgeRollout(result: RolloutResult, player: string): RolloutVerd
 }
 
 /**
- * A rollout request steering by a schedule: one input wherever the direction changes, run past the scheduled return.
+ * A rollout request steering by a schedule: one input wherever the direction changes, one frame per step.
  *
  * @param directions - The direction for each frame.
  * @param randomState - The `Math.random` state the rollout starts from.
@@ -246,5 +249,5 @@ export function rolloutRequest(directions: readonly Point[], randomState: number
       previous = direction;
     }
   }
-  return { frames: directions.length + RETURN_MARGIN_FRAMES, ignoreParticles: true, inputs, randomState, stepMs };
+  return { frames: directions.length, ignoreParticles: true, inputs, randomState, stepMs };
 }

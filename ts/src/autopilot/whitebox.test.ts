@@ -277,7 +277,7 @@ describe('delayed whitebox plans', () => {
     expect(pilot['scheduledDirection'](outside)).toBeNull();
   });
 
-  it('flies an exact schedule through its rollout margin, back in the base, as the rollout did', () => {
+  it('keeps flying an exact schedule back in the base, as the rollout did', () => {
     const plan = findLoop(input);
     expect(plan).not.toBeNull();
     if (!plan) {
@@ -285,12 +285,12 @@ describe('delayed whitebox plans', () => {
     }
     const east = { x: 1, y: 0 };
     const north = { x: 0, y: -1 };
-    const schedule = { directions: [east, north], exact: true, holdSteps: 2, stepSeconds: 0.5 };
+    const schedule = { directions: [east, north, north, north], exact: true, stepSeconds: 0.5 };
     const pilot = new WhiteboxPilot();
     pilot['now'] = 10.5;
     pilot['takePlan']({ ...plan, checked: true, schedule }, 10);
     expect(pilot['scheduledDirection']({ inBase: false, position: CENTER })).toBe(east);
-    // Back home after the scheduled return, the rollout held the last direction for its margin.
+    // Back home, the schedule's settling steps are still flown: the pilot neither resets nor looks around.
     pilot['now'] = 11.5;
     const inside = { inBase: true, position: CENTER };
     expect(pilot['scheduledDirection'](inside)).toBe(north);
