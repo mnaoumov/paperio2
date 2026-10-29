@@ -35,7 +35,7 @@ const ROLLOUT_CANDIDATES = 3;
 const FOREIGN_TRIALS = 2;
 
 /** The rollout carries on this many frames past the scheduled return, so a cut just after closing still counts. */
-const RETURN_MARGIN_FRAMES = 25;
+const RETURN_MARGIN_FRAMES = 90;
 const MILLISECONDS_IN_SECOND = 1000;
 const LIVE_FRAMES_PER_SECOND = 60;
 /** The live game's frame, which a rollout must step by for its bots to stay with the live ones. */
@@ -157,7 +157,7 @@ export class RolloutPlanner {
       }
       if (verdict === 'safe') {
         this.stats.accepted++;
-        return { ...loop, checked: true, schedule: { directions, exact: live !== null, stepSeconds } };
+        return { ...loop, checked: true, schedule: { directions, exact: live !== null, holdSteps: RETURN_MARGIN_FRAMES, stepSeconds } };
       }
       if (verdict === 'death') {
         this.stats.rejectedDeath++;

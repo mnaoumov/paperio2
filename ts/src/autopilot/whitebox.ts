@@ -87,6 +87,11 @@ export interface LoopSchedule {
    * without looking around: a heuristic turn would trade the forecast flight for an unchecked one.
    */
   readonly exact?: boolean | undefined;
+  /**
+   * How many steps past its directions the rollout ran on, holding the last one. An exact schedule is flown through
+   * them too, back in the base, since that stretch is part of what the rollout checked.
+   */
+  readonly holdSteps?: number | undefined;
   readonly stepSeconds: number;
 }
 
@@ -769,7 +774,7 @@ export class WhiteboxPilot {
       position,
       trail
     };
-    if (situation.inBase && (this.phase === 'out' || this.phase === 'return')) {
+    if (situation.inBase && (this.phase === 'out' || this.phase === 'return') && !this.isFlyingExactSchedule()) {
       this.reset();
     }
     // A cut from home never follows its trail out of the base: out there the player has a trail of its own to lose.
@@ -911,7 +916,11 @@ export class WhiteboxPilot {
   }
 
   private isFlyingExactSchedule(): boolean {
-    return this.schedule?.flight.exact === true && this.loop !== null && (this.phase === 'home' || this.phase === 'out');
+    const flight = this.schedule?.flight;
+    if (!this.schedule || flight?.exact !== true || this.loop === null || (this.phase !== 'home' && this.phase !== 'out')) {
+      return false;
+    }
+    return scheduleStep(this.now - this.schedule.start, flight.stepSeconds) < flight.directions.length + (flight.holdSteps ?? 0);
   }
 
   private isLoopStillSafe(situation: Situation, check: LoopCheck): boolean {
@@ -1155,9 +1164,10 @@ export class WhiteboxPilot {
     if (!schedule) {
       return null;
     }
-    const direction = this.loop && (this.phase === 'home' || this.phase === 'out')
-      ? schedule.flight.directions[scheduleStep(this.now - schedule.start, schedule.flight.stepSeconds)]
-      : undefined;
+    const { directions, exact, holdSteps = 0, stepSeconds } = schedule.flight;
+    const step = scheduleStep(this.now - schedule.start, stepSeconds);
+    const held = exact === true && step < directions.length + holdSteps ? directions[directions.length - 1] : undefined;
+    const direction = this.loop && (this.phase === 'home' || this.phase === 'out') ? directions[step] ?? held : undefined;
     if (!direction) {
       this.schedule = null;
       return null;
