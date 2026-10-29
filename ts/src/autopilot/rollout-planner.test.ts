@@ -87,7 +87,7 @@ describe('findLoops and loopSchedule', () => {
     expect(left).toBe(true);
     expect(Math.abs(position.x - 1000) <= 100 && Math.abs(position.y - 1000) <= 100).toBe(true);
   });
-  it('settles back towards where the plan started, staying inside the base', () => {
+  it('settles towards the deepest point of the base, staying inside it', () => {
     const plan = findLoop(INPUT);
     const plain = loopSchedule(INPUT, plan?.waypoints ?? [], 1 / 60, 1200);
     const settled = loopSchedule(INPUT, plan?.waypoints ?? [], 1 / 60, 1200, 90);

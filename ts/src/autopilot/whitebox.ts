@@ -345,6 +345,8 @@ const ATTACK_OVERSHOOT = 15;
 const MILLISECONDS_PER_SECOND = 1000;
 /** How far ahead along a scheduled direction the debug target is drawn. */
 const SCHEDULE_TARGET_DISTANCE = 60;
+/** The grid {@link deepestPoint} searches, cells per side. */
+const DEEPEST_POINT_GRID = 16;
 /** Absorbs float error in a clock that lands exactly on a step's end. */
 const SCHEDULE_STEP_EPSILON = 1e-6;
 /** Other units must be this much farther from the way to the cut than the cut is, plus the margin. */
@@ -1563,7 +1565,7 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
  * @param waypoints - The loop, starting at its exit.
  * @param stepSeconds - The rollout's step.
  * @param maxSteps - The most steps to schedule.
- * @param settleSteps - Steps flown after the overshoot back towards where the plan started, inside the base, so a
+ * @param settleSteps - Steps flown after the overshoot towards the deepest point of the base, so a
  *   rollout's margin past the return stays home whatever the base's shape.
  * @returns One unit direction per step, ending when the flight is home past its overshoot and settled.
  */
@@ -1580,6 +1582,7 @@ export function loopSchedule(input: PlanInput, waypoints: readonly Point[], step
   let { heading, position } = input;
   let leg = 0;
   let settled = 0;
+  let settleTarget: null | Point = null;
   const directions: Point[] = [];
   while (directions.length < maxSteps) {
     let target = path[leg];
@@ -1591,7 +1594,8 @@ export function loopSchedule(input: PlanInput, waypoints: readonly Point[], step
         break;
       }
       settled++;
-      target = input.position;
+      settleTarget ??= deepestPoint(outline) ?? input.position;
+      target = settleTarget;
     }
     const steered = guardWallTurn(position, heading, Math.atan2(target.y - position.y, target.x - position.x), center, radius);
     directions.push({ x: Math.cos(steered), y: Math.sin(steered) });
@@ -1999,6 +2003,37 @@ function crossesCapture(params: CrossesCaptureParams): boolean {
     }
     return pointInPolygon(to, obstacle.points) || !isClearOfPolygon(from, to, obstacle.points);
   });
+}
+
+/**
+ * The point of a polygon farthest from its edges, on a coarse grid over its bounds.
+ *
+ * @param polygon - The polygon.
+ * @returns The point, or `null` when no grid point falls inside.
+ */
+function deepestPoint(polygon: readonly Point[]): null | Point {
+  const xs = polygon.map((point) => point.x);
+  const ys = polygon.map((point) => point.y);
+  const left = Math.min(...xs);
+  const top = Math.min(...ys);
+  const width = Math.max(...xs) - left;
+  const height = Math.max(...ys) - top;
+  let best: null | Point = null;
+  let bestDepth = 0;
+  for (let column = 1; column < DEEPEST_POINT_GRID; column++) {
+    for (let row = 1; row < DEEPEST_POINT_GRID; row++) {
+      const point = { x: left + width * column / DEEPEST_POINT_GRID, y: top + height * row / DEEPEST_POINT_GRID };
+      if (!pointInPolygon(point, polygon)) {
+        continue;
+      }
+      const depth = depthInside(point, polygon);
+      if (depth > bestDepth) {
+        best = point;
+        bestDepth = depth;
+      }
+    }
+  }
+  return best;
 }
 
 function depthInside(point: Point, polygon: readonly Point[]): number {
