@@ -199,7 +199,7 @@ export function isOutOfReach(input: PlanInput, loop: PlannedLoop, seconds: numbe
 }
 
 /**
- * Whether the player in a rollout flew out, closed its trail at home and was still alive when the rollout ended.
+ * Whether the player in a rollout flew out, closed its trail at home, stayed home and was still alive when the rollout ended.
  *
  * @param result - The rollout.
  * @param player - The player's name.
@@ -210,18 +210,23 @@ export function judgeRollout(result: RolloutResult, player: string): RolloutVerd
     return 'death';
   }
   let left = false;
+  let closed = false;
   for (const frame of result.frames) {
     const unit = frame.units.find((candidate) => candidate.name === player);
     if (!unit) {
       return 'death';
     }
     if (!unit.inOwnBase) {
+      // Out again after closing, the pilot would be left with a trail no rollout covered past the margin.
+      if (closed) {
+        return 'no-return';
+      }
       left = true;
     } else if (left && unit.trail.startsWith(EMPTY_TRAIL_PREFIX)) {
-      return 'safe';
+      closed = true;
     }
   }
-  return 'no-return';
+  return closed ? 'safe' : 'no-return';
 }
 
 /**

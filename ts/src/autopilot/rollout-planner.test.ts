@@ -44,6 +44,9 @@ describe('judgeRollout', () => {
   it('fails a flight that is still out when the rollout ends', () => {
     expect(judgeRollout(result([frame(0, true, EMPTY_TRAIL), frame(1, false, '3:1:1')]), 'me')).toBe('no-return');
   });
+  it('fails a flight that leaves its base again after closing', () => {
+    expect(judgeRollout(result([frame(0, true, EMPTY_TRAIL), frame(1, false, '3:1:1'), frame(2, true, EMPTY_TRAIL), frame(3, false, '1:1:1')]), 'me')).toBe('no-return');
+  });
   it('does not count staying home as a closed loop', () => {
     expect(judgeRollout(result([frame(0, true, EMPTY_TRAIL), frame(1, true, EMPTY_TRAIL)]), 'me')).toBe('no-return');
   });
