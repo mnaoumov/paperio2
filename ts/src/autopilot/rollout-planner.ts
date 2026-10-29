@@ -29,6 +29,8 @@ import {
   loopSchedule
 } from './whitebox.ts';
 
+/** Updates the pilot waits after no loop passed before asking again: a second of game time, as each ask costs rollouts. */
+export const ROLLOUT_PLAN_RETRY_UPDATES = 60;
 /** How many loops are tried in rollouts, best first. */
 const ROLLOUT_CANDIDATES = 3;
 /** Without the live random state, a loop is taken only when this many rollouts, each from its own state, all close it. */

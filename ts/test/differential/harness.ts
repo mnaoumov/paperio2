@@ -161,12 +161,20 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
   }
 }
 
-export async function launchBrowser(): Promise<Browser> {
+/**
+ * Launches the headless browser the harness drives.
+ *
+ * @param protocolTimeout - How long one page call may run, in milliseconds; puppeteer's default when left out. A
+ *   benchmark chunk that checks loops in engine rollouts can run for minutes under load.
+ * @returns The browser.
+ */
+export async function launchBrowser(protocolTimeout?: number): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
     args: process.env['CI'] ? ['--no-sandbox'] : [],
     defaultViewport: VIEWPORT,
     headless: true,
+    ...protocolTimeout === undefined ? {} : { protocolTimeout },
     ...executablePath ? { executablePath } : { channel: 'chrome' }
   });
 }

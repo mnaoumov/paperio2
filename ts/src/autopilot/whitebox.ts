@@ -631,6 +631,8 @@ export class WhiteboxPilot {
   /** Leaves the base only on checked loops: no trail is chased out in the open (set with a rollout-checking planner). */
   public checkedDeparturesOnly = false;
   public planner: LoopPlanner | null = null;
+  /** Updates to wait after no loop was found before asking again; a rollout-checking planner sets more, as each ask costs rollouts. */
+  public planRetryUpdates = PLAN_RETRY_UPDATES;
   /** Counts of what the pilot decided, for the benchmark's report. */
   public readonly stats = { aborts: 0, attacks: 0, attackUpdates: 0, corridorReplans: 0, edgeHolds: 0, guardReplans: 0, holdUpdates: 0, homeUpdates: 0, loops: 0, outUpdates: 0, replans: 0, returnUpdates: 0, scheduledUpdates: 0, selfAborts: 0, surroundCuts: 0, surroundEscapes: 0, surrounds: 0, sweepUpdates: 0, trustedThreats: 0, victimsInRange: 0, victimsTooFar: 0, victimsUnsafe: 0 };
 
@@ -1058,7 +1060,7 @@ export class WhiteboxPilot {
     }
     if (this.phase === 'home' && !this.loop && --this.planCooldown <= 0) {
       // A plan still out (`null`) is looked for again on the next update.
-      this.planCooldown = this.planLoop(describePlan(situation)) === false ? PLAN_RETRY_UPDATES : 0;
+      this.planCooldown = this.planLoop(describePlan(situation)) === false ? this.planRetryUpdates : 0;
     }
     if (!this.loop) {
       return inBase ? holdTarget(situation) : null;

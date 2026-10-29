@@ -150,6 +150,8 @@ interface WhiteboxShotStyle {
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
+/** A chunk that checks loops in engine rollouts can run for minutes under load; puppeteer's default is 3. */
+const PROTOCOL_TIMEOUT_MS = 3_600_000;
 const SECONDS_PER_MINUTE = 60;
 const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
@@ -264,7 +266,7 @@ const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => seed
 // The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
 const build = await buildBenchmark();
 print(`Build: ${JSON.stringify(build.identity)}`);
-const browser = await launchBrowser();
+const browser = await launchBrowser(PROTOCOL_TIMEOUT_MS);
 const outcomes: Outcome[] = [];
 try {
   let next = 0;

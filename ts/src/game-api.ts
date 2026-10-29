@@ -21,7 +21,10 @@ import type { GameSkinManager } from './skins/manager.ts';
 import type { GameSnapshot } from './snapshot.ts';
 
 import { Autopilot } from './autopilot/driver.ts';
-import { RolloutPlanner } from './autopilot/rollout-planner.ts';
+import {
+  ROLLOUT_PLAN_RETRY_UPDATES,
+  RolloutPlanner
+} from './autopilot/rollout-planner.ts';
 import { startAutopilotWorker } from './autopilot/worker-client.ts';
 import {
   Controller,
@@ -153,6 +156,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
         const planner = new RolloutPlanner(() => gameApi.game.player?.name ?? null, (request) => rollout(gameApi.game, request));
         autopilot.whitebox.planner = planner.plan;
         autopilot.whitebox.checkedDeparturesOnly = true;
+        autopilot.whitebox.planRetryUpdates = ROLLOUT_PLAN_RETRY_UPDATES;
         autopilot.rolloutPlanner = planner;
       }
       autopilot.attach();

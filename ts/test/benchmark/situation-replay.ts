@@ -80,6 +80,8 @@ interface TrialSetup {
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
+/** A replay window that checks loops in engine rollouts can run for minutes under load; puppeteer's default is 3. */
+const PROTOCOL_TIMEOUT_MS = 3_600_000;
 const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
 /** The menu frames before the run starts, as in the benchmark. */
@@ -162,7 +164,7 @@ async function replayAll(): Promise<void> {
   // The page plays `dist/app2.js`, so build it first, as the benchmark does.
   const build = await buildBenchmark();
   print(`Build: ${JSON.stringify(build.identity)}`);
-  const browser = await launchBrowser();
+  const browser = await launchBrowser(PROTOCOL_TIMEOUT_MS);
   const situations: SituationResult[] = [];
   try {
     let next = 0;
