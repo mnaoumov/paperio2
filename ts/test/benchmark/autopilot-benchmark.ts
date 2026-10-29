@@ -594,7 +594,7 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       print(`stats ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify({ ...window.__autopilot?.whitebox?.stats, area: window.__areaTotals }))}`);
     }
     if (values.rollout) {
-      print(`rollout ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify(window.__autopilot?.rolloutPlanner?.stats ?? null))}`);
+      print(`rollout ${label(job)} seed ${String(seed)}: ${await page.evaluate(() => JSON.stringify(window.__autopilot?.rolloutPlanner ? { ...window.__autopilot.rolloutPlanner.stats, errorReasons: window.__autopilot.rolloutPlanner.errorReasons } : null))}`);
     }
     return { curve, enemies, mode, percent: state.percent, reason, seconds: state.seconds, seed, wallSeconds: (performance.now() - started) / MILLISECONDS_PER_SECOND };
   } finally {

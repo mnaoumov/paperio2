@@ -192,6 +192,7 @@ describe('RolloutPlanner', () => {
     await planner.pending;
     expect(answered).toBeNull();
     expect(planner.stats.errors).toBe(1);
+    expect(planner.errorReasons).toEqual({ 'unsupported start': 1 });
   });
   it('captures nothing until the frame that asked is over', () => {
     let calls = 0;

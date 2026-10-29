@@ -80,6 +80,8 @@ interface QueuedCheck {
 
 export class RolloutPlanner {
   /** Reads the live `Math.random` state, where the page can; a rollout from it forecasts the live game exactly. */
+  /** How often each rollout error happened, by its message, for the benchmark's report. */
+  public readonly errorReasons: Record<string, number> = {};
   public liveRandomState: (() => number) | null = null;
   /**
    * The check asked for and not answered yet, from the asking update until its answer, so a benchmark can wait for it
@@ -155,9 +157,11 @@ export class RolloutPlanner {
           this.stats.rollouts++;
           verdict = judgeRollout(await this.run(rolloutRequest(directions, live ?? foreignRandomState(++this.requests), LIVE_FRAME_MS)), name);
         }
-      } catch {
+      } catch (error) {
         // An unchecked loop is no better than none here: the pilot holds and asks again after its cooldown.
         this.stats.errors++;
+        const reason = error instanceof Error ? error.message : String(error);
+        this.errorReasons[reason] = (this.errorReasons[reason] ?? 0) + 1;
         return null;
       }
       if (verdict === 'safe') {
