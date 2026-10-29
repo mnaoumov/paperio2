@@ -89,6 +89,7 @@ async function run(transfer: RolloutTransfer): Promise<RolloutResult> {
   const frames = [];
   let death: RolloutResult['death'] = null;
   let inputIndex = 0;
+  const stepMs = request.stepMs ?? ROLLOUT_STEP_MS;
   for (let frame = 0; frame < request.frames; frame++) {
     validateRolloutWorld(game);
     if (performance.now() - started > ROLLOUT_TIMEOUT_MS) {
@@ -101,8 +102,11 @@ async function run(transfer: RolloutTransfer): Promise<RolloutResult> {
       game.direction.normalize();
       inputIndex++;
     }
-    time += ROLLOUT_STEP_MS;
-    game.update(ROLLOUT_STEP_MS);
+    // A live frame's update length is the difference of two clock readings, which differs from the step by float
+    // rounding; passing the step itself makes the forecast part from a 60 fps live game in its first frame.
+    const before = time;
+    time += stepMs;
+    game.update(time - before);
     validateRolloutWorld(game);
     frames.push(readRolloutFrame(game, frame, random.readState()));
     if (game.pendingGameOver) {

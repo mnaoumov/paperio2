@@ -229,7 +229,13 @@ Particle callbacks, pending timers and unsupported extensions are rejected.
 The iframe's achievement store cannot save cookies. `Game` accepts an optional
 `GameClock` at construction; ordinary games retain the default browser clock.
 See `ts/src/rollout/README.md` for the exact contract, limitations, parity tests
-and measurements. It shares the browser renderer and costs hundreds of milliseconds
+and measurements. `stepMs` sets the frame length (20 ms by default), and each update
+takes the clock's own difference, as a live frame does. `npm run benchmark:fidelity`
+measures a forecast against the live game flying the same schedule. A forecast is exact
+only at `stepMs: 1000 / 60`, from the live `Math.random` state, flown by the step the
+rollout held, against a game that steps exactly 60 fps. At 20 ms the bots part within
+0.3 s (median), because `game.rng` is drawn per update. The README's **Forecast
+fidelity** has the table. It shares the browser renderer and costs hundreds of milliseconds
 to seconds per request; it is not suitable for per-frame live planning.
 
 ## In-game video recorder
