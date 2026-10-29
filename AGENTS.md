@@ -224,7 +224,7 @@ neither.
 the real engine in an opaque, disposable iframe, with local module globals, DOM,
 assets, Path2D, ids, pool and RNG. It uses the save graph codec, explicit mulberry32
 state and a 20 ms fixed-step direction schedule; it never restores the live game
-or enables a pilot. Requests are bounded to 600 frames, 64 units and 20,000 segments.
+or enables a pilot. Requests are bounded to 1200 frames, 64 units and 20,000 segments.
 Particle callbacks, pending timers and unsupported extensions are rejected.
 The iframe's achievement store cannot save cookies. `Game` accepts an optional
 `GameClock` at construction; ordinary games retain the default browser clock.

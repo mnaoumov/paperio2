@@ -81,6 +81,12 @@ export type LoopPlanner = (input: PlanInput, answer: (plan: null | PlannedLoop) 
 /** An open-loop flight: one unit direction per fixed step of game time, from the moment the loop is taken. */
 export interface LoopSchedule {
   readonly directions: readonly Point[];
+  /**
+   * Whether the rollout ran from the live `Math.random` state at the live frame length, captured between frames. In a
+   * game that steps exactly that length (the benchmark) its forecast is then exact, so the pilot flies the schedule
+   * without looking around: a heuristic turn would trade the forecast flight for an unchecked one.
+   */
+  readonly exact?: boolean | undefined;
   readonly stepSeconds: number;
 }
 
@@ -338,6 +344,8 @@ const ATTACK_OVERSHOOT = 15;
 const MILLISECONDS_PER_SECOND = 1000;
 /** How far ahead along a scheduled direction the debug target is drawn. */
 const SCHEDULE_TARGET_DISTANCE = 60;
+/** Absorbs float error in a clock that lands exactly on a step's end. */
+const SCHEDULE_STEP_EPSILON = 1e-6;
 /** Other units must be this much farther from the way to the cut than the cut is, plus the margin. */
 const ATTACK_THREAT_FACTOR = 1;
 const ATTACK_THREAT_MARGIN = 40;
@@ -770,7 +778,9 @@ export class WhiteboxPilot {
       this.phase = situation.inBase ? 'home' : 'return';
       this.loop = null;
     }
-    this.lookAround(situation);
+    if (!this.isFlyingExactSchedule()) {
+      this.lookAround(situation);
+    }
     // A checked loop is flown by the directions its rollout steered by, from the plan's own moment, or the flight that
     // was forecast is not the one flown.
     let scheduled = this.scheduledDirection(situation);
@@ -898,6 +908,10 @@ export class WhiteboxPilot {
       this.phase = 'return';
     }
     return this.phase === 'return' ? this.returnTarget(situation) : null;
+  }
+
+  private isFlyingExactSchedule(): boolean {
+    return this.schedule?.flight.exact === true && this.loop !== null && (this.phase === 'home' || this.phase === 'out');
   }
 
   private isLoopStillSafe(situation: Situation, check: LoopCheck): boolean {
@@ -1095,8 +1109,9 @@ export class WhiteboxPilot {
       this.planAnswer = null;
       const plan = answer.plan;
       // Waiting does not freeze the player or the arena. Recheck one route, rather than repeating the worker's search.
+      // An exact forecast was made from the moment it was asked, which is the pose and arena this update still flies from.
       if (
-        plan && (loopFlightLength(input, plan.waypoints) === null
+        plan && plan.schedule?.exact !== true && (loopFlightLength(input, plan.waypoints) === null
           || input.enemies.some((enemy) => threatens({ check: plan.check, enemy })))
       ) {
         this.stats.replans++;
@@ -1141,7 +1156,7 @@ export class WhiteboxPilot {
       return null;
     }
     const direction = this.loop && (this.phase === 'home' || this.phase === 'out')
-      ? schedule.flight.directions[Math.max(0, Math.floor((this.now - schedule.start) / schedule.flight.stepSeconds))]
+      ? schedule.flight.directions[scheduleStep(this.now - schedule.start, schedule.flight.stepSeconds)]
       : undefined;
     if (!direction) {
       this.schedule = null;
@@ -1592,6 +1607,19 @@ export function returnEntryPoint(params: ReturnEntryPointParams): null | Point {
   const away = distance(position, edge);
   const target = away < 1 ? edge : add(position, scale(subtract(edge, position), 1 + RETURN_OVERSHOOT / away));
   return pointInPolygon(target, outline) && depthInside(target, outline) >= RETURN_CORE_DEPTH ? target : null;
+}
+
+/**
+ * Which step of a schedule an update holds. The engine reads the clock at the end of a frame, so the update `elapsed`
+ * after the schedule's start is the end of step `elapsed / step - 1`: the rollout held that step's direction over the
+ * same stretch of game time. A plain `floor` reads one step ahead.
+ *
+ * @param elapsedSeconds - Game time since the schedule started.
+ * @param stepSeconds - The schedule's step.
+ * @returns The step.
+ */
+export function scheduleStep(elapsedSeconds: number, stepSeconds: number): number {
+  return Math.max(0, Math.ceil(elapsedSeconds / stepSeconds - SCHEDULE_STEP_EPSILON) - 1);
 }
 
 /**

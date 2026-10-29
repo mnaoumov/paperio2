@@ -5,6 +5,11 @@
  * {@link findLoops} finds are each played as an isolated engine rollout (`rollout/`), steered by the schedule
  * {@link loopSchedule} gives, and the first one the player flies and closes without dying is taken. The rollout is
  * open-loop and the bots' future depends on the player's real flight, so a passed loop is a forecast, not a proof.
+ *
+ * Rollouts run at the live game's 60 fps frame and are captured between frames, after the frame that asked. Given the
+ * live `Math.random` state ({@link RolloutPlanner.liveRandomState}, which only a seeded page can read), one rollout is
+ * an exact forecast in a game that steps exactly 60 fps, such as the benchmark; without it, two rollouts from foreign
+ * states must both pass.
  */
 
 import type {
@@ -18,10 +23,7 @@ import type {
   PlannedLoop
 } from './whitebox.ts';
 
-import {
-  MAX_ROLLOUT_FRAMES,
-  ROLLOUT_STEP_MS
-} from '../rollout/protocol.ts';
+import { MAX_ROLLOUT_FRAMES } from '../rollout/protocol.ts';
 import {
   findLoops,
   loopSchedule
@@ -29,11 +31,15 @@ import {
 
 /** How many loops are tried in rollouts, best first. */
 const ROLLOUT_CANDIDATES = 3;
-/** A loop is taken only when this many rollouts, each from its own random state, all close it alive. */
-const ROLLOUT_TRIALS = 2;
+/** Without the live random state, a loop is taken only when this many rollouts, each from its own state, all close it. */
+const FOREIGN_TRIALS = 2;
+
 /** The rollout carries on this many frames past the scheduled return, so a cut just after closing still counts. */
 const RETURN_MARGIN_FRAMES = 25;
 const MILLISECONDS_IN_SECOND = 1000;
+const LIVE_FRAMES_PER_SECOND = 60;
+/** The live game's frame, which a rollout must step by for its bots to stay with the live ones. */
+const LIVE_FRAME_MS = MILLISECONDS_IN_SECOND / LIVE_FRAMES_PER_SECOND;
 /** Golden-ratio increments give each request its own explicit random state without drawing `Math.random`. */
 const RANDOM_STATE_STEP = 0x9e37_79b9;
 const EMPTY_TRAIL_PREFIX = '0:';
@@ -61,10 +67,22 @@ export type RolloutRunner = (request: RolloutRequest) => Promise<RolloutResult>;
 
 export type RolloutVerdict = 'death' | 'no-return' | 'safe';
 
+interface QueuedCheck {
+  readonly answer: (plan: null | PlannedLoop) => void;
+  readonly done: () => void;
+  readonly input: PlanInput;
+}
+
 export class RolloutPlanner {
-  /** The checks in flight, so a benchmark can wait for them before its next frame and stay frame for frame. */
+  /** Reads the live `Math.random` state, where the page can; a rollout from it forecasts the live game exactly. */
+  public liveRandomState: (() => number) | null = null;
+  /**
+   * The check asked for and not answered yet, from the asking update until its answer, so a benchmark can wait for it
+   * before its next frame and stay frame for frame.
+   */
   public pending: null | Promise<void> = null;
   public readonly stats: RolloutPlannerStats = { accepted: 0, errors: 0, none: 0, rejectedAll: 0, rejectedDeath: 0, rejectedNoReturn: 0, rejectedTooLong: 0, rollouts: 0, skipped: 0 };
+  private queued: null | QueuedCheck = null;
   private requests = 0;
 
   /**
@@ -76,16 +94,32 @@ export class RolloutPlanner {
   public constructor(private readonly playerName: () => null | string, private readonly run: RolloutRunner) {}
 
   /**
+   * Starts the check asked for during the frame, now that the frame is over: a rollout captured inside an update
+   * would start from a half-updated game.
+   */
+  public afterFrame(): void {
+    const queued = this.queued;
+    if (!queued) {
+      return;
+    }
+    this.queued = null;
+    this.pending = this.check(queued.input).then(queued.answer, () => {
+      queued.answer(null);
+    }).finally(() => {
+      this.pending = null;
+      queued.done();
+    });
+  }
+
+  /**
    * The planner to give the whitebox pilot.
    *
    * @param input - What the plan reads.
    * @param answer - Told the checked loop, or `null`.
    */
   public readonly plan: LoopPlanner = (input, answer): void => {
-    this.pending = this.check(input).then(answer, () => {
-      answer(null);
-    }).finally(() => {
-      this.pending = null;
+    this.pending = new Promise((done) => {
+      this.queued = { answer, done, input };
     });
   };
 
@@ -96,7 +130,9 @@ export class RolloutPlanner {
       this.stats.none++;
       return null;
     }
-    const stepSeconds = ROLLOUT_STEP_MS / MILLISECONDS_IN_SECOND;
+    const live = this.liveRandomState?.() ?? null;
+    const trials = live === null ? FOREIGN_TRIALS : 1;
+    const stepSeconds = LIVE_FRAME_MS / MILLISECONDS_IN_SECOND;
     for (const loop of loops) {
       const directions = loopSchedule(input, loop.waypoints, stepSeconds, MAX_ROLLOUT_FRAMES - RETURN_MARGIN_FRAMES);
       if (directions.length === 0 || directions.length >= MAX_ROLLOUT_FRAMES - RETURN_MARGIN_FRAMES) {
@@ -109,10 +145,10 @@ export class RolloutPlanner {
       }
       let verdict: RolloutVerdict = 'safe';
       try {
-        // Each trial starts from its own random state, so the frame lengths and every bot after them differ.
-        for (let trial = 0; trial < ROLLOUT_TRIALS && verdict === 'safe'; trial++) {
+        // Each foreign trial starts from its own random state, so the frame lengths and every bot after them differ.
+        for (let trial = 0; trial < trials && verdict === 'safe'; trial++) {
           this.stats.rollouts++;
-          verdict = judgeRollout(await this.run(rolloutRequest(directions, ++this.requests)), name);
+          verdict = judgeRollout(await this.run(rolloutRequest(directions, live ?? foreignRandomState(++this.requests), LIVE_FRAME_MS)), name);
         }
       } catch {
         // An unchecked loop is no better than none here: the pilot holds and asks again after its cooldown.
@@ -121,7 +157,7 @@ export class RolloutPlanner {
       }
       if (verdict === 'safe') {
         this.stats.accepted++;
-        return { ...loop, checked: true, schedule: { directions, stepSeconds } };
+        return { ...loop, checked: true, schedule: { directions, exact: live !== null, stepSeconds } };
       }
       if (verdict === 'death') {
         this.stats.rejectedDeath++;
@@ -132,6 +168,17 @@ export class RolloutPlanner {
     this.stats.rejectedAll++;
     return null;
   }
+}
+
+/**
+ * A random state of its own for a request, without drawing `Math.random`.
+ *
+ * @param request - The request's number.
+ * @returns The state.
+ */
+export function foreignRandomState(request: number): number {
+  // eslint-disable-next-line no-bitwise -- an unsigned 32-bit random state.
+  return Math.imul(request, RANDOM_STATE_STEP) >>> 0;
 }
 
 /**
@@ -181,10 +228,11 @@ export function judgeRollout(result: RolloutResult, player: string): RolloutVerd
  * A rollout request steering by a schedule: one input wherever the direction changes, run past the scheduled return.
  *
  * @param directions - The direction for each frame.
- * @param request - The request's number, which picks its random state.
+ * @param randomState - The `Math.random` state the rollout starts from.
+ * @param stepMs - The rollout's frame, the schedule's step.
  * @returns The request.
  */
-export function rolloutRequest(directions: readonly Point[], request: number): RolloutRequest {
+export function rolloutRequest(directions: readonly Point[], randomState: number, stepMs: number): RolloutRequest {
   const inputs = [];
   let previous: null | Point = null;
   for (const [frame, direction] of directions.entries()) {
@@ -193,7 +241,5 @@ export function rolloutRequest(directions: readonly Point[], request: number): R
       previous = direction;
     }
   }
-  // eslint-disable-next-line no-bitwise -- an unsigned 32-bit random state.
-  const randomState = Math.imul(request, RANDOM_STATE_STEP) >>> 0;
-  return { frames: directions.length + RETURN_MARGIN_FRAMES, ignoreParticles: true, inputs, randomState };
+  return { frames: directions.length + RETURN_MARGIN_FRAMES, ignoreParticles: true, inputs, randomState, stepMs };
 }

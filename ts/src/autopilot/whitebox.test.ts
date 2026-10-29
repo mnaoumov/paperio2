@@ -260,11 +260,14 @@ describe('delayed whitebox plans', () => {
     pilot['now'] = 11;
     pilot['takePlan']({ ...plan, checked: true, schedule }, 10);
     const outside = { inBase: false, position: CENTER };
-    expect(pilot['scheduledDirection'](outside)).toBe(north);
+    // The update that ends at a step's end holds that step's direction, as the rollout's frame over that stretch did.
+    expect(pilot['scheduledDirection'](outside)).toBe(east);
     expect(pilot.debug.phase).toBe('out');
     pilot['now'] = 10.2;
     expect(pilot['scheduledDirection'](outside)).toBe(east);
-    pilot['now'] = 11.5;
+    pilot['now'] = 11.4;
+    expect(pilot['scheduledDirection'](outside)).toBe(north);
+    pilot['now'] = 11.6;
     expect(pilot['scheduledDirection'](outside)).toBeNull();
     // Once run out, the schedule is gone, and the waypoints fly the rest.
     pilot['now'] = 10;

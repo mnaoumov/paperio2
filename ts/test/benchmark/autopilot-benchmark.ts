@@ -549,6 +549,11 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
         api.setEnemySettings(enemySettings);
         api.start('Autopilot', '', undefined, undefined, undefined, true);
         window.__autopilot = api.attachAutopilot(pilot, false, rolloutChecked);
+        if (window.__autopilot.rolloutPlanner) {
+          // The page steps exactly 60 fps, so a rollout from the seeded Math.random state forecasts it exactly.
+          const uint32Range = 4294967296;
+          window.__autopilot.rolloutPlanner.liveRandomState = (): number => (window.__differential.randomState() + uint32Range) % uint32Range;
+        }
         window.__statsLog = api.createStatsLog(pilot);
         if (pilot === 'whitebox') {
           api.game.renderer = null;

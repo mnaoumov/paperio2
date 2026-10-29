@@ -107,6 +107,7 @@ export class Autopilot implements AutopilotHook {
   }
 
   public afterFrame(): void {
+    this.rolloutPlanner?.afterFrame();
     if (this.mode === 'blackbox' && this.engaged) {
       if (this.blackbox) {
         const frame = this.grabFrame(this.game.view);

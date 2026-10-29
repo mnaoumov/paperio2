@@ -245,6 +245,8 @@ export interface PagePracticeOptions {
 
 /** The experimental rollout-checked planner, as the benchmark reads it. */
 export interface PageRolloutPlanner {
+  /** Set by the benchmark to the harness's seeded `Math.random` state, which makes each forecast exact. */
+  liveRandomState: (() => number) | null;
   readonly pending: null | Promise<void>;
   readonly stats: Record<string, number>;
 }

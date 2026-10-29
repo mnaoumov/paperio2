@@ -35,7 +35,7 @@ const forecast = await paperio2api.rollout({
    uses segment counts and two fingerprints of exact ordered coordinates. These
    fingerprints are comparison aids, not serialized geometry or a collision oracle.
    The continuation ends at the first player death/win, before the death delay.
-4. Bounds are 1–600 frames (12 virtual seconds at 20 ms, 10 at 60 fps), at most one input per frame,
+4. Bounds are 1–1200 frames (24 virtual seconds at 20 ms, 20 at 60 fps), at most one input per frame,
    64 units, 20,000 territory/trail segments and four million compressed transfer
    characters. The world budget is checked at capture and each simulated frame.
    There is a 30 s loading timeout and a time-budget check between updates. A

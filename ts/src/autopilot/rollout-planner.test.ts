@@ -54,10 +54,11 @@ describe('judgeRollout', () => {
 
 describe('rolloutRequest', () => {
   it('sends an input only where the direction changes and runs past the schedule', () => {
-    const request = rolloutRequest([{ x: 1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], 1);
+    const request = rolloutRequest([{ x: 1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], 7, 1000 / 60);
     expect(request.inputs).toEqual([{ frame: 0, x: 1, y: 0 }, { frame: 2, x: 0, y: 1 }]);
     expect(request.frames).toBeGreaterThan(3);
     expect(request.ignoreParticles).toBe(true);
+    expect(request).toMatchObject({ randomState: 7, stepMs: 1000 / 60 });
   });
 });
 
@@ -109,6 +110,7 @@ describe('RolloutPlanner', () => {
     planner.plan(INPUT, (plan) => {
       answered = plan;
     });
+    planner.afterFrame();
     await planner.pending;
     expect(answered).toEqual(findLoop(INPUT));
     expect(planner.stats).toMatchObject({ rollouts: 0, skipped: 1 });
@@ -125,9 +127,11 @@ describe('RolloutPlanner', () => {
     planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
+    planner.afterFrame();
     await planner.pending;
     expect(answered).toMatchObject({ ...loops[1], checked: true });
-    expect(answered).toHaveProperty('schedule.stepSeconds', 0.02);
+    expect(answered).toHaveProperty('schedule.stepSeconds', 1 / 60);
+    expect(answered).toHaveProperty('schedule.exact', false);
     expect(planner.stats).toMatchObject({ accepted: 1, rejectedDeath: 1, rollouts: 3 });
   });
   it('rejects a loop that dies in any of its rollouts', async () => {
@@ -142,6 +146,7 @@ describe('RolloutPlanner', () => {
     planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
+    planner.afterFrame();
     await planner.pending;
     expect(answered).toBeNull();
     expect(planner.stats).toMatchObject({ accepted: 0, rejectedDeath: loops.length, rollouts: loops.length * 2 });
@@ -153,6 +158,7 @@ describe('RolloutPlanner', () => {
     planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
+    planner.afterFrame();
     await planner.pending;
     expect(answered).toBeNull();
     expect(planner.stats.rejectedAll).toBe(1);
@@ -163,8 +169,38 @@ describe('RolloutPlanner', () => {
     planner.plan(NEAR_INPUT, (plan) => {
       answered = plan;
     });
+    planner.afterFrame();
     await planner.pending;
     expect(answered).toBeNull();
     expect(planner.stats.errors).toBe(1);
+  });
+  it('captures nothing until the frame that asked is over', () => {
+    let calls = 0;
+    const planner = new RolloutPlanner(() => 'me', () => {
+      calls++;
+      return Promise.resolve(result([], { frame: 0, reason: 3, time: 0 }));
+    });
+    planner.plan(NEAR_INPUT, () => undefined);
+    expect(calls).toBe(0);
+    expect(planner.pending).not.toBeNull();
+    planner.afterFrame();
+    expect(calls).toBe(1);
+  });
+  it('checks a loop once from the live random state at the live frame, as an exact forecast', async () => {
+    const requests: RolloutRequest[] = [];
+    const planner = new RolloutPlanner(() => 'me', (request: RolloutRequest) => {
+      requests.push(request);
+      return Promise.resolve(result([frame(0, false, '1:1:1'), frame(1, true, EMPTY_TRAIL)]));
+    });
+    planner.liveRandomState = (): number => 4242;
+    let answered: unknown = 'none';
+    planner.plan(NEAR_INPUT, (plan) => {
+      answered = plan;
+    });
+    planner.afterFrame();
+    await planner.pending;
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({ randomState: 4242, stepMs: 1000 / 60 });
+    expect(answered).toHaveProperty('schedule.exact', true);
   });
 });

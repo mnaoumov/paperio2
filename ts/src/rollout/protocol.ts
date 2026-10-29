@@ -1,4 +1,4 @@
-export const MAX_ROLLOUT_FRAMES = 600;
+export const MAX_ROLLOUT_FRAMES = 1200;
 export const ROLLOUT_STEP_MS = 20;
 export const MIN_ROLLOUT_STEP_MS = 1;
 /** Just above two 60 fps frames, the longest single update a live frame takes without being split. */

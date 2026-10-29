@@ -285,6 +285,11 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
         }
       }
       window.__autopilot = api.attachAutopilot(trialSetup.mode === 'blackbox' ? 'blackbox' : 'whitebox', false, trialSetup.rollout);
+      if (window.__autopilot.rolloutPlanner) {
+        // The page steps exactly 60 fps, so a rollout from the seeded Math.random state forecasts it exactly.
+        const uint32Range = 4294967296;
+        window.__autopilot.rolloutPlanner.liveRandomState = (): number => (window.__differential.randomState() + uint32Range) % uint32Range;
+      }
       if (trialSetup.pilot !== null) {
         window.__autopilot.whitebox?.restoreState(structuredClone(trialSetup.pilot), game);
       }
