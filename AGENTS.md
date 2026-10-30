@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Filing an issue (for AI agents and humans)
+
+Open issues through the [issue forms](https://github.com/mnaoumov/paperio2/issues/new/choose), not as blank issues.
+
+Filing from the CLI or the API (`gh issue create --body`, or an AI agent filing for you) skips the form, and `gh issue create --template` cannot load an issue form. In that case, open the matching form in [`.github/ISSUE_TEMPLATE/`](https://github.com/mnaoumov/paperio2/tree/HEAD/.github/ISSUE_TEMPLATE), copy every field as a `### <label>` heading in the form's order, and fill in each one. Always state the version you used and your operating system.
+
 ## The `ts/` project — strict TypeScript + template tooling
 
 **Strict conversion: DONE.** `ts/src/tsconfig.json` (the browser config) extends `@tsconfig/strictest`, adapted for this browser esbuild bundle: `module: ESNext` / `moduleResolution: bundler`, `lib: [DOM, ES2024]`, `types: [@total-typescript/ts-reset, js-cookie]` (no `node`), plus a `paths` mapping `preact`/`preact/hooks` to their shipped `.d.ts` (preact 10.5.4's `exports` has no `types` condition, so under `bundler` resolution TS otherwise types preact as `any`). The full strict conversion of `src/app2.ts` is complete — **555 → 0 `tsc` errors**, with **no `!` / `any` / `as` / `@ts-ignore`**: null-safety uses `ensureNonNullable` / `assertNonNullable` from `@mnaoumov/typescript-lib/type-guards` (a runtime `dependency`, since esbuild bundles it; see the toolkit bullet below), uninitialized fields get real defaults, and `Unit.skin` became a getter over a private `_skin` backing field. Verified: `tsc` clean + esbuild bundle boots (16 units, 0 console errors).
