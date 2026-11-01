@@ -179,6 +179,16 @@ describe('homeFlightLength', () => {
     const bent = [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 200 }, { x: 150, y: 200 }, { x: 150, y: 50 }, { x: 50, y: 50 }, { x: 50, y: 200 }, { x: 0, y: 200 }];
     expect(homeFlightLength({ heading: 0, outline: bent, position: { x: 25, y: 150 }, speed: 100, target: { x: 175, y: 150 } })).toBeNull();
   });
+
+  it('rejects a flight that crosses a pending capture before reaching the trail it cuts', () => {
+    const capture = [{ x: 90, y: 80 }, { x: 130, y: 80 }, { x: 130, y: 120 }, { x: 90, y: 120 }];
+    expect(homeFlightLength({ avoid: [capture], heading: 0, outline, position: { x: 50, y: 100 }, speed: 100, target: { x: 150, y: 100 } })).toBeNull();
+  });
+
+  it('lets a flight enter a pending capture only at the trail point it aims at', () => {
+    const capture = [{ x: 95, y: 80 }, { x: 130, y: 80 }, { x: 130, y: 120 }, { x: 95, y: 120 }];
+    expect(homeFlightLength({ avoid: [capture], heading: 0, outline, position: { x: 50, y: 100 }, speed: 100, target: { x: 100, y: 100 } })).toBeGreaterThan(45);
+  });
 });
 /* eslint-disable @typescript-eslint/dot-notation -- bracket access exercises the private planner boundary with typed inputs. */
 describe('delayed whitebox plans', () => {

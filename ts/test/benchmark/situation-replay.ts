@@ -100,6 +100,9 @@ const SECONDS_PER_HOUR = 3600;
 const RATE_DIGITS = 1;
 /** `--trace` prints game time to the hundredth of a second, finer than one 60 fps frame apart. */
 const TRACE_SECONDS_DIGITS = 2;
+/** With --near-units, trial 0's trace lists every unit this close to the player, every this many frames. */
+const NEAR_TRACE_DISTANCE = 250;
+const NEAR_TRACE_FRAMES = 6;
 
 const { values } = parseArgs({
   options: {
@@ -110,11 +113,12 @@ const { values } = parseArgs({
     'fresh-pilot': { default: false, type: 'boolean' },
     'label': { default: 'replay', type: 'string' },
     'mode': { default: 'whitebox', type: 'string' },
+    'near-units': { default: false, type: 'boolean' },
     'out': { type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
     'rollout': { default: false, type: 'boolean' },
     'situations': { type: 'string' },
-    'trace': { default: false, type: 'boolean' },
+  'trace': { default: false, type: 'boolean' },
     'trials': { default: '16', type: 'string' }
   }
 });
@@ -300,7 +304,7 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
     let state: StepState = { done: false, lines: [], percent: start.percent, reason: null, seconds: start.seconds };
     const traced = values.trace && trial === 0;
     while (!state.done && state.seconds - start.seconds < windowSeconds) {
-      state = await stepTrial(page, Math.min(CHUNK_FRAMES, Math.ceil((windowSeconds - (state.seconds - start.seconds)) * FRAMES_PER_SECOND)), traced);
+      state = await stepTrial(page, Math.min(CHUNK_FRAMES, Math.ceil((windowSeconds - (state.seconds - start.seconds)) * FRAMES_PER_SECOND)), traced, traced && values['near-units']);
       for (const line of state.lines) {
         print(`${name} ${line}`);
       }
@@ -311,12 +315,13 @@ async function replaySituation(page: Page, name: string, situation: Situation, t
   return { kind: situation.kind, name, outcomes };
 }
 
-async function stepTrial(page: Page, frames: number, traced: boolean): Promise<StepState> {
+async function stepTrial(page: Page, frames: number, traced: boolean, nearUnits = false): Promise<StepState> {
   return page.evaluate(
-    async (count: number, milliseconds: number, millisecondsPerSecond: number, trace: boolean, digits: number): Promise<StepState> => {
+    async (count: number, milliseconds: number, millisecondsPerSecond: number, trace: boolean, digits: number, nearEvery: number, nearDistance: number): Promise<StepState> => {
       const { game } = window.paperio2api;
       const lines: string[] = [];
       let last = '';
+      let frameCount = 0;
       // A line on every change of phase, of base, of loop or of whether the loop was checked in a rollout.
       function traceFrame(): void {
         const pilot = window.__autopilot?.whitebox;
@@ -324,8 +329,18 @@ async function stepTrial(page: Page, frames: number, traced: boolean): Promise<S
         if (!pilot || !player) {
           return;
         }
-        const checked: unknown = Reflect.get(Object(pilot.saveState(game)), 'loopChecked');
-        const line = `${pilot.debug.phase} in=${String(player.in === player.base)} loop=${String(pilot.debug.loop?.length ?? 0)} checked=${String(checked)}`;
+        const saved = Object(pilot.saveState(game));
+        const checked: unknown = Reflect.get(saved, 'loopChecked');
+        const mode: unknown = pilot.debug.phase === 'attack' ? Reflect.get(saved, 'victimMode') : '-';
+        const line = `${pilot.debug.phase} mode=${String(mode)} in=${String(player.in === player.base)} loop=${String(pilot.debug.loop?.length ?? 0)} checked=${String(checked)}`;
+        frameCount++;
+        if (nearEvery > 0 && frameCount % nearEvery === 0) {
+          const seconds = (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond;
+          const units = game.units.filter((unit) => unit !== player && !unit.death && Math.hypot(unit.position.x - player.position.x, unit.position.y - player.position.y) < nearDistance)
+            .map((unit) => `${unit.fsm?.state ?? '-'}@${unit.position.x.toFixed(0)},${unit.position.y.toFixed(0)} home=${String(unit.in === unit.base)} trail=${String(unit.track.simplyline.length)} inPlayerBase=${String(unit.in === player.base)}`);
+          const target = pilot.debug.target ? `${pilot.debug.target.x.toFixed(0)},${pilot.debug.target.y.toFixed(0)}` : '-';
+          lines.push(`${seconds.toFixed(digits)}s   near pos=${player.position.x.toFixed(0)},${player.position.y.toFixed(0)} target=${target} ${units.join(' | ')}`);
+        }
         if (line !== last) {
           last = line;
           const seconds = (game.clock.now() - (game.startTime ?? 0)) / millisecondsPerSecond;
@@ -352,7 +367,9 @@ async function stepTrial(page: Page, frames: number, traced: boolean): Promise<S
     FRAME_MILLISECONDS,
     MILLISECONDS_PER_SECOND,
     traced,
-    TRACE_SECONDS_DIGITS
+    TRACE_SECONDS_DIGITS,
+    nearUnits ? NEAR_TRACE_FRAMES : 0,
+    NEAR_TRACE_DISTANCE
   );
 }
 

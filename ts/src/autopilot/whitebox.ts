@@ -58,6 +58,8 @@ interface PreciseTrail {
 }
 
 const preciseOutlines = new WeakMap<Polygon, PreciseOutline>();
+/** Each base outline's deepest point, which a hold waits at; an outline is a new array whenever the base changes. */
+const deepestPoints = new WeakMap<readonly Point[], null | Point>();
 const preciseTrails = new WeakMap<Polyline, PreciseTrail>();
 const GEOMETRY_TOLERANCE = 1;
 
@@ -342,6 +344,11 @@ const ATTACK_TIME_SHARE = 0.8;
 const ATTACK_MARGIN_SECONDS = 0.25;
 /** The cut aims this far past the trail point, so the player crosses the trail. */
 const ATTACK_OVERSHOOT = 15;
+/**
+ * A cut from home may enter a pending capture only this close to the trail point it aims at: the capture's edge is the
+ * trail itself, sampled.
+ */
+const AVOID_ARRIVAL = 10;
 const MILLISECONDS_PER_SECOND = 1000;
 /** How far ahead along a scheduled direction the debug target is drawn. */
 const SCHEDULE_TARGET_DISTANCE = 60;
@@ -466,6 +473,8 @@ interface HomeCutInTimeParams {
 }
 
 interface HomeFlightLengthParams {
+  /** Ground the flight must not enter before it is within {@link AVOID_ARRIVAL} of the target: pending captures. */
+  readonly avoid?: readonly (readonly Point[])[];
   readonly heading: number;
   readonly outline: readonly Point[];
   readonly position: Point;
@@ -807,7 +816,7 @@ export class WhiteboxPilot {
     if (this.victimMode === 'surround') {
       return this.surroundTarget(situation, victim);
     }
-    const candidate = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING)) : null;
+    const candidate = inBase ? homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING), homewardCaptures(situation)) : null;
     const home = candidate && homeCutInTime({ baseDistance: victim.baseDistance, flightSeconds: candidate.seconds, returning: !(victim instanceof Bot) || victim.fsm?.state === 'back', speed: game.config.unitSpeed }) ? candidate.point : null;
     // A cut chosen from home is never chased outside: out there its victim, which is no threat while it is the victim, can cut the player.
     const point = this.victimMode === 'home' ? home : home ?? nearestPoint(position, trailPoints);
@@ -1014,6 +1023,7 @@ export class WhiteboxPilot {
   private lookForVictim(situation: Situation): void {
     const { game, inBase, player } = situation;
     let best: null | VictimChoice = null;
+    const avoid = homewardCaptures(situation);
     for (const unit of game.units) {
       if (unit === player || unit.death || unit.in === unit.base) {
         continue;
@@ -1022,7 +1032,7 @@ export class WhiteboxPilot {
       if (inBase) {
         // A trail run through the player's own base is about to take ground from it, and cutting it costs the player no
         // time outside: the nearest such trail is cut first.
-        const home = homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING));
+        const home = homeVictimPoint(situation, samplePath(trailPoints, ROUTE_SAMPLE_SPACING), avoid);
         if (home && homeCutInTime({ baseDistance: unit.baseDistance, flightSeconds: home.seconds, returning: !(unit instanceof Bot) || unit.fsm?.state === 'back', speed: game.config.unitSpeed }) && (!best || !best.home || home.seconds < best.seconds)) {
           best = { home: true, seconds: home.seconds, unit };
         }
@@ -1550,6 +1560,9 @@ export function homeFlightLength(params: HomeFlightLengthParams): null | number 
     heading += Math.max(-maxTurn, Math.min(maxTurn, angleDifference(wanted, heading)));
     const next = { x: position.x + Math.cos(heading) * stepLength, y: position.y + Math.sin(heading) * stepLength };
     if (!pointInPolygon(next, outline) || !isClearOfPolygon(position, next, outline)) {
+      return null;
+    }
+    if (params.avoid && distance(next, target) > AVOID_ARRIVAL && isInsideAny(next, params.avoid)) {
       return null;
     }
     flown += distance(position, next);
@@ -2343,22 +2356,22 @@ function gainCells(shape: readonly Point[], raster: Raster, center: Point, radiu
 }
 
 /**
- * Where to wait while no loop is safe: the base's centroid when it lies inside the base, otherwise a tight circle.
+ * Where to wait while no loop is safe: the deepest point of the base, otherwise a tight circle. The mean of the outline's
+ * vertices is pulled toward its most jagged stretch, which is the edge a neighbour keeps biting, so the player waited
+ * where those bites close around it.
  *
  * @param situation - What the update knows.
  * @returns The point to steer at.
  */
 function holdTarget(situation: Situation): Point {
   const { heading, outline, position } = situation;
-  let sumX = 0;
-  let sumY = 0;
-  for (const point of outline) {
-    sumX += point.x;
-    sumY += point.y;
+  let deepest = deepestPoints.get(outline);
+  if (deepest === undefined) {
+    deepest = deepestPoint(outline);
+    deepestPoints.set(outline, deepest);
   }
-  const centroid = { x: sumX / Math.max(1, outline.length), y: sumY / Math.max(1, outline.length) };
-  if (pointInPolygon(centroid, outline) && distance(centroid, position) > WAYPOINT_REACHED) {
-    return centroid;
+  if (deepest && distance(deepest, position) > WAYPOINT_REACHED) {
+    return deepest;
   }
   return { x: position.x + Math.cos(heading + Math.PI * HALF) * HOLD_RADIUS, y: position.y + Math.sin(heading + Math.PI * HALF) * HOLD_RADIUS };
 }
@@ -2375,7 +2388,7 @@ function homeSeconds(unit: Unit, speed: number): number {
   return unit.baseDistance / speed + (unit.fsm?.state === 'back' ? 0 : LOOP_STATE_SLACK_SECONDS);
 }
 
-function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): HomeVictim | null {
+function homeVictimPoint(situation: Situation, trailPoints: readonly Point[], avoid?: readonly (readonly Point[])[]): HomeVictim | null {
   const { game, heading, outline, position } = situation;
   const speed = game.config.unitSpeed;
   let best: HomeVictim | null = null;
@@ -2387,12 +2400,25 @@ function homeVictimPoint(situation: Situation, trailPoints: readonly Point[]): H
     if (!pointInPolygon(point, outline) || depthInside(point, outline) < HOME_CUT_DEPTH || !isClearOfPolygon(position, point, outline)) {
       continue;
     }
-    const flown = homeFlightLength({ heading, outline, position, speed, target: point });
+    const flown = homeFlightLength({ ...avoid && { avoid }, heading, outline, position, speed, target: point });
     if (flown !== null) {
       best = { point, reach, seconds: flown / speed };
     }
   }
   return best;
+}
+
+/**
+ * The pending captures of every unit heading home or inside the player's base: a cut from home that walks into one is the
+ * player standing where that capture closes, which the engine kills as surrounded if the unit gets home first. A
+ * neighbour's short bites into the base are drawn in `capture`, not `back`.
+ *
+ * @param situation - What the update knows.
+ * @returns The captures.
+ */
+function homewardCaptures(situation: Situation): Point[][] {
+  const { game, player } = situation;
+  return game.units.filter((unit) => unit !== player && !unit.death && (!(unit instanceof Bot) || unit.fsm?.state === 'back' || unit.in === player.base)).flatMap(pendingCaptures);
 }
 
 function insideObstacle(point: Point, obstacle: CaptureObstacle): boolean {
