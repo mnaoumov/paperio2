@@ -240,6 +240,13 @@ to seconds per request; it is not suitable for per-frame live planning.
 The optional `unitName` limits observations, not simulation or world limits. The
 experimental loop planner observes only the player to avoid fingerprinting every
 bot's territory on every forecast frame; default forecasts still observe all units.
+The opt-in `autopilot/rollout-planner.ts` captures after the requesting frame,
+tries up to three loops and flies each schedule through a 90-frame inward settle.
+It rejects deaths, failure to return and leaving the base again after closing.
+With a readable live random state it checks once and flies the exact schedule
+without heuristic diversions; otherwise both foreign-state trials must pass.
+No accepted loop means a 60-update retry delay. These forecasts check loops only:
+home cuts, holding and surround responses remain heuristic.
 
 ## In-game video recorder
 
@@ -406,7 +413,7 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   long way round. With it, loops reach past the wall (`WALL_MARGIN` is negative) and take the last ring, and once the
   player holds 99% with no unit within 300 the pilot makes a forward-only lap along the wall (`sweepTarget`) to close
   the slivers left there.
-- **Defence:** `homeVictimPoint` simulates a cut inside the base with the player's actual turn rate and requires `HOME_CUT_DEPTH` (30) at the target. A bot already heading home must lose the cut's arrival race; one still capturing can be cut before it commits to returning. A surround first seeks an escape that stays in the base, then a cut. `guardBaseExit` also avoids entering predicted captures and incidental departures, scaling its interior clearance for the small initial base. It pursues the current target with the turn rate and wall slide until arrival, rather than extending its initial heading beyond the target. A guarded diversion invalidates an active home plan. Return search compares direct routes with the remaining loop, tracks the return's own new trail, prefers re-entry with room to turn and, if complete routes fail, first tries a simulated one-second clear heading. A closing bot capture around the current exit requests a return. Only a victim chased in the open is left out of the threat check.
+- **Defence:** `homeVictimPoint` simulates a cut inside the base with the player's actual turn rate and requires `HOME_CUT_DEPTH` (30) at the target. A bot already heading home must lose the cut's arrival race; one still capturing can be cut before it commits to returning. The flight avoids pending captures of bots heading home or inside the player's base, except within 10 units of the intended cut. Holds aim at the outline's cached deepest grid point, rather than its vertex centroid. A surround first seeks an escape that stays in the base, then a cut. `guardBaseExit` also avoids entering predicted captures and incidental departures, scaling its interior clearance for the small initial base. It pursues the current target with the turn rate and wall slide until arrival, rather than extending its initial heading beyond the target. A guarded diversion invalidates an active home plan. Return search compares direct routes with the remaining loop, tracks the return's own new trail, prefers re-entry with room to turn and, if complete routes fail, first tries a simulated one-second clear heading. A closing bot capture around the current exit requests a return. Only a victim chased in the open is left out of the threat check.
 - **Benchmark:** `npm run benchmark -- --modes whitebox,blackbox --seeds N --max-minutes M [--why]`
   (`test/benchmark/autopilot-benchmark.ts`). It builds `dist/` first, because the page plays `dist/app2.js`: before it
   did, two runs measured a bundle another branch had built and both read as this branch's code. Benchmark and situation
@@ -427,6 +434,8 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   unit's bot state (`*` while in its base), the target (magenta) and the killer (red box). A seed replays exactly, so
   `--seeds 1 --first-seed <n>` with both is the way to study one death. `--enemies` picks the enemy modes to play
   against (see **Enemy modes**); it defaults to the original bots.
+  `--stop-on-death` ends a survival cohort after its first recorded death, cancels
+  unfinished games at their next chunk boundary and excludes them from the report.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
   `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes; `--situation-leads
   8,25,60` saves one per lead instead, which brackets when a death became certain. The replay plays each one

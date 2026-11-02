@@ -1,8 +1,9 @@
 # Experimental engine rollouts
 
 `paperio2api.rollout(request, signal?)` captures between frames and runs the real
-`Game.update` in a disposable, opaque iframe (`sandbox="allow-scripts"`). Nothing
-calls it automatically. It does not select or enable a pilot policy.
+`Game.update` in a disposable, opaque iframe (`sandbox="allow-scripts"`). The opt-in
+experimental loop planner uses it; the ordinary pilot does not. Calling the API
+does not select or enable a pilot policy.
 
 ```js
 const forecast = await paperio2api.rollout({
@@ -34,6 +35,9 @@ const forecast = await paperio2api.rollout({
    territory areas, base membership, kill/return counts and random state. Geometry
    uses segment counts and two fingerprints of exact ordered coordinates. These
    fingerprints are comparison aids, not serialized geometry or a collision oracle.
+   They hash the ordered coordinates' little-endian IEEE-754 bytes with FNV-1a and
+   DJB2, avoiding decimal conversion on every frame. The segment-count prefix is
+   retained; hash values from the older decimal encoding are not comparable.
    The continuation ends at the first player death/win, before the death delay.
 4. Bounds are 1–1200 frames (24 virtual seconds at 20 ms, 20 at 60 fps), at most one input per frame,
    64 units, 20,000 territory/trail segments and four million compressed transfer
