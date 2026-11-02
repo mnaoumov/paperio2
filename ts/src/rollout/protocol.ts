@@ -49,6 +49,8 @@ export interface RolloutRequest {
   readonly randomState: number;
   /** The length of every frame, {@link ROLLOUT_STEP_MS} when left out; `1000 / 60` matches a 60 fps live game. */
   readonly stepMs?: number | undefined;
+  /** Observe only units with this name; every unit still participates in the simulation and work limits. */
+  readonly unitName?: string | undefined;
 }
 
 export interface RolloutResult {

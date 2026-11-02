@@ -251,6 +251,31 @@ it('matches a continuation at 60 fps frames', async () => {
   }
 });
 
+it('observes only the named unit without changing the forecast or live game', async () => {
+  const page = await prepared();
+  try {
+    const name = await page.evaluate(() => window.__rollout.game.player?.name ?? '');
+    const request: RolloutRequest = { frames: 120, inputs: [{ frame: 0, x: 1, y: 0 }, { frame: 60, x: 0, y: -1 }], randomState: 12345, stepMs: 1000 / 60 };
+    const before = await facts(page);
+    const fullStart = performance.now();
+    const full = await page.evaluate(async (input) => window.__rollout.rollout(input), request);
+    const fullMilliseconds = performance.now() - fullStart;
+    const filteredStart = performance.now();
+    const filtered = await page.evaluate(async (input) => window.__rollout.rollout(input), { ...request, unitName: name });
+    const filteredMilliseconds = performance.now() - filteredStart;
+    expect(filtered.frames).toEqual(full.frames.map((frame) => ({ ...frame, units: frame.units.filter((unit) => unit.name === name) })));
+    expect(filtered.frames.every((frame) => frame.units.length === 1)).toBe(true);
+    expect(filtered.death).toEqual(full.death);
+    expect(filtered.growth).toBe(full.growth);
+    expect(await facts(page)).toBe(before);
+    if (process.env['ROLLOUT_METRICS']) {
+      await appendFile(process.env['ROLLOUT_METRICS'], `${JSON.stringify({ filteredMilliseconds, fullMilliseconds, kind: 'unit observation' })}\n`);
+    }
+  } finally {
+    await page.browserContext().close();
+  }
+});
+
 it('rejects invalid, aborted and unsupported requests without touching the live game', async () => {
   const page = await prepared();
   try {
@@ -259,7 +284,7 @@ it('rejects invalid, aborted and unsupported requests without touching the live 
       const api = window.__rollout;
       const request = { frames: 1, inputs: [], randomState: 1 };
       const results: string[] = [];
-      for (const frames of [0, 601, NaN]) {
+      for (const frames of [0, 1201, NaN]) {
         try {
           await api.rollout({ ...request, frames });
         } catch (error) {

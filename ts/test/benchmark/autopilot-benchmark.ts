@@ -23,6 +23,8 @@
  * each death, a snapshot from 8 to 13 s before it, and for every run a control snapshot every 10 minutes it lives.
  * `--situation-leads 8,20,40` writes one death situation per lead instead, each the latest snapshot at least that many
  * seconds before the death, to find how far back a death that is already decided at 8 s was still open.
+ *
+ * `--stop-on-death` stops after the first death, discarding unfinished games at their next chunk boundary.
  */
 
 import type {
@@ -239,6 +241,7 @@ const { values } = parseArgs({
     'situation-leads': { default: '8', type: 'string' },
     'situations': { type: 'string' },
     'stats': { type: 'string' },
+    'stop-on-death': { default: false, type: 'boolean' },
     'trace': { default: false, type: 'boolean' },
     'why': { default: false, type: 'boolean' }
   }
@@ -268,13 +271,25 @@ const build = await buildBenchmark();
 print(`Build: ${JSON.stringify(build.identity)}`);
 const browser = await launchBrowser(PROTOCOL_TIMEOUT_MS);
 const outcomes: Outcome[] = [];
+const stopRequested = new AbortController();
 try {
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(parallel, jobs.length) }, async () => {
     for (let job = jobs[next++]; job; job = jobs[next++]) {
+      if (stopRequested.signal.aborted) {
+        break;
+      }
       const outcome = await play(browser, job);
+      if (!outcome) {
+        print(`${label(job)} seed ${String(job.seed)}: interrupted, excluded`);
+        break;
+      }
       outcomes.push(outcome);
       print(`${label(outcome)} seed ${String(outcome.seed)}: ${describe(outcome)} (${outcome.wallSeconds.toFixed(0)} s wall)`);
+      if (values['stop-on-death'] && outcome.reason !== null && outcome.reason !== 'win') {
+        stopRequested.abort();
+        print('Stopping at the first death; unfinished games are excluded.');
+      }
     }
   }));
 } finally {
@@ -527,7 +542,7 @@ function parseEnemies(text: string): PageEnemySettings {
   return { count: null, level: null, mode, vision: vision === 'blackbox' ? 'blackbox' : 'whitebox' };
 }
 
-async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
+async function play(browserToUse: Browser, job: Job): Promise<null | Outcome> {
   const { enemies, mode, seed } = job;
   const started = performance.now();
   const scenario: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: `${mode} ${String(seed)}`, seed, startFrame: 0 };
@@ -572,7 +587,11 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       await page.evaluate(installSituationRing, SITUATION_EVERY_FRAMES, situationKeep, MILLISECONDS_PER_SECOND);
     }
     const tail: string[] = [];
-    const { curve, state } = await playChunks(page, job, tail);
+    const played = await playChunks(page, job, tail);
+    if (!played) {
+      return null;
+    }
+    const { curve, state } = played;
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     if (values.situations !== undefined && reason !== null && reason !== 'win') {
       const written = new Set<string>();
@@ -611,11 +630,14 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
  * @param tail - The trace lines kept so far.
  * @returns The growth curve and the last state.
  */
-async function playChunks(page: Page, job: Job, tail: string[]): Promise<PlayedChunks> {
+async function playChunks(page: Page, job: Job, tail: string[]): Promise<null | PlayedChunks> {
   let frames = 0;
   let state = await stepFrames(page, 0, tail);
   const curve: (null | number)[] = CURVE_MINUTES.map(() => null);
   while (!state.done && frames < maxFrames) {
+    if (stopRequested.signal.aborted) {
+      return null;
+    }
     const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
     state = await stepFrames(page, count, tail);
     frames += count;

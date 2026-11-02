@@ -220,7 +220,7 @@ describe('RolloutPlanner', () => {
     planner.afterFrame();
     await planner.pending;
     expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ randomState: 4242, stepMs: 1000 / 60 });
+    expect(requests[0]).toMatchObject({ randomState: 4242, stepMs: 1000 / 60, unitName: 'me' });
     expect(answered).toHaveProperty('schedule.exact', true);
   });
 });

@@ -108,7 +108,7 @@ async function run(transfer: RolloutTransfer): Promise<RolloutResult> {
     time += stepMs;
     game.update(time - before);
     validateRolloutWorld(game);
-    frames.push(readRolloutFrame(game, frame, random.readState()));
+    frames.push(readRolloutFrame(game, frame, random.readState(), request.unitName));
     if (game.pendingGameOver) {
       death = { frame, reason: ensureNonNullable(game.pendingGameOver.reason), time: game.clock.now() };
       break;

@@ -10,7 +10,7 @@ import {
 const FNV_OFFSET = 2166136261;
 const DJB_OFFSET = 5381;
 
-export function readRolloutFrame(game: Game, frame: number, randomState: number): RolloutFrame {
+export function readRolloutFrame(game: Game, frame: number, randomState: number, unitName?: string): RolloutFrame {
   return {
     death: game.pendingGameOver?.reason ?? null,
     frame,
@@ -18,7 +18,7 @@ export function readRolloutFrame(game: Game, frame: number, randomState: number)
     randomState,
     returns: game.events.returns,
     time: game.clock.now(),
-    units: game.units.map((unit) => ({
+    units: game.units.filter((unit) => unitName === undefined || unit.name === unitName).map((unit) => ({
       angle: unit.direction,
       context: [unit.fsm?.context.exitPoint?.x ?? null, unit.fsm?.context.exitPoint?.y ?? null, unit.fsm?.context.point?.x ?? null, unit.fsm?.context.point?.y ?? null, unit.fsm?.context.minDistance ?? null],
       id: unit.base.polygon.segments[0]?.id ?? -1,

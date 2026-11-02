@@ -155,7 +155,7 @@ export class RolloutPlanner {
         // Each foreign trial starts from its own random state, so the frame lengths and every bot after them differ.
         for (let trial = 0; trial < trials && verdict === 'safe'; trial++) {
           this.stats.rollouts++;
-          verdict = judgeRollout(await this.run(rolloutRequest(directions, live ?? foreignRandomState(++this.requests), LIVE_FRAME_MS)), name);
+          verdict = judgeRollout(await this.run({ ...rolloutRequest(directions, live ?? foreignRandomState(++this.requests), LIVE_FRAME_MS), unitName: name }), name);
         }
       } catch (error) {
         // An unchecked loop is no better than none here: the pilot holds and asks again after its cooldown.
@@ -203,8 +203,10 @@ export function foreignRandomState(request: number): number {
 export function isOutOfReach(input: PlanInput, loop: PlannedLoop, seconds: number): boolean {
   const reach = input.speed * (seconds + REACH_MARGIN_SECONDS);
   const { center, spread } = loop.check;
-  return input.enemies.every((enemy) => Math.hypot(enemy.position.x - center.x, enemy.position.y - center.y) - spread > reach
-    && Math.hypot(enemy.position.x - input.position.x, enemy.position.y - input.position.y) > reach);
+  return input.enemies.every((enemy) =>
+    Math.hypot(enemy.position.x - center.x, enemy.position.y - center.y) - spread > reach
+    && Math.hypot(enemy.position.x - input.position.x, enemy.position.y - input.position.y) > reach
+  );
 }
 
 /**

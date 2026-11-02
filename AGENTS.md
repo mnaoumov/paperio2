@@ -237,6 +237,9 @@ rollout held, against a game that steps exactly 60 fps. At 20 ms the bots part w
 0.3 s (median), because `game.rng` is drawn per update. The README's **Forecast
 fidelity** has the table. It shares the browser renderer and costs hundreds of milliseconds
 to seconds per request; it is not suitable for per-frame live planning.
+The optional `unitName` limits observations, not simulation or world limits. The
+experimental loop planner observes only the player to avoid fingerprinting every
+bot's territory on every forecast frame; default forecasts still observe all units.
 
 ## In-game video recorder
 

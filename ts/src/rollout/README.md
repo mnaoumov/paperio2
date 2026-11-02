@@ -41,6 +41,10 @@ const forecast = await paperio2api.rollout({
    There is a 30 s loading timeout and a time-budget check between updates. A
    single engine update is synchronous and cannot be interrupted mid-collision.
    Abort disposes the iframe at the next event-loop opportunity.
+5. `unitName` limits the returned observations to units with that name. Every unit
+   still runs in the simulation and counts against the work limits. The loop planner
+   requests only the player: it does not need the bots' per-frame geometry fingerprints.
+   Omit it for the full observations used by parity and fidelity checks.
 
 ## Forecast fidelity
 
