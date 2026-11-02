@@ -20,6 +20,7 @@ export interface RolloutTestGame {
   pause(): void;
   readonly pendingGameOver: null | object;
   readonly player: null | TestUnit;
+  readonly square: number;
   readonly units: TestUnit[];
   update(milliseconds: number): void;
   visible: boolean;
@@ -83,6 +84,7 @@ interface TestSkin {
 
 interface TestTerritory {
   readonly polygon: TestPolygon;
+  square: number;
 }
 
 interface TestTrack {

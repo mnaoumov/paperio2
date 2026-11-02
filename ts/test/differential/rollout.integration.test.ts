@@ -21,6 +21,7 @@ import type {
 } from '../../src/rollout/protocol.ts';
 import type { RolloutTestApi } from './rollout-page.ts';
 
+import { judgeRollout } from '../../src/autopilot/rollout-planner.ts';
 import {
   applyFrameInput,
   launchBrowser,
@@ -154,7 +155,7 @@ async function prepared(): Promise<Page> {
   return page;
 }
 
-it.each(['control', 'capture', 'self', 'cut', 'wall'])('matches %s continuation and leaves the live world unchanged', async (kind) => {
+it.each(['control', 'capture', 'self', 'cut', 'wall', 'win'])('matches %s continuation and leaves the live world unchanged', async (kind) => {
   const page = await prepared();
   try {
     const playerName = await page.evaluate(() => window.__rollout.game.player?.name);
@@ -177,6 +178,10 @@ it.each(['control', 'capture', 'self', 'cut', 'wall'])('matches %s continuation 
         player.position.y = 1000;
         player.in = null;
         inputs.splice(0, inputs.length, { frame: 0, x: 1, y: 1 });
+      }
+      if (fixture === 'win') {
+        // Trigger the engine's terminal win condition without playing a full round.
+        player.base.square = game.square;
       }
       if (fixture === 'cut') {
         const trail = player.track.polyline.segments[0];
@@ -220,6 +225,10 @@ it.each(['control', 'capture', 'self', 'cut', 'wall'])('matches %s continuation 
     }
     if (kind === 'cut') {
       expect(result.death?.reason).toBe(3);
+    }
+    if (kind === 'win') {
+      expect(result.death?.reason).toBe(0);
+      expect(judgeRollout(result, playerName ?? '')).toBe('safe');
     }
     if (kind === 'self') {
       expect(result.death?.reason).toBe(1);

@@ -244,6 +244,7 @@ bot's territory on every forecast frame; default forecasts still observe all uni
 The opt-in `autopilot/rollout-planner.ts` captures after the requesting frame,
 tries up to three loops and flies each schedule through a 90-frame inward settle.
 It rejects deaths, failure to return and leaving the base again after closing.
+Terminal wins are accepted immediately.
 With a readable live random state it checks once and flies the exact schedule
 without heuristic diversions; otherwise both foreign-state trials must pass.
 No accepted loop means a 60-update retry delay. These forecasts check loops only:

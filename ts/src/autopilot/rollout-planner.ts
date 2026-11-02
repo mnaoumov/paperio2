@@ -3,7 +3,7 @@
  *
  * An experimental whitebox planner that checks its loops against the real engine before flying one: the best few loops
  * {@link findLoops} finds are each played as an isolated engine rollout (`rollout/`), steered by the schedule
- * {@link loopSchedule} gives, and the first one the player flies and closes without dying is taken. The rollout is
+ * {@link loopSchedule} gives, and the first one the player closes alive or wins with is taken. The rollout is
  * open-loop and the bots' future depends on the player's real flight, so a passed loop is a forecast, not a proof.
  *
  * Rollouts run at the live game's 60 fps frame and are captured between frames, after the frame that asked. Given the
@@ -24,6 +24,7 @@ import type {
 } from './whitebox.ts';
 
 import { MAX_ROLLOUT_FRAMES } from '../rollout/protocol.ts';
+import { KILL_REASON_WIN } from '../shared/constants.ts';
 import {
   findLoops,
   loopSchedule
@@ -33,7 +34,7 @@ import {
 export const ROLLOUT_PLAN_RETRY_UPDATES = 60;
 /** How many loops are tried in rollouts, best first. */
 const ROLLOUT_CANDIDATES = 3;
-/** Without the live random state, a loop is taken only when this many rollouts, each from its own state, all close it. */
+/** Without the live random state, a loop is taken only when this many rollouts, each from its own state, all pass. */
 const FOREIGN_TRIALS = 2;
 
 /**
@@ -210,7 +211,7 @@ export function isOutOfReach(input: PlanInput, loop: PlannedLoop, seconds: numbe
 }
 
 /**
- * Whether the player in a rollout flew out, closed its trail at home, stayed home and was still alive when the rollout ended.
+ * Whether the rollout won, or the player flew out, closed its trail at home, stayed home and was still alive at the end.
  *
  * @param result - The rollout.
  * @param player - The player's name.
@@ -218,7 +219,7 @@ export function isOutOfReach(input: PlanInput, loop: PlannedLoop, seconds: numbe
  */
 export function judgeRollout(result: RolloutResult, player: string): RolloutVerdict {
   if (result.death) {
-    return 'death';
+    return result.death.reason === KILL_REASON_WIN ? 'safe' : 'death';
   }
   let left = false;
   let closed = false;

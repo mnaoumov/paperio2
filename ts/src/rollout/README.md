@@ -39,6 +39,8 @@ const forecast = await paperio2api.rollout({
    DJB2, avoiding decimal conversion on every frame. The segment-count prefix is
    retained; hash values from the older decimal encoding are not comparable.
    The continuation ends at the first player death/win, before the death delay.
+   The terminal `death` field also carries a win (reason 0); planners accept that
+   as success without requiring a later return to base.
 4. Bounds are 1–1200 frames (24 virtual seconds at 20 ms, 20 at 60 fps), at most one input per frame,
    64 units, 20,000 territory/trail segments and four million compressed transfer
    characters. The world budget is checked at capture and each simulated frame.

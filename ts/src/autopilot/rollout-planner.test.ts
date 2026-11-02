@@ -41,6 +41,9 @@ describe('judgeRollout', () => {
   it('fails a flight that dies', () => {
     expect(judgeRollout(result([frame(0, false, '1:1:1')], { frame: 0, reason: 3, time: 0 }), 'me')).toBe('death');
   });
+  it('accepts a flight that wins, without requiring a later return', () => {
+    expect(judgeRollout(result([frame(0, false, '1:1:1')], { frame: 0, reason: 0, time: 0 }), 'me')).toBe('safe');
+  });
   it('fails a flight that is still out when the rollout ends', () => {
     expect(judgeRollout(result([frame(0, true, EMPTY_TRAIL), frame(1, false, '3:1:1')]), 'me')).toBe('no-return');
   });
