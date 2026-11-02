@@ -25,6 +25,7 @@
  * seconds before the death, to find how far back a death that is already decided at 8 s was still open.
  *
  * `--stop-on-death` stops after the first death, discarding unfinished games at their next chunk boundary.
+ * `--results <file>` saves build identity and the completed outcomes with exact growth-curve samples as JSON.
  */
 
 import type {
@@ -37,7 +38,10 @@ import {
   writeFile
 } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import {
+  dirname,
+  join
+} from 'node:path';
 import { parseArgs } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
@@ -235,6 +239,7 @@ const { values } = parseArgs({
     'max-minutes': { default: '20', type: 'string' },
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
+    'results': { type: 'string' },
     'rollout': { default: false, type: 'boolean' },
     'seed-list': { type: 'string' },
     'seeds': { default: '10', type: 'string' },
@@ -298,6 +303,10 @@ try {
 print('');
 print(`Build: ${JSON.stringify(build.identity)}`);
 print(report(outcomes));
+if (values.results !== undefined) {
+  await mkdir(dirname(values.results), { recursive: true });
+  await writeFile(values.results, `${JSON.stringify({ build: build.identity, curveMinutes: CURVE_MINUTES, maxMinutes: Number(values['max-minutes']), outcomes })}\n`);
+}
 /**
  * The growth curve: per mode and enemy mode, the median map share at each mark over the runs still alive there, and how
  * many runs that is.
