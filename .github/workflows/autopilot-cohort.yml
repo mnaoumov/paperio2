@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: autopilot-cohort-${{ inputs.target-ref }}
+  group: autopilot-cohort
   cancel-in-progress: false
 
 jobs:
@@ -90,7 +90,8 @@ jobs:
           mkdir -p "$output"
           npm run benchmark -- --modes whitebox --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
             --parallel 1 --rollout --why --stop-on-death --stats "$output/stats" \
-            --situations "$output/situations" --situation-leads 8,25,60 > "$output/benchmark.log" 2>&1
+            --situations "$output/situations" --situation-leads 8,25,60 \
+            --results "$output/outcomes.json" > "$output/benchmark.log" 2>&1
           cat "$output/benchmark.log"
           if grep -q '^Stopping at the first death' "$output/benchmark.log"; then
             exit 1
@@ -103,6 +104,7 @@ jobs:
           retention-days: 7
           path: |
             ${{ runner.temp }}/autopilot/benchmark.log
+            ${{ runner.temp }}/autopilot/outcomes.json
             ${{ runner.temp }}/autopilot/stats/*.jsonl
             ${{ runner.temp }}/autopilot/situations/*-death-*.json
 
@@ -131,32 +133,35 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
-          import { join, sep } from 'node:path';
+          import { basename, join, sep } from 'node:path';
           const directory = join(process.env.RUNNER_TEMP, 'cohort-results');
           const outcomes = [];
           const invalid = [];
           for (const path of readdirSync(directory, { recursive: true })) {
-            const match = /whitebox-original-seed(\d+)\.jsonl$/.exec(path);
-            if (!match) { continue; }
-            let lines;
+            if (basename(path) !== 'outcomes.json') { continue; }
+            const artifact = /^autopilot-(\d+)$/.exec(path.split(sep)[0]);
+            let saved;
             try {
-              lines = readFileSync(join(directory, path), 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line));
+              saved = JSON.parse(readFileSync(join(directory, path), 'utf8'));
             } catch {
               invalid.push(path);
               continue;
             }
-            const end = lines.findLast(line => line.type === 'end');
-            if (!end) { continue; }
-            const log = readFileSync(join(directory, path.split(sep)[0], 'benchmark.log'), 'utf8');
-            const buildLine = log.split('\n').find(line => line.startsWith('Build: '));
-            const build = buildLine ? JSON.parse(buildLine.slice('Build: '.length)) : null;
-            if (build?.commit !== process.env.SOURCE_SHA || build.dirty) {
+            if (!artifact || saved?.build?.commit !== process.env.SOURCE_SHA || saved.build.dirty
+              || saved.maxMinutes !== Number(process.env.MINUTES) || !Array.isArray(saved.curveMinutes)
+              || !Array.isArray(saved.outcomes) || saved.outcomes.length !== 1
+              || saved.outcomes[0].seed !== Number(artifact[1]) || !Array.isArray(saved.outcomes[0].curve)
+              || !Number.isFinite(saved.outcomes[0].percent) || !Number.isFinite(saved.outcomes[0].seconds)) {
               invalid.push(path);
               continue;
             }
-            const curve = [60, 300, 900, 1800].map(seconds => lines.find(line => line.type === 'sample' && line.t >= seconds && line.t < seconds + 2)?.pct ?? null);
-            const outcome = end.outcome === 'quit' && end.t >= Number(process.env.MINUTES) * 60 - 1 ? 'time limit' : end.outcome;
-            outcomes.push({ seed: Number(match[1]), outcome, reason: end.reason, seconds: end.t, percent: end.pct, curve, build });
+            const result = saved.outcomes[0];
+            const curve = [1, 5, 15, 30].map(minutes => {
+              const value = result.curve[saved.curveMinutes.indexOf(minutes)];
+              return value === null || value === undefined ? null : value * 100;
+            });
+            const outcome = result.reason === null ? 'time limit' : result.reason === 'win' ? 'win' : 'death';
+            outcomes.push({ seed: result.seed, outcome, reason: result.reason, seconds: result.seconds, wallSeconds: result.wallSeconds, percent: result.percent * 100, curve, build: saved.build });
           }
           outcomes.sort((a, b) => a.seed - b.seed);
           const expected = Array.from({ length: Number(process.env.SEEDS) }, (_, index) => Number(process.env.FIRST_SEED) + index);
