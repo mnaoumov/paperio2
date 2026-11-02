@@ -21,7 +21,6 @@ import type {
 } from '../../src/rollout/protocol.ts';
 import type { RolloutTestApi } from './rollout-page.ts';
 
-import { judgeRollout } from '../../src/autopilot/rollout-planner.ts';
 import {
   applyFrameInput,
   launchBrowser,
@@ -122,7 +121,7 @@ async function prepared(): Promise<Page> {
     await applyFrameInput(page, scenario, frame);
     await stepPage(page, 20);
   }
-  const probe = await build({ bundle: true, stdin: { contents: 'import { readRolloutFrame } from \'./src/rollout/state.ts\'; window.__readRolloutFrame = readRolloutFrame; window.__rollout = window.paperio2api;', resolveDir: TS_ROOT }, write: false });
+  const probe = await build({ bundle: true, stdin: { contents: 'import { readRolloutFrame } from \'./src/rollout/state.ts\'; import { judgeRollout } from \'./src/autopilot/rollout-planner.ts\'; window.__judgeRollout = judgeRollout; window.__readRolloutFrame = readRolloutFrame; window.__rollout = window.paperio2api;', resolveDir: TS_ROOT }, write: false });
   await page.addScriptTag({ content: probe.outputFiles[0]?.text ?? '' });
   await page.evaluate(() => {
     const game = window.__rollout.game;
@@ -228,7 +227,7 @@ it.each(['control', 'capture', 'self', 'cut', 'wall', 'win'])('matches %s contin
     }
     if (kind === 'win') {
       expect(result.death?.reason).toBe(0);
-      expect(judgeRollout(result, playerName ?? '')).toBe('safe');
+      expect(await page.evaluate(({ forecast, name }) => window.__judgeRollout(forecast, name), { forecast: result, name: playerName ?? '' })).toBe('safe');
     }
     if (kind === 'self') {
       expect(result.death?.reason).toBe(1);

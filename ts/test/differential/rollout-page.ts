@@ -111,6 +111,7 @@ interface TestVectorClass {
 
 declare global {
   interface Window {
+    __judgeRollout(result: RolloutResult, player: string): string;
     __poolAllocations: number;
     __readRolloutFrame(game: RolloutTestGame, frame: number, randomState: number): RolloutFrame;
     __rollout: RolloutTestApi;
