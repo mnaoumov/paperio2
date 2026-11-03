@@ -58,7 +58,9 @@ The reconstruction has music and sound effects; the original has neither.
   the effects on and off.
 - **Warning loops:** while your head is off your own territory a quiet loop
   plays, so you feel exposed: a soft low pulse on empty ground, and a sharper,
-  faster throb on another player's territory. It crossfades between the two and
+  faster throb while your head or any of your trail touches a living enemy's territory.
+  The sharper warning stays until that trail clears enemy land, including when
+  the enemy dies or loses that ground. It crossfades between the two and
   fades out when you get home, and it gets louder and faster as your trail grows,
   reaching its peak at 1500 units, the length at which the nearest bot comes for
   your trail whatever its nature. It sits below the capture sounds, stops when you

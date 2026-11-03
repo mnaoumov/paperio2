@@ -13,7 +13,7 @@
  * The practice run's own sounds are never logged.
  *
  * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
- * ground, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
+ * ground while the head or trail touches a living enemy's territory, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
  * itself (`video/recorder.ts`), heard or not, so a download plays them back.
  */
 

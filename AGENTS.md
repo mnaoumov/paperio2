@@ -295,9 +295,10 @@ to seconds per request; it is not suitable for per-frame live planning.
   a second, each time taking under a millionth of the arena; the smallest real loop measured took 0.0018.
 - **Warning loops** (`audio/exposure.ts`, `audio/exposure-loops.ts`, owner request 2026-10-22): two oscillator-built
   loops, open ground and enemy ground, read after every frame from a `game.frameObservers` entry that `GameAudio.attach`
-  adds. The zone is the engine's own `player.in`: `player.base` is home, `null` open ground, any other territory enemy
-  ground (`Territory.handleEnemyIntersect` sets it on crossing in; a capture or a death that removes that ground clears
-  it). `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
+  adds. Home and head exposure follow `player.in`; off home, any trail segment touching a living enemy's current
+  territory also keeps the enemy loop on. `exposureOf` reads current polygons, including segments crossing a polygon
+  with both endpoints outside, so a death or capture removing the ground drops the warning immediately.
+  `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
   the shared `SILENT_MIX` then, so nothing (not even an `AudioContext`) is created while silent. Level and pulse rate
   rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each
   change is a 150 ms linear ramp from the current value. The differential page attaches `GameAudio` too, so the observer
