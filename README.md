@@ -1,17 +1,17 @@
 # Paper.io 2 — self-contained copy
 
-A self-contained copy of the browser game from https://paperio.site/, with no ads,
+A self-contained copy of the browser game from [Paper.io 2](https://paperio.site/), with no ads,
 analytics or servers. It runs entirely client-side (JavaScript + Canvas) with AI
 bots — there is **no server-side game logic**, so it also works with no network.
 
 ## Play it online
 
-Live demo (GitHub Pages): **https://mnaoumov.dev/paperio2/**
+Live demo (GitHub Pages): **[Play Paper.io 2](https://mnaoumov.dev/paperio2/)**
 
 The page runs a readable reconstruction of the engine, built from the `ts/`
 project, which is proven to play frame for frame like the original. The
 shipped original engine is kept unmodified and runs instead with `?original`:
-**https://mnaoumov.dev/paperio2/?original**
+**[Play the original engine](https://mnaoumov.dev/paperio2/?original)**
 
 On phones and other touch devices, an on-screen joystick appears — touch
 anywhere in the play area to summon it under your thumb and steer in 8
@@ -429,13 +429,13 @@ and a Launchpad entry. After the first launch it starts with no network too:
 a service worker (`sw.js`) keeps a copy of the game and refreshes it whenever
 you are online.
 
-- **Chrome:** open https://mnaoumov.dev/paperio2/ and click the install icon
+- **Chrome:** open [the live demo](https://mnaoumov.dev/paperio2/) and click the install icon
   at the right of the address bar, or use the menu > Cast, save and share >
   Install page as app. The app lands in `~/Applications/Chrome Apps`.
 - **Safari** (17 or later, macOS Sonoma or later): open the same page and use
   File > Add to Dock.
 
-An app installed before the manifest was fixed opens https://mnaoumov.dev/
+An app installed before the manifest was fixed opens [the site's home page](https://mnaoumov.dev/)
 instead of the game. Remove it and install again: in Chrome, right-click it in
 `chrome://apps` > Remove from Chrome; in Safari, drag it out of the Dock and
 delete it from `~/Applications`.
@@ -453,7 +453,7 @@ npx serve .
 npx http-server -p 8777
 ```
 
-Then open the printed URL (e.g. http://localhost:8777/).
+Then open the printed URL (e.g. [the local game](http://localhost:8777/)).
 
 The page loads the reconstruction from `ts/dist/app2.js`, so build it first
 (`cd ts && npm install && npm run build`). Without that build the page falls
