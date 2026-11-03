@@ -238,6 +238,8 @@ export interface GameSounds {
   onGameOver(result: GameOverResult): void;
   /** The player killed another unit. */
   onKill(): void;
+  /** Own-territory area just drawn on the minimap, expressed as a share of its rectangular extent. */
+  onMinimapDrawn(area: number, size: number): void;
   /** The game paused or resumed. */
   onPauseChange(paused: boolean): void;
   /** The player died, practice or not. */

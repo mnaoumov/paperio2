@@ -56,6 +56,10 @@ The reconstruction has music and sound effects; the original has neither.
   (a fanfare for a win or a new best). In practice mode there are quiet clicks for
   setting and removing a checkpoint, and a chime when you respawn. `N` switches
   the effects on and off.
+- **Territory-loss alert:** a short warning sounds when your territory visibly
+  shrinks on the minimap. Tiny edge slivers stay quiet, and rapid losses play one
+  alert. It uses only your displayed territory area, so it never warns about a
+  bot's unfinished capture. `N` silences it; recordings retain it with the effects.
 - **Warning loops:** while your head is off your own territory a quiet loop
   plays, so you feel exposed: a soft low pulse on empty ground, and a sharper,
   faster throb while your head or any of your trail touches a living enemy's territory.
@@ -71,7 +75,7 @@ The reconstruction has music and sound effects; the original has neither.
   menu's **Music** and **Sounds** buttons, switch them too, and the browser
   remembers both choices. Browsers allow sound only after you click or press a
   key, so it starts when you press Play.
-- Nothing is downloaded before you press Play: the effects (65 KB) are fetched
+- Nothing is downloaded before you press Play: the effects (70 KB) are fetched
   then, and each music track (about 1 MB) when it is due. The music is 5 MB in
   all.
 - Every file is CC0, by Juhani Junkala; `assets/audio/CREDITS.md` lists each one

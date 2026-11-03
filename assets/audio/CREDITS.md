@@ -18,15 +18,16 @@ The CC0 text: https://creativecommons.org/publicdomain/zero/1.0/
 
 All from *The Essential Retro Video Game Sound Effects Collection [512 sounds]*: https://opengameart.org/content/512-sound-effects-8-bit-style
 
-| File | Original file |
-| --- | --- |
-| `capture-small.mp3` | `General Sounds/Coins/sfx_coin_single2.wav` |
-| `capture-medium.mp3` | `General Sounds/Coins/sfx_coin_double1.wav` |
-| `capture-large.mp3` | `General Sounds/Coins/sfx_coin_cluster1.wav` |
-| `kill.mp3` | `Explosions/Shortest/sfx_exp_shortest_soft2.wav` |
-| `death.mp3` | `General Sounds/Negative Sounds/sfx_sounds_negative2.wav` |
-| `respawn.mp3` | `Movement/Portals and Transitions/sfx_movement_portal5.wav` |
-| `checkpoint-set.mp3` | `General Sounds/Menu Sounds/sfx_menu_select1.wav` |
-| `checkpoint-remove.mp3` | `General Sounds/Buttons/sfx_sounds_button3.wav` |
-| `win.mp3` | `General Sounds/Fanfares/sfx_sounds_fanfare1.wav` |
-| `results.mp3` | `General Sounds/Neutral Sounds/sfx_sound_neutral4.wav` |
+| File                    | Original file                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `capture-small.mp3`     | `General Sounds/Coins/sfx_coin_single2.wav`                                                                          |
+| `capture-medium.mp3`    | `General Sounds/Coins/sfx_coin_double1.wav`                                                                          |
+| `capture-large.mp3`     | `General Sounds/Coins/sfx_coin_cluster1.wav`                                                                         |
+| `kill.mp3`              | `Explosions/Shortest/sfx_exp_shortest_soft2.wav`                                                                     |
+| `death.mp3`             | `General Sounds/Negative Sounds/sfx_sounds_negative2.wav`                                                            |
+| `territory-loss.mp3`    | `General Sounds/Negative Sounds/sfx_sounds_negative2.wav`, derived from `death.mp3` at 1.5 times the pitch and speed |
+| `respawn.mp3`           | `Movement/Portals and Transitions/sfx_movement_portal5.wav`                                                          |
+| `checkpoint-set.mp3`    | `General Sounds/Menu Sounds/sfx_menu_select1.wav`                                                                    |
+| `checkpoint-remove.mp3` | `General Sounds/Buttons/sfx_sounds_button3.wav`                                                                      |
+| `win.mp3`               | `General Sounds/Fanfares/sfx_sounds_fanfare1.wav`                                                                    |
+| `results.mp3`           | `General Sounds/Neutral Sounds/sfx_sound_neutral4.wav`                                                               |
