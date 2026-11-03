@@ -438,6 +438,10 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   against (see **Enemy modes**); it defaults to the original bots.
   `--stop-on-death` ends a survival cohort after its first recorded death, cancels
   unfinished games at their next chunk boundary and excludes them from the report.
+  Browser calls step 60 frames by default and print progress after each call; a failed call names the last completed
+  frame and game time. `--chunk-frames N` selects a positive divisor of 1800 for transport diagnostics without changing
+  virtual frame lengths or the exact sampling marks. The chunk-parity browser regression compares the default with
+  the previous 1800-frame calls across a growth sample and a partial final chunk, with rollouts enabled.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
   `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes; `--situation-leads
   8,25,60` saves one per lead instead, which brackets when a death became certain. The replay plays each one

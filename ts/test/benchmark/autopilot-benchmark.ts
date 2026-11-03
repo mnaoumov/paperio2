@@ -26,6 +26,8 @@
  *
  * `--stop-on-death` stops after the first death, discarding unfinished games at their next chunk boundary.
  * `--results <file>` saves build identity and the completed outcomes with exact growth-curve samples as JSON.
+ * `--chunk-frames N` bounds each browser call (60 by default; a positive divisor of 1800). Progress is printed after
+ * each call, and a failed call names the last completed frame. Virtual frame lengths and sampling marks stay fixed.
  */
 
 import type {
@@ -163,8 +165,10 @@ const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
 /** The menu frames before the run starts, as in the differential scenarios. */
 const BOOT_FRAMES = 120;
-/** Frames stepped per round trip to the page. */
-const CHUNK_FRAMES = 1800;
+/** One second per browser call, so expensive rollout checks do not accumulate into an hour-long opaque call. */
+const DEFAULT_CHUNK_FRAMES = FRAMES_PER_SECOND;
+/** Every sampling boundary is a multiple of thirty seconds. */
+const SAMPLE_INTERVAL_FRAMES = 1800;
 const PERCENT_SCALE = 100;
 const MEDIAN_DIVISOR = 2;
 const SECONDS_DIGITS = 2;
@@ -233,6 +237,7 @@ const CONTROL_SITUATION_FRAMES = 36_000;
 
 const { values } = parseArgs({
   options: {
+    'chunk-frames': { default: String(DEFAULT_CHUNK_FRAMES), type: 'string' },
     'dump': { type: 'string' },
     'enemies': { default: 'original', type: 'string' },
     'first-seed': { default: '1', type: 'string' },
@@ -257,6 +262,10 @@ const seedCount = Number(values.seeds);
 const firstSeed = Number(values['first-seed']);
 const maxFrames = Math.round(Number(values['max-minutes']) * SECONDS_PER_MINUTE * FRAMES_PER_SECOND);
 const parallel = Math.max(1, Number(values.parallel));
+const chunkFrames = Number(values['chunk-frames']);
+if (!Number.isSafeInteger(chunkFrames) || chunkFrames < 1 || chunkFrames > SAMPLE_INTERVAL_FRAMES || SAMPLE_INTERVAL_FRAMES % chunkFrames !== 0) {
+  throw new Error(`--chunk-frames must be a positive divisor of ${String(SAMPLE_INTERVAL_FRAMES)}.`);
+}
 
 const enemyModes = values.enemies.split(',').map((enemies) => enemies.trim()).filter(Boolean);
 // `--seed-list` names the seeds outright, such as the ones a whole run died on, in place of `--seeds` and `--first-seed`.
@@ -647,9 +656,14 @@ async function playChunks(page: Page, job: Job, tail: string[]): Promise<null | 
     if (stopRequested.signal.aborted) {
       return null;
     }
-    const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
-    state = await stepFrames(page, count, tail);
+    const count = Math.min(chunkFrames, maxFrames - frames);
+    try {
+      state = await stepFrames(page, count, tail);
+    } catch (error) {
+      throw new Error(`${label(job)} seed ${String(job.seed)}: browser step failed after ${String(frames)} completed frames (${state.seconds.toFixed(SECONDS_DIGITS)} game seconds), requesting ${String(count)} more frames.`, { cause: error });
+    }
     frames += count;
+    print(`progress ${label(job)} seed ${String(job.seed)}: ${String(frames)} frames, ${state.seconds.toFixed(SECONDS_DIGITS)} game seconds`);
     const mark = CURVE_FRAMES.indexOf(frames);
     if (mark >= 0 && !state.done) {
       curve[mark] = state.percent;
