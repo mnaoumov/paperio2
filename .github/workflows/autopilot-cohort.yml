@@ -96,7 +96,7 @@ jobs:
           if grep -q '^Stopping at the first death' "$output/benchmark.log"; then
             exit 1
           fi
-      - name: Preserve results and death situations
+      - name: Preserve results and replay situations
         if: always()
         uses: actions/upload-artifact@v7
         with:
@@ -106,7 +106,7 @@ jobs:
             ${{ runner.temp }}/autopilot/benchmark.log
             ${{ runner.temp }}/autopilot/outcomes.json
             ${{ runner.temp }}/autopilot/stats/*.jsonl
-            ${{ runner.temp }}/autopilot/situations/*-death-*.json
+            ${{ runner.temp }}/autopilot/situations/*.json
 
   results:
     needs: [plan, benchmark]
