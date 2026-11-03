@@ -303,6 +303,12 @@ to seconds per request; it is not suitable for per-frame live planning.
   rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each
   change is a 150 ms linear ramp from the current value. The differential page attaches `GameAudio` too, so the observer
   only reads: it never writes game state or draws `Math.random`.
+- **Territory-loss alert** (`audio/territory-loss.ts`): `drawMinimap` sends the own-territory polygon's area share
+  and size in rendered canvas pixels to `GameAudio.onMinimapDrawn` only after drawing it. It never reads bot plans, capture events or
+  unclosed trails. A drop must reach both 0.0001 of the map and one minimap pixel; unchanged frames, growth
+  and smaller edge slivers are silent. Drops less than 500 ms apart share one cue. Respawn, death, a new run, a
+  resized minimap or a rewound clock resets the baseline. Paused frames do not sample. The CC0 `territory-loss`
+  effect follows the effects toggle and the normal recorder cue path, including when muted.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
   (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged. Music is never
