@@ -232,17 +232,32 @@ farthest from that unit, for up to 20 seconds. It cuts a unit's trail where the
 trail lies across its own ground, and it counts only ground joined to the
 territory it left from as home, so a bot wearing its skin does not read as home.
 
-The whitebox's growth over those 16 one-hour runs, against two games a skilled
-human played by hand with the default settings:
+The whitebox's growth over those 16 one-hour runs, against seven games a skilled
+human played by hand with the default settings. The human rows give the median
+and, in brackets, the best share over the games still alive at each mark, and
+how many games that was:
 
 | | 1:00 | 2:00 | 3:00 | 5:00 | 10:00 | 15:00 | 30:00 | 60:00 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Whitebox | 4.3% | 7.9% | 11.6% | 19.4% | 32.2% | 39.7% | 53.3% | 57.5% |
-| Human | 3.2-4.5% | 7.6-7.8% | 11.4-14.3% | 17.9% | | | | |
+| Human | 3.2% (4.5%) | 7.6% (11.1%) | 13.1% (14.9%) | 19.7% (29.1%) | 35.8% (40.1%) | 46.7% | | |
+| Human games alive | 7 | 7 | 7 | 6 | 5 | 1 | 0 | 0 |
 
-The human's games ended at 17.3% (3:50) and 27.4% (8:00). The whitebox keeps
-pace with the human for the first five minutes and survives longer. It has not
-won yet; its best one-hour run held 92.0%.
+Five of the human's games were screen recordings made on 2026-11-02 to 05, read
+from the share the game shows in its corner. They ended at 46.5% (12:46), 41.0%
+(10:51), 41.3% (12:04), 45.5% (17:17) and 44.2% (13:51), each time ranked first,
+and every one of them ended in a death: a bot reached the trail just as the
+player left home, four times cutting it and once closing a capture over the
+player's edge of ground. The two earlier games ended
+at 17.3% (3:50) and 27.4% (8:00). No human game won. The recordings are the
+player's own pick of good games: the five games played between them, which were
+not recorded, ended at 8.8% (1:28), 23.2% (6:13), 0.1% (0:03), 22.7% (5:15) and
+14.6% (3:28).
+
+The whitebox is ahead of the human's median at one minute and behind it from
+three minutes on: by 10 minutes the human holds 35.8% against its 32.2%. It
+survives far longer: 12 of its 16 runs were alive at the hour, and no human game
+reached 18 minutes. It has not won yet; its best one-hour run held 92.0%.
 
 The whitebox predicts a bot's capture the way the engine closes it, along the
 bot's base outline from wherever the bot can still re-enter it, not by a straight
