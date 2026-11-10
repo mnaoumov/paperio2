@@ -266,7 +266,12 @@ to seconds per request; it is not suitable for per-frame live planning.
   `keep` are pruned after each auto take and each Keep toggle. A `V` take is never pruned.
 - **Storage** is IndexedDB (`video/store.ts`): one record per take, one per chunk keyed `[recordingId, seq]`, the cut a
   key-range delete, writes chained in issue order. A running take holds the Web Lock `recordingLockName(id)`; on load,
-  a take still `recording` whose lock nobody holds is marked `recovered`.
+  a take still `recording` whose lock nobody holds is marked `recovered`. Both IndexedDB stores (this one and
+  `stats/store.ts`) open through `shared/idb-connection.ts`, never a bare cached `IDBDatabase`: the browser can close a
+  page's connection itself (an installed app window beside a browser tab of the site met it as `InvalidStateError: The
+  database connection is closing` on every later read), so the helper drops the handle on `close` and `versionchange`,
+  reopens when `transaction()` still meets a closing one, and runs a write whose connection closed under it once more.
+  A write must therefore be safe to repeat (puts and deletes by key).
 - **Export** (`video/export.ts`) muxes with mediabunny into a non-fragmented MP4 through `StreamTarget` and
   `PositionedParts`. Do not pass `frameRate` to `addVideoTrack`: mediabunny rounds every timestamp to it, and a
   checkpoint keyframe can sit between two slots.
