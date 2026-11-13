@@ -303,7 +303,13 @@ to seconds per request; it is not suitable for per-frame live planning.
   loops, open ground and enemy ground, read after every frame from a `game.frameObservers` entry that `GameAudio.attach`
   adds. Home and head exposure follow `player.in`; off home, any trail segment touching a living enemy's current
   territory also keeps the enemy loop on. `exposureOf` reads current polygons, including segments crossing a polygon
-  with both endpoints outside, so a death or capture removing the ground drops the warning immediately.
+  with both endpoints outside, so a death or capture removing the ground drops the warning immediately. **It runs twice
+  a frame (the audio observer and the recorder), so it must stay cheap:** it skips a territory whose box misses the
+  trail's box and a trail segment whose box misses the territory's, with the boxes recomputed from the segments every
+  call (the engine reshapes a territory in place and lets `Polygon.bounds` go stale). Without that filter it tested
+  every trail segment against every enemy edge: on 2026-11-13 it took 20.5% of all main-thread time in plain play and
+  dropped the frame rate whenever a long trail was out on open ground (0.3% with it, `npm run benchmark:frames --
+  --profile`). A new per-frame reader of game geometry gets the same treatment.
   `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
   the shared `SILENT_MIX` then, so nothing (not even an `AudioContext`) is created while silent. Level and pulse rate
   rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each

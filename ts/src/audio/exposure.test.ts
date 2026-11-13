@@ -32,6 +32,13 @@ function createEnemy(): ExposedEnemy {
   return { base: { polygon: new Polygon([new Vector(0, 0), new Vector(10, 0), new Vector(10, 10), new Vector(0, 10)]) }, death: false };
 }
 
+function ensure(vector: undefined | Vector): Vector {
+  if (!vector) {
+    throw new Error('Missing point');
+  }
+  return vector;
+}
+
 function state(player: ExposedUnit | null, overrides: Partial<ExposureState> = {}): ExposureState {
   return { effectsEnabled: true, inRun: true, paused: false, player, ...overrides };
 }
@@ -83,6 +90,47 @@ describe('exposureOf', () => {
     expect(exposureOf(player)).toBe('enemy');
     owner.base.polygon.segments = new Polygon([new Vector(0, 20), new Vector(10, 20), new Vector(10, 30), new Vector(0, 30)]).segments;
     expect(exposureOf(player)).toBe('open');
+  });
+
+  it('never tests a territory or a trail segment whose box the other misses', () => {
+    const far = { base: { polygon: new Polygon([new Vector(100, 100), new Vector(110, 100), new Vector(110, 110), new Vector(100, 110)]) }, death: false };
+    const near = createEnemy();
+    const tested: string[] = [];
+    for (const [name, enemy] of [['far', far], ['near', near]] as const) {
+      const { polygon } = enemy.base;
+      const inside = polygon.inside.bind(polygon);
+      polygon.inside = (point: Vector): boolean => {
+        tested.push(`${name} ${String(point.x)},${String(point.y)}`);
+        return inside(point);
+      };
+    }
+    // The first segment's box misses the near territory; only the second one is tested against it.
+    const trail = [new Segment(new Vector(-30, -30), new Vector(-20, -30)), new Segment(new Vector(-20, -30), new Vector(5, 5))];
+    expect(exposureOf(unit(null, SHORT_TRAIL, false, [far, near], trail))).toBe('enemy');
+    expect(tested).toEqual(['near -20,-30', 'near 5,5']);
+  });
+
+  it('answers as the full test on every pair of trail segment and territory', () => {
+    let seed = 1;
+    function random(): number {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    }
+    function point(): Vector {
+      return new Vector(Math.round(random() * 40), Math.round(random() * 40));
+    }
+    for (let round = 0; round < 300; round++) {
+      const enemies = [0, 1].map((): ExposedEnemy => {
+        const x = random() * 30;
+        const y = random() * 30;
+        const size = 1 + random() * 8;
+        return { base: { polygon: new Polygon([new Vector(x, y), new Vector(x + size, y), new Vector(x + size, y + size), new Vector(x, y + size)]) }, death: false };
+      });
+      const points = [point(), point(), point()];
+      const trail = [new Segment(ensure(points[0]), ensure(points[1])), new Segment(ensure(points[1]), ensure(points[2]))];
+      const full = enemies.some(({ base: { polygon } }) => trail.some((segment: Segment) => polygon.inside(segment.start) || polygon.inside(segment.end) || polygon.intersections(segment).length > 0));
+      expect(exposureOf(unit(null, SHORT_TRAIL, false, enemies, trail))).toBe(full ? 'enemy' : 'open');
+    }
   });
 
   it('finds a trail wholly inside enemy land and ignores the player own territory', () => {
