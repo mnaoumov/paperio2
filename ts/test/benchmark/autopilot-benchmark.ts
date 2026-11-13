@@ -23,6 +23,11 @@
  * each death, a snapshot from 8 to 13 s before it, and for every run a control snapshot every 10 minutes it lives.
  * `--situation-leads 8,20,40` writes one death situation per lead instead, each the latest snapshot at least that many
  * seconds before the death, to find how far back a death that is already decided at 8 s was still open.
+ *
+ * `--stop-on-death` stops after the first death, discarding unfinished games at their next chunk boundary.
+ * `--results <file>` saves build identity and the completed outcomes with exact growth-curve samples as JSON.
+ * `--chunk-frames N` bounds each browser call (60 by default; a positive divisor of 1800). Progress is printed after
+ * each call, and a failed call names the last completed frame. Virtual frame lengths and sampling marks stay fixed.
  */
 
 import type {
@@ -35,7 +40,10 @@ import {
   writeFile
 } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
-import { join } from 'node:path';
+import {
+  dirname,
+  join
+} from 'node:path';
 import { parseArgs } from 'node:util';
 
 import type { Scenario } from '../differential/harness.ts';
@@ -150,13 +158,17 @@ interface WhiteboxShotStyle {
 }
 
 const MILLISECONDS_PER_SECOND = 1000;
+/** A long chunk can run for minutes under load; puppeteer's default is 3. */
+const PROTOCOL_TIMEOUT_MS = 3_600_000;
 const SECONDS_PER_MINUTE = 60;
 const FRAMES_PER_SECOND = 60;
 const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
 /** The menu frames before the run starts, as in the differential scenarios. */
 const BOOT_FRAMES = 120;
-/** Frames stepped per round trip to the page. */
-const CHUNK_FRAMES = 1800;
+/** One second per browser call, so a slow stretch of play does not hide inside an hour-long opaque call. */
+const DEFAULT_CHUNK_FRAMES = FRAMES_PER_SECOND;
+/** Every sampling boundary is a multiple of thirty seconds. */
+const SAMPLE_INTERVAL_FRAMES = 1800;
 const PERCENT_SCALE = 100;
 const MEDIAN_DIVISOR = 2;
 const SECONDS_DIGITS = 2;
@@ -225,17 +237,20 @@ const CONTROL_SITUATION_FRAMES = 36_000;
 
 const { values } = parseArgs({
   options: {
+    'chunk-frames': { default: String(DEFAULT_CHUNK_FRAMES), type: 'string' },
     'dump': { type: 'string' },
     'enemies': { default: 'original', type: 'string' },
     'first-seed': { default: '1', type: 'string' },
     'max-minutes': { default: '20', type: 'string' },
     'modes': { default: 'whitebox,blackbox', type: 'string' },
     'parallel': { default: String(Math.max(1, Math.floor(availableParallelism() / DEFAULT_PARALLEL_SHARE))), type: 'string' },
+    'results': { type: 'string' },
     'seed-list': { type: 'string' },
     'seeds': { default: '10', type: 'string' },
     'situation-leads': { default: '8', type: 'string' },
     'situations': { type: 'string' },
     'stats': { type: 'string' },
+    'stop-on-death': { default: false, type: 'boolean' },
     'trace': { default: false, type: 'boolean' },
     'why': { default: false, type: 'boolean' }
   }
@@ -246,6 +261,10 @@ const seedCount = Number(values.seeds);
 const firstSeed = Number(values['first-seed']);
 const maxFrames = Math.round(Number(values['max-minutes']) * SECONDS_PER_MINUTE * FRAMES_PER_SECOND);
 const parallel = Math.max(1, Number(values.parallel));
+const chunkFrames = Number(values['chunk-frames']);
+if (!Number.isSafeInteger(chunkFrames) || chunkFrames < 1 || chunkFrames > SAMPLE_INTERVAL_FRAMES || SAMPLE_INTERVAL_FRAMES % chunkFrames !== 0) {
+  throw new Error(`--chunk-frames must be a positive divisor of ${String(SAMPLE_INTERVAL_FRAMES)}.`);
+}
 
 const enemyModes = values.enemies.split(',').map((enemies) => enemies.trim()).filter(Boolean);
 // `--seed-list` names the seeds outright, such as the ones a whole run died on, in place of `--seeds` and `--first-seed`.
@@ -263,15 +282,27 @@ const jobs: Job[] = modes.flatMap((mode) => enemyModes.flatMap((enemies) => seed
 // The page plays `dist/app2.js`, so build it first, as the integration tests do: a stale bundle measures other code.
 const build = await buildBenchmark();
 print(`Build: ${JSON.stringify(build.identity)}`);
-const browser = await launchBrowser();
+const browser = await launchBrowser(PROTOCOL_TIMEOUT_MS);
 const outcomes: Outcome[] = [];
+const stopRequested = new AbortController();
 try {
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(parallel, jobs.length) }, async () => {
     for (let job = jobs[next++]; job; job = jobs[next++]) {
+      if (stopRequested.signal.aborted) {
+        break;
+      }
       const outcome = await play(browser, job);
+      if (!outcome) {
+        print(`${label(job)} seed ${String(job.seed)}: interrupted, excluded`);
+        break;
+      }
       outcomes.push(outcome);
       print(`${label(outcome)} seed ${String(outcome.seed)}: ${describe(outcome)} (${outcome.wallSeconds.toFixed(0)} s wall)`);
+      if (values['stop-on-death'] && outcome.reason !== null && outcome.reason !== 'win') {
+        stopRequested.abort();
+        print('Stopping at the first death; unfinished games are excluded.');
+      }
     }
   }));
 } finally {
@@ -280,6 +311,10 @@ try {
 print('');
 print(`Build: ${JSON.stringify(build.identity)}`);
 print(report(outcomes));
+if (values.results !== undefined) {
+  await mkdir(dirname(values.results), { recursive: true });
+  await writeFile(values.results, `${JSON.stringify({ build: build.identity, curveMinutes: CURVE_MINUTES, maxMinutes: Number(values['max-minutes']), outcomes })}\n`);
+}
 /**
  * The growth curve: per mode and enemy mode, the median map share at each mark over the runs still alive there, and how
  * many runs that is.
@@ -524,7 +559,7 @@ function parseEnemies(text: string): PageEnemySettings {
   return { count: null, level: null, mode, vision: vision === 'blackbox' ? 'blackbox' : 'whitebox' };
 }
 
-async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
+async function play(browserToUse: Browser, job: Job): Promise<null | Outcome> {
   const { enemies, mode, seed } = job;
   const started = performance.now();
   const scenario: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: `${mode} ${String(seed)}`, seed, startFrame: 0 };
@@ -563,7 +598,11 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
       await page.evaluate(installSituationRing, SITUATION_EVERY_FRAMES, situationKeep, MILLISECONDS_PER_SECOND);
     }
     const tail: string[] = [];
-    const { curve, state } = await playChunks(page, job, tail);
+    const played = await playChunks(page, job, tail);
+    if (!played) {
+      return null;
+    }
+    const { curve, state } = played;
     const reason = state.reason === null ? null : REASONS[state.reason] ?? `reason ${String(state.reason)}`;
     if (values.situations !== undefined && reason !== null && reason !== 'win') {
       const written = new Set<string>();
@@ -599,14 +638,22 @@ async function play(browserToUse: Browser, job: Job): Promise<Outcome> {
  * @param tail - The trace lines kept so far.
  * @returns The growth curve and the last state.
  */
-async function playChunks(page: Page, job: Job, tail: string[]): Promise<PlayedChunks> {
+async function playChunks(page: Page, job: Job, tail: string[]): Promise<null | PlayedChunks> {
   let frames = 0;
   let state = await stepFrames(page, 0, tail);
   const curve: (null | number)[] = CURVE_MINUTES.map(() => null);
   while (!state.done && frames < maxFrames) {
-    const count = Math.min(CHUNK_FRAMES, maxFrames - frames);
-    state = await stepFrames(page, count, tail);
+    if (stopRequested.signal.aborted) {
+      return null;
+    }
+    const count = Math.min(chunkFrames, maxFrames - frames);
+    try {
+      state = await stepFrames(page, count, tail);
+    } catch (error) {
+      throw new Error(`${label(job)} seed ${String(job.seed)}: browser step failed after ${String(frames)} completed frames (${state.seconds.toFixed(SECONDS_DIGITS)} game seconds), requesting ${String(count)} more frames.`, { cause: error });
+    }
     frames += count;
+    print(`progress ${label(job)} seed ${String(job.seed)}: ${String(frames)} frames, ${state.seconds.toFixed(SECONDS_DIGITS)} game seconds`);
     const mark = CURVE_FRAMES.indexOf(frames);
     if (mark >= 0 && !state.done) {
       curve[mark] = state.percent;
