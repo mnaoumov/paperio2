@@ -43,6 +43,14 @@ on:
         default: '1'
         required: true
         type: string
+      runner:
+        description: Runner image the seeds play on (the blackbox reads pixels, which each OS renders its own way)
+        default: ubuntu-latest
+        required: true
+        type: choice
+        options:
+          - ubuntu-latest
+          - windows-latest
 
 permissions:
   contents: read
@@ -88,8 +96,11 @@ jobs:
 
   benchmark:
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
     timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: ${{ inputs.stop-on-death }}
       max-parallel: ${{ fromJSON(needs.plan.outputs.max-parallel) }}
