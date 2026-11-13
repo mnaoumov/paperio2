@@ -175,6 +175,8 @@ describe('blackbox', () => {
     expect(pilot.debug.threat).not.toBeNull();
   });
 
+  // About 130 full-frame decisions: 13 s on a loaded two-core machine, past vitest's 5 s default.
+  const rememberedDangerTimeoutMilliseconds = 60_000;
   it('waits at home when a remembered danger has only just left the danger radius', () => {
     const pilot = new BlackboxPilot();
     const threatLeft = WIDTH / 2 + 80;
@@ -201,7 +203,7 @@ describe('blackbox', () => {
     function wideHome(x: number, y: number): Rgb {
       return Math.hypot(x - (WIDTH / 2 - 10), y - HEIGHT / 2) < TERRITORY_RADIUS * 2 ? OWN : homeFrame(x, y);
     }
-  });
+  }, rememberedDangerTimeoutMilliseconds);
 
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
