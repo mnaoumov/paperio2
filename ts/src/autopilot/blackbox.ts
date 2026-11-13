@@ -164,6 +164,12 @@ const CUT_SPACING = 4;
 const CUT_ARRIVAL = 2;
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
+/** How near the trail, in frame heights, a foreign unit closing on it is heeded (see `approachingTrack`). */
+const APPROACH_RADIUS = 0.45;
+/** The frames over which a unit's approach to the trail is measured. */
+const APPROACH_FRAMES = 6;
+/** How fast, as a share of the player's speed, a unit must close on the trail to be heeded beyond the danger radius. */
+const APPROACH_RATE = 0.5;
 /** A way out keeps this share of the frame's height from every unit in view along its out leg, or the pilot waits. */
 const LEAVE_CLEARANCE = 0.3;
 /** A small foreign component this close to the trail or the player, as a share of the frame's height, sends it home. */
@@ -306,6 +312,8 @@ export class BlackboxPilot {
   private threatMemory: RememberedThreat[] = [];
   /** The way the player came since it left its territory, in frame pixels from where the odometer started, oldest first. */
   private track: Point[] = [];
+  /** The gap between the remembered trail and the foreign pixel nearest it, over the last frames, oldest first. */
+  private trackGaps: number[] = [];
   /** The index in {@link BlackboxPilot.track} where the player last left its territory, or `null` while it is home. */
   private trailStart: null | number = null;
   /** Each pixel's distance to the outside of the arena, this frame (see {@link wallDistance}). */
@@ -361,7 +369,35 @@ export class BlackboxPilot {
     this.homeStreak = 0;
     this.previousClasses = null;
     this.threatMemory = [];
+    this.trackGaps = [];
     this.odometer.reset();
+  }
+
+  /**
+   * A unit or trail beyond the trail's danger radius that is closing on the trail fast: the gap between the trail and
+   * the foreign pixel nearest it, over the last {@link APPROACH_FRAMES} frames, shrank by at least
+   * {@link APPROACH_RATE} of the player's speed a frame. A bot heading for the trail covers the extra distance in a
+   * few frames, and turning back as soon as it sets off keeps the trail short enough to close first.
+   *
+   * @param closest - The foreign pixel nearest the remembered trail this frame, or `null`.
+   * @param gap - Its distance to the trail, in frame pixels.
+   * @returns The danger, or `null`.
+   */
+  private approachingTrack(closest: null | Point, gap: number): null | Point {
+    if (this.phase === 'home' || !closest || !Number.isFinite(gap)) {
+      this.trackGaps = [];
+      return null;
+    }
+    this.trackGaps.push(gap);
+    if (this.trackGaps.length > APPROACH_FRAMES + 1) {
+      this.trackGaps.shift();
+    }
+    const first = this.trackGaps[0] ?? gap;
+    if (this.trackGaps.length <= APPROACH_FRAMES || gap >= this.height * APPROACH_RADIUS) {
+      return null;
+    }
+    const closing = (first - gap) / APPROACH_FRAMES;
+    return closing >= Math.max(MIN_MEASURED_SPEED, this.speed) * APPROACH_RATE ? closest : null;
   }
 
   /**
@@ -684,6 +720,8 @@ export class BlackboxPilot {
     const centerY = height * HALF;
     let nearest: null | Point = null;
     let nearestDistance = Infinity;
+    let closest: null | Point = null;
+    let gap = Infinity;
     for (let index = 0; index < thin.length; index++) {
       if (thin[index] === 0) {
         continue;
@@ -693,13 +731,18 @@ export class BlackboxPilot {
       if (isHud(point.x / width, point.y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
         continue;
       }
+      const toTrack = nearTrack?.[index] ?? Infinity;
+      if (toTrack < gap) {
+        closest = point;
+        gap = toTrack;
+      }
       const away = Math.hypot(point.x - centerX, point.y - centerY);
-      if (away < nearestDistance && (away < radius || (nearTrack?.[index] ?? Infinity) < trackRadius)) {
+      if (away < nearestDistance && (away < radius || toTrack < trackRadius)) {
         nearest = point;
         nearestDistance = away;
       }
     }
-    return nearest;
+    return nearest ?? this.approachingTrack(closest, gap);
   }
 
   /** Forgets the way the player came but its last stretch, where a trail would start if it left now. */
