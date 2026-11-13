@@ -61,6 +61,21 @@ export interface ExposureState {
   readonly player: ExposedUnit | null;
 }
 
+/** An axis-aligned box in arena units, `top` the smaller y. */
+interface Box {
+  readonly bottom: number;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+}
+
+/**
+ * How far the boxes are widened, in arena units. A point or segment that meets a territory lies inside the territory's
+ * box, so a box test only skips work, but the engine's own tests allow a near-zero tolerance, which this margin covers
+ * many times over.
+ */
+const BOX_MARGIN = 1;
+
 /** Both loops quiet. */
 export const SILENT_MIX: ExposureMix = { enemy: 0, open: 0, rate: 0 };
 
@@ -141,12 +156,25 @@ export function exposureOf(player: ExposedUnit): Exposure {
   if (player.in !== null) {
     return 'enemy';
   }
+  const trail = player.track.polyline.segments;
+  const trailBox = boxOf(trail);
+  if (!trailBox) {
+    return 'open';
+  }
   const touchesEnemy = player.game.units.some((unit: ExposedEnemy) => {
     if (unit.death || unit.base === player.base) {
       return false;
     }
     const polygon = unit.base.polygon;
-    return player.track.polyline.segments.some((segment: Segment) => polygon.inside(segment.start) || polygon.inside(segment.end) || polygon.intersections(segment).length > 0);
+    // Read fresh every frame: the engine reshapes a territory in place and lets `Polygon.bounds` go stale.
+    const polygonBox = boxOf(polygon.segments);
+    if (!polygonBox || !overlaps(trailBox, polygonBox)) {
+      return false;
+    }
+    return trail.some((segment: Segment) =>
+      overlaps(segmentBox(segment), polygonBox)
+      && (polygon.inside(segment.start) || polygon.inside(segment.end) || polygon.intersections(segment).length > 0)
+    );
   });
   return touchesEnemy ? 'enemy' : 'open';
 }
@@ -155,6 +183,42 @@ export function sameMix(left: ExposureMix, right: ExposureMix): boolean {
   return left.enemy === right.enemy && left.open === right.open && left.rate === right.rate;
 }
 
+/**
+ * The box around segments' end points, widened by {@link BOX_MARGIN}, or `null` for none.
+ *
+ * @param segments - The segments.
+ * @returns The box.
+ */
+function boxOf(segments: readonly Segment[]): Box | null {
+  if (segments.length === 0) {
+    return null;
+  }
+  let bottom = -Infinity;
+  let left = Infinity;
+  let right = -Infinity;
+  let top = Infinity;
+  for (const { end, start } of segments) {
+    left = Math.min(left, start.x, end.x);
+    right = Math.max(right, start.x, end.x);
+    top = Math.min(top, start.y, end.y);
+    bottom = Math.max(bottom, start.y, end.y);
+  }
+  return { bottom: bottom + BOX_MARGIN, left: left - BOX_MARGIN, right: right + BOX_MARGIN, top: top - BOX_MARGIN };
+}
+
 function lerp(from: number, to: number, share: number): number {
   return from + (to - from) * share;
+}
+
+function overlaps(first: Box, second: Box): boolean {
+  return first.left <= second.right && second.left <= first.right && first.top <= second.bottom && second.top <= first.bottom;
+}
+
+function segmentBox({ end, start }: Segment): Box {
+  return {
+    bottom: Math.max(start.y, end.y),
+    left: Math.min(start.x, end.x),
+    right: Math.max(start.x, end.x),
+    top: Math.min(start.y, end.y)
+  };
 }
