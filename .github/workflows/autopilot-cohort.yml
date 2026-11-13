@@ -22,6 +22,27 @@ on:
         default: '30'
         required: true
         type: string
+      mode:
+        description: Pilot to play
+        default: whitebox
+        required: true
+        type: choice
+        options:
+          - whitebox
+          - blackbox
+      rollout:
+        description: Check whitebox loops in engine rollouts (the target ref must support --rollout)
+        default: true
+        type: boolean
+      stop-on-death:
+        description: Fail the seed's job on a death and cancel the rest of the matrix
+        default: true
+        type: boolean
+      max-parallel:
+        description: Seeds played at once, each on its own runner (1 to 20)
+        default: '1'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -35,6 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
+      max-parallel: ${{ steps.plan.outputs.max-parallel }}
       sha: ${{ steps.plan.outputs.sha }}
     steps:
       - uses: actions/checkout@v7
@@ -45,6 +67,7 @@ jobs:
           FIRST_SEED: ${{ inputs.first-seed }}
           SEEDS: ${{ inputs.seeds }}
           MINUTES: ${{ inputs.minutes }}
+          MAX_PARALLEL: ${{ inputs.max-parallel }}
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           node --input-type=module <<'NODE'
@@ -52,12 +75,15 @@ jobs:
           const first = Number(process.env.FIRST_SEED);
           const count = Number(process.env.SEEDS);
           const minutes = Number(process.env.MINUTES);
+          const maxParallel = Number(process.env.MAX_PARALLEL);
           if (!Number.isSafeInteger(first) || first < 1 || !Number.isSafeInteger(count) || count < 1 || count > 64
-            || first + count > 4294967296 || !(minutes > 0 && minutes <= 30)) {
+            || first + count > 4294967296 || !(minutes > 0 && minutes <= 30)
+            || !Number.isSafeInteger(maxParallel) || maxParallel < 1 || maxParallel > 20) {
             throw new Error('Invalid cohort bounds');
           }
           const include = Array.from({ length: count }, (_, index) => ({ seed: first + index }));
           appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `max-parallel=${String(maxParallel)}\n`);
           NODE
 
   benchmark:
@@ -65,8 +91,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
-      fail-fast: true
-      max-parallel: 1
+      fail-fast: ${{ inputs.stop-on-death }}
+      max-parallel: ${{ fromJSON(needs.plan.outputs.max-parallel) }}
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7
@@ -85,11 +111,17 @@ jobs:
         env:
           SEED: ${{ matrix.seed }}
           MINUTES: ${{ inputs.minutes }}
+          MODE: ${{ inputs.mode }}
+          ROLLOUT: ${{ inputs.mode == 'whitebox' && inputs.rollout }}
+          STOP_ON_DEATH: ${{ inputs.stop-on-death }}
         run: |
           output="$RUNNER_TEMP/autopilot"
           mkdir -p "$output"
-          npm run benchmark -- --modes whitebox --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
-            --parallel 1 --rollout --why --stop-on-death --stats "$output/stats" \
+          extra=()
+          if [ "$ROLLOUT" = true ]; then extra+=(--rollout); fi
+          if [ "$STOP_ON_DEATH" = true ]; then extra+=(--stop-on-death); fi
+          npm run benchmark -- --modes "$MODE" --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
+            --parallel 1 "${extra[@]}" --why --stats "$output/stats" \
             --situations "$output/situations" --situation-leads 8,25,60 \
             --results "$output/outcomes.json" > "$output/benchmark.log" 2>&1
           cat "$output/benchmark.log"
