@@ -534,6 +534,7 @@ export function drawLeaderMarker(renderContext: RenderContext): void {
 export function drawMinimap(renderContext: RenderContext): void {
   const {
     calcMult,
+    devicePixelRatio,
     game,
     padding,
     scaler,
@@ -569,6 +570,8 @@ export function drawMinimap(renderContext: RenderContext): void {
     });
   }
   ctx.restore();
+  // Observe only the own polygon that was just shown, never a bot's capture or an unclosed trail.
+  game.sounds?.onMinimapDrawn(game.player.base.polygon.square() / (game.space.width * game.space.height), minimapSize / devicePixelRatio);
 }
 let spatialGrid: HTMLCanvasElement | null = null;
 window.addEventListener('resize', () => {

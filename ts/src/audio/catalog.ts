@@ -16,6 +16,7 @@ export const SOUND_NAMES = [
   'kill',
   'respawn',
   'results',
+  'territory-loss',
   'win'
 ] as const;
 /** An effect due now, at a volume. */
@@ -44,6 +45,7 @@ export const SOUND_LEVELS: Readonly<Record<SoundName, number>> = {
   'kill': 0.75,
   'respawn': 0.5,
   'results': 0.6,
+  'territory-loss': 0.7,
   'win': 0.8
 };
 

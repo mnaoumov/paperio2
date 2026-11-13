@@ -13,7 +13,7 @@
  * The practice run's own sounds are never logged.
  *
  * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
- * ground, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
+ * ground while the head or trail touches a living enemy's territory, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
  * itself (`video/recorder.ts`), heard or not, so a download plays them back.
  */
 
@@ -49,6 +49,7 @@ import {
   audioRandom,
   shuffledOrder
 } from './playlist.ts';
+import { TerritoryLoss } from './territory-loss.ts';
 
 /** How long the music takes to fade out when the results come up. */
 export const MUSIC_FADE_OUT_SECONDS = 1.5;
@@ -104,6 +105,7 @@ export class GameAudio implements GameSounds {
   private playing: null | PlayingTrack = null;
   /** Bumped on every start and stop, so a track that finishes loading late knows it is no longer wanted. */
   private playlistGeneration = 0;
+  private readonly territoryLoss = new TerritoryLoss();
   private readonly trackBuffers = new Map<number, Promise<AudioBuffer | null>>();
 
   public constructor(musicEnabled: boolean, effectsEnabled: boolean) {
@@ -128,6 +130,9 @@ export class GameAudio implements GameSounds {
    * @param game - The live game.
    */
   public attach(game: Game): void {
+    if (this.game !== game) {
+      this.territoryLoss.reset();
+    }
     if (this.game && this.game !== game) {
       if (this.game.sounds === this) {
         this.game.sounds = null;
@@ -175,6 +180,20 @@ export class GameAudio implements GameSounds {
     this.cue({ gain: 1, sound: 'kill' });
   }
 
+  public onMinimapDrawn(area: number, size: number): void {
+    const game = this.game;
+    if (!this.inRun || !game?.player || game.player.death) {
+      this.territoryLoss.reset();
+      return;
+    }
+    if (game.paused) {
+      return;
+    }
+    if (this.territoryLoss.sample({ area, size, time: game.clock.now() })) {
+      this.cue({ gain: 1, sound: 'territory-loss' });
+    }
+  }
+
   public onPauseChange(paused: boolean): void {
     const context = this.context;
     if (!context) {
@@ -193,6 +212,7 @@ export class GameAudio implements GameSounds {
   }
 
   public onRespawn(): void {
+    this.territoryLoss.reset();
     this.cue({ gain: 1, sound: 'respawn' });
   }
 
@@ -213,6 +233,9 @@ export class GameAudio implements GameSounds {
 
   /** Starts the playlist for a run, from a fresh shuffle, and fetches the effects ahead of the first one. */
   public startMusic(): void {
+    if (!this.inRun) {
+      this.territoryLoss.reset();
+    }
     this.inRun = true;
     const context = this.ensureContext();
     if (context && this._effectsEnabled) {
@@ -376,6 +399,7 @@ export class GameAudio implements GameSounds {
 
   /** Ends the run's warning loops, fading them out. */
   private stopExposure(): void {
+    this.territoryLoss.reset();
     this.inRun = false;
     this.exposure?.stop();
     this.exposure = null;

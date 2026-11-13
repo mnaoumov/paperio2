@@ -1,25 +1,48 @@
 /**
  * @file
  *
- * Where the player's head is, for the warning loops: at home, out on open ground, or on another player's territory, and
- * how loud and fast each loop plays there. The zone is the engine's own `in`: the territory the head is inside, which it
- * sets on crossing into one and clears when a capture or a death takes that ground away.
+ * Where the player is exposed, for the warning loops: at home, out on open ground, or with the head or trail on a living
+ * enemy's current territory, and how loud and fast each loop plays there. The calculation only reads game state.
  */
 
-/** The player's trail, by the one field the loops read. */
+import type {
+  Polygon,
+  Segment
+} from '../geometry/shapes.ts';
+
+export interface ExposedEnemy {
+  readonly base: ExposedTerritory;
+  readonly death: boolean;
+}
+
+export interface ExposedGame {
+  readonly units: readonly ExposedEnemy[];
+}
+
+export interface ExposedPolyline {
+  readonly segments: readonly Segment[];
+}
+
+export interface ExposedTerritory {
+  readonly polygon: Polygon;
+}
+
+/** The player's trail, by the fields the loops read. */
 export interface ExposedTrail {
   readonly length: number;
+  readonly polyline: ExposedPolyline;
 }
 
 /** What the zone is read from: the engine's player, by the fields it uses. */
 export interface ExposedUnit {
   readonly base: unknown;
   readonly death: boolean;
+  readonly game: ExposedGame;
   readonly in: unknown;
   readonly track: ExposedTrail;
 }
 
-/** Where the player's head is. */
+/** Where the player's head or trail is exposed. */
 export type Exposure = 'enemy' | 'home' | 'open';
 
 /** What the loops are asked to play: each loop's level from 0 to 1, and the pulses a second of the one playing. */
@@ -106,7 +129,7 @@ export function exposureMix(exposure: Exposure, trailLength: number): ExposureMi
 }
 
 /**
- * Where a player's head is. A dead player is at home, so its loops fall silent.
+ * Where a player's head or trail is exposed. A dead player or one back home has silent loops.
  *
  * @param player - The player.
  * @returns The zone.
@@ -115,7 +138,17 @@ export function exposureOf(player: ExposedUnit): Exposure {
   if (player.death || player.in === player.base) {
     return 'home';
   }
-  return player.in === null ? 'open' : 'enemy';
+  if (player.in !== null) {
+    return 'enemy';
+  }
+  const touchesEnemy = player.game.units.some((unit: ExposedEnemy) => {
+    if (unit.death || unit.base === player.base) {
+      return false;
+    }
+    const polygon = unit.base.polygon;
+    return player.track.polyline.segments.some((segment: Segment) => polygon.inside(segment.start) || polygon.inside(segment.end) || polygon.intersections(segment).length > 0);
+  });
+  return touchesEnemy ? 'enemy' : 'open';
 }
 
 export function sameMix(left: ExposureMix, right: ExposureMix): boolean {

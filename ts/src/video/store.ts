@@ -11,6 +11,11 @@ import type {
   SoundEntry
 } from './timeline.ts';
 
+import {
+  createDatabaseConnection,
+  requestResult as result
+} from '../shared/idb-connection.ts';
+
 export interface ChunkRecord {
   readonly data: ArrayBuffer;
   readonly recordingId: string;
@@ -67,7 +72,18 @@ const READ_BATCH = 120;
 const MICROSECONDS_PER_MILLISECOND = 1000;
 const MILLISECONDS_PER_SECOND = 1000;
 
-let databasePromise: null | Promise<IDBDatabase> = null;
+const connection = createDatabaseConnection({
+  name: DATABASE_NAME,
+  upgrade(database: IDBDatabase): void {
+    if (!database.objectStoreNames.contains(RECORDINGS)) {
+      database.createObjectStore(RECORDINGS, { keyPath: 'id' });
+    }
+    if (!database.objectStoreNames.contains(CHUNKS)) {
+      database.createObjectStore(CHUNKS, { keyPath: ['recordingId', 'seq'] });
+    }
+  },
+  version: DATABASE_VERSION
+});
 
 export async function deleteChunksFrom(recordingId: string, fromSeq: number): Promise<void> {
   await write([CHUNKS], (transaction: IDBTransaction) => {
@@ -88,8 +104,7 @@ export async function deleteRecording(recordingId: string): Promise<void> {
  * @returns The takes.
  */
 export async function listRecordings(): Promise<RecordingRecord[]> {
-  const database = await openDatabase();
-  const records = await result(database.transaction(RECORDINGS, 'readonly').objectStore(RECORDINGS).getAll()) as RecordingRecord[];
+  const records = await result((await connection.transaction(RECORDINGS, 'readonly')).objectStore(RECORDINGS).getAll()) as RecordingRecord[];
   return records.sort((a: RecordingRecord, b: RecordingRecord) => b.startedAt - a.startedAt);
 }
 
@@ -112,10 +127,10 @@ export async function putRecording(record: RecordingRecord): Promise<void> {
  * @yields {ChunkRecord[]} Each batch, in order; the next is read once the caller asks for it.
  */
 export async function* readChunks(recordingId: string): AsyncGenerator<ChunkRecord[]> {
-  const database = await openDatabase();
   let fromSeq = 0;
   for (;;) {
-    const store = database.transaction(CHUNKS, 'readonly').objectStore(CHUNKS);
+    // A fresh transaction per batch, so a connection the browser closed between batches is reopened.
+    const store = (await connection.transaction(CHUNKS, 'readonly')).objectStore(CHUNKS);
     const batch = await result(store.getAll(chunkRange(recordingId, fromSeq), READ_BATCH)) as ChunkRecord[];
     const last = batch.at(-1);
     if (!last) {
@@ -178,58 +193,6 @@ function chunkRange(recordingId: string, fromSeq = 0): IDBKeyRange {
   return IDBKeyRange.bound([recordingId, fromSeq], [recordingId, Infinity]);
 }
 
-function finish(transaction: IDBTransaction): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    transaction.oncomplete = (): void => {
-      resolve();
-    };
-    transaction.onabort = (): void => {
-      reject(transaction.error ?? new Error('The storage transaction was aborted'));
-    };
-    transaction.onerror = (): void => {
-      reject(transaction.error ?? new Error('The storage transaction failed'));
-    };
-  });
-}
-
-function openDatabase(): Promise<IDBDatabase> {
-  databasePromise ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = (): void => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(RECORDINGS)) {
-        database.createObjectStore(RECORDINGS, { keyPath: 'id' });
-      }
-      if (!database.objectStoreNames.contains(CHUNKS)) {
-        database.createObjectStore(CHUNKS, { keyPath: ['recordingId', 'seq'] });
-      }
-    };
-    request.onsuccess = (): void => {
-      resolve(request.result);
-    };
-    request.onerror = (): void => {
-      databasePromise = null;
-      reject(request.error ?? new Error('IndexedDB could not be opened'));
-    };
-  });
-  return databasePromise;
-}
-
-function result<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = (): void => {
-      resolve(request.result);
-    };
-    request.onerror = (): void => {
-      reject(request.error ?? new Error('The storage request failed'));
-    };
-  });
-}
-
 async function write(storeNames: string[], action: (transaction: IDBTransaction) => void): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(storeNames, 'readwrite');
-  const done = finish(transaction);
-  action(transaction);
-  await done;
+  await connection.write(storeNames, action);
 }

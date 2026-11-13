@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Filing an issue (for AI agents and humans)
+
+Open issues through the [issue forms](https://github.com/mnaoumov/paperio2/issues/new/choose), not as blank issues.
+
+Filing from the CLI or the API (`gh issue create --body`, or an AI agent filing for you) skips the form, and `gh issue create --template` cannot load an issue form. In that case, open the matching form in [`.github/ISSUE_TEMPLATE/`](https://github.com/mnaoumov/paperio2/tree/HEAD/.github/ISSUE_TEMPLATE), copy every field as a `### <label>` heading in the form's order, and fill in each one. Always state the version you used and your operating system.
+
 ## The `ts/` project — strict TypeScript + template tooling
 
 **Strict conversion: DONE.** `ts/src/tsconfig.json` (the browser config) extends `@tsconfig/strictest`, adapted for this browser esbuild bundle: `module: ESNext` / `moduleResolution: bundler`, `lib: [DOM, ES2024]`, `types: [@total-typescript/ts-reset, js-cookie]` (no `node`), plus a `paths` mapping `preact`/`preact/hooks` to their shipped `.d.ts` (preact 10.5.4's `exports` has no `types` condition, so under `bundler` resolution TS otherwise types preact as `any`). The full strict conversion of `src/app2.ts` is complete — **555 → 0 `tsc` errors**, with **no `!` / `any` / `as` / `@ts-ignore`**: null-safety uses `ensureNonNullable` / `assertNonNullable` from `@mnaoumov/typescript-lib/type-guards` (a runtime `dependency`, since esbuild bundles it; see the toolkit bullet below), uninitialized fields get real defaults, and `Unit.skin` became a getter over a private `_skin` backing field. Verified: `tsc` clean + esbuild bundle boots (16 units, 0 console errors).
@@ -22,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   — **`js-cookie` is held at 2.2.1 with GHSA-qjx8-664m-686j open, on purpose.** The reconstruction exists to match the shipped `app2.js`, which inlined js-cookie 2.2.x — the original file literally contains `getJSON`, an API 3.x removed — so the float would make `ts/` stop reconstructing the thing it reconstructs. It is also not a bump but a rewrite, and only part of it is loud: `Cookies.getJSON` (`readCookieJson`) fails to compile under 3.x, but 2.2.1's `set` JSON-stringifies a non-string value while 3.x's default write converter is a bare `encodeURIComponent`, so the two object-valued `Cookies.set` calls in `src/scoring.ts` would **silently** persist `[object Object]` and lose the saved profile and challenges. The advisory is accepted rather than deferred: it needs attacker-controlled *attributes* to reach 2.2.1's `extend`, and both call sites pass the same local `{ expires: DAYS_IN_YEAR }` literal; and the served game runs the original root `app2.js` with its own inlined copy, which this pin does not govern. `preact@10.5.4` is pinned on the identical faithfulness argument. The full reasoning, the re-check commands and what lifting the pin would cost are in `ts/pinned-versions.json`; read that before re-deriving this from an audit report.
 - **Behavioral equivalence is proven, not assumed: `npm run test:integration`** (`ts/test/differential/`, its `README.md` has the detail). It plays six recorded scenarios (two served as `paperio.site`, so the domain lock takes its real-host branch) on the root `app2.js` and on `ts/dist/app2.js`, through `index.html`'s own engine switch (`?original` vs plain), in lockstep in headless Chrome, under a seeded `Math.random`, a virtual clock and a virtual rAF/timer scheduler, and fails on the first frame whose canvas calls, 30-frame game-state snapshot or final pixels differ, naming the call and both values. "Boots with 16 units and 0 console errors" is no longer the bar for a `ts/` change: run this. It needs Chrome (stable channel, or `CHROME_PATH`), serves every request through puppeteer's request interception rather than a real HTTP server (on this machine a desktop ad blocker injected a userscript into a localhost page, and its one `Math.random` call shifted the seeded stream, so local runs stopped matching CI), builds `dist/` itself, takes about two minutes, and is deliberately outside `npm test`; CI runs both. It and the audit beside it (that README's last section) caught divergences the boot check never could: the strict conversion's `new Path2D()` defaults on `Polygon.path`/`Territory.path`, and a declared `Player.moveTo` field that, under define semantics, hid the domain lock's `Player.prototype.moveTo = true` (now `declare`). **That class of change is the one to watch for**: a field default or declared field the original never set on the instance. When a scenario stops reaching an event its `expectedCoverage` asks for, fix the route or the seed rather than lowering the minimum. To bisect a divergence, set `DIFFERENTIAL_DUMP=<dir>` to get both frames' call lists.
 - **CI lives at the repo root** `.github/workflows/ci.yml` (GitHub only runs workflows from the repo root), scoped to `ts/**` plus the original files the differential test plays (`app2.js`, `index.html`, `assets/**`), with `defaults.run.working-directory: ts`.
+- **Long autopilot cohorts** use the manual `.github/workflows/autopilot-cohort.yml`. Supply a ref whose benchmark supports `--stop-on-death` and `--results` (main does), and, for the whitebox's `rollout` input, `--rollout` (main does not: only the experimental rollout-checked whitebox branch has it; the input is ignored for the blackbox). The plan pins its commit; each seed is one job with one game page, on its own runner, and `max-parallel` (default 1) sets how many play at once. With `stop-on-death` on (the default) a death fails its job and cancels the remaining matrix; with it off every seed plays through and a death is just an outcome. Artifacts keep exact outcome JSON, stats, logs and all replay snapshots (death and ten-minute controls) for seven days. Retaining controls permits a stalled seed to resume from its preceding checkpoint for diagnosis. The annotated `benchmark-results-<run-id>-<attempt>` tag keeps the completed outcomes, growth curves, source identities, unfinished seeds and workflow link after those artifacts expire; it does not keep snapshot payloads.
 - **No vendored copies: the ESLint rules and script helpers come from `@mnaoumov/typescript-dev-toolkit`.** `scripts/eslint-config.ts` registers the toolkit's `inHouseEslintPlugin` under its `IN_HOUSE_ESLINT_PLUGIN_NAME` (`typescript-dev-toolkit` since the toolkit's 2.0.0), so every in-house rule key in the config and every disable comment is spelled `typescript-dev-toolkit/<rule>`. The rules' tests live with the package. Do not copy a helper back in: if one the scripts need is missing from the packages, ask for it to be exported there. That includes the crash-vs-findings classifier below: `scripts/lint.ts` and `scripts/lint-fix.ts` call the toolkit's `linters/eslint` `lint()` (1.1.0 and later), and the local `scripts/helpers/eslint.ts` copy it was ported from is gone. The same holds for `src/`: the null-safety helpers come from **`@mnaoumov/typescript-lib/type-guards`** (1.0.1 and later), and the local `src/type-guards.ts` copy is gone. Earlier releases of that subpath referenced `@types/node` and the DOM lib through `library.d.mts`, which made `setTimeout` type as `NodeJS.Timeout` in the browser `src/tsconfig.json`, and their bundled preamble installed a `globalThis.process` shim in the game bundle. 1.0.1 does neither. If a future release brings either back, `npm run typecheck` fails with `TS2322: Type 'Timeout' is not assignable to type 'number'` in `src/engine.ts` / `src/game-api.ts`. Raise it against the package rather than restoring a local copy.
 - **`npm run lint` tells a crashed linter apart from a red codebase, and that distinction is load-bearing here.** The ESLint child on this machine dies with exit `3221225477` (`0xC0000005`, an access violation) and no output of its own — **measured at 1 run in 30** on an unchanged, lint-clean tree — and npm reports that to *its* caller as a plain exit `1`, which is indistinguishable from "the code is red". So the toolkit's `lint()` (`@mnaoumov/typescript-dev-toolkit/linters/eslint`, which this repo's own helper was upstreamed into) does not let `execFromRoot` throw on the exit code: it captures the result and classifies it (`classifyEslintExit`) as `clean` / `lint-problems` (exit `1`, the only code that is evidence about the SOURCE) / `did-not-lint` (everything else). A `did-not-lint` throws `describeFailureToLint`'s message, which names which of the four happened — killed by a signal, died at the OS level, a rule threw (`Rule: "…"` in stderr), or ESLint aborted on a broken config or command line — quotes back what ESLint said minus the banner, npm's chatter and the stack frames, and says outright that the source has not been judged. **The `Oops! Something went wrong!` banner is NOT a crash marker** — ESLint prints it for a mistyped path too, which is why the rule crash is separated out by the `Rule:` line instead. Its tests, against verbatim stderr from both including the OS-level death that cannot be triggered on demand, live with the package. One difference from the old local copy: the toolkit runs ESLint with warnings counted as findings. **If CI or a local gate ever reports a lint failure, read the message before reading the source** — and note that `lint:fix` goes through the same helper.
   - Two things had to move for it. `executeBatches` in the then-vendored `exec.ts` (now the toolkit's, which carries the same fix) returned a hard-coded `exitCode: 0` when asked for details, so a batched command (which is how `lint:fix` runs under nano-staged) reported success however its batches ended; it now carries the first failing batch's code and signal. And `ts/scripts/vitest-config.ts` gained the `unit-tests:scripts` project, because `unit-tests` excludes `scripts/**`, so a test anywhere under `scripts/` **ran nowhere** while `npm test` stayed green. That project is empty now that the classifier's test moved to the toolkit, and stays so a future script test is not skipped. (The serial `eslint-rules` project beside it went away with the vendored rules.)
@@ -34,6 +41,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **No circular dependencies — enforced by `import-x/no-cycle` (already enabled).** The engine is one *type-level* strongly-connected component, so lower modules reference higher-layer types (e.g. `geometry/shapes.ts` `import type`s `Trail`/`ShapeOwner` from `entities/territory-trail.ts`). Those back-edges are **type-only**, erased at build, and `import-x/no-cycle` ignores them (verified: it flags value cycles, not `import type` cycles). The **value**-import graph is a strict DAG: `shared`/`i18n` (leaves) → `geometry` → `controller`/`particles`/`scoring`/`skins`/`entities` → `engine` (Game core) → `ui` (via `i18n`) → `main`. Every module value-imports only downward and reaches higher-layer classes via `import type`; e.g. `engine` value-imports `Bot`/`Player`/`City` from `entities` while `entities` references `Game` only as a type. Rule when peeling a module: value-import only downward; use `import type` for any reference to a higher layer; if two classes genuinely value-cycle, co-locate them; and move any constant/helper used by both the peeled module and a *lower* layer into `shared`/`geometry` (e.g. `KILL_REASON_*`, `MILLISECONDS_IN_SECOND`, the angle constants, `angleToVector`, `noop`) so the import stays downward.
 - **Lint accommodations for the split (user decisions).** `jsdoc/require-jsdoc` and `jsdoc/require-file-overview` are **off** for source files (`scripts/eslint-config.ts`) — the split turns ~150 engine symbols into exports and documenting them all was scoped out of the mechanical move. `perfectionist/sort-modules` stays **on**, but it would alphabetize top-level declarations and reorder `extends` subclasses before their base classes (breaking class-init at runtime), so each engine module that has such a declaration carries a **file-wide `/* eslint-disable perfectionist/sort-modules -- … */` block**: the first line opens it and the last line closes it with `/* eslint-enable … */`, because `disable-enable-pair` requires the pair. The other `src/` files stay fully checked. These files used to carry per-line `eslint-disable-next-line` comments, but per-line disables stopped working in perfectionist 5.12.0. That release's fix "Honor eslint-disable directives with a description" makes every disabled node a fixed point, and the rule then sorts every other declaration around those points. All of our disables carry a `-- reason`, so each one pinned a node and moved where the rest should go, and adding a disable for one finding produced new findings at other lines. Do not go back to per-line disables in these files. Declaration-merged interfaces need care: TypeScript requires all-or-none `export` on merged declarations, while `import-x/export` flags two exports of the same name — so `Config` (load-bearing merge: named fields + index signature) is exported on both copies with an `import-x/export` disable, while the accidental duplicate `Bounds`/`RenderContext`/`Metric` interfaces are kept local (unexported).
 - **Peel workflow** (each peel is independently verifiable because `engine.ts` remains to satisfy type back-edges): move the declarations verbatim into the new module (no dedent — engine code is already column-0), wire the imports (let `tsc` enumerate missing/unused), **put the file-wide `sort-modules` disable/enable pair on any new module with order-carrying declarations BEFORE running `lint:fix`** (otherwise its `sort-modules` autofix reorders the file and breaks `extends` order and block-level `no-magic-numbers` disables), then verify: `npm run typecheck` + `npm run build` + a headless-Chrome boot (16 units, player, 0 console errors) + `npm test`.
+
+Root documentation has an explicit Markdown check too: from `ts/`, run `npx --no-install markdownlint-cli2 ../AGENTS.md`. It uses the same configuration as `npm run lint:md` and includes the root instructions alongside the `ts/` Markdown files. The normal `npm run lint:md` gate checks only `ts/` documentation.
 
 ## What this is
 
@@ -216,6 +225,26 @@ neither.
   `spawnBot` now follows the original key for key (`String(type)` keys, `Number(...)` reads), and the scenario
   `capture loop on paperio.site, a 16th bot` pins it.
 
+## Experimental engine rollouts
+
+`paperio2api.rollout(request, signal?)` (`ts/src/rollout/`) captures a game and runs
+the real engine in an opaque, disposable iframe, with local module globals, DOM,
+assets, Path2D, ids, pool and RNG. It uses the save graph codec, explicit mulberry32
+state and a 20 ms fixed-step direction schedule; it never restores the live game
+or enables a pilot. Requests are bounded to 600 frames, 64 units and 20,000 segments.
+Particle callbacks, pending timers and unsupported extensions are rejected.
+The iframe's achievement store cannot save cookies. `Game` accepts an optional
+`GameClock` at construction; ordinary games retain the default browser clock.
+See `ts/src/rollout/README.md` for the exact contract, limitations, parity tests
+and measurements. `stepMs` sets the frame length (20 ms by default), and each update
+takes the clock's own difference, as a live frame does. `npm run benchmark:fidelity`
+measures a forecast against the live game flying the same schedule. A forecast is exact
+only at `stepMs: 1000 / 60`, from the live `Math.random` state, flown by the step the
+rollout held, against a game that steps exactly 60 fps. At 20 ms the bots part within
+0.3 s (median), because `game.rng` is drawn per update. The README's **Forecast
+fidelity** has the table. It shares the browser renderer and costs hundreds of milliseconds
+to seconds per request; it is not suitable for per-frame live planning.
+
 ## In-game video recorder
 
 **The `ts/` reconstruction records its own canvas** (`ts/src/video/`, owner request 2026-10-21); the README's
@@ -237,7 +266,12 @@ neither.
   `keep` are pruned after each auto take and each Keep toggle. A `V` take is never pruned.
 - **Storage** is IndexedDB (`video/store.ts`): one record per take, one per chunk keyed `[recordingId, seq]`, the cut a
   key-range delete, writes chained in issue order. A running take holds the Web Lock `recordingLockName(id)`; on load,
-  a take still `recording` whose lock nobody holds is marked `recovered`.
+  a take still `recording` whose lock nobody holds is marked `recovered`. Both IndexedDB stores (this one and
+  `stats/store.ts`) open through `shared/idb-connection.ts`, never a bare cached `IDBDatabase`: the browser can close a
+  page's connection itself (an installed app window beside a browser tab of the site met it as `InvalidStateError: The
+  database connection is closing` on every later read), so the helper drops the handle on `close` and `versionchange`,
+  reopens when `transaction()` still meets a closing one, and runs a write whose connection closed under it once more.
+  A write must therefore be safe to repeat (puts and deletes by key).
 - **Export** (`video/export.ts`) muxes with mediabunny into a non-fragmented MP4 through `StreamTarget` and
   `PositionedParts`. Do not pass `frameRate` to `addVideoTrack`: mediabunny rounds every timestamp to it, and a
   checkpoint keyframe can sit between two slots.
@@ -266,13 +300,20 @@ neither.
   a second, each time taking under a millionth of the arena; the smallest real loop measured took 0.0018.
 - **Warning loops** (`audio/exposure.ts`, `audio/exposure-loops.ts`, owner request 2026-10-22): two oscillator-built
   loops, open ground and enemy ground, read after every frame from a `game.frameObservers` entry that `GameAudio.attach`
-  adds. The zone is the engine's own `player.in`: `player.base` is home, `null` open ground, any other territory enemy
-  ground (`Territory.handleEnemyIntersect` sets it on crossing in; a capture or a death that removes that ground clears
-  it). `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
+  adds. Home and head exposure follow `player.in`; off home, any trail segment touching a living enemy's current
+  territory also keeps the enemy loop on. `exposureOf` reads current polygons, including segments crossing a polygon
+  with both endpoints outside, so a death or capture removing the ground drops the warning immediately.
+  `desiredExposureMix` is silent with effects off, outside the `game` route, paused, dead and at home, and returns
   the shared `SILENT_MIX` then, so nothing (not even an `AudioContext`) is created while silent. Level and pulse rate
   rise with the trail in 16 steps up to 1500 units, so a growing trail does not reschedule automation every frame; each
   change is a 150 ms linear ramp from the current value. The differential page attaches `GameAudio` too, so the observer
   only reads: it never writes game state or draws `Math.random`.
+- **Territory-loss alert** (`audio/territory-loss.ts`): `drawMinimap` sends the own-territory polygon's area share
+  and size in rendered canvas pixels to `GameAudio.onMinimapDrawn` only after drawing it. It never reads bot plans, capture events or
+  unclosed trails. A drop must reach both 0.0001 of the map and one minimap pixel; unchanged frames, growth
+  and smaller edge slivers are silent. Drops less than 500 ms apart share one cue. Respawn, death, a new run, a
+  resized minimap or a rewound clock resets the baseline. Paused frames do not sample. The CC0 `territory-loss`
+  effect follows the effects toggle and the normal recorder cue path, including when muted.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
   (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged. Music is never
@@ -355,6 +396,13 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   one file and `pages.yml`/`sw.js` need nothing. **Anything the worker imports must not touch the DOM at module
   level**: it runs `blackbox.ts` and `whitebox.ts` (which still imports `entities/units.ts`), and the
   `runs the demo pilots' heavy work in a worker` test in `demo-extras.integration.test.ts` fails if it stops booting.
+  - **Whitebox delayed answers:** matching request ids and consecutive waiting updates do not freeze the player's
+    pose. Before adopting a worker route, `planLoop` reruns the bounded `isFlyable` simulation for that single route
+    from the current position and heading, against the current base and arena, and checks current enemies. An unsafe
+    answer immediately requests a fresh plan; a still-flyable answer remains usable after movement. Candidate search
+    stays in the worker. `whitebox.test.ts` covers delayed answers across consecutive waits, including opposite
+    headings at the same moved position. These checks and the worker boot test establish no survival-rate parity
+    with synchronous benchmarks; live-worker survival requires its own measurement.
   - **Blackbox:** the page scales the canvas with `createImageBitmap(view, { resizeWidth, resizeHeight, resizeQuality:
     'low' })` (byte-identical to `grabDownscaledFrame`'s `drawImage`, measured) and transfers it; the worker decides
     on the NEWEST frame it has when free, dropping the rest. A first version sent the next frame only after the last
@@ -407,12 +455,12 @@ autopilot* section is the user-facing contract and holds the benchmark table.
   unit's bot state (`*` while in its base), the target (magenta) and the killer (red box). A seed replays exactly, so
   `--seeds 1 --first-seed <n>` with both is the way to study one death. `--enemies` picks the enemy modes to play
   against (see **Enemy modes**); it defaults to the original bots.
-- **Keep the benchmark's bundle fixed for its entire run.** Building once at startup does not isolate it: each new
-  `openVariant` page reads `ts/dist/app2.js` from disk again. A rebuild or branch switch while a benchmark shell is
-  still alive can silently mix pilot versions in one aggregate. On 2026-10-26 a blackbox run outlived its session and
-  continued opening games for almost an hour after the checkout changed branches; its 32-seed aggregate is not a
-  valid comparison of the candidate. Until the harness pins the built bytes, finish and reap benchmark shells before
-  rebuilding or returning the checkout to another branch. Focused trials do not replace held-out comparisons.
+  `--stop-on-death` ends a survival cohort after its first recorded death, cancels unfinished games at their next chunk
+  boundary and excludes them from the report. `--results <file>` saves the build identity and the completed outcomes
+  with their exact growth-curve samples as JSON. Browser calls step 60 frames by default and print progress after each
+  call; a failed call names the last completed frame and game time. `--chunk-frames N` selects a positive divisor of
+  1800 without changing virtual frame lengths or the sampling marks; `test/benchmark/chunks.integration.test.ts`
+  compares the default with 1800-frame calls across a growth sample and a partial final chunk.
 - **Situation replay** (`test/benchmark/situation-replay.ts`, `npm run benchmark:replay`): the benchmark's
   `--situations <dir>` saves a snapshot 8-13 s before each death and a control every 10 minutes; `--situation-leads
   8,25,60` saves one per lead instead, which brackets when a death became certain. The replay plays each one

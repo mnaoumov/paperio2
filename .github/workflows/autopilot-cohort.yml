@@ -1,0 +1,218 @@
+name: Autopilot cohort
+
+on:
+  workflow_dispatch:
+    inputs:
+      target-ref:
+        description: Commit or branch with rollout-checked benchmark support
+        required: true
+        type: string
+      first-seed:
+        description: First held-out seed
+        default: '65'
+        required: true
+        type: string
+      seeds:
+        description: Number of seeds (1 to 64)
+        default: '64'
+        required: true
+        type: string
+      minutes:
+        description: Game minutes per seed (up to 30)
+        default: '30'
+        required: true
+        type: string
+      mode:
+        description: Pilot to play
+        default: whitebox
+        required: true
+        type: choice
+        options:
+          - whitebox
+          - blackbox
+      rollout:
+        description: Check whitebox loops in engine rollouts (the target ref must support --rollout)
+        default: true
+        type: boolean
+      stop-on-death:
+        description: Fail the seed's job on a death and cancel the rest of the matrix
+        default: true
+        type: boolean
+      max-parallel:
+        description: Seeds played at once, each on its own runner (1 to 20)
+        default: '1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: autopilot-cohort
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      max-parallel: ${{ steps.plan.outputs.max-parallel }}
+      sha: ${{ steps.plan.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.target-ref }}
+      - id: plan
+        env:
+          FIRST_SEED: ${{ inputs.first-seed }}
+          SEEDS: ${{ inputs.seeds }}
+          MINUTES: ${{ inputs.minutes }}
+          MAX_PARALLEL: ${{ inputs.max-parallel }}
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          const first = Number(process.env.FIRST_SEED);
+          const count = Number(process.env.SEEDS);
+          const minutes = Number(process.env.MINUTES);
+          const maxParallel = Number(process.env.MAX_PARALLEL);
+          if (!Number.isSafeInteger(first) || first < 1 || !Number.isSafeInteger(count) || count < 1 || count > 64
+            || first + count > 4294967296 || !(minutes > 0 && minutes <= 30)
+            || !Number.isSafeInteger(maxParallel) || maxParallel < 1 || maxParallel > 20) {
+            throw new Error('Invalid cohort bounds');
+          }
+          const include = Array.from({ length: count }, (_, index) => ({ seed: first + index }));
+          appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include })}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `max-parallel=${String(maxParallel)}\n`);
+          NODE
+
+  benchmark:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    strategy:
+      fail-fast: ${{ inputs.stop-on-death }}
+      max-parallel: ${{ fromJSON(needs.plan.outputs.max-parallel) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: ts/.nvmrc
+          cache: npm
+          cache-dependency-path: ts/package-lock.json
+      - name: Install dependencies
+        working-directory: ts
+        run: npm ci
+      - name: Play the seed
+        working-directory: ts
+        env:
+          SEED: ${{ matrix.seed }}
+          MINUTES: ${{ inputs.minutes }}
+          MODE: ${{ inputs.mode }}
+          ROLLOUT: ${{ inputs.mode == 'whitebox' && inputs.rollout }}
+          STOP_ON_DEATH: ${{ inputs.stop-on-death }}
+        run: |
+          output="$RUNNER_TEMP/autopilot"
+          mkdir -p "$output"
+          extra=()
+          if [ "$ROLLOUT" = true ]; then extra+=(--rollout); fi
+          if [ "$STOP_ON_DEATH" = true ]; then extra+=(--stop-on-death); fi
+          npm run benchmark -- --modes "$MODE" --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
+            --parallel 1 "${extra[@]}" --why --stats "$output/stats" \
+            --situations "$output/situations" --situation-leads 8,25,60 \
+            --results "$output/outcomes.json" > "$output/benchmark.log" 2>&1
+          cat "$output/benchmark.log"
+          if grep -q '^Stopping at the first death' "$output/benchmark.log"; then
+            exit 1
+          fi
+      - name: Preserve results and replay situations
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: autopilot-${{ matrix.seed }}
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/autopilot/benchmark.log
+            ${{ runner.temp }}/autopilot/outcomes.json
+            ${{ runner.temp }}/autopilot/stats/*.jsonl
+            ${{ runner.temp }}/autopilot/situations/*.json
+
+  results:
+    needs: [plan, benchmark]
+    if: always() && needs.plan.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Download completed and interrupted jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh run download "$GITHUB_RUN_ID" --dir "$RUNNER_TEMP/cohort-results"
+      - name: Publish a durable result tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+          FIRST_SEED: ${{ inputs.first-seed }}
+          SEEDS: ${{ inputs.seeds }}
+          MINUTES: ${{ inputs.minutes }}
+          BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readdirSync, readFileSync } from 'node:fs';
+          import { basename, join, sep } from 'node:path';
+          const directory = join(process.env.RUNNER_TEMP, 'cohort-results');
+          const outcomes = [];
+          const invalid = [];
+          for (const path of readdirSync(directory, { recursive: true })) {
+            if (basename(path) !== 'outcomes.json') { continue; }
+            const artifact = /^autopilot-(\d+)$/.exec(path.split(sep)[0]);
+            let saved;
+            try {
+              saved = JSON.parse(readFileSync(join(directory, path), 'utf8'));
+            } catch {
+              invalid.push(path);
+              continue;
+            }
+            if (!artifact || saved?.build?.commit !== process.env.SOURCE_SHA || saved.build.dirty
+              || saved.maxMinutes !== Number(process.env.MINUTES) || !Array.isArray(saved.curveMinutes)
+              || !Array.isArray(saved.outcomes) || saved.outcomes.length !== 1
+              || saved.outcomes[0].seed !== Number(artifact[1]) || !Array.isArray(saved.outcomes[0].curve)
+              || !Number.isFinite(saved.outcomes[0].percent) || !Number.isFinite(saved.outcomes[0].seconds)) {
+              invalid.push(path);
+              continue;
+            }
+            const result = saved.outcomes[0];
+            const curve = [1, 5, 15, 30].map(minutes => {
+              const value = result.curve[saved.curveMinutes.indexOf(minutes)];
+              return value === null || value === undefined ? null : value * 100;
+            });
+            const outcome = result.reason === null ? 'time limit' : result.reason === 'win' ? 'win' : 'death';
+            outcomes.push({ seed: result.seed, outcome, reason: result.reason, seconds: result.seconds, wallSeconds: result.wallSeconds, percent: result.percent * 100, curve, build: saved.build });
+          }
+          outcomes.sort((a, b) => a.seed - b.seed);
+          const expected = Array.from({ length: Number(process.env.SEEDS) }, (_, index) => Number(process.env.FIRST_SEED) + index);
+          const missing = expected.filter(seed => !outcomes.some(outcome => outcome.seed === seed));
+          const runUrl = `https://github.com/${process.env.GH_REPO}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          const tag = `benchmark-results-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
+          const report = { format: 1, source: process.env.SOURCE_SHA, runUrl, minutes: Number(process.env.MINUTES), status: process.env.BENCHMARK_RESULT, missing, invalid, outcomes };
+          const summary = [`Source: ${report.source}`, `Run: ${runUrl}`, `Result tag: ${tag}`, '', '| Seed | Outcome | Reason | Seconds | Percent |', '| --- | --- | --- | --- | --- |', ...outcomes.map(outcome => `| ${outcome.seed} | ${outcome.outcome} | ${outcome.reason ?? ''} | ${outcome.seconds} | ${outcome.percent} |`), '', `Unfinished seeds excluded: ${missing.join(', ') || 'none'}`, `Invalid files excluded: ${invalid.join(', ') || 'none'}`].join('\n');
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n');
+          async function post(path, body) {
+            const response = await fetch(`https://api.github.com/repos/${process.env.GH_REPO}/${path}`, {
+              method: 'POST',
+              headers: { authorization: `Bearer ${process.env.GH_TOKEN}`, accept: 'application/vnd.github+json', 'content-type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+            if (!response.ok) { throw new Error(`GitHub ${path}: ${response.status} ${await response.text()}`); }
+            return response.json();
+          }
+          const object = await post('git/tags', { tag, message: JSON.stringify(report, null, 2), object: report.source, type: 'commit' });
+          await post('git/refs', { ref: `refs/tags/${tag}`, sha: object.sha });
+          console.log(summary);
+          NODE

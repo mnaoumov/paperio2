@@ -112,6 +112,8 @@ export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKi
 export interface OpenVariantOptions {
   /** The reconstruction captured at run startup, shared by every page of a benchmark. */
   readonly bundle?: PinnedBundle;
+  /** Native-clock smoke tests can opt out of the deterministic scheduler. */
+  readonly deterministic?: boolean;
   /** Query parameters added to the page's URL, such as `seed=race` (without the `?`). */
   readonly query?: string;
   /** `localStorage` entries written before the page's own scripts run, as a returning visitor's settings. */
@@ -159,12 +161,20 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
   }
 }
 
-export async function launchBrowser(): Promise<Browser> {
+/**
+ * Launches the headless browser the harness drives.
+ *
+ * @param protocolTimeout - How long one page call may run, in milliseconds; puppeteer's default when left out. A
+ *   long benchmark chunk can run for minutes under load.
+ * @returns The browser.
+ */
+export async function launchBrowser(protocolTimeout?: number): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
     args: process.env['CI'] ? ['--no-sandbox'] : [],
     defaultViewport: VIEWPORT,
     headless: true,
+    ...protocolTimeout === undefined ? {} : { protocolTimeout },
     ...executablePath ? { executablePath } : { channel: 'chrome' }
   });
 }
@@ -176,7 +186,9 @@ export async function openVariant(browser: Browser, variant: Variant, scenario: 
   page.on('pageerror', (error) => {
     errors.push(String(error));
   });
-  await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
+  if (options.deterministic !== false) {
+    await page.evaluateOnNewDocument(installDeterminism, { seed: scenario.seed, traceCanvas: options.traceCanvas ?? true });
+  }
   if (options.storage) {
     await page.evaluateOnNewDocument((entries: Readonly<Record<string, string>>) => {
       for (const [key, value] of Object.entries(entries)) {

@@ -238,6 +238,8 @@ export interface GameSounds {
   onGameOver(result: GameOverResult): void;
   /** The player killed another unit. */
   onKill(): void;
+  /** Own-territory area just drawn on the minimap, expressed as a share of its rectangular extent. */
+  onMinimapDrawn(area: number, size: number): void;
   /** The game paused or resumed. */
   onPauseChange(paused: boolean): void;
   /** The player died, practice or not. */
@@ -559,7 +561,7 @@ export class Game {
   /** Set when hiding the tab is what paused the game, so showing it again may undo that. */
   private pausedByHiddenTab = false;
 
-  public constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number) {
+  public constructor(config: Config, canvas: HTMLCanvasElement, space: SpatialGrid, border: Border, skinManager: SkinManager, gameOverCallback: ((result: GameOverResult) => void) | null, nameManager: NamePool, controller: Controller, language: LanguageStrings, schemesManager: SchemeCycler, achievementsProfile: AchievementStore, seed: number, clock: GameClock = new GameClock()) {
     this.best = null;
     this.isTest = false;
     this.playerDeathCallback = null;
@@ -567,7 +569,7 @@ export class Game {
     this.topListChanged = false;
     this.citiesManager = null;
     this.renderer = null;
-    this.clock = new GameClock();
+    this.clock = clock;
     this.rng = createRandomGenerator(seed);
     this.build = GAME_BUILD;
     this.config = config;

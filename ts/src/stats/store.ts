@@ -7,6 +7,11 @@
 
 import type { StatsOutcome } from './format.ts';
 
+import {
+  createDatabaseConnection,
+  requestResult as result
+} from '../shared/idb-connection.ts';
+
 export interface StatsGameRecord {
   readonly id: string;
   readonly outcome: StatsOutcome;
@@ -30,7 +35,15 @@ const DATABASE_VERSION = 1;
 const GAMES = 'games';
 const DATE_PART_DIGITS = 2;
 
-let databasePromise: null | Promise<IDBDatabase> = null;
+const connection = createDatabaseConnection({
+  name: DATABASE_NAME,
+  upgrade(database: IDBDatabase): void {
+    if (!database.objectStoreNames.contains(GAMES)) {
+      database.createObjectStore(GAMES, { keyPath: 'id' });
+    }
+  },
+  version: DATABASE_VERSION
+});
 
 export async function deleteStatsGame(id: string): Promise<void> {
   await write((store: IDBObjectStore) => {
@@ -44,8 +57,7 @@ export async function deleteStatsGame(id: string): Promise<void> {
  * @returns The games.
  */
 export async function listStatsGames(): Promise<StatsGameRecord[]> {
-  const database = await openDatabase();
-  const records = await result(database.transaction(GAMES, 'readonly').objectStore(GAMES).getAll()) as StatsGameRecord[];
+  const records = await result((await connection.transaction(GAMES, 'readonly')).objectStore(GAMES).getAll()) as StatsGameRecord[];
   return records.sort((a: StatsGameRecord, b: StatsGameRecord) => b.startedAt - a.startedAt);
 }
 
@@ -79,55 +91,12 @@ export function statsFileName(startedAt: number): string {
   return `paperio2-${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}.jsonl`;
 }
 
-function openDatabase(): Promise<IDBDatabase> {
-  databasePromise ??= new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-    request.onupgradeneeded = (): void => {
-      const database = request.result;
-      if (!database.objectStoreNames.contains(GAMES)) {
-        database.createObjectStore(GAMES, { keyPath: 'id' });
-      }
-    };
-    request.onsuccess = (): void => {
-      resolve(request.result);
-    };
-    request.onerror = (): void => {
-      databasePromise = null;
-      reject(request.error ?? new Error('IndexedDB could not be opened'));
-    };
-  });
-  return databasePromise;
-}
-
 function pad(value: number): string {
   return String(value).padStart(DATE_PART_DIGITS, '0');
 }
 
-function result<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    request.onsuccess = (): void => {
-      resolve(request.result);
-    };
-    request.onerror = (): void => {
-      reject(request.error ?? new Error('The storage request failed'));
-    };
-  });
-}
-
 async function write(action: (store: IDBObjectStore) => void): Promise<void> {
-  const database = await openDatabase();
-  const transaction = database.transaction(GAMES, 'readwrite');
-  const done = new Promise<void>((resolve, reject) => {
-    transaction.oncomplete = (): void => {
-      resolve();
-    };
-    transaction.onabort = (): void => {
-      reject(transaction.error ?? new Error('The storage transaction was aborted'));
-    };
-    transaction.onerror = (): void => {
-      reject(transaction.error ?? new Error('The storage transaction failed'));
-    };
+  await connection.write(GAMES, (transaction: IDBTransaction) => {
+    action(transaction.objectStore(GAMES));
   });
-  action(transaction.objectStore(GAMES));
-  await done;
 }

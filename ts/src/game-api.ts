@@ -9,6 +9,10 @@ import type { EnemySettings } from './entities/enemy-modes.ts';
 import type { NamePool } from './entities/units.ts';
 import type { Language } from './i18n.ts';
 import type {
+  RolloutRequest,
+  RolloutResult
+} from './rollout/protocol.ts';
+import type {
   AchievementStore,
   SchemeCycler
 } from './scoring.ts';
@@ -36,6 +40,7 @@ import { Border } from './geometry/border.ts';
 import { SpatialGrid } from './geometry/spatial-grid.ts';
 import { Vector } from './geometry/vector.ts';
 import { russianLanguage } from './i18n.ts';
+import { rollout } from './rollout/client.ts';
 import {
   decodeSave,
   encodeSave
@@ -74,6 +79,8 @@ export interface GameApi {
   preparing: boolean;
   /** Puts the live game back to a snapshot of it, between frames. */
   restoreSnapshot: (snapshot: GameSnapshot) => void;
+  /** Experimental fixed-step engine continuation in an opaque sandbox; see rollout/README.md for supported starts. */
+  rollout: (request: RolloutRequest, signal?: AbortSignal) => Promise<RolloutResult>;
   /** The page's speedrun seed (`?seed=`), or `null`; with one, every Play starts from the game as preparation left it. */
   seed: null | string;
   /** Switches the enemy mode, difficulty and bot count, at once if the game exists, else when it is created. */
@@ -102,6 +109,7 @@ export function createGameApi(config: Config, language: Language, createSkinMana
     // With a seed, the game as preparation left it: the menu's bots then play on real time, so every Play goes back here.
     let seededStart: null | SeededStart = null;
     gameApi.config = config;
+    gameApi.rollout = (request, signal): Promise<RolloutResult> => rollout(gameApi.game, request, signal);
     gameApi.seed = speedrunSeed?.text ?? null;
     gameApi.create = (view: HTMLCanvasElement): void => {
       seededStart = null;

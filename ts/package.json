@@ -10,6 +10,7 @@
   "main": "src/main.ts",
   "scripts": {
     "benchmark": "jiti test/benchmark/autopilot-benchmark.ts",
+    "benchmark:fidelity": "jiti test/benchmark/rollout-fidelity.ts",
     "benchmark:frames": "jiti test/benchmark/frame-times.ts",
     "benchmark:replay": "jiti test/benchmark/situation-replay.ts",
     "build": "node build.mjs",

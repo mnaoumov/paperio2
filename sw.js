@@ -42,6 +42,7 @@ var SHELL = [
     'assets/audio/sounds/kill.mp3',
     'assets/audio/sounds/respawn.mp3',
     'assets/audio/sounds/results.mp3',
+    'assets/audio/sounds/territory-loss.mp3',
     'assets/audio/sounds/win.mp3'
 ];
 

@@ -1,17 +1,17 @@
 # Paper.io 2 — self-contained copy
 
-A self-contained copy of the browser game from https://paperio.site/, with no ads,
+A self-contained copy of the browser game from [Paper.io 2](https://paperio.site/), with no ads,
 analytics or servers. It runs entirely client-side (JavaScript + Canvas) with AI
 bots — there is **no server-side game logic**, so it also works with no network.
 
 ## Play it online
 
-Live demo (GitHub Pages): **https://mnaoumov.dev/paperio2/**
+Live demo (GitHub Pages): **[Play Paper.io 2](https://mnaoumov.dev/paperio2/)**
 
 The page runs a readable reconstruction of the engine, built from the `ts/`
 project, which is proven to play frame for frame like the original. The
 shipped original engine is kept unmodified and runs instead with `?original`:
-**https://mnaoumov.dev/paperio2/?original**
+**[Play the original engine](https://mnaoumov.dev/paperio2/?original)**
 
 On phones and other touch devices, an on-screen joystick appears — touch
 anywhere in the play area to summon it under your thumb and steer in 8
@@ -56,9 +56,15 @@ The reconstruction has music and sound effects; the original has neither.
   (a fanfare for a win or a new best). In practice mode there are quiet clicks for
   setting and removing a checkpoint, and a chime when you respawn. `N` switches
   the effects on and off.
+- **Territory-loss alert:** a short warning sounds when your territory visibly
+  shrinks on the minimap. Tiny edge slivers stay quiet, and rapid losses play one
+  alert. It uses only your displayed territory area, so it never warns about a
+  bot's unfinished capture. `N` silences it; recordings retain it with the effects.
 - **Warning loops:** while your head is off your own territory a quiet loop
   plays, so you feel exposed: a soft low pulse on empty ground, and a sharper,
-  faster throb on another player's territory. It crossfades between the two and
+  faster throb while your head or any of your trail touches a living enemy's territory.
+  The sharper warning stays until that trail clears enemy land, including when
+  the enemy dies or loses that ground. It crossfades between the two and
   fades out when you get home, and it gets louder and faster as your trail grows,
   reaching its peak at 1500 units, the length at which the nearest bot comes for
   your trail whatever its nature. It sits below the capture sounds, stops when you
@@ -69,7 +75,7 @@ The reconstruction has music and sound effects; the original has neither.
   menu's **Music** and **Sounds** buttons, switch them too, and the browser
   remembers both choices. Browsers allow sound only after you click or press a
   key, so it starts when you press Play.
-- Nothing is downloaded before you press Play: the effects (65 KB) are fetched
+- Nothing is downloaded before you press Play: the effects (70 KB) are fetched
   then, and each music track (about 1 MB) when it is due. The music is 5 MB in
   all.
 - Every file is CC0, by Juhani Junkala; `assets/audio/CREDITS.md` lists each one
@@ -226,17 +232,32 @@ farthest from that unit, for up to 20 seconds. It cuts a unit's trail where the
 trail lies across its own ground, and it counts only ground joined to the
 territory it left from as home, so a bot wearing its skin does not read as home.
 
-The whitebox's growth over those 16 one-hour runs, against two games a skilled
-human played by hand with the default settings:
+The whitebox's growth over those 16 one-hour runs, against seven games a skilled
+human played by hand with the default settings. The human rows give the median
+and, in brackets, the best share over the games still alive at each mark, and
+how many games that was:
 
 | | 1:00 | 2:00 | 3:00 | 5:00 | 10:00 | 15:00 | 30:00 | 60:00 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Whitebox | 4.3% | 7.9% | 11.6% | 19.4% | 32.2% | 39.7% | 53.3% | 57.5% |
-| Human | 3.2-4.5% | 7.6-7.8% | 11.4-14.3% | 17.9% | | | | |
+| Human | 3.2% (4.5%) | 7.6% (11.1%) | 13.1% (14.9%) | 19.7% (29.1%) | 35.8% (40.1%) | 46.7% | | |
+| Human games alive | 7 | 7 | 7 | 6 | 5 | 1 | 0 | 0 |
 
-The human's games ended at 17.3% (3:50) and 27.4% (8:00). The whitebox keeps
-pace with the human for the first five minutes and survives longer. It has not
-won yet; its best one-hour run held 92.0%.
+Five of the human's games were screen recordings made on 2026-11-02 to 05, read
+from the share the game shows in its corner. They ended at 46.5% (12:46), 41.0%
+(10:51), 41.3% (12:04), 45.5% (17:17) and 44.2% (13:51), each time ranked first,
+and every one of them ended in a death: a bot reached the trail just as the
+player left home, four times cutting it and once closing a capture over the
+player's edge of ground. The two earlier games ended
+at 17.3% (3:50) and 27.4% (8:00). No human game won. The recordings are the
+player's own pick of good games: the five games played between them, which were
+not recorded, ended at 8.8% (1:28), 23.2% (6:13), 0.1% (0:03), 22.7% (5:15) and
+14.6% (3:28).
+
+The whitebox is ahead of the human's median at one minute and behind it from
+three minutes on: by 10 minutes the human holds 35.8% against its 32.2%. It
+survives far longer: 12 of its 16 runs were alive at the hour, and no human game
+reached 18 minutes. It has not won yet; its best one-hour run held 92.0%.
 
 The whitebox predicts a bot's capture the way the engine closes it, along the
 bot's base outline from wherever the bot can still re-enter it, not by a straight
@@ -423,13 +444,13 @@ and a Launchpad entry. After the first launch it starts with no network too:
 a service worker (`sw.js`) keeps a copy of the game and refreshes it whenever
 you are online.
 
-- **Chrome:** open https://mnaoumov.dev/paperio2/ and click the install icon
+- **Chrome:** open [the live demo](https://mnaoumov.dev/paperio2/) and click the install icon
   at the right of the address bar, or use the menu > Cast, save and share >
   Install page as app. The app lands in `~/Applications/Chrome Apps`.
 - **Safari** (17 or later, macOS Sonoma or later): open the same page and use
   File > Add to Dock.
 
-An app installed before the manifest was fixed opens https://mnaoumov.dev/
+An app installed before the manifest was fixed opens [the site's home page](https://mnaoumov.dev/)
 instead of the game. Remove it and install again: in Chrome, right-click it in
 `chrome://apps` > Remove from Chrome; in Safari, drag it out of the Dock and
 delete it from `~/Applications`.
@@ -447,7 +468,7 @@ npx serve .
 npx http-server -p 8777
 ```
 
-Then open the printed URL (e.g. http://localhost:8777/).
+Then open the printed URL (e.g. [the local game](http://localhost:8777/)).
 
 The page loads the reconstruction from `ts/dist/app2.js`, so build it first
 (`cd ts && npm install && npm run build`). Without that build the page falls
@@ -549,3 +570,9 @@ back to the original `app2.js` and says so in the browser console. Add
 
 `app2.js`, `style3.css`, `manifest.json` and the other assets are the site's original
 content, © their respective owners. This copy is for local/offline personal use.
+
+## Filing an issue (for AI agents and humans)
+
+Open issues through the [issue forms](https://github.com/mnaoumov/paperio2/issues/new/choose), not as blank issues.
+
+Filing from the CLI or the API (`gh issue create --body`, or an AI agent filing for you) skips the form, and `gh issue create --template` cannot load an issue form. In that case, open the matching form in [`.github/ISSUE_TEMPLATE/`](https://github.com/mnaoumov/paperio2/tree/HEAD/.github/ISSUE_TEMPLATE), copy every field as a `### <label>` heading in the form's order, and fill in each one. Always state the version you used and your operating system.
