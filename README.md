@@ -560,6 +560,13 @@ back to the original `app2.js` and says so in the browser console. Add
 - Stats logs in the `ts/` reconstruction (`ts/src/stats/`): every run's area
   over time, events and frame times as downloadable JSONL, in the same format
   the autopilot benchmark writes. It only reads the game.
+- The wall holds in the `ts/` reconstruction. In the original, a rare hit on
+  the wall could leave the player a hair outside it, for example running
+  straight into one of its corners. From there every move away from the arena
+  went through, so the player could fly off the map. In the reconstruction a
+  move never ends outside the wall (`Border.pullInside` in
+  `ts/src/geometry/border.ts`), and an ordinary slide along the wall is
+  unchanged.
 
 ## Structure
 

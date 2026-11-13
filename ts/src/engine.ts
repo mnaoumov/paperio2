@@ -895,6 +895,14 @@ export class Game {
       slideVector.release();
       list5 = this.border.intersections(segment);
     }
+    // Not in the original: a move never ends outside the wall (see Border.pullInside).
+    const pulledEnd = this.border.pullInside(segment.end);
+    if (pulledEnd) {
+      if (isNearlyZero(pulledEnd.distance(segment.start))) {
+        return list4;
+      }
+      segment = new Segment(segment.start, pulledEnd);
+    }
     list4.push(segment);
     return list4;
   }

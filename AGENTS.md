@@ -583,6 +583,20 @@ when one changes).
   base, greed above the original's maximum, bots hunting bots, several tables at once). `npm run benchmark -- --enemies
   original,chase:blackbox,...` adds a row per enemy mode.
 
+## The wall
+
+**The original lets a unit leave the arena, and the `ts/` reconstruction does not** (owner report, 2026-11-11: the
+player flew off the map, rarely, in both engines). `Game.getMovement` stops a move only where it CROSSES the wall
+polygon (`Border.intersections`), then slides the rest along the wall segment. So a unit whose move starts even
+slightly outside the wall is never stopped again on its way out. The wall slide can leave it there: a unit flying
+straight into a wall vertex ended 1e-4 outside after 28 frames, while an ordinary slide stays on the wall's line to
+about 1e-13. `recoverTail` can as well, because it puts the player 1 unit past its nearest base vertex, and a base
+vertex can lie on the wall. Whatever the way out, `getMovement` now ends with `Border.pullInside`. It moves a move's
+end that lies more than `WALL_ESCAPE_TOLERANCE` (1e-6) outside any wall segment onto the polygon's inscribed circle.
+It never moves an end the slide left on the wall, so the differential suite stays green.
+`src/wall-escape.test.ts` steers units into the wall at the eight compass points (all vertices), head on and at an
+angle, and starts units outside it; with the guard removed, 12 of its 17 cases fail.
+
 ## Leaderboard names
 
 **The original clips leaderboard names, and the `ts/` reconstruction does not** (owner request, 2026-10-21). The
