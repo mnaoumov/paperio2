@@ -63,6 +63,8 @@ import {
   readRecordingAdditions,
   writeRecordingAdditions
 } from './recording.ts';
+import { useRunId } from './runs/run-id.ts';
+import { RunsList } from './runs/ui.ts';
 import {
   deleteSave,
   listSaves,
@@ -75,10 +77,7 @@ import {
   canCaptureSnapshot,
   captureSnapshot
 } from './snapshot.ts';
-import {
-  StatsMenu,
-  useStatsLog
-} from './stats/ui.ts';
+import { useStatsLog } from './stats/ui.ts';
 import {
   RecordControl,
   RecordingsPanel,
@@ -521,15 +520,10 @@ function renderExtrasSections({
       },
       createElement(RecordingsPanel, {
         state: video
-      })
-    ),
-    createElement(
-      'div',
-      {
-        style: PRACTICE_PANEL_STYLE
-      },
-      createElement(StatsMenu, {
-        state: stats
+      }),
+      createElement(RunsList, {
+        stats,
+        video
       })
     )
   ];
@@ -1503,12 +1497,13 @@ export function App({
   const [pendingLoad, setPendingLoad] = useState<GameSnapshot | null>(null);
   const [saves, setSaves] = useState<readonly SaveSummary[]>(listSaves);
   const [menuMessage, setMenuMessage] = useState('');
-  const video = useVideoRecording(api, route);
+  const runId = useRunId(route);
+  const video = useVideoRecording(api, route, runId);
   const sound = useGameAudio(api, route);
   const autopilot = useAutopilot(api, route, start);
   const enemies = useEnemySettings(api);
   const ghost = useGhostRace(api, route, autopilot.autopilot);
-  const stats = useStatsLog(api, route, autopilot.mode);
+  const stats = useStatsLog(api, route, autopilot.mode, runId);
   const [recordingAdditions, setRecordingAdditionsState] = useState(readRecordingAdditions);
   function setPracticeMode(nextPracticeMode: boolean): void {
     writePracticeMode(nextPracticeMode);

@@ -41,7 +41,7 @@ const WHEEL_SETTLE_MILLISECONDS = 50;
 const EFFECT_FRAMES = 3;
 const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 'menu extras', seed: 7, startFrame: 0 };
 /** The menu elements this copy adds. */
-const ADDED_IDS = ['extras-toggle', 'extras-panel', 'practice-menu', 'recordings', 'stats-logs'] as const;
+const ADDED_IDS = ['extras-toggle', 'extras-panel', 'practice-menu', 'recordings', 'runs'] as const;
 
 interface Layout {
   readonly clientHeight: number;

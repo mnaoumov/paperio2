@@ -94,8 +94,9 @@ itself when the run ends or the browser's storage is nearly full.
   frame, so a good run is never lost to a forgotten `V`; the take ends with the
   run. A take it started is marked _auto_ in the list. One shorter than 10 s is
   dropped, and only the newest 5 automatic takes stay: an older one is deleted
-  when a new one finishes, unless its **Keep** button marks it kept. A take
-  started with `V` is never deleted for you.
+  when a new one finishes, unless its run's **Keep** button marks it kept. A take
+  started with `V` is never deleted for you. Every take is listed under
+  **Runs**, beside its run's stats log (see _Stats logs_).
 - **What is recorded:** the game canvas only, so the map, the players, the
   leaderboard, the percent and the minimap are in the video, and the page around
   it (the pause button, the practice panel, menus, dialogs, the joystick) never
@@ -412,9 +413,23 @@ the same keys never give the same run twice.
 
 ### Stats logs
 
-Every run is logged as it is played, and **Stats logs** in **Extras** lists the
-last 20 runs. Each has **Download**, and **Download all** puts every listed run
-in one file. A log is a text file, `paperio2-<yyyy-mm-dd-hhmm>.jsonl`, with one
+Every run is logged as it is played, and the **Runs** list in **Extras** shows
+each run once, with its video when one was recorded and its stats log, so a
+video and its data are never apart:
+
+- a row says what the run has: `Video 3:22 · 20.4 MB · auto` and
+  `Stats human · 3:20 · 12.34% · died`, or `No video` / `No stats log` when one
+  of the two is missing;
+- **Play** and **Video** play and download the video, **Data** downloads the
+  stats log, and **✕** (click it twice) deletes both;
+- **Keep** marks the whole run: neither its video nor its log is pruned, and
+  **Delete all** leaves it alone. Unkept, the newest 20 logs and the newest 5
+  automatic videos stay;
+- **Delete all** (click it twice) deletes every run not marked Keep, and says
+  so (**Delete all except kept**) when some are; **Download all data** puts
+  every log in one file.
+
+A log is a text file, `paperio2-<yyyy-mm-dd-hhmm>.jsonl`, with one
 JSON object per line:
 
 - a `header`: the build and commit, the enemy settings, who started the run

@@ -148,7 +148,7 @@ export class VideoRecorder implements FrameRecorder {
   /** The chain of storage writes, in the order they were issued. */
   private writes: Promise<void> = Promise.resolve();
 
-  private constructor(private readonly game: Game, choice: CodecChoice, settings: VideoSettings, private readonly callbacks: RecorderCallbacks, auto: boolean) {
+  private constructor(private readonly game: Game, choice: CodecChoice, settings: VideoSettings, private readonly callbacks: RecorderCallbacks, auto: boolean, runId: null | string) {
     const view = game.view;
     const { height, width } = outputSize(view.width, view.height, settings.height);
     this.output = document.createElement('canvas');
@@ -171,6 +171,7 @@ export class VideoRecorder implements FrameRecorder {
       fps,
       height,
       id: crypto.randomUUID(),
+      ...(runId === null ? {} : { runId }),
       startedAt: now,
       status: 'recording',
       thumbnail: null,
@@ -198,10 +199,11 @@ export class VideoRecorder implements FrameRecorder {
    * @param settings - Size and frame rate.
    * @param callbacks - Told when the take stops by itself.
    * @param auto - Whether **Record every game** started it rather than V, which lets it be pruned.
+   * @param runId - The run it is recorded in (`runs/run-id.ts`), or `null` when none is known.
    * @returns The running take.
    */
-  public static start(game: Game, choice: CodecChoice, settings: VideoSettings, callbacks: RecorderCallbacks, auto = false): VideoRecorder {
-    const recorder = new VideoRecorder(game, choice, settings, callbacks, auto);
+  public static start(game: Game, choice: CodecChoice, settings: VideoSettings, callbacks: RecorderCallbacks, auto = false, runId: null | string = null): VideoRecorder {
+    const recorder = new VideoRecorder(game, choice, settings, callbacks, auto, runId);
     game.videoRecorder = recorder;
     // Held until the take is finished or discarded; a reload or a crash drops it, which marks the take as recoverable.
     navigator.locks.request(recordingLockName(recorder.record.id), () =>
