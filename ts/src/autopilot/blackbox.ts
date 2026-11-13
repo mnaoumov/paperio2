@@ -160,6 +160,14 @@ const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1]
 const CUT_CANDIDATES = 8;
 const CUT_SPACING = 4;
 const CUT_ARRIVAL = 2;
+/** How far beyond the player's ground a foreign trail may lie for the pilot to go out and cut it, in frame heights. */
+const SORTIE_GAP = 0.15;
+/** How far from the player such a trail may lie, in frame heights. */
+const SORTIE_RADIUS = 0.35;
+/** How many frames the flight to a cut may spend on the floor, laying a trail. */
+const SORTIE_FLOOR_FRAMES = 25;
+/** How many frames a sortie may last off the player's ground before it turns back. */
+const SORTIE_FRAMES = 40;
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
 /** A way out keeps this share of the frame's height from every unit in view along its out leg, or the pilot waits. */
@@ -295,6 +303,8 @@ export class BlackboxPilot {
   private raster: null | Uint8Array = null;
   private sideFrames = SIDE_FRAMES;
   private sideward: Point = { x: 0, y: 1 };
+  /** Whether the pilot left its ground to cut a foreign trail beside it, rather than for a loop. */
+  private sortie = false;
   /** The player's speed in frame pixels per frame, as the odometer measured it. */
   private speed = DEFAULT_SPEED;
   /** This frame's foreign units and trails (see {@link thinForeign}). */
@@ -359,6 +369,7 @@ export class BlackboxPilot {
     this.homeStreak = 0;
     this.previousClasses = null;
     this.threatMemory = [];
+    this.sortie = false;
     this.odometer.reset();
   }
 
@@ -1240,6 +1251,86 @@ export class BlackboxPilot {
    * @param classes - The classified frame.
    * @returns The direction.
    */
+  /**
+   * Whether the player reaches a cut on a foreign trail beside its ground with a short flight: flown in simulation at
+   * the measured speed and the turn rate, it meets neither the wall, foreign ground nor its own older trail, and spends
+   * at most the given frames on the floor.
+   *
+   * @param classes - The classified frame.
+   * @param target - The cut, in frame pixels.
+   * @param floorFrames - The frames the flight may spend on the floor.
+   * @returns Whether it does.
+   */
+  private sortieFlight(classes: Uint8Array, target: Point, floorFrames: number): boolean {
+    let x = this.width * HALF;
+    let y = this.height * HALF;
+    let heading = this.heading;
+    let onFloor = 0;
+    for (let frame = 1; frame <= MAX_SIMULATION_FRAMES; frame++) {
+      heading += Math.max(-TURN_PER_FRAME, Math.min(TURN_PER_FRAME, wrapAngle(Math.atan2(target.y - y, target.x - x) - heading)));
+      x += Math.cos(heading) * this.speed;
+      y += Math.sin(heading) * this.speed;
+      if (Math.hypot(target.x - x, target.y - y) < CUT_ARRIVAL) {
+        return true;
+      }
+      const index = Math.floor(y) * this.width + Math.floor(x);
+      const pixelClass = this.classAt(classes, x, y);
+      if (pixelClass === OUTSIDE || (pixelClass === OTHER && this.thin[index] !== 1) || (this.raster?.[index] === TRACK_SOLID && pixelClass !== OWN)) {
+        return false;
+      }
+      if (pixelClass !== OWN && pixelClass !== MASKED) {
+        onFloor++;
+        if (onFloor > floorFrames) {
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * The nearest pixel of a foreign trail on the floor just beyond the player's ground, near the player, that a short
+   * flight reaches (see {@link BlackboxPilot.sortieFlight}).
+   *
+   * @param classes - The classified frame.
+   * @param floorFrames - The frames the flight may spend on the floor.
+   * @returns It, in frame pixels, or `null`.
+   */
+  private sortieTarget(classes: Uint8Array, floorFrames: number): null | Point {
+    const { height, thin, width } = this;
+    const toOwn = chamferDistance(classes.map((pixelClass) => pixelClass === OWN ? 1 : 0), width, height);
+    const centerX = width * HALF;
+    const centerY = height * HALF;
+    const candidates: CutCandidate[] = [];
+    for (let index = 0; index < thin.length; index++) {
+      if (thin[index] === 0 || (toOwn[index] ?? Infinity) > height * SORTIE_GAP) {
+        continue;
+      }
+      const x = index % width;
+      const y = Math.floor(index / width);
+      const away = Math.hypot(x - centerX, y - centerY);
+      if (away > height * SORTIE_RADIUS || isHud(x / width, y / height, HUD_MARGIN / width, HUD_MARGIN / height)) {
+        continue;
+      }
+      candidates.push({ away, point: { x, y } });
+    }
+    candidates.sort((a, b) => a.away - b.away);
+    const tried: Point[] = [];
+    for (const { point } of candidates) {
+      if (tried.length >= CUT_CANDIDATES) {
+        break;
+      }
+      if (tried.some((other) => Math.hypot(other.x - point.x, other.y - point.y) < CUT_SPACING)) {
+        continue;
+      }
+      tried.push(point);
+      if (this.sortieFlight(classes, point, floorFrames)) {
+        return point;
+      }
+    }
+    return null;
+  }
+
   private stayHome(classes: Uint8Array): Point {
     let sumX = 0;
     let sumY = 0;
@@ -1274,6 +1365,10 @@ export class BlackboxPilot {
       this.rememberHome(classes);
       this.sideward = this.chooseSide(classes, this.outward);
       this.sideFrames = SIDE_FRAMES;
+    }
+    const sortie = this.stepSortie(classes);
+    if (sortie) {
+      return sortie;
     }
     if (this.phase === 'back') {
       // Back inside but for a capture too small to see: deeper in, not along a stale aim back out over the edge.
@@ -1323,6 +1418,15 @@ export class BlackboxPilot {
       this.aim = cut;
       return normalize({ x: cut.x - this.width * HALF, y: cut.y - this.height * HALF });
     }
+    // A unit's trail just beyond the territory's edge is cut too, with a short flight over the floor: waiting inside
+    // while its loop closes round the territory is how the player is surrounded, and crossing it kills its owner first.
+    this.sortie = false;
+    const sortie = this.threat ? this.sortieTarget(classes, SORTIE_FLOOR_FRAMES) : null;
+    if (sortie) {
+      this.sortie = true;
+      this.aim = sortie;
+      return normalize({ x: sortie.x - this.width * HALF, y: sortie.y - this.height * HALF });
+    }
     if (this.threat && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       // A unit near: stay inside, where it cannot cut anything, until it goes; on the far side of the territory from
       // it, where a capture of its that bites into the territory does not enclose the player.
@@ -1343,6 +1447,27 @@ export class BlackboxPilot {
     }
     this.outward = wayOut.direction;
     return this.outward;
+  }
+
+  /**
+   * One frame of a sortie off the ground: on to the trail it cuts while that is still there and within the sortie's
+   * frames, then straight back.
+   *
+   * @param classes - The classified frame.
+   * @returns The direction, or `null` with no sortie under way (the phase is then `back` if one just ended).
+   */
+  private stepSortie(classes: Uint8Array): null | Point {
+    if (!this.sortie || this.phase !== 'out') {
+      return null;
+    }
+    const target = this.framesInPhase < SORTIE_FRAMES ? this.sortieTarget(classes, SORTIE_FRAMES - this.framesInPhase) : null;
+    if (target) {
+      this.aim = target;
+      return normalize({ x: target.x - this.width * HALF, y: target.y - this.height * HALF });
+    }
+    this.sortie = false;
+    this.setPhase('back');
+    return null;
   }
 
   /**
