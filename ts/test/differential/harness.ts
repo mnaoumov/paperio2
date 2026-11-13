@@ -107,6 +107,14 @@ export interface Scenario {
   readonly startFrame: number;
 }
 
+/**
+ * Keeps Chrome from upgrading `http://paperio.site` to `https://`. Chrome 157 does that with these two features on
+ * together (measured 2026-11-13; either one alone leaves the URL as it is), and the request handler then refused the
+ * `https://` URL as another origin, so every `paperio.site` scenario failed with `ERR_BLOCKED_BY_CLIENT`. Served as
+ * `https://`, the page would also be a secure context, where the recorder comes to life.
+ */
+const NO_HTTPS_UPGRADE_FLAG = '--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable';
+
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface OpenVariantOptions {
@@ -171,7 +179,7 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
 export async function launchBrowser(protocolTimeout?: number): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
-    args: process.env['CI'] ? ['--no-sandbox'] : [],
+    args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG],
     defaultViewport: VIEWPORT,
     headless: true,
     ...protocolTimeout === undefined ? {} : { protocolTimeout },
