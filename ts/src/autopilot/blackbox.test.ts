@@ -205,6 +205,27 @@ describe('blackbox', () => {
     }
   }, rememberedDangerTimeoutMilliseconds);
 
+  it('waits a unit out without crossing open floor to the far side of a bent territory', () => {
+    const pilot = new BlackboxPilot();
+    // A U: the player in the right arm, the left arm across 60 pixels of floor, a bridge along the bottom.
+    function bentHome(x: number, y: number): Rgb {
+      if (y >= SCORE_BAR.top && y < SCORE_BAR.bottom && x < SCORE_BAR.right) {
+        return OWN;
+      }
+      const rightArm = x >= 140 && x < 180 && y >= 30 && y < 160;
+      const leftArm = x >= 40 && x < 80 && y >= 30 && y < 160;
+      const bridge = x >= 40 && x < 180 && y >= 130 && y < 160;
+      return rightArm || leftArm || bridge ? OWN : FLOOR;
+    }
+    const direction = pilot.decide(frame((x, y) => x >= 215 && x < 219 && y > 40 && y < 140 ? GREY : bentHome(x, y)));
+    expect(pilot.debug.phase).toBe('home');
+    expect(pilot.debug.threat).not.toBeNull();
+    expect(direction).not.toBeNull();
+    // Straight for the left arm would be up and left over the floor; the way that stays on ground is down the arm.
+    expect(direction?.x ?? 0).toBeGreaterThan(-0.5);
+    expect(direction?.y ?? 0).toBeGreaterThan(0.5);
+  });
+
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));

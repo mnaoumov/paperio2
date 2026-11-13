@@ -153,6 +153,8 @@ const MAX_HOME_WAIT_FRAMES = 1200;
 /** Waiting, the pilot heads for ground this many pixels inside its territory, each worth this many pixels of distance. */
 const SAFE_DEPTH = 16;
 const SAFE_DEPTH_WEIGHT = 3;
+/** Directions searched for a place to wait a unit out, each walked from the player while it stays on own ground. */
+const AWAY_RAYS = 96;
 /** A foreign trail is across the territory when its ground lies within this many pixels on both sides along an axis. */
 const CUT_REACH = 5;
 const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
@@ -375,12 +377,28 @@ export class BlackboxPilot {
     const depth = chamferDistance(classes.map((pixelClass) => pixelClass === OWN || pixelClass === MASKED ? 0 : 1), width, height);
     let best: null | Point = null;
     let bestScore = -Infinity;
-    for (let row = 1; row < height - 1; row++) {
-      for (let column = 1; column < width - 1; column++) {
+    // Only aims the player reaches in a straight line over its own ground: in a bent territory the farthest point can
+    // lie across open floor, and the way there lays a trail beside the very unit the player is waiting out.
+    const centerX = width * HALF;
+    const centerY = height * HALF;
+    for (let ray = 0; ray < AWAY_RAYS; ray++) {
+      const angle = ray / AWAY_RAYS * FULL_TURN;
+      const dx = Math.cos(angle);
+      const dy = Math.sin(angle);
+      for (let step = 1; step < width + height; step++) {
+        const column = Math.round(centerX + dx * step);
+        const row = Math.round(centerY + dy * step);
+        if (column < 1 || row < 1 || column >= width - 1 || row >= height - 1) {
+          break;
+        }
         const index = row * width + column;
+        const pixelClass = classes[index];
+        if (pixelClass !== OWN && pixelClass !== MASKED) {
+          break;
+        }
         const score = Math.hypot(column - threat.x, row - threat.y) + Math.min(depth[index] ?? 0, SAFE_DEPTH) * SAFE_DEPTH_WEIGHT;
         if (score > bestScore && isOwnInside(classes, width, index)) {
-          best = { x: column - width * HALF, y: row - height * HALF };
+          best = { x: column - centerX, y: row - centerY };
           bestScore = score;
         }
       }
