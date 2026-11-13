@@ -263,7 +263,8 @@ to seconds per request; it is not suitable for per-frame live planning.
 - **Record every game** (`VideoSettings.recordEvery`, owner 2026-10-22, default off): `useVideoRecording` starts a take
   with `auto = true` when the route enters `game`, and the route-leave stop ends it. `video/retention.ts` (unit-tested)
   decides what goes: an auto take under 10 s is deleted when it finishes, and auto takes past the newest 5 not marked
-  `keep` are pruned after each auto take and each Keep toggle. A `V` take is never pruned.
+  `keep` are pruned after each auto take and each Keep toggle. A `V` take is never pruned. Keep is set per run, on all
+  its takes and its stats log at once (see **Stats logs**).
 - **Storage** is IndexedDB (`video/store.ts`): one record per take, one per chunk keyed `[recordingId, seq]`, the cut a
   key-range delete, writes chained in issue order. A running take holds the Web Lock `recordingLockName(id)`; on load,
   a take still `recording` whose lock nobody holds is marked `recovered`. Both IndexedDB stores (this one and
@@ -516,9 +517,20 @@ when one changes).
 
 - **One implementation for the page and the benchmark:** `GameApi.createStatsLog(pilot, recordingMode)` builds a
   `StatsLog` (`stats/log.ts`) and pushes it onto `game.frameObservers`; `finish()` takes it off and returns the text.
-  `stats/ui.ts`'s `useStatsLog` starts one per run and writes it to IndexedDB (`paperio2-stats`, the newest 20 kept)
-  every minute of game time, when the tab hides and when the run ends; the benchmark's `--stats <dir>` writes one file
-  per run. `npm run stats:report` reads either.
+  `stats/ui.ts`'s `useStatsLog` starts one per run and writes it to IndexedDB (`paperio2-stats`, the newest 20 not
+  marked Keep kept, and a write keeps a stored `keep`) every minute of game time, when the tab hides and when the run
+  ends; the benchmark's `--stats <dir>` writes one file per run. `npm run stats:report` reads either.
+- **One row per run in the menu** (`ts/src/runs/`, owner report 2026-11-11): `useRunId(route)` in the App mints a run id
+  each time the route enters `game` (during the render, so both hooks' effects see it). The stats log is stored under
+  it, and every take records it as `RecordingRecord.runId`. `runs/group.ts`'s `groupRuns` (unit-tested) joins them; a
+  take from before `runId` is matched by time to the newest log whose run was going then. `runs/ui.ts`'s `RunsList`
+  draws a row per run (Keep, Play, Video, Data, Delete), and **Delete all** removes `runsToDeleteAll` (every run with
+  no Keep mark on its log or its takes, and not being recorded). A row wraps its buttons onto their own line rather
+  than squeeze the start, whose column has `min-width: min-content` and `white-space: nowrap`.
+  `test/differential/runs-list.integration.test.ts` seeds both stores, then checks the grouping, the one-line start
+  at 320, 375 and 1280 px in the Delete confirmation, and Delete all; `RUNS_SCREENSHOT_DIR=<dir>` saves its
+  screenshots. The recordings are listed on an http page too (only recording needs a secure one), which is what lets
+  that test run in the harness.
 - **It only reads, and finds every event by comparing a frame with the one before** (area up or down by at least
   0.0001 of the arena, a unit gone with the player as its `killer`, `player.death`, `pendingGameOver.reason === 0`, a
   new player with the clock put back for a practice respawn), so the engine carries no hook for it. It never writes

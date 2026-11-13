@@ -92,9 +92,9 @@ describe('the stats log', () => {
           menu.click();
         }
       });
-      await stepUntil(page, async () => page.evaluate(() => document.querySelector('.stats-row .stats-download') !== null), 'a stats log in the menu');
-      expect(await page.evaluate(() => document.querySelectorAll('.stats-row').length)).toBe(1);
-      expect(await page.evaluate(() => document.querySelector('.stats-details')?.textContent)).toMatch(/^human · 0:0\d · [\d.]+% · died$/);
+      await stepUntil(page, async () => page.evaluate(() => document.querySelector('.run-row .run-data') !== null), 'a stats log in the menu');
+      expect(await page.evaluate(() => document.querySelectorAll('.run-row').length)).toBe(1);
+      expect(await page.evaluate(() => document.querySelector('.run-row .run-stats-details')?.textContent)).toMatch(/^Stats human · 0:0\d · [\d.]+% · died$/);
 
       await page.evaluate(() => {
         const original = URL.createObjectURL.bind(URL);
@@ -104,7 +104,7 @@ describe('the stats log', () => {
           }
           return original(object);
         };
-        const button = document.querySelector('.stats-row .stats-download');
+        const button = document.querySelector('.run-row .run-data');
         if (button instanceof HTMLElement) {
           button.click();
         }

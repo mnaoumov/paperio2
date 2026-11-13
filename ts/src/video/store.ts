@@ -39,6 +39,8 @@ export interface RecordingRecord {
   readonly id: string;
   /** Whether the owner marked an automatic take Keep, which exempts it from pruning. */
   keep?: boolean;
+  /** The run the take was recorded in, which is its stats log's id; absent from a take recorded before runs were tracked. */
+  readonly runId?: string;
   /** The sound effects heard in the take, which a download mixes in; absent from a take recorded before there was sound. */
   sounds?: readonly SoundEntry[];
   /** `Date.now()` when the take started. */

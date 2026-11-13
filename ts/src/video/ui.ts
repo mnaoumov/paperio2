@@ -31,10 +31,7 @@ import type {
 import type { RecordingRecord } from './store.ts';
 
 import { ExportCache } from './export-cache.ts';
-import {
-  exportRecording,
-  recordingFileName
-} from './export.ts';
+import { exportRecording } from './export.ts';
 import {
   findCodec,
   outputSize,
@@ -51,10 +48,6 @@ import {
   isTooShortAutoTake
 } from './retention.ts';
 import {
-  formatStartLabel,
-  formatStartTooltip
-} from './start-label.ts';
-import {
   deleteRecording,
   listRecordings,
   putRecording,
@@ -63,18 +56,15 @@ import {
 
 /** `KeyboardEvent.code` of the start/stop key. The engine steers on arrows and W/A/S/D; the app uses Z X K P J Esc. */
 export const VIDEO_KEY = 'KeyV';
-const CONFIRM_MILLISECONDS = 3000;
+/** How long a button waits for its confirming second click. */
+export const CONFIRM_MILLISECONDS = 3000;
 const TICK_MILLISECONDS = 500;
 const HUD_Z_INDEX = 1001;
-const PREVIEW_Z_INDEX = 1500;
 const BYTES_PER_MEGABYTE = 1_048_576;
 const MILLISECONDS_PER_SECOND = 1000;
 const SECONDS_PER_MINUTE = 60;
 const MINUTES_PER_HOUR = 60;
 const TIME_PART_DIGITS = 2;
-/** Warn in the list once less than this is free. */
-const LOW_STORAGE_MEGABYTES = 1000;
-const LOW_STORAGE_BYTES = LOW_STORAGE_MEGABYTES * BYTES_PER_MEGABYTE;
 const SUPPORT_PROBE_WIDTH = 1280;
 const SUPPORT_PROBE_HEIGHT = 720;
 const SUPPORT_PROBE_FPS = 30;
@@ -89,21 +79,6 @@ const HUD_BUTTON_STYLE = {
   fontSize: '14px',
   lineHeight: '1',
   padding: '6px 8px'
-};
-const ROW_STYLE = {
-  alignItems: 'center',
-  background: 'rgba(0, 0, 0, 0.25)',
-  borderRadius: '6px',
-  display: 'flex',
-  gap: '8px',
-  margin: '4px 0',
-  padding: '4px 8px',
-  textAlign: 'left'
-};
-const ELLIPSIS_STYLE = {
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap'
 };
 const SMALL_BUTTON_STYLE = {
   fontSize: '14px',
@@ -136,14 +111,34 @@ export interface VideoRecordingState {
   readonly estimate: null | StorageEstimate;
   readonly message: string;
   readonly recordings: readonly RecordingRecord[];
-  readonly remove: (id: string) => void;
+  /** Deletes takes; resolves once they are gone and the list is read again. */
+  readonly remove: (ids: readonly string[]) => Promise<void>;
+  /** Marks takes Keep, or takes the mark off, then prunes the automatic takes past the newest few. */
+  readonly setKeep: (ids: readonly string[], keep: boolean) => Promise<void>;
   readonly setSettings: (settings: VideoSettings) => void;
   readonly settings: VideoSettings;
   readonly startOrStop: () => void;
-  /** Marks an automatic take Keep, or takes the mark off. */
-  readonly toggleKeep: (id: string) => void;
   /** Why this browser cannot record, `''` while that is being checked, or `null` when it can. */
   readonly unsupported: null | string;
+}
+
+/**
+ * Hands a file to the browser's download.
+ *
+ * @param blob - The file.
+ * @param fileName - Its name.
+ */
+export function downloadBlob(blob: Blob, fileName: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, MILLISECONDS_PER_SECOND);
 }
 
 /**
@@ -273,89 +268,26 @@ export function RecordControl({ inGame, state }: RecordControlProps): null | VNo
 }
 
 /**
- * The menu's Recordings list: the size and frame-rate settings, each take with its thumbnail, length and size and its
- * Play, Download and Delete buttons, and the storage used and left.
+ * A recording as an MP4 file with the sound the Sound setting picks, exported once and then served from a cache.
+ *
+ * @param record - The recording.
+ * @param audio - The Sound setting.
+ * @returns The file.
+ */
+export async function recordingFile(record: RecordingRecord, audio: VideoAudioSetting): Promise<Blob> {
+  return exportedFiles.get(record.id, audio, async () => exportRecording(record, exportAudio(audio)));
+}
+
+/**
+ * The menu's Recordings settings: the size, frame rate and sound of a take, **Record every game**, and the recorder's
+ * messages. The runs themselves, each with its video and its stats log, are listed below it by `runs/ui.ts`.
  *
  * @param root0 - The props.
  * @param root0.state - The recorder's state.
  * @returns The panel.
  */
 export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown> {
-  const { estimate, message, recordings, remove, setSettings, settings, toggleKeep, unsupported } = state;
-  const [preview, setPreview] = useState<null | string>(null);
-  const [busy, setBusy] = useState('');
-  const [error, setError] = useState('');
-  const [confirmDelete, setConfirmDelete] = useState<null | string>(null);
-  const [thumbnails, setThumbnails] = useState<ReadonlyMap<string, string>>(new Map());
-  useEffect(() => {
-    const urls = new Map<string, string>();
-    for (const record of recordings) {
-      if (record.thumbnail) {
-        urls.set(record.id, URL.createObjectURL(record.thumbnail));
-      }
-    }
-    setThumbnails(urls);
-    return (): void => {
-      for (const url of urls.values()) {
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, [recordings]);
-  useEffect(() => {
-    if (preview === null) {
-      return undefined;
-    }
-    const url = preview;
-    return (): void => {
-      URL.revokeObjectURL(url);
-    };
-  }, [preview]);
-  useEffect(() => {
-    if (confirmDelete === null) {
-      return undefined;
-    }
-    const timer = window.setTimeout(() => {
-      setConfirmDelete(null);
-    }, CONFIRM_MILLISECONDS);
-    return (): void => {
-      window.clearTimeout(timer);
-    };
-  }, [confirmDelete]);
-
-  async function file(record: RecordingRecord): Promise<Blob> {
-    return exportedFiles.get(record.id, settings.audio, async () => exportRecording(record, exportAudio(settings.audio)));
-  }
-  function withFile(record: RecordingRecord, action: (blob: Blob) => void): void {
-    setBusy(record.id);
-    setError('');
-    file(record).then(action, (exportError: unknown) => {
-      setError(`The recording could not be exported: ${errorText(exportError)}`);
-    }).finally(() => {
-      setBusy('');
-    });
-  }
-  function play(record: RecordingRecord): void {
-    withFile(record, (blob: Blob) => {
-      setPreview(URL.createObjectURL(blob));
-    });
-  }
-  function download(record: RecordingRecord): void {
-    withFile(record, (blob: Blob) => {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = recordingFileName(record.startedAt);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, MILLISECONDS_PER_SECOND);
-    });
-  }
-
-  const totalBytes = recordings.reduce((total: number, record: RecordingRecord) => total + record.bytes, 0);
-  const free = estimate?.quota !== undefined && estimate.usage !== undefined ? estimate.quota - estimate.usage : null;
+  const { message, setSettings, settings, unsupported } = state;
   function select(id: string, value: string, options: readonly (readonly [string, string])[], onChange: (value: string) => void): VNode<unknown> {
     return createElement('select', {
       id,
@@ -409,120 +341,7 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
           }, `Record every game: ${settings.recordEvery ? 'on' : 'off'}`)
         )
       ),
-    message && createElement('p', { id: 'recordings-message' }, message),
-    error && createElement('p', { id: 'recordings-error' }, error),
-    recordings.map((record: RecordingRecord) => {
-      const thumbnail = thumbnails.get(record.id);
-      const started = formatStartTooltip(record.startedAt);
-      return createElement(
-        'div',
-        {
-          'class': 'recording-row',
-          'data-id': record.id,
-          'key': record.id,
-          'style': ROW_STYLE
-        },
-        thumbnail ? createElement('img', { alt: '', height: '45', src: thumbnail, style: { borderRadius: '4px', objectFit: 'cover' }, width: '80' }) : null,
-        createElement(
-          'span',
-          {
-            style: { display: 'flex', flex: '1', flexDirection: 'column', minWidth: '0' },
-            title: started
-          },
-          createElement('span', { class: 'recording-start', style: { overflowWrap: 'anywhere' } }, formatStartLabel(record.startedAt, Date.now())),
-          createElement('span', { class: 'recording-details', style: { ...ELLIPSIS_STYLE, fontSize: '13px', opacity: '0.85' } }, `${formatDuration(record.durationMilliseconds)} · ${formatMegabytes(record.bytes)}${record.auto === true ? ' · auto' : ''}${record.status === 'recovered' ? ' · recovered' : ''}${record.status === 'recording' ? ' · recording' : ''}`)
-        ),
-        record.status !== 'recording' && createElement(
-          'span',
-          { style: { display: 'flex', flexShrink: '0', gap: '4px' } },
-          record.auto === true && createElement('button', {
-            'aria-pressed': record.keep === true,
-            'class': `${record.keep === true ? 'green' : 'orange'} recording-keep`,
-            'onClick': () => {
-              toggleKeep(record.id);
-            },
-            'style': SMALL_BUTTON_STYLE,
-            'title': record.keep === true ? 'Kept: never pruned. Click to let it be pruned again.' : `Keep it: otherwise only the newest ${String(AUTO_TAKES_KEPT)} automatic takes stay`,
-            'type': 'button'
-          }, record.keep === true ? 'Kept' : 'Keep'),
-          createElement('button', {
-            class: 'yellow recording-play',
-            disabled: busy !== '',
-            onClick: () => {
-              play(record);
-            },
-            style: SMALL_BUTTON_STYLE,
-            type: 'button'
-          }, busy === record.id ? '…' : 'Play'),
-          createElement('button', {
-            class: 'green recording-download',
-            disabled: busy !== '',
-            onClick: () => {
-              download(record);
-            },
-            style: SMALL_BUTTON_STYLE,
-            type: 'button'
-          }, 'Download'),
-          createElement('button', {
-            'aria-label': `Delete the recording of ${started}`,
-            'class': 'orange recording-delete',
-            'onClick': () => {
-              if (confirmDelete === record.id) {
-                setConfirmDelete(null);
-                remove(record.id);
-              } else {
-                setConfirmDelete(record.id);
-              }
-            },
-            'style': SMALL_BUTTON_STYLE,
-            'type': 'button'
-          }, confirmDelete === record.id ? 'Delete?' : '✕')
-        )
-      );
-    }),
-    createElement(
-      'p',
-      {
-        id: 'recordings-storage',
-        style: { fontSize: '13px', margin: '4px 0' }
-      },
-      `${String(recordings.length)} recording(s), ${formatMegabytes(totalBytes)}`,
-      free === null ? '' : ` · ${formatMegabytes(free)} free in this browser`,
-      free !== null && free < LOW_STORAGE_BYTES ? ' · storage is low: download and delete some recordings' : ''
-    ),
-    preview !== null && createElement(
-      'div',
-      {
-        id: 'recording-preview',
-        onClick: () => {
-          setPreview(null);
-        },
-        style: {
-          alignItems: 'center',
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          flexDirection: 'column',
-          inset: '0',
-          justifyContent: 'center',
-          position: 'fixed',
-          zIndex: PREVIEW_Z_INDEX
-        }
-      },
-      createElement('video', {
-        autoplay: true,
-        controls: true,
-        onClick: (event: MouseEvent) => {
-          event.stopPropagation();
-        },
-        src: preview,
-        style: { maxHeight: '80vh', maxWidth: '90vw' }
-      }),
-      createElement('button', {
-        class: 'orange',
-        style: { marginTop: '12px' },
-        type: 'button'
-      }, 'Close')
-    )
+    message && createElement('p', { id: 'recordings-message' }, message)
   );
 }
 
@@ -532,9 +351,10 @@ export function RecordingsPanel({ state }: RecordingsPanelProps): VNode<unknown>
  *
  * @param api - The game API.
  * @param route - The current route.
+ * @param runId - The current run's id (`runs/run-id.ts`), which each take records.
  * @returns The state and its actions.
  */
-export function useVideoRecording(api: GameApi | null, route: string): VideoRecordingState {
+export function useVideoRecording(api: GameApi | null, route: string, runId: null | string): VideoRecordingState {
   const [active, setActive] = useState<null | VideoRecorder>(null);
   const [recordings, setRecordings] = useState<readonly RecordingRecord[]>([]);
   const [estimate, setEstimate] = useState<null | StorageEstimate>(null);
@@ -547,15 +367,23 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
   const startingRef = useRef(false);
   const routeRef = useRef(route);
   routeRef.current = route;
+  const runIdRef = useRef<null | string>(runId);
+  runIdRef.current = runId;
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
   function refresh(): void {
+    if (typeof indexedDB === 'undefined') {
+      return;
+    }
     listRecordings().then((records: RecordingRecord[]) => {
       setRecordings(records);
     }, (error: unknown) => {
       setMessage(`The recordings could not be read: ${errorText(error)}`);
     });
+    if (!window.isSecureContext) {
+      return;
+    }
     navigator.storage.estimate().then(setEstimate, () => {
       setEstimate(null);
     });
@@ -605,11 +433,18 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
       if (routeRef.current !== 'game') {
         return;
       }
-      const recorder = VideoRecorder.start(game, choice, settingsRef.current, {
-        onAutoStop: (reason: StopReason, text: string) => {
-          finish(recorder, reason, text);
-        }
-      }, auto);
+      const recorder = VideoRecorder.start(
+        game,
+        choice,
+        settingsRef.current,
+        {
+          onAutoStop: (reason: StopReason, text: string) => {
+            finish(recorder, reason, text);
+          }
+        },
+        auto,
+        runIdRef.current
+      );
       activeRef.current = recorder;
       setActive(recorder);
       setMessage('');
@@ -644,24 +479,31 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
     });
   }
 
-  function remove(id: string): void {
-    exportedFiles.forget(id);
-    deleteRecording(id).then(refresh, (error: unknown) => {
+  async function remove(ids: readonly string[]): Promise<void> {
+    try {
+      for (const id of ids) {
+        exportedFiles.forget(id);
+        await deleteRecording(id);
+      }
+    } catch (error) {
       setMessage(`The recording could not be deleted: ${errorText(error)}`);
-    });
+    }
+    refresh();
   }
 
-  function toggleKeep(id: string): void {
-    const record = recordings.find((candidate: RecordingRecord) => candidate.id === id);
-    if (!record) {
-      return;
-    }
-    putRecording({ ...record, keep: record.keep !== true }).then(async () => {
+  async function setKeep(ids: readonly string[], keep: boolean): Promise<void> {
+    try {
+      for (const record of recordings) {
+        if (ids.includes(record.id) && (record.keep === true) !== keep) {
+          await putRecording({ ...record, keep });
+        }
+      }
       // Taking a Keep off can put an old take past the newest few.
       await pruneAutoTakes();
-    }).catch((error: unknown) => {
+    } catch (error) {
       setMessage(`The recording could not be changed: ${errorText(error)}`);
-    }).finally(refresh);
+    }
+    refresh();
   }
 
   function setSettings(nextSettings: VideoSettings): void {
@@ -674,6 +516,8 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
 
   useEffect(() => {
     if (!window.isSecureContext) {
+      // Takes are only recorded on a secure page, but the list still shows the runs' stats logs beside them.
+      refresh();
       return undefined;
     }
     findCodec(SUPPORT_PROBE_WIDTH, SUPPORT_PROBE_HEIGHT, SUPPORT_PROBE_FPS).then((choice: CodecChoice | null) => {
@@ -710,7 +554,7 @@ export function useVideoRecording(api: GameApi | null, route: string): VideoReco
     }
   }, [route]);
 
-  return { active, discard, estimate, message, recordings, remove, setSettings, settings, startOrStop, toggleKeep, unsupported };
+  return { active, discard, estimate, message, recordings, remove, setKeep, setSettings, settings, startOrStop, unsupported };
 }
 
 function errorText(error: unknown): string {

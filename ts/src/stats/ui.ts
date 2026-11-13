@@ -1,14 +1,11 @@
 /**
  * @file
  *
- * The page side of the stats log: every run on the `game` route is logged (see `log.ts`), kept in IndexedDB as it goes
- * (every minute of game time, when the tab is hidden and when the run ends), and listed in the menu's Extras with a
- * Download per game and one for all of them. Nothing leaves the browser except by a download.
+ * The page side of the stats log: every run on the `game` route is logged (see `log.ts`) under the run's id, and kept
+ * in IndexedDB as it goes (every minute of game time, when the tab is hidden and when the run ends). The menu lists each
+ * log beside its run's recordings (`runs/ui.ts`). Nothing leaves the browser except by a download.
  */
 
-import type { VNode } from 'preact';
-
-import { createElement } from 'preact';
 import {
   useEffect,
   useState
@@ -20,116 +17,23 @@ import type { StatsGameRecord } from './store.ts';
 
 import { noop } from '../shared/noop.ts';
 import {
-  deleteStatsGame,
-  KEPT_STATS_GAMES,
+  deleteStatsGames,
   listStatsGames,
   putStatsGame,
-  statsFileName
+  setStatsGameKeep
 } from './store.ts';
 
 export interface StatsLogState {
   readonly games: readonly StatsGameRecord[];
-  readonly remove: (id: string) => void;
-}
-
-export interface StatsMenuProps {
-  readonly state: StatsLogState;
+  /** Deletes logs; resolves once they are gone and the list is read again. */
+  readonly remove: (ids: readonly string[]) => Promise<void>;
+  /** Marks a log Keep, or takes the mark off. */
+  readonly setKeep: (id: string, keep: boolean) => Promise<void>;
 }
 
 /** Game time between two writes of a running game's log. */
 const FLUSH_MILLISECONDS = 60_000;
 const MILLISECONDS_PER_SECOND = 1000;
-const SECONDS_PER_MINUTE = 60;
-const SECONDS_DIGITS = 2;
-const PERCENT_DIGITS = 2;
-const ROW_STYLE = {
-  alignItems: 'center',
-  background: 'rgba(0, 0, 0, 0.25)',
-  borderRadius: '6px',
-  display: 'flex',
-  gap: '8px',
-  justifyContent: 'space-between',
-  margin: '4px 0',
-  padding: '4px 8px'
-};
-const SMALL_BUTTON_STYLE = {
-  fontSize: '14px',
-  margin: '0',
-  padding: '4px 10px'
-};
-const OUTCOME_LABELS: Readonly<Record<StatsGameRecord['outcome'], string>> = { death: 'died', quit: 'left', win: 'won' };
-
-/**
- * The menu's Stats logs panel: the logged games, newest first, each with Download and Delete.
- *
- * @param root0 - The props.
- * @param root0.state - The logs' state.
- * @returns The panel.
- */
-export function StatsMenu({ state }: StatsMenuProps): VNode<unknown> {
-  const { games, remove } = state;
-  const [confirmDelete, setConfirmDelete] = useState<null | string>(null);
-  return createElement(
-    'div',
-    { id: 'stats-logs', style: { marginTop: '12px' } },
-    createElement('p', { style: { margin: '8px 0 4px' } }, 'Stats logs'),
-    createElement(
-      'p',
-      { style: { fontSize: '13px', margin: '0 0 4px', opacity: '0.85' } },
-      `Every run is logged: area over time, captures, kills, deaths and frame times, as JSONL. The newest ${String(KEPT_STATS_GAMES)} are kept.`
-    ),
-    games.length > 1 && createElement('button', {
-      class: 'green',
-      id: 'stats-download-all',
-      onClick: () => {
-        const oldestFirst = [...games].reverse();
-        downloadText(oldestFirst.map((game: StatsGameRecord) => game.text).join(''), statsFileName(oldestFirst.at(-1)?.startedAt ?? Date.now()).replace('paperio2-', 'paperio2-all-'));
-      },
-      style: SMALL_BUTTON_STYLE,
-      title: 'All the games below in one file, oldest first; each starts with its header line.',
-      type: 'button'
-    }, 'Download all'),
-    games.map((game: StatsGameRecord) => {
-      const started = new Date(game.startedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-      return createElement(
-        'div',
-        { 'class': 'stats-row', 'data-id': game.id, 'key': game.id, 'style': ROW_STYLE },
-        createElement(
-          'span',
-          { style: { display: 'flex', flex: '1', flexDirection: 'column', minWidth: '0', textAlign: 'left' } },
-          createElement('span', null, started),
-          createElement('span', { class: 'stats-details', style: { fontSize: '13px', opacity: '0.85' } }, `${game.pilot} · ${formatSeconds(game.seconds)} · ${game.percent.toFixed(PERCENT_DIGITS)}% · ${OUTCOME_LABELS[game.outcome]}`)
-        ),
-        createElement(
-          'span',
-          { style: { display: 'flex', flexShrink: '0', gap: '4px' } },
-          createElement('button', {
-            class: 'green stats-download',
-            onClick: () => {
-              downloadText(game.text, statsFileName(game.startedAt));
-            },
-            style: SMALL_BUTTON_STYLE,
-            type: 'button'
-          }, 'Download'),
-          createElement('button', {
-            'aria-label': `Delete the stats log of ${started}`,
-            'class': 'orange stats-delete',
-            'onClick': () => {
-              if (confirmDelete === game.id) {
-                setConfirmDelete(null);
-                remove(game.id);
-              } else {
-                setConfirmDelete(game.id);
-              }
-            },
-            'style': SMALL_BUTTON_STYLE,
-            'type': 'button'
-          }, confirmDelete === game.id ? 'Delete?' : '✕')
-        )
-      );
-    })
-  );
-}
 
 /**
  * Logs every run on the `game` route, and lists the logged games for the menu.
@@ -137,9 +41,10 @@ export function StatsMenu({ state }: StatsMenuProps): VNode<unknown> {
  * @param api - The game API.
  * @param route - The current route.
  * @param autopilotMode - The menu's demo mode, which says who starts a run.
+ * @param runId - The current run's id (`runs/run-id.ts`), which the log is stored under.
  * @returns The logs' state.
  */
-export function useStatsLog(api: GameApi | null, route: string, autopilotMode: AutopilotMode): StatsLogState {
+export function useStatsLog(api: GameApi | null, route: string, autopilotMode: AutopilotMode, runId: null | string): StatsLogState {
   const pilot = autopilotMode === 'off' ? 'human' : autopilotMode;
   const [games, setGames] = useState<readonly StatsGameRecord[]>([]);
 
@@ -159,11 +64,11 @@ export function useStatsLog(api: GameApi | null, route: string, autopilotMode: A
   }, [route]);
 
   useEffect(() => {
-    if (route !== 'game' || !api || typeof indexedDB === 'undefined') {
+    if (route !== 'game' || !api || runId === null || typeof indexedDB === 'undefined') {
       return;
     }
+    const id = runId;
     const startedAt = Date.now();
-    const id = `${String(startedAt)}-${String(Math.trunc(performance.now()))}`;
     const log = api.createStatsLog(pilot);
     let flushedAt = 0;
     function save(text: string, then: () => void = noop): void {
@@ -197,27 +102,15 @@ export function useStatsLog(api: GameApi | null, route: string, autopilotMode: A
     };
   }, [route]);
 
-  function remove(id: string): void {
-    deleteStatsGame(id).then(refresh, refresh);
+  async function remove(ids: readonly string[]): Promise<void> {
+    await deleteStatsGames(ids).catch(noop);
+    refresh();
   }
 
-  return { games, remove };
-}
+  async function setKeep(id: string, keep: boolean): Promise<void> {
+    await setStatsGameKeep(id, keep).catch(noop);
+    refresh();
+  }
 
-function downloadText(text: string, fileName: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/x-ndjson' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => {
-    URL.revokeObjectURL(url);
-  }, MILLISECONDS_PER_SECOND);
-}
-
-function formatSeconds(seconds: number): string {
-  const whole = Math.max(0, Math.round(seconds));
-  return `${String(Math.floor(whole / SECONDS_PER_MINUTE))}:${String(whole % SECONDS_PER_MINUTE).padStart(SECONDS_DIGITS, '0')}`;
+  return { games, remove, setKeep };
 }
