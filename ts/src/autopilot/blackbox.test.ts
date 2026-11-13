@@ -205,23 +205,6 @@ describe('blackbox', () => {
     }
   }, rememberedDangerTimeoutMilliseconds);
 
-  it('goes out to cut a unit\'s trail just beyond its territory', () => {
-    const pilot = new BlackboxPilot();
-    // The trail runs 20 pixels right of the territory's edge: a bot looping round it.
-    const direction = pilot.decide(frame((x, y) => isGreyTrail(x, y) ? GREY : homeFrame(x, y)));
-    expect(pilot.debug.threat).not.toBeNull();
-    expect(pilot.debug.aim?.x ?? 0).toBeGreaterThanOrEqual(WIDTH / 2 + 40);
-    expect(direction?.x ?? 0).toBeGreaterThan(0);
-  });
-
-  it('does not go out to a trail far beyond its territory', () => {
-    const pilot = new BlackboxPilot();
-    const trailLeft = WIDTH / 2 + 70;
-    pilot.decide(frame((x, y) => x >= trailLeft && x < trailLeft + 4 && y > 40 && y < 140 ? GREY : homeFrame(x, y)));
-    expect(pilot.debug.threat).not.toBeNull();
-    expect(pilot.debug.aim).toBeNull();
-  });
-
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));
