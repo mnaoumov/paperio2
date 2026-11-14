@@ -22,6 +22,7 @@ import {
   it
 } from 'vitest';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   COVERAGE_EVENTS,
   launchBrowser,
@@ -30,7 +31,7 @@ import {
 } from './harness.ts';
 import { SCENARIOS } from './scenarios.ts';
 
-const SCENARIO_TIMEOUT_MILLISECONDS = 300_000;
+const SCENARIO_TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 
 describe('the reconstruction against the original app2.js', () => {
   let browser: Browser | undefined;

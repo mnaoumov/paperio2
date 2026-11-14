@@ -35,6 +35,7 @@ import type {
 } from './page-instrumentation.ts';
 import type { PinnedBundle } from './pinned-bundle.ts';
 
+import { scaleIntegrationTimeout } from '../../scripts/integration-timeout.ts';
 import { installDeterminism } from './page-instrumentation.ts';
 
 export type Variant = 'original' | 'reconstruction';
@@ -49,7 +50,11 @@ const FRAME_MILLISECONDS = MILLISECONDS_PER_SECOND / FRAMES_PER_SECOND;
 const VIEWPORT_HEIGHT = 720;
 const VIEWPORT_WIDTH = 1280;
 const VIEWPORT = { deviceScaleFactor: 1, height: VIEWPORT_HEIGHT, width: VIEWPORT_WIDTH };
-const BOOT_TIMEOUT_MILLISECONDS = 30_000;
+const UNSCALED_BOOT_TIMEOUT_MILLISECONDS = 30_000;
+const BOOT_TIMEOUT_MILLISECONDS = scaleIntegrationTimeout(UNSCALED_BOOT_TIMEOUT_MILLISECONDS);
+/** Puppeteer's own default for one page call, scaled below like the tests' limits. */
+const PUPPETEER_PROTOCOL_TIMEOUT_MILLISECONDS = 180_000;
+const DEFAULT_PROTOCOL_TIMEOUT_MILLISECONDS = scaleIntegrationTimeout(PUPPETEER_PROTOCOL_TIMEOUT_MILLISECONDS);
 const BOOT_POLL_MILLISECONDS = 50;
 const HTTP_NOT_FOUND = 404;
 const HTTP_OK = 200;
@@ -172,17 +177,17 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
 /**
  * Launches the headless browser the harness drives.
  *
- * @param protocolTimeout - How long one page call may run, in milliseconds; puppeteer's default when left out. A
- *   long benchmark chunk can run for minutes under load.
+ * @param protocolTimeout - How long one page call may run, in milliseconds. Left out, it is puppeteer's default of 3
+ *   minutes times INTEGRATION_TIMEOUT_SCALE. A long benchmark chunk can run for minutes under load.
  * @returns The browser.
  */
-export async function launchBrowser(protocolTimeout?: number): Promise<Browser> {
+export async function launchBrowser(protocolTimeout = DEFAULT_PROTOCOL_TIMEOUT_MILLISECONDS): Promise<Browser> {
   const executablePath = process.env['CHROME_PATH'];
   return launch({
     args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG],
     defaultViewport: VIEWPORT,
     headless: true,
-    ...protocolTimeout === undefined ? {} : { protocolTimeout },
+    protocolTimeout,
     ...executablePath ? { executablePath } : { channel: 'chrome' }
   });
 }

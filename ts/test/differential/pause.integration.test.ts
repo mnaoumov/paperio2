@@ -30,6 +30,7 @@ import {
 
 import type { Scenario } from './harness.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   applyFrameInput,
   launchBrowser,
@@ -42,7 +43,7 @@ import {
   route
 } from './scenarios.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const FRAME_MILLISECONDS = 16;
 const PAUSE_MILLISECONDS = 600_000;
 const FIRST_PAUSE_FRAME = 400;

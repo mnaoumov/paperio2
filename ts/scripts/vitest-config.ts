@@ -1,10 +1,11 @@
 import { defineConfig } from 'vitest/config';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from './integration-timeout.ts';
+
 const SHARED_EXCLUDE = ['dist', 'node_modules'];
 const SCRIPTS_TEST_FILES = 'scripts/**/*.test.ts';
 const INTEGRATION_TEST_FILES = 'test/**/*.integration.test.ts';
 const TEST_FOLDER_UNIT_FILES = 'test/**/*.test.ts';
-const INTEGRATION_TEST_TIMEOUT_MILLISECONDS = 300_000;
 
 export const config = defineConfig({
   test: {

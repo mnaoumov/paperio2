@@ -24,6 +24,7 @@ import {
 import type { Scenario } from './harness.ts';
 import type { PageEnemySettings } from './page-instrumentation.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   launchBrowser,
   openVariant,
@@ -32,7 +33,7 @@ import {
 } from './harness.ts';
 import { SCENARIOS } from './scenarios.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const FRAME_MILLISECONDS = 1000 / 60;
 const BOOT_FRAMES = 120;
 /** 40 seconds of game time at 60 frames a second. */
