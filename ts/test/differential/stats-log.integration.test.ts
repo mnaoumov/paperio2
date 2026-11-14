@@ -23,6 +23,7 @@ import {
 import type { Scenario } from './harness.ts';
 
 import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
+import { STATS_FORMAT_VERSION } from '../../src/stats/format.ts';
 import {
   launchBrowser,
   openVariant,
@@ -42,6 +43,10 @@ const SCENARIO: Scenario = { expectedCoverage: {}, frames: 0, keys: [], name: 's
 
 interface LogLine {
   readonly event?: string;
+  /** A death's samples of every unit. */
+  readonly recent?: readonly unknown[];
+  /** A death's trail points. */
+  readonly trail?: readonly unknown[];
   readonly type: string;
 }
 
@@ -115,9 +120,13 @@ describe('the stats log', () => {
         return blob instanceof Blob ? blob.text() : '';
       });
       const lines = text.trim().split('\n').map((line: string) => JSON.parse(line) as LogLine);
-      expect(lines[0]).toMatchObject({ format: 2, pilot: 'human', type: 'header' });
+      expect(lines[0]).toMatchObject({ format: STATS_FORMAT_VERSION, pilot: 'human', type: 'header' });
       expect(lines.filter((line: LogLine) => line.type === 'sample').length).toBeGreaterThanOrEqual(MIN_SAMPLES);
-      expect(lines.filter((line: LogLine) => line.type === 'event').map((line: LogLine) => line.event)).toContain('death');
+      const death = lines.find((line: LogLine) => line.type === 'event' && line.event === 'death');
+      // A system kill has no killer, but the death still says where the player was and what every unit did.
+      expect(death).toMatchObject({ killer: null, killerUnit: null, player: { state: null } });
+      expect(Array.isArray(death?.trail)).toBe(true);
+      expect(death?.recent?.length).toBeGreaterThanOrEqual(MIN_SAMPLES);
       expect(lines.at(-1)).toMatchObject({ outcome: 'death', reason: 'system', type: 'end' });
     } finally {
       await page.browserContext().close();
