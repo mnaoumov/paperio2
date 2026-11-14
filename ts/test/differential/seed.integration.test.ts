@@ -25,6 +25,7 @@ import {
 
 import type { Scenario } from './harness.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   launchBrowser,
   openVariant,
@@ -32,7 +33,7 @@ import {
   TS_ROOT
 } from './harness.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const SHORT_MENU_FRAMES = 2;
 /** Long enough for the menu's bots to play on for a while. */
 const LONG_MENU_FRAMES = 300;

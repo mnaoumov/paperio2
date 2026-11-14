@@ -15,6 +15,14 @@ It serves the repository root, or the directory `DIFFERENTIAL_SITE_ROOT` names. 
 (`.github/workflows/pages.yml`) sets it to the assembled site, so the scenarios are played on the exact files it
 then deploys.
 
+Each test, hook, page boot and page call has a time limit set for a machine that gives Chrome its cores: 5 minutes a
+test or hook, 30 s a boot (60 s in the runs list test), and puppeteer's 3 minutes a page call. On a machine shared
+with other work the long scenarios run several times slower and hit those limits while still passing. Set
+`INTEGRATION_TIMEOUT_SCALE` to a positive factor to multiply every one of them, for example
+`$env:INTEGRATION_TIMEOUT_SCALE = '10'; npm run test:integration` in PowerShell. Unset, it is 1, which is what CI
+runs. The factor only moves the limits: it changes nothing a page plays or compares. `scripts/integration-timeout.ts`
+reads it, and refuses anything that is not a positive number.
+
 ## How the two runs are made identical
 
 `page-instrumentation.ts` runs in each page before any of its scripts, and removes every source of

@@ -24,6 +24,7 @@ import {
 
 import type { Scenario } from './harness.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   launchBrowser,
   openVariant,
@@ -31,7 +32,7 @@ import {
   TS_ROOT
 } from './harness.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const SHORT_HEIGHT = 600;
 const WIDTH = 1280;
 const WHEEL_DELTA = 200;

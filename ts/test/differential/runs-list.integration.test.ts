@@ -26,18 +26,23 @@ import {
 import type { Scenario } from './harness.ts';
 
 import {
+  INTEGRATION_TEST_TIMEOUT_MILLISECONDS,
+  scaleIntegrationTimeout
+} from '../../scripts/integration-timeout.ts';
+import {
   launchBrowser,
   openVariant,
   stepPage,
   TS_ROOT
 } from './harness.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const MAX_WAIT_FRAMES = 300;
 /** IndexedDB answers in real time, outside the page's virtual scheduler, so a wait gives it some. */
 const STORAGE_SETTLE_MILLISECONDS = 20;
 const BOOT_POLL_MILLISECONDS = 50;
-const BOOT_TIMEOUT_MILLISECONDS = 60_000;
+const UNSCALED_BOOT_TIMEOUT_MILLISECONDS = 60_000;
+const BOOT_TIMEOUT_MILLISECONDS = scaleIntegrationTimeout(UNSCALED_BOOT_TIMEOUT_MILLISECONDS);
 /** The phone widths and the desktop width the menu is checked at. */
 const WIDTHS = [320, 375, 1280] as const;
 const HEIGHT = 800;

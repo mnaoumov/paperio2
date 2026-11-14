@@ -27,6 +27,7 @@ import type {
   PaperIo2PageGame
 } from './page-instrumentation.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   launchBrowser,
   openVariant,
@@ -34,7 +35,7 @@ import {
   TS_ROOT
 } from './harness.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const BOOT_FRAMES = 10;
 
 interface LossTestConfig extends PageConfig {

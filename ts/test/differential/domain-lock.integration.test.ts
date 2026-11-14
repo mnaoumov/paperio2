@@ -27,6 +27,7 @@ import type {
   Variant
 } from './harness.ts';
 
+import { INTEGRATION_TEST_TIMEOUT_MILLISECONDS } from '../../scripts/integration-timeout.ts';
 import {
   launchBrowser,
   openVariant,
@@ -35,7 +36,7 @@ import {
   VARIANTS
 } from './harness.ts';
 
-const TIMEOUT_MILLISECONDS = 300_000;
+const TIMEOUT_MILLISECONDS = INTEGRATION_TEST_TIMEOUT_MILLISECONDS;
 const STEP_MILLISECONDS = 1000;
 const PLAYED_MILLISECONDS = 300_000;
 const START_STEP = 2;
