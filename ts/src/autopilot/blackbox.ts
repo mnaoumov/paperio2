@@ -162,6 +162,14 @@ const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1]
 const CUT_CANDIDATES = 8;
 const CUT_SPACING = 4;
 const CUT_ARRIVAL = 2;
+/**
+ * A cut is held in world coordinates for this many frames once the trail goes under the avatar, which the pilot masks:
+ * the nearest piece of the trail still in view then lies along it, and chasing that turns the player parallel to the
+ * trail instead of across it.
+ */
+const CUT_COMMIT_FRAMES = 30;
+/** The held cut lies this many pixels past the trail's near edge, so the player crosses the whole trail. */
+const CUT_OVERSHOOT = 4;
 /** Once out, a unit within this share of the frame's height of the remembered trail is a danger too. */
 const TRACK_DANGER_RADIUS = 0.2;
 /** A way out keeps this share of the frame's height from every unit in view along its out leg, or the pilot waits. */
@@ -276,6 +284,9 @@ export class BlackboxPilot {
   private aim: null | Point = null;
   private aimReached = false;
   private classes: null | Uint8Array = null;
+  /** The cut last aimed at, past the trail, in frame pixels from where the odometer started, and the frame it was. */
+  private cutAim: null | Point = null;
+  private cutAimFrame = 0;
   /** Where the pilot left its territory, in frame pixels from where the odometer started. */
   private exitPoint: null | Point = null;
   private floor: Color | null = null;
@@ -347,7 +358,9 @@ export class BlackboxPilot {
     this.frameIndex++;
     this.threat = this.recallThreat(this.findThreat(raster));
     this.framesSinceThreat = this.threat ? 0 : this.framesSinceThreat + 1;
-    const wanted = atHome ? this.stepHome(classes) : this.stepAway(classes, raster);
+    // A unit's head beside the player can make the ring read as away while it crosses a trail on its own ground.
+    const held = atHome || this.phase !== 'home' ? null : this.heldCut();
+    const wanted = atHome ? this.stepHome(classes) : held ?? this.stepAway(classes, raster);
     this.framesInPhase++;
     // An aim right under the player has no direction: the last one stands, and so does the heading.
     if (Math.hypot(wanted.x, wanted.y) < HALF) {
@@ -371,6 +384,7 @@ export class BlackboxPilot {
     this.previousClasses = null;
     this.threatMemory = [];
     this.framesSinceThreat = CALM_FRAMES;
+    this.cutAim = null;
     this.odometer.reset();
   }
 
@@ -763,6 +777,31 @@ export class BlackboxPilot {
       angle = this.heading + Math.sign(longWay) * Math.min(Math.abs(longWay), THREE_EIGHTHS_TURN);
     }
     return { x: Math.cos(angle), y: Math.sin(angle) };
+  }
+
+  /**
+   * The direction to the cut last aimed at, while it is recent, not yet reached and hidden under or just beside the
+   * avatar, where the trail it lies on is no longer seen (see {@link CUT_COMMIT_FRAMES}).
+   *
+   * @returns The direction, or `null` to look for a cut afresh.
+   */
+  private heldCut(): null | Point {
+    if (!this.cutAim || this.frameIndex - this.cutAimFrame > CUT_COMMIT_FRAMES) {
+      this.cutAim = null;
+      return null;
+    }
+    const position = this.odometer.position;
+    const target = { x: this.cutAim.x - position.x + this.width * HALF, y: this.cutAim.y - position.y + this.height * HALF };
+    const away = Math.hypot(target.x - this.width * HALF, target.y - this.height * HALF);
+    if (away < CUT_ARRIVAL) {
+      this.cutAim = null;
+      return null;
+    }
+    if (away > this.height * AVATAR_RADIUS + CUT_OVERSHOOT) {
+      return null;
+    }
+    this.aim = target;
+    return normalize({ x: target.x - this.width * HALF, y: target.y - this.height * HALF });
   }
 
   /**
@@ -1346,10 +1385,18 @@ export class BlackboxPilot {
     }
     // A unit's trail across the territory is cut from inside it, where the player lays no trail: crossing a trail kills
     // its owner, and that trail is the start of a capture that would take the player's ground, the player with it.
+    const held = this.heldCut();
+    if (held) {
+      return held;
+    }
     const cut = this.trailInTerritory(classes);
     if (cut) {
       this.aim = cut;
-      return normalize({ x: cut.x - this.width * HALF, y: cut.y - this.height * HALF });
+      const along = normalize({ x: cut.x - this.width * HALF, y: cut.y - this.height * HALF });
+      const position = this.odometer.position;
+      this.cutAim = { x: cut.x + along.x * CUT_OVERSHOOT - this.width * HALF + position.x, y: cut.y + along.y * CUT_OVERSHOOT - this.height * HALF + position.y };
+      this.cutAimFrame = this.frameIndex;
+      return along;
     }
     if (this.threat && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       // A unit near: stay inside, where it cannot cut anything, until it goes; on the far side of the territory from

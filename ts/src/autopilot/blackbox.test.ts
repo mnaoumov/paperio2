@@ -252,6 +252,35 @@ describe('blackbox', () => {
     expect(direction?.y ?? 0).toBeGreaterThan(0.5);
   });
 
+  it('crosses a unit\'s trail on its ground once the trail is under the avatar', () => {
+    const pilot = new BlackboxPilot();
+    // A grey trail 4 pixels thick runs down the territory 40 pixels right of the player.
+    function world(x: number, y: number): Rgb {
+      if (y >= SCORE_BAR.top && y < SCORE_BAR.bottom && x < SCORE_BAR.right) {
+        return OWN;
+      }
+      if (x >= WIDTH / 2 + 40 && x < WIDTH / 2 + 44 && y > 20 && y < 160) {
+        return GREY;
+      }
+      return Math.hypot(x - (WIDTH / 2 + 10), y - HEIGHT / 2) < 70 ? OWN : FLOOR;
+    }
+    // The player flies 2 pixels a frame wherever the pilot steers it; the camera follows it.
+    let shiftX = 0;
+    let shiftY = 0;
+    let farthest = 0;
+    for (let index = 0; index < 40; index++) {
+      const offsetX = Math.round(shiftX);
+      const offsetY = Math.round(shiftY);
+      const direction = pilot.decide(frame((x, y) => world(x + offsetX, y + offsetY)));
+      shiftX += (direction?.x ?? 0) * 2;
+      shiftY += (direction?.y ?? 0) * 2;
+      farthest = Math.max(farthest, shiftX);
+    }
+    // The engine's trail is the line along the drawn trail's middle, 42 pixels right; crossing it kills the unit.
+    // Chasing the nearest piece still in view turned the player along the trail short of it.
+    expect(farthest).toBeGreaterThan(42);
+  }, rememberedDangerTimeoutMilliseconds);
+
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));
