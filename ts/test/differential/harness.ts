@@ -189,26 +189,7 @@ export async function applyFrameInput(page: Page, scenario: Scenario, frame: num
  * @returns The browser.
  */
 export async function launchBrowser(protocolTimeout = DEFAULT_PROTOCOL_TIMEOUT_MILLISECONDS): Promise<Browser> {
-  const executablePath = process.env['CHROME_PATH'];
-  for (let attempt = 1;; attempt++) {
-    try {
-      return await launch({
-        args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG],
-        defaultViewport: VIEWPORT,
-        headless: true,
-        protocolTimeout,
-        timeout: LAUNCH_TIMEOUT_MILLISECONDS,
-        ...executablePath ? { executablePath } : { channel: 'chrome' }
-      });
-    } catch (error) {
-      if (!(error instanceof TimeoutError) || attempt >= LAUNCH_ATTEMPTS) {
-        throw error;
-      }
-      // A CI runner now and then starts Chrome so slowly that puppeteer gives up waiting for its WS endpoint; the
-      // Next start almost always comes up at once, so a seed is not lost to it.
-      console.error(`Browser launch attempt ${String(attempt)} of ${String(LAUNCH_ATTEMPTS)} timed out (${error.message}); retrying.`);
-    }
-  }
+  return launchBrowserAttempt(protocolTimeout, 1);
 }
 
 export async function openVariant(browser: Browser, variant: Variant, scenario: Scenario, options: OpenVariantOptions = {}): Promise<Page> {
@@ -382,6 +363,28 @@ async function interceptHost(page: Page, pageOrigin: string, bundle: PinnedBundl
       console.error(error);
     });
   });
+}
+
+async function launchBrowserAttempt(protocolTimeout: number, attempt: number): Promise<Browser> {
+  const executablePath = process.env['CHROME_PATH'];
+  try {
+    return await launch({
+      args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG],
+      defaultViewport: VIEWPORT,
+      headless: true,
+      protocolTimeout,
+      timeout: LAUNCH_TIMEOUT_MILLISECONDS,
+      ...executablePath ? { executablePath } : { channel: 'chrome' }
+    });
+  } catch (error) {
+    if (!(error instanceof TimeoutError) || attempt >= LAUNCH_ATTEMPTS) {
+      throw error;
+    }
+    // A CI runner now and then starts Chrome so slowly that puppeteer gives up waiting for its WS endpoint; the
+    // next start almost always comes up at once, so a seed is not lost to it.
+    console.error(`Browser launch attempt ${String(attempt)} of ${String(LAUNCH_ATTEMPTS)} timed out (${error.message}); retrying.`);
+    return launchBrowserAttempt(protocolTimeout, attempt + 1);
+  }
 }
 
 async function serveFile(url: string, bundle: PinnedBundle | undefined): Promise<ServedFile> {
