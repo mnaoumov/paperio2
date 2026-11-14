@@ -191,6 +191,10 @@ const HEAD_TRAIL_REACH = 6;
 const MIN_HEAD_TRAIL = 3;
 /** Home is forgotten as a loop's start only after this many frames at home, so a moment's misreading loses nothing. */
 const HOME_CONFIRM_FRAMES = 10;
+/** The share of the ring round the avatar that must be the player's ground to read as home, from away. */
+const HOME_ENTER_SHARE = 0.75;
+/** The share that keeps it reading as home, once home. */
+const HOME_HOLD_SHARE = 0.5;
 /** The sideways leg follows the territory when one side holds this share more of it than the other. */
 const SIDE_OWN_MARGIN = 0.1;
 /** The loop, in frames: out and sideways. */
@@ -867,14 +871,17 @@ export class BlackboxPilot {
    */
   private isHome(classes: Uint8Array): boolean {
     if (this.trailStart === null) {
-      const ringHome = this.ownNearCenter(classes, null) && !this.trailAtHead(classes);
+      // The ring lies an avatar and a half out, so a player still inside but that near its edge sees floor on a third of
+      // it: once home, home holds until most of the ring is floor, or the wait beside a unit turns into a way back out.
+      const share = this.phase === 'home' ? HOME_HOLD_SHARE : HOME_ENTER_SHARE;
+      const ringHome = this.ownNearCenter(classes, null, share) && !this.trailAtHead(classes);
       this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
       return ringHome;
     }
     // Once out, only the ground joined to the territory it left counts: a bot can wear the player's skin, and its
     // territory then reads as the player's color all round.
     const ground = this.homeGround(classes);
-    const ringHome = this.ownNearCenter(classes, ground) && !this.trailAtHead(classes);
+    const ringHome = this.ownNearCenter(classes, ground, HOME_ENTER_SHARE) && !this.trailAtHead(classes);
     this.homeStreak = ringHome ? this.homeStreak + 1 : 0;
     // A trail no longer than the stretch under the head was never drawn clear of the avatar: back on the ground at once.
     return this.capturedPixels(classes, ground) >= CAPTURE_PIXELS || this.homeStreak >= HOME_STREAK_FRAMES || (ringHome && (this.trailClosed(classes) || this.trailLength() < SHORT_TRAIL_LENGTH));
@@ -949,7 +956,7 @@ export class BlackboxPilot {
     return nearest;
   }
 
-  private ownNearCenter(classes: Uint8Array, ground: null | Uint8Array): boolean {
+  private ownNearCenter(classes: Uint8Array, ground: null | Uint8Array, share: number): boolean {
     // The avatar hides the pixel under the player; the territory around it decides. A unit beside the player hides the
     // ground under it as the avatar does, and does not make home read as away.
     const radius = this.height * AVATAR_RADIUS * (1 + HALF);
@@ -966,7 +973,7 @@ export class BlackboxPilot {
         }
       }
     }
-    return seen > 0 && own / seen > HALF + HALF * HALF;
+    return seen > 0 && own / seen > share;
   }
 
   /**
