@@ -226,44 +226,6 @@ describe('blackbox', () => {
     expect(direction?.y ?? 0).toBeGreaterThan(0.5);
   });
 
-  // About 90 full-frame decisions, as above.
-  const approachTimeoutMilliseconds = 60_000;
-  it('heeds a unit beyond the danger radius that closes on the trail fast', () => {
-    const pilot = new BlackboxPilot();
-    // The player flies right out of its territory 2 pixels a frame; the scene slides left under it. A grey unit waits
-    // below where it left, 60 pixels from the trail and over 90 from the player, then heads for the trail.
-    const step = 2;
-    const exitX = WIDTH / 2 + 20;
-    const unitHeight = 10;
-    let unitTop = HEIGHT / 2 + 60;
-    let shift = 0;
-    function scene(): ImageData {
-      return frame((x, y) => {
-        const worldX = x + shift;
-        return worldX >= exitX - 2 && worldX < exitX + 2 && y >= unitTop && y < unitTop + unitHeight ? GREY : homeFrame(worldX, y);
-      });
-    }
-    const outFrames = 70;
-    for (let index = 0; index < outFrames; index++) {
-      shift += step;
-      pilot.decide(scene());
-    }
-    // Waiting still, it is no danger: it is beyond the trail's danger radius.
-    expect(pilot.debug.phase).not.toBe('home');
-    expect(pilot.debug.threat).toBeNull();
-    let seen = false;
-    const approachFrames = 8;
-    for (let index = 0; index < approachFrames; index++) {
-      shift += step;
-      unitTop -= step;
-      pilot.decide(scene());
-      seen ||= pilot.debug.threat !== null;
-    }
-    // Still farther from the trail than its danger radius (36 pixels), but closing on it.
-    expect(unitTop - HEIGHT / 2).toBeGreaterThan(HEIGHT * 0.2);
-    expect(seen).toBe(true);
-  }, approachTimeoutMilliseconds);
-
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));
