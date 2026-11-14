@@ -51,9 +51,10 @@ on:
         options:
           - ubuntu-latest
           - windows-latest
-      chrome-path:
-        description: Browser binary to launch instead of the runner's Chrome (blank for Chrome; set it only to test a failed launch)
-        default: ''
+      timeout-scale:
+        description: Factor on the harness time limits (INTEGRATION_TIMEOUT_SCALE); 0.0001 forces Chrome start timeouts, to test the retry
+        default: '1'
+        required: true
         type: string
 
 permissions:
@@ -129,14 +130,13 @@ jobs:
           MODE: ${{ inputs.mode }}
           ROLLOUT: ${{ inputs.mode == 'whitebox' && inputs.rollout }}
           STOP_ON_DEATH: ${{ inputs.stop-on-death }}
-          FORCE_CHROME_PATH: ${{ inputs.chrome-path }}
+          INTEGRATION_TIMEOUT_SCALE: ${{ inputs.timeout-scale }}
         run: |
           output="$RUNNER_TEMP/autopilot"
           mkdir -p "$output"
           extra=()
           if [ "$ROLLOUT" = true ]; then extra+=(--rollout); fi
           if [ "$STOP_ON_DEATH" = true ]; then extra+=(--stop-on-death); fi
-          if [ -n "$FORCE_CHROME_PATH" ]; then export CHROME_PATH="$FORCE_CHROME_PATH"; fi
           # The step runs under bash -e, so the benchmark's status is caught rather than ending the step before the
           # log is printed. A Chrome start that times out (puppeteer's WS endpoint wait) is retried twice more when no
           # outcome was written, which also covers target refs whose harness does not retry the launch itself.
