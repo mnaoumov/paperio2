@@ -51,6 +51,11 @@ on:
         options:
           - ubuntu-latest
           - windows-latest
+      timeout-scale:
+        description: Factor on the harness time limits (INTEGRATION_TIMEOUT_SCALE); 0.0001 forces Chrome start timeouts, to test the retry
+        default: '1'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -125,20 +130,35 @@ jobs:
           MODE: ${{ inputs.mode }}
           ROLLOUT: ${{ inputs.mode == 'whitebox' && inputs.rollout }}
           STOP_ON_DEATH: ${{ inputs.stop-on-death }}
+          INTEGRATION_TIMEOUT_SCALE: ${{ inputs.timeout-scale }}
         run: |
           output="$RUNNER_TEMP/autopilot"
           mkdir -p "$output"
           extra=()
           if [ "$ROLLOUT" = true ]; then extra+=(--rollout); fi
           if [ "$STOP_ON_DEATH" = true ]; then extra+=(--stop-on-death); fi
-          npm run benchmark -- --modes "$MODE" --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
-            --parallel 1 "${extra[@]}" --why --stats "$output/stats" \
-            --situations "$output/situations" --situation-leads 8,25,60 \
-            --results "$output/outcomes.json" > "$output/benchmark.log" 2>&1
-          cat "$output/benchmark.log"
+          # The step runs under bash -e, so the benchmark's status is caught rather than ending the step before the
+          # log is printed. A Chrome start that times out (puppeteer's WS endpoint wait) is retried twice more when no
+          # outcome was written, which also covers target refs whose harness does not retry the launch itself.
+          for attempt in 1 2 3; do
+            status=0
+            npm run benchmark -- --modes "$MODE" --enemies original --seed-list "$SEED" --max-minutes "$MINUTES" \
+              --parallel 1 "${extra[@]}" --why --stats "$output/stats" \
+              --situations "$output/situations" --situation-leads 8,25,60 \
+              --results "$output/outcomes.json" > "$output/benchmark.log" 2>&1 || status=$?
+            echo "::group::benchmark.log (attempt $attempt, exit $status)"
+            cat "$output/benchmark.log"
+            echo "::endgroup::"
+            if [ "$status" -eq 0 ] || [ -f "$output/outcomes.json" ] \
+              || ! grep -q 'waiting for the WS endpoint' "$output/benchmark.log"; then
+              break
+            fi
+            echo "::warning::Seed $SEED: Chrome did not start in time (attempt $attempt of 3)"
+          done
           if grep -q '^Stopping at the first death' "$output/benchmark.log"; then
             exit 1
           fi
+          exit "$status"
       - name: Preserve results and replay situations
         if: always()
         uses: actions/upload-artifact@v7
