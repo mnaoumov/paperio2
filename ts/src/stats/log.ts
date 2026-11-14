@@ -10,12 +10,15 @@
 import type { Except } from 'type-fest';
 
 import type {
+  StatsDeathUnit,
   StatsEndLine,
   StatsEventBase,
   StatsEventLine,
   StatsHeaderLine,
   StatsLine,
   StatsOutcome,
+  StatsPointPair,
+  StatsRecentSample,
   StatsSampleLine,
   StatsSteer,
   StatsZone
@@ -25,7 +28,9 @@ import {
   KILL_REASON_NAMES,
   SLOW_FRAME_MILLISECONDS,
   STATS_FORMAT_VERSION,
-  STATS_SAMPLE_MILLISECONDS
+  STATS_RECENT_SAMPLES,
+  STATS_SAMPLE_MILLISECONDS,
+  STATS_TRAIL_POINTS
 } from './format.ts';
 
 /** What the log reads of the game clock. */
@@ -67,15 +72,29 @@ export interface StatsPoint {
   readonly y: number;
 }
 
+/** What the log reads of a trail's line. */
+export interface StatsPolyline {
+  points(): readonly StatsPoint[];
+}
+
+/** What the log reads of a bot's state machine. */
+export interface StatsStateMachine {
+  readonly state: string;
+}
+
 /** What the log reads of a trail. */
 export interface StatsTrack {
   readonly length: number;
+  readonly polyline: StatsPolyline;
 }
 
 /** What the log reads of a unit. */
 export interface StatsUnit {
   readonly base: unknown;
   readonly death: boolean;
+  /** The heading, in radians. */
+  readonly direction: number;
+  readonly fsm: null | StatsStateMachine;
   readonly in: unknown;
   readonly killer: null | StatsUnit;
   readonly name: string;
@@ -92,6 +111,8 @@ const MILLISECONDS_PER_SECOND = 1000;
 const TIME_DIGITS = 3;
 const PERCENT_DIGITS = 4;
 const POSITION_DIGITS = 0;
+const TRAIL_DIGITS = 1;
+const HEADING_DIGITS = 3;
 const FRAME_TIME_DIGITS = 2;
 
 const DECIMAL_BASE = 10;
@@ -165,6 +186,9 @@ export class StatsLog {
   private lastMetric: null | StatsFrameMetric = null;
   private lastPercent = 0;
   private lastTime = 0;
+  /** The player's trail line on the last frame it was alive: the engine replaces it in the death's own frame. */
+  private lastTrail: null | StatsPolyline = null;
+  private lastTrailLength = 0;
   private readonly lines: string[] = [];
   private nextSample = 0;
   private practiceSeen = false;
@@ -172,6 +196,8 @@ export class StatsLog {
   private previousPlayer: null | StatsUnit = null;
   private previousShare = 0;
   private previousUnits: readonly StatsUnit[] = [];
+  /** Every unit's position at the last {@link STATS_RECENT_SAMPLES} samples, oldest first. */
+  private recent: StatsRecentSample[] = [];
   private sampleWindow = new FrameWindow();
   /**
    * Starts a log and attaches it to the game's frame observers.
@@ -243,7 +269,10 @@ export class StatsLog {
         this.event({ ...this.at(time), event: 'rewind', from: round(this.seconds, TIME_DIGITS) });
         this.ending = null;
         this.nextSample = time;
+        this.recent = [];
       }
+      this.lastTrail = null;
+      this.lastTrailLength = 0;
       this.previousPlayer = player;
       this.previousShare = player.percent;
       this.previousUnits = game.units.slice();
@@ -253,6 +282,8 @@ export class StatsLog {
       this.recordDeath(time, player);
       return;
     }
+    this.lastTrail = player.track.polyline;
+    this.lastTrailLength = player.track.length;
     this.recordAreaChange(time, player.percent);
     this.recordKills(time, player);
     this.lastPercent = player.percent * PERCENT_SCALE;
@@ -313,9 +344,22 @@ export class StatsLog {
     }
     const reasonCode = this.game.pendingGameOver?.reason;
     const reason = reasonCode === undefined ? null : KILL_REASON_NAMES[reasonCode] ?? `reason ${String(reasonCode)}`;
-    const killer = player.killer && player.killer !== player ? player.killer.name : null;
+    const killerUnit = player.killer && player.killer !== player ? player.killer : null;
+    const killer = killerUnit?.name ?? null;
     this.ending = { killer, outcome: 'death', reason };
-    this.event({ ...this.at(time), event: 'death', killer, pct: round(this.lastPercent, PERCENT_DIGITS), reason });
+    const points = this.lastTrail?.points() ?? [];
+    this.event({
+      ...this.at(time),
+      event: 'death',
+      killer,
+      killerUnit: killerUnit ? describeUnit(killerUnit, killerUnit.track.length) : null,
+      pct: round(this.lastPercent, PERCENT_DIGITS),
+      player: describeUnit(player, this.lastTrailLength),
+      reason,
+      recent: this.recent,
+      trail: points.slice(-STATS_TRAIL_POINTS).map((point: StatsPoint): StatsPointPair => [round(point.x, TRAIL_DIGITS), round(point.y, TRAIL_DIGITS)]),
+      trailPoints: points.length
+    });
   }
 
   private recordKills(time: number, player: StatsUnit): void {
@@ -335,6 +379,18 @@ export class StatsLog {
     const { units } = this.game;
     const window = this.sampleWindow;
     this.sampleWindow = new FrameWindow();
+    this.recent.push({
+      t: round(time / MILLISECONDS_PER_SECOND, TIME_DIGITS),
+      units: units.map((unit: StatsUnit) => ({
+        name: unit.name,
+        state: unit.fsm?.state ?? null,
+        x: round(unit.position.x, POSITION_DIGITS),
+        y: round(unit.position.y, POSITION_DIGITS)
+      }))
+    });
+    if (this.recent.length > STATS_RECENT_SAMPLES) {
+      this.recent.shift();
+    }
     this.push(
       {
         frames: window.count,
@@ -356,6 +412,19 @@ export class StatsLog {
       } satisfies StatsSampleLine
     );
   }
+}
+
+function describeUnit(unit: StatsUnit, trail: number): StatsDeathUnit {
+  return {
+    // The engine adds every turn to `direction`, so it runs past ±π.
+    heading: round(Math.atan2(Math.sin(unit.direction), Math.cos(unit.direction)), HEADING_DIGITS),
+    home: unit.in === unit.base,
+    name: unit.name,
+    state: unit.fsm?.state ?? null,
+    trail: round(trail, POSITION_DIGITS),
+    x: round(unit.position.x, TRAIL_DIGITS),
+    y: round(unit.position.y, TRAIL_DIGITS)
+  };
 }
 
 function round(value: number, digits: number): number {

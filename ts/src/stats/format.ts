@@ -7,10 +7,16 @@
  */
 
 /** Bumped whenever a line's shape changes, so a reader can tell old logs apart. */
-export const STATS_FORMAT_VERSION = 2;
+export const STATS_FORMAT_VERSION = 3;
 
 /** Game time between two samples, in milliseconds. */
 export const STATS_SAMPLE_MILLISECONDS = 250;
+
+/** How many samples of every unit's position a death carries: 5 s at {@link STATS_SAMPLE_MILLISECONDS}. */
+export const STATS_RECENT_SAMPLES = 20;
+
+/** The most trail points a death carries; a longer trail keeps its newest points. */
+export const STATS_TRAIL_POINTS = 2000;
 
 /** The kill reasons by the engine's codes (`KILL_REASON_*`). */
 export const KILL_REASON_NAMES: readonly string[] = ['win', 'self-intersection', 'wall', 'trail cut', 'exit point taken', 'surrounded', 'system', 'capital surrounded'];
@@ -27,13 +33,43 @@ export interface StatsCaptureEvent extends StatsEventBase {
   readonly pct: number;
 }
 
-/** The player died. */
+/**
+ * The player died. Besides who and why, it carries what a death needs to be drawn again: where the player and the
+ * killer were and how they headed, the killer's bot state, the player's trail as it stood on the frame before the
+ * death (the engine removes it in the death's own frame), and every unit's position over the last
+ * {@link STATS_RECENT_SAMPLES} samples.
+ */
 export interface StatsDeathEvent extends StatsEventBase {
   readonly event: 'death';
   readonly killer: null | string;
+  /** The killer as it stood on the death's frame, or `null` when no other unit killed the player. */
+  readonly killerUnit: null | StatsDeathUnit;
   readonly pct: number;
+  /** The player as it stood on the death's frame. */
+  readonly player: StatsDeathUnit;
   /** The kill reason, or `null` when a practice run took the death over before the engine named it. */
   readonly reason: null | string;
+  /** Every unit's position at the last samples before the death, oldest first. */
+  readonly recent: readonly StatsRecentSample[];
+  /** The player's trail, oldest point first, as `[x, y]`: at most the last {@link STATS_TRAIL_POINTS} points. */
+  readonly trail: readonly StatsPointPair[];
+  /** How many points the trail had in all; more than `trail.length` when it was cut short. */
+  readonly trailPoints: number;
+}
+
+/** A unit at a death. */
+export interface StatsDeathUnit {
+  /** The heading, in radians in (-π, π]: the engine's `Unit.direction` wrapped (0 is +x, π/2 is +y). */
+  readonly heading: number;
+  /** Whether its head was on its own ground. */
+  readonly home: boolean;
+  readonly name: string;
+  /** A bot's state machine state (`attack`, `back`, ...), or `null` for the player. */
+  readonly state: null | string;
+  /** Its own trail's length, in arena units. */
+  readonly trail: number;
+  readonly x: number;
+  readonly y: number;
 }
 
 /** The last line: how the game ended and its totals. */
@@ -112,9 +148,27 @@ export interface StatsLostEvent extends StatsEventBase {
 
 export type StatsOutcome = 'death' | 'quit' | 'win';
 
+/** A point as `[x, y]`. */
+export type StatsPointPair = readonly [number, number];
+
 /** The run turned out to be a practice run. */
 export interface StatsPracticeEvent extends StatsEventBase {
   readonly event: 'practice';
+}
+
+/** Every unit's position at one sample before a death. */
+export interface StatsRecentSample {
+  /** Seconds of game time since the run started. */
+  readonly t: number;
+  readonly units: readonly StatsRecentUnit[];
+}
+
+/** A unit at a sample before a death. */
+export interface StatsRecentUnit {
+  readonly name: string;
+  readonly state: null | string;
+  readonly x: number;
+  readonly y: number;
 }
 
 /** A practice respawn put the game back to a checkpoint: game time runs on from `t`. */

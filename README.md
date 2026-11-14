@@ -441,8 +441,13 @@ JSON object per line:
   the last sample (how many, their mean and longest time, how many took longer
   than two 60 fps frames);
 - an `event` for each capture (`gained`), each piece of ground taken from you
-  (`lost`), each unit you kill (`victim`), your death (`killer`, `reason`), a
-  win, and in practice a respawn (`rewind`);
+  (`lost`), each unit you kill (`victim`), your death, a win, and in practice
+  a respawn (`rewind`). A death says who killed you and why (`killer`,
+  `reason`), and carries what it takes to draw it again: where you and the
+  killer were and which way each was heading, the killer's bot state (`attack`,
+  `back`, ...) and whether it was on its own ground (`killerUnit`, `player`),
+  your trail as it stood just before (`trail`, up to its newest 2000 points),
+  and every unit's position at the last 20 samples, 5 s (`recent`);
 - an `end` line with how the run ended and its totals.
 
 It is kept in this browser (IndexedDB) and leaves it only by your download. The
@@ -450,7 +455,8 @@ log only reads the game, so a run plays exactly as it would without it. The
 benchmark writes the same format for the demo pilots
 (`npm run benchmark -- --stats <dir>`), and `npm run stats:report -- <files or
 directories>` compares any number of logs side by side, a summary row per run
-and the area curves.
+and the area curves, then a row per death with the killer's state, whether it
+was home, how far it was from you and both headings.
 
 ## Install it as an app on a Mac
 
