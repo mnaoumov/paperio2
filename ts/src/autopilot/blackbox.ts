@@ -155,14 +155,6 @@ const SAFE_DEPTH = 16;
 const SAFE_DEPTH_WEIGHT = 3;
 /** Directions searched for a place to wait a unit out, each walked from the player while it stays on own ground. */
 const AWAY_RAYS = 96;
-/**
- * Waiting at home, a direction is flown this many frames ahead in simulation, at the measured speed and the turn rate.
- * One that leaves the player's ground in that time is swapped for the one that stays on it longest, among this many
- * directions and a full-rate circle either way: the player never stops, and an aim at the territory's far side carries
- * it over the edge while it turns, beside the very unit it waits out.
- */
-const GROUND_LOOKAHEAD_FRAMES = 40;
-const GROUND_GUARD_DIRECTIONS = 32;
 /** A foreign trail is across the territory when its ground lies within this many pixels on both sides along an axis. */
 const CUT_REACH = 5;
 const CUT_AXES: readonly (readonly [number, number])[] = [[1, 0], [0, 1], [1, 1], [1, -1]];
@@ -438,7 +430,7 @@ export class BlackboxPilot {
     if (!best || Math.hypot(best.x, best.y) < height * AVATAR_RADIUS) {
       return this.stayHome(classes);
     }
-    return this.keepOnGround(classes, normalize(best));
+    return normalize(best);
   }
 
   /**
@@ -751,37 +743,6 @@ export class BlackboxPilot {
   }
 
   /**
-   * How well a path keeps the player on its own ground: flown {@link GROUND_LOOKAHEAD_FRAMES} frames toward a
-   * direction, or circling at the full rate when `turn` is given, the sum of each frame's depth inside the ground,
-   * capped at the margin; flying off the ground ends the sum.
-   *
-   * @param ground - The classified frame with its masked pixels filled (see {@link fillMasked}).
-   * @param depth - Each pixel's distance there to the nearest pixel off the player's ground.
-   * @param direction - The direction it steers toward, ignored with `turn`.
-   * @param turn - -1 or 1 to circle at the full turn rate that way.
-   * @returns The sum; {@link GROUND_LOOKAHEAD_FRAMES} times the margin keeps the margin all the way.
-   */
-  private groundKept(ground: Uint8Array, depth: Float32Array, direction: Point, turn = 0): number {
-    const margin = this.height * AVATAR_RADIUS;
-    let x = this.width * HALF;
-    let y = this.height * HALF;
-    let { heading } = this;
-    const target = Math.atan2(direction.y, direction.x);
-    const speed = Math.max(MIN_MEASURED_SPEED, this.speed);
-    let kept = 0;
-    for (let frame = 1; frame <= GROUND_LOOKAHEAD_FRAMES; frame++) {
-      heading += turn === 0 ? Math.max(-TURN_PER_FRAME, Math.min(TURN_PER_FRAME, wrapAngle(target - heading))) : turn * TURN_PER_FRAME;
-      x += Math.cos(heading) * speed;
-      y += Math.sin(heading) * speed;
-      if (this.classAt(ground, x, y) !== OWN) {
-        break;
-      }
-      kept += Math.min(margin, depth[Math.floor(y) * this.width + Math.floor(x)] ?? 0);
-    }
-    return kept;
-  }
-
-  /**
    * The direction to steer instead of `wanted`, so that against the wall the heading never swings through the wall's
    * outward normal. The engine turns the shortest way, and pressed against the wall a heading that crosses the outward
    * normal reverses the slide, back over the trail just laid: the player dies by the wall. Such a turn goes the long way
@@ -943,45 +904,6 @@ export class BlackboxPilot {
     const dx = (column - this.width * HALF) / this.height;
     const dy = (row - this.height * HALF) / this.height;
     return Math.abs(dx) < NAME_STRIP_HALF_WIDTH && dy > -NAME_TOP && dy < -NAME_BOTTOM;
-  }
-
-  /**
-   * A waiting direction that keeps the player on its own ground, an avatar's radius from its edge, where the ring round
-   * the avatar still reads as home: the wanted one when it does for {@link GROUND_LOOKAHEAD_FRAMES}, else whichever
-   * direction or full-rate circle keeps it deepest (see {@link groundKept}), nearest the wanted on a tie.
-   *
-   * @param classes - The classified frame.
-   * @param wanted - The direction the wait asks for.
-   * @returns The direction.
-   */
-  private keepOnGround(classes: Uint8Array, wanted: Point): Point {
-    const ground = fillMasked(classes, this.width, this.height);
-    const depth = chamferDistance(ground.map((pixelClass) => pixelClass === OWN ? 0 : 1), this.width, this.height);
-    const full = GROUND_LOOKAHEAD_FRAMES * this.height * AVATAR_RADIUS;
-    let bestKept = this.groundKept(ground, depth, wanted);
-    if (bestKept >= full - HALF) {
-      return wanted;
-    }
-    let best = wanted;
-    let bestAlignment = 1;
-    function consider(direction: Point, kept: number): void {
-      const alignment = direction.x * wanted.x + direction.y * wanted.y;
-      if (kept > bestKept + HALF || (kept > bestKept - HALF && alignment > bestAlignment)) {
-        best = direction;
-        bestKept = Math.max(kept, bestKept);
-        bestAlignment = alignment;
-      }
-    }
-    for (let index = 0; index < GROUND_GUARD_DIRECTIONS; index++) {
-      const angle = index / GROUND_GUARD_DIRECTIONS * FULL_TURN;
-      const direction = { x: Math.cos(angle), y: Math.sin(angle) };
-      consider(direction, this.groundKept(ground, depth, direction));
-    }
-    for (const turn of [-1, 1]) {
-      const angle = this.heading + turn * Math.PI * HALF;
-      consider({ x: Math.cos(angle), y: Math.sin(angle) }, this.groundKept(ground, depth, wanted, turn));
-    }
-    return best;
   }
 
   /**
@@ -1380,14 +1302,27 @@ export class BlackboxPilot {
   }
 
   /**
-   * Keeps inside the territory: toward the middle of what is in view of it, or circling when already there, on a path
-   * that stays on the player's ground (see {@link keepOnGround}).
+   * Keeps inside the territory: toward the middle of what is in view of it, or circling when already there.
    *
    * @param classes - The classified frame.
    * @returns The direction.
    */
   private stayHome(classes: Uint8Array): Point {
-    return this.keepOnGround(classes, this.towardMiddle(classes));
+    let sumX = 0;
+    let sumY = 0;
+    let count = 0;
+    for (let index = 0; index < classes.length; index++) {
+      if (classes[index] === OWN) {
+        sumX += index % this.width - this.width * HALF;
+        sumY += Math.floor(index / this.width) - this.height * HALF;
+        count++;
+      }
+    }
+    const toMiddle = { x: sumX / Math.max(1, count), y: sumY / Math.max(1, count) };
+    if (Math.hypot(toMiddle.x, toMiddle.y) > this.height * AVATAR_RADIUS) {
+      return normalize(toMiddle);
+    }
+    return { x: Math.cos(this.heading + Math.PI * HALF), y: Math.sin(this.heading + Math.PI * HALF) };
   }
 
   /**
@@ -1410,10 +1345,7 @@ export class BlackboxPilot {
     if (this.phase === 'back') {
       // Back inside but for a capture too small to see: deeper in, not along a stale aim back out over the edge.
       if (this.homeStreak === 0) {
-        // A trail still under the head was never laid clear of the ground: the ring round the avatar only reads as away
-        // near the edge, and the way back is a path that keeps on the ground, as at home.
-        const back = this.planReturn(classes, raster);
-        return this.trailLength() < SHORT_TRAIL_LENGTH ? this.keepOnGround(classes, back) : back;
+        return this.planReturn(classes, raster);
       }
       // With a unit near, the far side from it, as at home.
       return this.threat ? this.awayFromThreat(classes, this.threat) : this.stayHome(classes);
@@ -1491,30 +1423,6 @@ export class BlackboxPilot {
     }
     this.outward = wayOut.direction;
     return this.outward;
-  }
-
-  /**
-   * Toward the middle of the own ground in view, or circling once there.
-   *
-   * @param classes - The classified frame.
-   * @returns The direction.
-   */
-  private towardMiddle(classes: Uint8Array): Point {
-    let sumX = 0;
-    let sumY = 0;
-    let count = 0;
-    for (let index = 0; index < classes.length; index++) {
-      if (classes[index] === OWN) {
-        sumX += index % this.width - this.width * HALF;
-        sumY += Math.floor(index / this.width) - this.height * HALF;
-        count++;
-      }
-    }
-    const toMiddle = { x: sumX / Math.max(1, count), y: sumY / Math.max(1, count) };
-    if (Math.hypot(toMiddle.x, toMiddle.y) > this.height * AVATAR_RADIUS) {
-      return normalize(toMiddle);
-    }
-    return { x: Math.cos(this.heading + Math.PI * HALF), y: Math.sin(this.heading + Math.PI * HALF) };
   }
 
   /**
@@ -1792,38 +1700,6 @@ export function erodeThin(classes: Uint8Array, width: number, height: number): U
     }
   }
   return cleaned;
-}
-
-/**
- * The classes with every masked pixel (the avatar, the player's name and label, the HUD) given the class of the nearest
- * pixel that is not masked, by a breadth-first fill: a guess at what the mask hides, from what lies round it.
- *
- * @param classes - The classified frame.
- * @param width - The frame's width.
- * @param height - The frame's height.
- * @returns The filled classes; the masked pixels as they were when nothing is unmasked.
- */
-export function fillMasked(classes: Uint8Array, width: number, height: number): Uint8Array {
-  const filled = classes.slice();
-  const queue = new Int32Array(classes.length);
-  let tail = 0;
-  for (let index = 0; index < classes.length; index++) {
-    if (classes[index] !== MASKED) {
-      queue[tail++] = index;
-    }
-  }
-  for (let head = 0; head < tail; head++) {
-    const index = queue[head] ?? 0;
-    const column = index % width;
-    const neighbors = [column > 0 ? index - 1 : -1, column < width - 1 ? index + 1 : -1, index >= width ? index - width : -1, index < width * (height - 1) ? index + width : -1];
-    for (const neighbor of neighbors) {
-      if (neighbor >= 0 && filled[neighbor] === MASKED) {
-        filled[neighbor] = filled[index] ?? MASKED;
-        queue[tail++] = neighbor;
-      }
-    }
-  }
-  return filled;
 }
 
 /**
