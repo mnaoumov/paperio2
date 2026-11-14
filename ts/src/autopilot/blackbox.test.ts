@@ -205,6 +205,32 @@ describe('blackbox', () => {
     }
   }, rememberedDangerTimeoutMilliseconds);
 
+  it('stays in for a second after a danger is gone before it leaves', () => {
+    const pilot = new BlackboxPilot();
+    // A disc centred well left of the player, so deeper in is to the left and the way out to the right.
+    function deepHome(x: number, y: number): Rgb {
+      if (y >= SCORE_BAR.top && y < SCORE_BAR.bottom && x < SCORE_BAR.right) {
+        return OWN;
+      }
+      return Math.hypot(x - (WIDTH / 2 - 25), y - HEIGHT / 2) < TERRITORY_RADIUS + 15 ? OWN : FLOOR;
+    }
+    pilot.decide(frame((x, y) => isGreyTrail(x, y) ? GREY : deepHome(x, y)));
+    expect(pilot.debug.threat).not.toBeNull();
+    const calm = frame(deepHome);
+    let direction: null | Point = null;
+    for (let index = 0; index < 200 && pilot.debug.threat; index++) {
+      direction = pilot.decide(calm);
+    }
+    expect(pilot.debug.threat).toBeNull();
+    // The danger's memory has just expired: still deeper in, not out.
+    expect(direction?.x ?? 0).toBeLessThan(0);
+    for (let index = 0; index < 60; index++) {
+      direction = pilot.decide(calm);
+    }
+    expect(pilot.debug.phase).toBe('home');
+    expect(direction?.x ?? 0).toBeGreaterThan(0);
+  }, rememberedDangerTimeoutMilliseconds);
+
   it('waits a unit out without crossing open floor to the far side of a bent territory', () => {
     const pilot = new BlackboxPilot();
     // A U: the player in the right arm, the left arm across 60 pixels of floor, a bridge along the bottom.

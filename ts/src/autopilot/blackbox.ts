@@ -170,6 +170,12 @@ const LEAVE_CLEARANCE = 0.3;
 const DANGER_RADIUS = 0.5;
 /** At home, a recently seen danger must be farther away before the pilot leaves again. */
 const LEAVE_MEMORY_RADIUS = 0.65;
+/**
+ * Frames with no unit seen or remembered near before the pilot leaves home: a unit at the edge of the danger radius
+ * drops out of it for a frame or two at a time, and leaving on such a frame lays a trail at the territory's edge
+ * right beside it.
+ */
+const CALM_FRAMES = 60;
 /** A danger seen is heeded this many frames after it is last seen. */
 const THREAT_MEMORY_FRAMES = 120;
 /** The trail is looked for this many pixels out from the avatar, and this many of its pixels there say it is drawn. */
@@ -276,6 +282,8 @@ export class BlackboxPilot {
   /** Frames decided so far. */
   private frameIndex = 0;
   private framesInPhase = 0;
+  /** Frames running with no danger seen or remembered near (see {@link CALM_FRAMES}). */
+  private framesSinceThreat = CALM_FRAMES;
   /** The heading the pilot believes the player has: the directions it gave, corrected by what the odometer saw. */
   private heading = 0;
   private height = 0;
@@ -338,6 +346,7 @@ export class BlackboxPilot {
     this.previousPosition = this.odometer.position;
     this.frameIndex++;
     this.threat = this.recallThreat(this.findThreat(raster));
+    this.framesSinceThreat = this.threat ? 0 : this.framesSinceThreat + 1;
     const wanted = atHome ? this.stepHome(classes) : this.stepAway(classes, raster);
     this.framesInPhase++;
     // An aim right under the player has no direction: the last one stands, and so does the heading.
@@ -361,6 +370,7 @@ export class BlackboxPilot {
     this.homeStreak = 0;
     this.previousClasses = null;
     this.threatMemory = [];
+    this.framesSinceThreat = CALM_FRAMES;
     this.odometer.reset();
   }
 
@@ -1351,7 +1361,12 @@ export class BlackboxPilot {
     const lingering = this.rememberedThreat(this.height * LEAVE_MEMORY_RADIUS);
     if (lingering && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       this.threat = lingering;
+      this.framesSinceThreat = 0;
       return this.awayFromThreat(classes, lingering);
+    }
+    if (this.framesSinceThreat < CALM_FRAMES && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
+      // A unit was near a moment ago: deeper in, until it has stayed away a while.
+      return this.stayHome(classes);
     }
     const wayOut = this.chooseWayOut(classes);
     if (!wayOut.clear && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
