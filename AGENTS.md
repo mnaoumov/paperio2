@@ -541,6 +541,11 @@ when one changes).
   0.0001 of the arena, a unit gone with the player as its `killer`, `player.death`, `pendingGameOver.reason === 0`, a
   new player with the clock put back for a practice respawn), so the engine carries no hook for it. It never writes
   game state, draws `Math.random` or arms a timer, so the differential suite plays with it attached and stays green.
+- **A death carries what it takes to redraw it** (format 3, 2026-11-14): `killerUnit` and `player` (position, heading
+  wrapped to (-π, π], `fsm.state`, home or not, trail length), the player's `trail` and the last 20 samples of every
+  unit (`recent`). `Game.kill` removes the trail in the death's own frame, so the log keeps a reference to the player's
+  `track.polyline` from the last frame it was alive and reads `points()` from that on the death; read the trail any
+  other way and it comes back empty.
   Keep it that way: a new field reads, never writes.
 - **Frame times** come from `game.metrics` (`updateMetrics`), on the game clock, taken once per metric object.
 - **The commit** in the header is `BUILD_COMMIT`, which `build.mjs` defines from `git rev-parse --short HEAD` (`null`

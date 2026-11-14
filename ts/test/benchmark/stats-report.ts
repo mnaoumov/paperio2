@@ -8,7 +8,7 @@
  * `npm run stats:report -- <file or directory>... [--every 30]`
  *
  * It prints a summary row per game, then the area curves: each game's share of the arena every `--every` seconds of
- * game time.
+ * game time. Last, a row per death that carries the killer's details (format 3 and later).
  */
 
 import {
@@ -52,6 +52,8 @@ const SECONDS_DIGITS = 2;
 const MEDIAN_DIVISOR = 2;
 const PERCENT_DIGITS = 2;
 const PERCENT_SCALE = 100;
+// eslint-disable-next-line no-magic-numbers -- a half turn in degrees.
+const DEGREES_PER_RADIAN = 180 / Math.PI;
 // eslint-disable-next-line no-magic-numbers -- the minutes the summary reads the area at.
 const MILESTONE_MINUTES: readonly number[] = [1, 2, 5, 10];
 
@@ -75,6 +77,11 @@ if (games.length === 0) {
   print(summary(games));
   print('');
   print(curves(games, Math.max(1, Number(values.every))));
+  const deathTable = deaths(games);
+  if (deathTable) {
+    print('');
+    print(deathTable);
+  }
 }
 
 function areaAt(game: Game, seconds: number): null | number {
@@ -105,6 +112,51 @@ function curves(list: readonly Game[], every: number): string {
     } |`);
   }
   return lines.join('\n');
+}
+
+/**
+ * A row per death that carries the format 3 details: where the killer was, its bot state and whether it was home.
+ *
+ * @param list - The games.
+ * @returns The table, or an empty string when no death carries them.
+ */
+function deaths(list: readonly Game[]): string {
+  const header = [
+    '| Game | Time | Reason | Killer | Killer state | Killer home | Distance | Player heading | Killer heading | Trail points | Recent samples |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+  ];
+  const lines = [...header];
+  for (const game of list) {
+    for (const event of game.events) {
+      // A format 2 death has no `player`.
+      if (event.event !== 'death' || !('player' in event)) {
+        continue;
+      }
+      const { killerUnit, player } = event;
+      lines.push(
+        [
+          '',
+          game.label,
+          formatTime(event.t),
+          event.reason ?? '?',
+          event.killer ?? '-',
+          killerUnit?.state ?? '-',
+          yesNo(killerUnit?.home),
+          killerUnit ? Math.hypot(killerUnit.x - player.x, killerUnit.y - player.y).toFixed(0) : '-',
+          formatHeading(player.heading),
+          killerUnit ? formatHeading(killerUnit.heading) : '-',
+          event.trailPoints === event.trail.length ? String(event.trailPoints) : `${String(event.trail.length)} of ${String(event.trailPoints)}`,
+          String(event.recent.length),
+          ''
+        ].join(' | ').trim()
+      );
+    }
+  }
+  return lines.length > header.length ? lines.join('\n') : '';
+}
+
+function formatHeading(radians: number): string {
+  return `${(radians * DEGREES_PER_RADIAN).toFixed(0)}°`;
 }
 
 function formatTime(seconds: number): string {
@@ -211,4 +263,11 @@ function summary(list: readonly Game[]): string {
     );
   }
   return lines.join('\n');
+}
+
+function yesNo(value: boolean | undefined): string {
+  if (value === undefined) {
+    return '-';
+  }
+  return value ? 'yes' : 'no';
 }
