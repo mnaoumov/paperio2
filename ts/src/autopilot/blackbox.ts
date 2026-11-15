@@ -187,6 +187,12 @@ const DANGER_RADIUS = 0.5;
 /** At home, a recently seen danger must be farther away before the pilot leaves again. */
 const LEAVE_MEMORY_RADIUS = 0.65;
 /**
+ * A loop's legs are sized when it leaves home from the nearest unit in view: their plain length with one at the danger
+ * radius, growing to this many times that with none within {@link LONG_LEG_DISTANCE} frame heights.
+ */
+const LONG_LEG_SCALE = 1.5;
+const LONG_LEG_DISTANCE = 0.8;
+/**
  * Frames with no unit seen or remembered near before the pilot leaves home: a unit at the edge of the danger radius
  * drops out of it for a frame or two at a time, and leaving on such a frame lays a trail at the territory's edge
  * right beside it.
@@ -317,6 +323,7 @@ export class BlackboxPilot {
   private lastAim: null | Point = null;
   private readonly odometer = new Odometer(MASKED);
   /** The direction of the loop's way out and of its sideways leg. */
+  private outFrames = OUT_FRAMES;
   private outward: Point = { x: 1, y: 0 };
   private own: Color | null = null;
   private phase: BlackboxPhase = 'home';
@@ -917,6 +924,26 @@ export class BlackboxPilot {
   }
 
   /**
+   * The nearest pixel of a foreign unit or trail in view, beside the HUD or not.
+   *
+   * @returns It, in frame pixels, or `null`.
+   */
+  /**
+   * How much longer than plain the loop's legs run, from the nearest unit in view as the pilot leaves: a unit far off
+   * needs longer to reach the trail than the longer loop takes to close.
+   *
+   * @returns The factor, from 1 to {@link LONG_LEG_SCALE}.
+   */
+  private legScale(): number {
+    const unit = this.nearestUnit();
+    const away = unit ? Math.hypot(unit.x - this.width * HALF, unit.y - this.height * HALF) : Infinity;
+    const near = this.height * DANGER_RADIUS;
+    const far = this.height * LONG_LEG_DISTANCE;
+    const share = Math.min(1, Math.max(0, (away - near) / (far - near)));
+    return 1 + (LONG_LEG_SCALE - 1) * share;
+  }
+
+  /**
    * Moves the odometer on by this frame and takes the speed and heading it measured.
    *
    * @param classes - The classified frame.
@@ -935,11 +962,6 @@ export class BlackboxPilot {
     this.heading += difference * HEADING_CORRECTION;
   }
 
-  /**
-   * The nearest pixel of a foreign unit or trail in view, beside the HUD or not.
-   *
-   * @returns It, in frame pixels, or `null`.
-   */
   private nearestUnit(): null | Point {
     const { height, thin, width } = this;
     let nearest: null | Point = null;
@@ -1350,7 +1372,9 @@ export class BlackboxPilot {
       this.trailStart ??= this.track.length - 1;
       this.rememberHome(classes);
       this.sideward = this.chooseSide(classes, this.outward);
-      this.sideFrames = SIDE_FRAMES;
+      const scale = this.legScale();
+      this.outFrames = Math.round(OUT_FRAMES * scale);
+      this.sideFrames = Math.round(SIDE_FRAMES * scale);
     }
     if (this.phase === 'back') {
       // Back inside but for a capture too small to see: deeper in, not along a stale aim back out over the edge.
@@ -1365,7 +1389,7 @@ export class BlackboxPilot {
     const blocked = (this.framesInPhase > MIN_LEG_FRAMES && !this.isFloorAhead(classes, leg, OTHER)) || !this.isFloorAhead(classes, leg, OUTSIDE);
     if (this.threat || this.trackAhead(classes, raster, leg)) {
       this.setPhase('back');
-    } else if (this.phase === 'out' && (this.framesInPhase >= OUT_FRAMES || blocked)) {
+    } else if (this.phase === 'out' && (this.framesInPhase >= this.outFrames || blocked)) {
       this.setPhase('side');
     } else if (this.phase === 'side' && (this.framesInPhase >= this.sideFrames || blocked)) {
       this.setPhase('back');

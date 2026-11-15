@@ -281,6 +281,42 @@ describe('blackbox', () => {
     expect(farthest).toBeGreaterThan(42);
   }, rememberedDangerTimeoutMilliseconds);
 
+  it('runs a longer loop when no unit is in view', () => {
+    // A grey trail 4 pixels thick, 100 pixels left of the player, beyond the danger radius (90).
+    function unitBehind(x: number, y: number): boolean {
+      return x >= WIDTH / 2 - 100 && x < WIDTH / 2 - 96 && y > 40 && y < 140;
+    }
+    expect(outLegFrames(homeFrame)).toBeGreaterThan(50);
+    expect(outLegFrames((x, y) => unitBehind(x, y) ? GREY : homeFrame(x, y))).toBeLessThan(40);
+
+    /**
+     * Flies the player out of its territory at the engine's speed, wherever the pilot steers it, and counts the frames
+     * of its out leg.
+     *
+     * @param world - The world, in pixels of the frame the player starts in.
+     * @returns The frames.
+     */
+    function outLegFrames(world: (x: number, y: number) => Rgb): number {
+      const pilot = new BlackboxPilot();
+      let shiftX = 0;
+      let shiftY = 0;
+      let frames = 0;
+      for (let index = 0; index < 200; index++) {
+        const offsetX = Math.round(shiftX);
+        const offsetY = Math.round(shiftY);
+        const direction = pilot.decide(frame((x, y) => world(x + offsetX, y + offsetY)));
+        shiftX += (direction?.x ?? 0) * 1.6;
+        shiftY += (direction?.y ?? 0) * 1.6;
+        if (pilot.debug.phase === 'out') {
+          frames++;
+        } else if (frames > 0) {
+          break;
+        }
+      }
+      return frames;
+    }
+  }, rememberedDangerTimeoutMilliseconds);
+
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));
