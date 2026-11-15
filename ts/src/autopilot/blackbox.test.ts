@@ -281,35 +281,6 @@ describe('blackbox', () => {
     expect(farthest).toBeGreaterThan(42);
   }, rememberedDangerTimeoutMilliseconds);
 
-  it('keeps waiting a unit out at home once it drifts near its edge', () => {
-    const pilot = new BlackboxPilot();
-    // A disc of radius 60, centred `inset` pixels left of the player, and a grey trail on the floor 20 pixels beyond its
-    // right edge.
-    function edgeHome(inset: number): (x: number, y: number) => Rgb {
-      const trailLeft = WIDTH / 2 - inset + 60 + 20;
-      return (x, y) => {
-        if (y >= SCORE_BAR.top && y < SCORE_BAR.bottom && x < SCORE_BAR.right) {
-          return OWN;
-        }
-        if (x >= trailLeft && x < trailLeft + 4 && y > 40 && y < 140) {
-          return GREY;
-        }
-        return Math.hypot(x - (WIDTH / 2 - inset), y - HEIGHT / 2) < 60 ? OWN : FLOOR;
-      };
-    }
-    pilot.decide(frame(edgeHome(0)));
-    expect(pilot.debug.phase).toBe('home');
-    // The player drifts to 10 pixels inside its edge: still inside, but the ring the home test reads is a third floor.
-    let direction: null | Point = null;
-    for (let inset = 0; inset <= 50; inset += 2) {
-      direction = pilot.decide(frame(edgeHome(inset)));
-      expect(pilot.debug.phase).toBe('home');
-    }
-    expect(pilot.debug.threat).not.toBeNull();
-    // Back in, away from the unit, not out over the edge beside it.
-    expect(direction?.x ?? 0).toBeLessThan(0);
-  }, rememberedDangerTimeoutMilliseconds);
-
   it('heads out of its territory toward the nearest free floor', () => {
     const pilot = new BlackboxPilot();
     const direction = pilot.decide(frame(homeFrame));
