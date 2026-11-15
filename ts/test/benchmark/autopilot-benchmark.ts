@@ -801,7 +801,8 @@ async function stepFrames(page: Page, count: number, tail: string[]): Promise<Pa
         const phases = { ...totals.phases };
         const inBase = game.player.in === game.player.base;
         if (debug) {
-          const key = `${debug.phase}${debug.threat ? '!' : ''}${inBase ? '' : '@out'}`;
+          const homeStep = debug.homeStep ? `:${debug.homeStep}` : '';
+          const key = `${debug.phase}${homeStep}${debug.threat ? '!' : ''}${inBase ? '' : '@out'}`;
           phases[key] = (phases[key] ?? 0) + 1;
         }
         window.__areaTotals = { gained: totals.gained + Math.max(0, change), lost: totals.lost + Math.max(0, -change), phases };

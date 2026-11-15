@@ -51,6 +51,8 @@ export interface BlackboxDebug {
   readonly aimReached: boolean;
   readonly classes: null | Uint8Array;
   readonly height: number;
+  /** At home, which rule of the home step steered the frame; `null` away from home. */
+  readonly homeStep: HomeStep | null;
   readonly phase: BlackboxPhase;
   /** The nearest danger, in pixels of the scaled-down frame, or `null`. */
   readonly threat: null | Point;
@@ -63,6 +65,12 @@ export interface BlackboxDebug {
 
 /** What the pilot is doing. */
 export type BlackboxPhase = 'back' | 'home' | 'out' | 'side';
+
+/**
+ * Which rule of the home step steered a frame: a cut held or aimed, a wait for a unit near, remembered or just gone, a
+ * wait for a clear way out, or the way out itself.
+ */
+export type HomeStep = 'calm' | 'cut' | 'held' | 'leave' | 'lingering' | 'threat' | 'unclear';
 
 interface Color {
   readonly b: number;
@@ -278,7 +286,7 @@ const BUCKETS_PER_CHANNEL = 32;
 
 export class BlackboxPilot {
   public get debug(): BlackboxDebug {
-    return { aim: this.aim, aimReached: this.aimReached, classes: this.classes, height: this.height, phase: this.phase, threat: this.threat, track: this.raster, wallAtCenter: this.wall[Math.floor(this.height * HALF) * this.width + Math.floor(this.width * HALF)] ?? Infinity, width: this.width };
+    return { aim: this.aim, aimReached: this.aimReached, classes: this.classes, height: this.height, homeStep: this.phase === 'home' ? this.homeStep : null, phase: this.phase, threat: this.threat, track: this.raster, wallAtCenter: this.wall[Math.floor(this.height * HALF) * this.width + Math.floor(this.width * HALF)] ?? Infinity, width: this.width };
   }
 
   private aim: null | Point = null;
@@ -301,6 +309,8 @@ export class BlackboxPilot {
   /** The territory the player last left from, as a mask of the frame then, and where the player was. */
   private homeMask: null | Uint8Array = null;
   private homeMaskPosition: Point = { x: 0, y: 0 };
+  /** Which rule of the home step steered the last frame at home. */
+  private homeStep: HomeStep = 'leave';
   /** Frames running that the ring around the avatar has read as home. */
   private homeStreak = 0;
   /** The way back's last aim, in frame pixels from where the odometer started, or `null`. */
@@ -1387,10 +1397,12 @@ export class BlackboxPilot {
     // its owner, and that trail is the start of a capture that would take the player's ground, the player with it.
     const held = this.heldCut();
     if (held) {
+      this.homeStep = 'held';
       return held;
     }
     const cut = this.trailInTerritory(classes);
     if (cut) {
+      this.homeStep = 'cut';
       this.aim = cut;
       const along = normalize({ x: cut.x - this.width * HALF, y: cut.y - this.height * HALF });
       const position = this.odometer.position;
@@ -1401,6 +1413,7 @@ export class BlackboxPilot {
     if (this.threat && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       // A unit near: stay inside, where it cannot cut anything, until it goes; on the far side of the territory from
       // it, where a capture of its that bites into the territory does not enclose the player.
+      this.homeStep = 'threat';
       return this.awayFromThreat(classes, this.threat);
     }
     // A unit seen lately that slipped out of the danger radius, or out of view, comes back as fast as it went: the
@@ -1409,18 +1422,22 @@ export class BlackboxPilot {
     if (lingering && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       this.threat = lingering;
       this.framesSinceThreat = 0;
+      this.homeStep = 'lingering';
       return this.awayFromThreat(classes, lingering);
     }
     if (this.framesSinceThreat < CALM_FRAMES && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       // A unit was near a moment ago: deeper in, until it has stayed away a while.
+      this.homeStep = 'calm';
       return this.stayHome(classes);
     }
     const wayOut = this.chooseWayOut(classes);
     if (!wayOut.clear && this.framesInPhase < MAX_HOME_WAIT_FRAMES) {
       // Every way out passes a unit: wait inside, as for a unit near, until one clears.
+      this.homeStep = 'unclear';
       const unit = this.nearestUnit();
       return unit ? this.awayFromThreat(classes, unit) : this.stayHome(classes);
     }
+    this.homeStep = 'leave';
     this.outward = wayOut.direction;
     return this.outward;
   }

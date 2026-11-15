@@ -153,6 +153,8 @@ export interface PageAutopilotDebug {
   /** The blackbox pilot's pixel classes, row by row. */
   readonly classes?: null | Uint8Array;
   readonly height?: number;
+  /** At home, which rule of the blackbox pilot's home step steered the frame. */
+  readonly homeStep?: null | string;
   readonly loop?: null | readonly PagePlainPoint[];
   readonly phase: string;
   readonly target?: null | PagePlainPoint;
