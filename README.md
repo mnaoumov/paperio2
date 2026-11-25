@@ -63,7 +63,7 @@ The reconstruction has music and sound effects; the original has neither.
   alert. It uses only your displayed territory area, so it never warns about a
   bot's unfinished capture. `N` silences it; recordings retain it with the effects.
 - **Warning loops:** while your head is off your own territory a quiet loop
-  plays, so you feel exposed: a soft low pulse on empty ground, and a sharper,
+  plays, so you feel exposed: a soft, warm pulse on empty ground, and a sharper,
   faster throb while your head or any of your trail touches a living enemy's territory.
   The sharper warning stays until that trail clears enemy land, including when
   the enemy dies or loses that ground. It crossfades between the two and
@@ -73,6 +73,10 @@ The reconstruction has music and sound effects; the original has neither.
   die or pause, and is part of the effects, so `N` silences it. It is made in the
   browser, so it adds nothing to download. A downloaded recording holds it too,
   with the effects.
+- **The music makes room:** while a warning loop plays, and while the kill and
+  territory-loss sounds play, the music drops by about 6 dB (over 0.15 s) and
+  comes back over 0.6 s once they are over, so it never hides them. A downloaded
+  recording with both effects and music ducks its music the same way.
 - Both are on by default. The two buttons left of the pause button, or the
   menu's **Music** and **Sounds** buttons, switch them too, and the browser
   remembers both choices. Browsers allow sound only after you click or press a

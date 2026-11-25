@@ -15,6 +15,8 @@
  * While the player's head is off its own territory a warning loop plays, one on open ground and a sharper one on enemy
  * ground while the head or trail touches a living enemy's territory, read after every frame. It is an effect, so the effects switch covers it. A running take logs the loops' mix
  * itself (`video/recorder.ts`), heard or not, so a download plays them back.
+ *
+ * The music plays through its own bus, which steps down while a warning loop or an alert plays (`ducking.ts`).
  */
 
 import type {
@@ -40,6 +42,10 @@ import {
   SOUND_NAMES,
   soundUrl
 } from './catalog.ts';
+import {
+  DUCKING_SOUNDS,
+  MusicDucker
+} from './ducking.ts';
 import { ExposureLoops } from './exposure-loops.ts';
 import {
   desiredExposureMix,
@@ -90,6 +96,8 @@ export class GameAudio implements GameSounds {
   private _effectsEnabled: boolean;
   private _musicEnabled: boolean;
   private context: AudioContext | null = null;
+  /** Steps the music down under the warning loops and the alerts. */
+  private ducker: MusicDucker | null = null;
   private effects: null | Promise<ReadonlyMap<SoundName, AudioBuffer>> = null;
   private effectsGain: GainNode | null = null;
   /** The warning loops, built on the player's first step off its own territory. */
@@ -99,6 +107,8 @@ export class GameAudio implements GameSounds {
   private inRun = false;
   private readonly lastStarted = new Map<SoundName, number>();
   /** Whether a run is on, so the playlist should be playing when the music is on. */
+  /** Every track plays through this bus, which the ducker turns down. */
+  private musicBus: GainNode | null = null;
   private musicWanted = false;
   private order: number[] = [];
   private orderIndex = 0;
@@ -282,8 +292,12 @@ export class GameAudio implements GameSounds {
     const context = new AudioContext();
     const effectsGain = context.createGain();
     effectsGain.connect(context.destination);
+    const musicBus = context.createGain();
+    musicBus.connect(context.destination);
     this.context = context;
     this.effectsGain = effectsGain;
+    this.musicBus = musicBus;
+    this.ducker = new MusicDucker(musicBus.gain);
     if (this.game?.paused === true) {
       context.suspend().catch(noop);
     }
@@ -347,6 +361,9 @@ export class GameAudio implements GameSounds {
       gain.gain.value = cue.gain * SOUND_LEVELS[cue.sound];
       source.connect(gain).connect(effectsGain);
       source.start();
+      if (DUCKING_SOUNDS.has(cue.sound)) {
+        this.ducker?.alert(context.currentTime, buffer.duration);
+      }
     }, noop);
   }
 
@@ -378,7 +395,7 @@ export class GameAudio implements GameSounds {
       const gain = context.createGain();
       gain.gain.setValueAtTime(SILENT_GAIN, context.currentTime);
       gain.gain.exponentialRampToValueAtTime(MUSIC_LEVEL, context.currentTime + MUSIC_FADE_IN_SECONDS);
-      source.connect(gain).connect(context.destination);
+      source.connect(gain).connect(this.musicBus ?? context.destination);
       const playing: PlayingTrack = { gain, source };
       source.onended = (): void => {
         if (this.playing === playing) {
@@ -403,6 +420,9 @@ export class GameAudio implements GameSounds {
     this.inRun = false;
     this.exposure?.stop();
     this.exposure = null;
+    if (this.context) {
+      this.ducker?.setLoops(this.context.currentTime, false);
+    }
   }
 
   private stopTrack(fadeSeconds: number): void {
@@ -443,6 +463,7 @@ export class GameAudio implements GameSounds {
     }
     this.exposure ??= new ExposureLoops(context, effectsGain);
     this.exposure.apply(mix);
+    this.ducker?.setLoops(context.currentTime, mix.open > 0 || mix.enemy > 0);
   }
 }
 
