@@ -609,6 +609,17 @@ back to the original `app2.js` and says so in the browser console. Add
 `app2.js`, `style3.css`, `manifest.json` and the other assets are the site's original
 content, © their respective owners. This copy is for local/offline personal use.
 
+## See also
+
+| Project | Features | How `paperio2` differs |
+| --- | --- | --- |
+| [`Blockly.IO`](https://github.com/theKidOfArcrania/BlocklyIO) | Paper.io clone written from scratch in Node.js; browser client plus a Node.js game server, aiming at multiplayer | Same genre: the original Paper.io 2 kept byte for byte, plus a typed reconstruction of its engine; single player against the original AI bots, no server |
+| [`kux.io`](https://github.com/tylerolson/kux.io) | splix.io clone; grid movement; multiplayer game server; name and colour as URL parameters | Same genre: free movement as in Paper.io 2; offline, no server |
+| [`miniaicups` Paper IO](https://github.com/MailRuChamps/miniaicups/tree/master/paperio) | AI Cup 4 bot contest on a grid game modelled on Paper.io; bots in many languages over a text protocol; a local runner with a visualizer | Covers part of it: its two demo pilots play the real Paper.io 2 engine, with a seeded benchmark; no bot protocol for other languages |
+| [`Paper-IO-Bot`](https://github.com/niccokunzmann/paper-io-bot) | Bots for paper-io.com programmed with Blockly blocks; reverse-engineering notes on the game | Covers part of it: built-in whitebox and blackbox pilots instead of user-programmed ones; runs its own copy of the game |
+
+Last searched for similar projects on 2026-11-25.
+
 ## Filing an issue (for AI agents and humans)
 
 Open issues through the [issue forms](https://github.com/mnaoumov/paperio2/issues/new/choose), not as blank issues.
