@@ -1,5 +1,7 @@
 # Paper.io 2 — self-contained copy
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/mnaoumov) [![CI](https://img.shields.io/github/actions/workflow/status/mnaoumov/paperio2/ci.yml?branch=main&label=CI)](https://github.com/mnaoumov/paperio2/actions/workflows/ci.yml)
+
 A self-contained copy of the browser game from [Paper.io 2](https://paperio.site/), with no ads,
 analytics or servers. It runs entirely client-side (JavaScript + Canvas) with AI
 bots — there is **no server-side game logic**, so it also works with no network.
