@@ -72,9 +72,28 @@ jobs:
       max-parallel: ${{ steps.plan.outputs.max-parallel }}
       sha: ${{ steps.plan.outputs.sha }}
     steps:
+      # The checkout fetches at depth 1, which needs a ref GitHub can name exactly. A hand-typed abbreviated SHA with
+      # one wrong digit failed three cohorts there with nothing but "git failed with exit code 1", so the input is
+      # resolved to a full SHA first (the commits API takes a full or short SHA, a branch or a tag), and a ref that
+      # names no pushed commit stops the run here with a message saying so.
+      - name: Resolve the target ref
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_REF: ${{ inputs.target-ref }}
+        run: |
+          ref="$(printf '%s' "$TARGET_REF" | tr -d '[:space:]')"
+          if [ -z "$ref" ] || ! sha="$(gh api "repos/$GH_REPO/commits/$ref" --jq .sha 2>/dev/null)" \
+            || ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error title=Unknown target-ref::target-ref '$TARGET_REF' names no commit, branch or tag on GitHub: it is mistyped or was never pushed. Push it, then dispatch with the full SHA from 'git rev-parse <ref>' or with a branch name."
+            exit 1
+          fi
+          echo "target-ref '$TARGET_REF' is commit $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.target-ref }}
+          ref: ${{ steps.target.outputs.sha }}
       - id: plan
         env:
           FIRST_SEED: ${{ inputs.first-seed }}
