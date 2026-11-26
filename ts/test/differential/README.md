@@ -45,6 +45,11 @@ nondeterminism the engine reads:
   running a desktop ad blocker, the blocker injected a userscript into that page, and its single `Math.random`
   call shifted the seeded stream. Both builds still matched each other, but every scenario played differently
   from CI, and the scenario minimums were tuned to that polluted stream.
+- Every 2D canvas is drawn on the CPU (`--disable-accelerated-2d-canvas`). On a machine with a GPU, Chrome draws
+  canvases there by default, and the GPU does not always round an anti-aliased edge the same way for the
+  same calls. On 2026-11-25, on a loaded machine, a scenario's two pages made the same canvas calls for all 1500
+  frames and matched in game state, but their final pixels still differed in 5 pixels along one diagonal edge, each
+  by 1 in the blue channel. CI's runners have no GPU, so CI never saw it.
 
 The original matches itself under this regime, frame for frame. That is the precondition for any comparison, and
 it was checked before the first one was trusted.
@@ -62,7 +67,8 @@ it was checked before the first one was trusted.
   frame it died on and its killer, and how many bots have joined with no type. Removals are recorded every frame, because a dead unit leaves `game.units` on the
   frame it dies. The obfuscator kept property names, so both builds expose the same fields. `null` and
   `undefined` are folded together here. See the audit below for why that is safe.
-- **The final pixels**, as a hash of the main canvas's `toDataURL()`.
+- **The final pixels**, as a hash of the main canvas's `toDataURL()`. When they differ, `DIFFERENTIAL_DUMP` also
+  gets both final frames, as `original.png` and `reconstruction.png`.
 
 ## Scenarios
 
