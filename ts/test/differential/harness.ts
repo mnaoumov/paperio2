@@ -127,6 +127,14 @@ export interface Scenario {
  */
 const NO_HTTPS_UPGRADE_FLAG = '--disable-features=HttpsUpgrades,HttpsFirstBalancedModeAutoEnable';
 
+/**
+ * Draws every 2D canvas on the CPU. On a machine with a GPU, Chrome draws canvases there, and the GPU does not always round an anti-aliased edge the same way for the same calls: on 2026-11-25, under load, the two
+ * pages of a scenario made identical canvas calls for 1500 frames and still ended 5 pixels apart, each by 1 in one
+ * channel, along one diagonal edge, so the final pixel check failed although the game matched. CI, which runs on
+ * hosted runners without a GPU, never saw it. On the CPU the same calls draw the same pixels.
+ */
+const SOFTWARE_CANVAS_FLAG = '--disable-accelerated-2d-canvas';
+
 export const COVERAGE_EVENTS: readonly (keyof Coverage)[] = ['botDeaths', 'botKillsByBots', 'playerCaptures', 'playerDeaths', 'playerKilledByBots', 'untypedBotSpawns'];
 
 export interface OpenVariantOptions {
@@ -291,6 +299,7 @@ export async function runScenario(browser: Browser, scenario: Scenario, variants
     }
     const [originalPixels, reconstructionPixels] = await Promise.all(pages.map(async (page) => page.evaluate(() => window.__differential.canvasHash())));
     if (originalPixels !== reconstructionPixels) {
+      await dumpFinalCanvases(original, reconstruction);
       return result({ frame: scenario.frames, original: String(originalPixels), reconstruction: String(reconstructionPixels), what: 'canvas pixels' }, scenario.frames);
     }
     return result(null, scenario.frames);
@@ -353,6 +362,16 @@ async function describeTraceDivergence(original: Page, reconstruction: Page, fra
   return { frame, original: 'hash differs', reconstruction: 'hash differs', what: 'trace hash' };
 }
 
+async function dumpFinalCanvases(original: Page, reconstruction: Page): Promise<void> {
+  const dumpDirectory = process.env['DIFFERENTIAL_DUMP'];
+  if (!dumpDirectory) {
+    return;
+  }
+  const urls = await Promise.all([original, reconstruction].map(async (page) => page.evaluate(() => document.querySelector('canvas')?.toDataURL() ?? '')));
+  const names = ['original.png', 'reconstruction.png'];
+  await Promise.all(urls.map(async (url, index) => writeFile(join(dumpDirectory, names[index] ?? ''), Buffer.from(url.replace(/^data:image\/png;base64,/v, ''), 'base64'))));
+}
+
 // Every request is answered from the repository files inside the browser, and any request to another host fails.
 // Nothing goes over the network, so nothing on the machine can rewrite a response either: a real HTTP server let
 // A desktop ad blocker inject a userscript into the page, and its one Math.random call shifted the seeded stream.
@@ -369,7 +388,7 @@ async function launchBrowserAttempt(protocolTimeout: number, attempt: number): P
   const executablePath = process.env['CHROME_PATH'];
   try {
     return await launch({
-      args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG],
+      args: [...process.env['CI'] ? ['--no-sandbox'] : [], NO_HTTPS_UPGRADE_FLAG, SOFTWARE_CANVAS_FLAG],
       defaultViewport: VIEWPORT,
       headless: true,
       protocolTimeout,
