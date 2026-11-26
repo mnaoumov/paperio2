@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * The two warning loops, synthesized in WebAudio, so they need no file and never end on a seam. Open ground gets a low,
+ * The two warning loops, synthesized in WebAudio, so they need no file and never end on a seam. Open ground gets a warm,
  * soft pulse; enemy ground a sharper throb, two notes a semitone apart. Each loop is a carrier through a filter into a gain that a slow
  * oscillator swings between silence and full, so the pulse rate is that oscillator's frequency. Every change of level or
  * rate is a short linear ramp, which crossfades one loop into the other and fades both out at home without a click.
@@ -18,7 +18,7 @@ import {
 export const EXPOSURE_CROSSFADE_SECONDS = 0.15;
 /** Each loop's full level, under the quietest capture sound (0.6), so a capture is always heard over it. */
 // eslint-disable-next-line no-magic-numbers -- the two levels are a data table.
-export const EXPOSURE_LEVELS = { enemy: 0.22, open: 0.16 } as const;
+export const EXPOSURE_LEVELS = { enemy: 0.22, open: 0.2 } as const;
 
 /** One loop's nodes: its level, its carriers and its pulse. */
 export interface ExposureVoice {
@@ -84,10 +84,13 @@ interface CarrierSpec {
 }
 
 /* eslint-disable no-magic-numbers -- the voices are data tables of frequencies. */
-/** Open ground: a triangle at A2 over a sine an octave down, dark, pulsing softly. */
+/**
+ * Open ground: a triangle at A3 with a sine an octave up, warm, pulsing softly. It sits at 220-440 Hz, above the music's
+ * bass: an octave lower (55 and 110 Hz) it lay under the music's loudest band and was not heard over it.
+ */
 export const OPEN_VOICE: ExposureVoiceSpec = {
-  carriers: [{ frequency: 110, type: 'triangle' }, { frequency: 55, type: 'sine' }],
-  filterFrequency: 500,
+  carriers: [{ frequency: 220, type: 'triangle' }, { frequency: 440, type: 'sine' }],
+  filterFrequency: 1800,
   filterType: 'lowpass',
   pulseSmoothing: 12,
   pulseType: 'sine'

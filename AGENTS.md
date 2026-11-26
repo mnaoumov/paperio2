@@ -321,6 +321,16 @@ to seconds per request; it is not suitable for per-frame live planning.
   and smaller edge slivers are silent. Drops less than 500 ms apart share one cue. Respawn, death, a new run, a
   resized minimap or a rewound clock resets the baseline. Paused frames do not sample. The CC0 `territory-loss`
   effect follows the effects toggle and the normal recorder cue path, including when muted.
+- **Ducking** (`audio/ducking.ts`, owner report 2026-11-24: the open-ground loop was not heard over the music): every
+  track plays through one music bus, and `MusicDucker` drops it to `MUSIC_DUCK_GAIN` (0.5, about -6 dB) over 0.15 s
+  while either warning loop is above silence and while a `DUCKING_SOUNDS` effect (`kill`, `territory-loss`) plays, then
+  brings it back over 0.6 s. A download ducks its music bed the same way, from the take's exposure log and cues
+  (`video/music-duck.ts`), only when it carries the effects. The music is bass-heavy (its loudest band is 63 Hz, then
+  125 Hz), and the old open-ground voice (55 + 110 Hz) sat 1.8 dB under it at the start of a trail; it is now a 220 Hz
+  triangle with a 440 Hz sine. `audio/masking.test.ts` renders each loop at its quietest and requires it to clear the
+  loudest track's level in its strongest octave band by 12 dB ducked and 6 dB unducked (measured: open 14.4 / 8.4,
+  enemy 14.2 / 8.2); the music's band levels are a fixture there, with how to re-measure them. **A new or re-voiced cue
+  needs a band above the music's bass**, and a new alert the player must not miss joins `DUCKING_SOUNDS`.
 - **Recorder:** every gameplay cue is logged on the take's `RecordingTimeline` (`sound`), heard or not, at the game
   clock's time, and a respawn's cut drops the cues after the checkpoint's keyframe. They are stored on the take's record
   (`sounds`). The practice sounds (`PRACTICE_SOUNDS`) are never logged. Music is never

@@ -6,6 +6,7 @@
  * here, once the video's final length is known.
  *
  * The effects include the warning loops, played back from the take's log of their changes (see `exposure-track.ts`).
+ * With the effects in, the music bed steps down under the loops and the alerts as the live music does (`music-duck.ts`).
  *
  * The mix is rendered with `OfflineAudioContext` a window at a time, so an hour of video never holds an hour of samples,
  * and the windows are handed to the muxer as the video packets reach them, which keeps the two tracks interleaved.
@@ -53,6 +54,10 @@ import {
   isExposureAudible,
   scheduleExposure
 } from './exposure-track.ts';
+import {
+  duckEnvelope,
+  duckSpans
+} from './music-duck.ts';
 
 /** What a download carries besides the video. */
 export interface AddTakeAudioOptions {
@@ -115,6 +120,10 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
       totalSeconds
     })
     : [];
+  // The music steps down under the loops and the alerts, as it does live.
+  const duck = bed.length > 0 && options.effects
+    ? duckEnvelope(duckSpans(record.exposures ?? [], sounds, (sound: string) => isSoundName(sound) ? effects.get(sound)?.duration : undefined, totalSeconds))
+    : null;
   const tracks = new Map<number, Promise<AudioBuffer | null>>();
 
   async function renderWindow(from: number, to: number): Promise<void> {
@@ -138,6 +147,13 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
         node.start(Math.max(0, at - from) + lead, Math.max(0, from - at));
       }
     }
+    let musicBus: AudioNode = context.destination;
+    if (duck && bed.some((segment: BedSegment) => segment.start < to && segment.start + segment.duration > from)) {
+      const duckGain = context.createGain();
+      applyEnvelope(duckGain.gain, duck, from, to, lead);
+      duckGain.connect(context.destination);
+      musicBus = duckGain;
+    }
     for (const segment of bed) {
       const end = segment.start + segment.duration;
       if (segment.start >= to || end <= from) {
@@ -151,7 +167,7 @@ export async function addTakeAudio(output: Output, record: RecordingRecord, opti
       applyEnvelope(gain.gain, segmentEnvelope(segment), from, to, lead);
       const node = context.createBufferSource();
       node.buffer = buffer;
-      node.connect(gain).connect(context.destination);
+      node.connect(gain).connect(musicBus);
       const startAt = Math.max(segment.start, from);
       node.start(startAt - from + lead, startAt - segment.start, end - startAt);
     }
